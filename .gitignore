@@ -1,0 +1,38 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+*.dll
+*.exe
+*.lib
+*.exp
+*.suo
+*.ncb
+*.tlb
+*.tlh
+*.log
+*.scc
+*.ilk
+*.sdf
+*.opensdf
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*.vssscc
+*.sbr
+*.scc
+ipch
+Debug
+Release

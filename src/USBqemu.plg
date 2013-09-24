@@ -1,0 +1,43 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: USBqemu - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "H:\DOCUME~1\AURLIE~1\LOCALS~1\Temp\RSP62E.tmp" with contents
+[
+/nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "USBQEMU_EXPORTS" /FR"Release/" /Fp"Release/USBqemu.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"C:\Users\Aurélien\Documents\sources\pcsx2\plugins\usb\USBqemu\qemu-usb\usb-kbd.cpp"
+]
+Creating command line "cl.exe @H:\DOCUME~1\AURLIE~1\LOCALS~1\Temp\RSP62E.tmp" 
+Creating temporary file "H:\DOCUME~1\AURLIE~1\LOCALS~1\Temp\RSP62F.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"Release/USBqemu.pdb" /machine:I386 /def:".\Win32\USBlinuz.def" /out:"h:\program files\pcsx2_0.9.4\plugins\USBqemu.dll" /implib:"Release/USBqemu.lib" 
+".\Release\Config.obj"
+".\Release\usb-base.obj"
+".\Release\usb-kbd.obj"
+".\Release\usb-ohci.obj"
+".\Release\USB.obj"
+".\Release\vl.obj"
+".\Release\Win32.obj"
+".\Release\USBlinuz.res"
+]
+Creating command line "link.exe @H:\DOCUME~1\AURLIE~1\LOCALS~1\Temp\RSP62F.tmp"
+<h3>Output Window</h3>
+Compiling...
+usb-kbd.cpp
+Linking...
+   Creating library Release/USBqemu.lib and object Release/USBqemu.exp
+Creating command line "bscmake.exe /nologo /o"Release/USBqemu.bsc"  ".\Release\Config.sbr" ".\Release\usb-base.sbr" ".\Release\usb-kbd.sbr" ".\Release\usb-ohci.sbr" ".\Release\USB.sbr" ".\Release\vl.sbr" ".\Release\Win32.sbr""
+Creating browse info file...
+<h3>Output Window</h3>
+
+
+
+<h3>Results</h3>
+USBqemu.dll - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>
