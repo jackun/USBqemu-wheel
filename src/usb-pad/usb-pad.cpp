@@ -13,6 +13,9 @@ struct generic_data_t	generic_data;
 struct generic_data_t	generic_data[2];
 #endif
 
+std::string player_joys[2]; //two players
+bool has_rumble[2];
+
 //extern OHCIState *qemu_ohci;
 
 /* HID interface requests */

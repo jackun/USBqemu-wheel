@@ -105,7 +105,7 @@ s32 CALLBACK USBinit() {
 
 	qemu_ohci = ohci_create(0x1f801600,2);
 
-	if(!player_joys[0].empty())
+	//if(!player_joys[0].empty())
 	{
 		usb_device1 = pad_init(PLAYER_ONE_PORT);
 		qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);

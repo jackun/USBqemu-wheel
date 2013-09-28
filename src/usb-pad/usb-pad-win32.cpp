@@ -154,12 +154,12 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int len)
 
 	ULONG usageLength = s->numberOfButtons;
 	if(HidP_GetUsages(
-			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
+			HidP_Input, pButtonCaps->UsagePage, 0, s->usage, &usageLength, s->pPreparsedData,
 			(PCHAR)data, s->caps.InputReportByteLength) == HIDP_STATUS_SUCCESS )
 	{
 		// 10 from generic_data_t.buttons, maybe bring it to 12 bits
 		for(ULONG i = 0; i < usageLength && i < 10; i++)
-			generic_data.buttons |=  1 << (usage[i] - pButtonCaps->Range.UsageMin);
+			generic_data.buttons |=  1 << (s->usage[i] - pButtonCaps->Range.UsageMin);
 		//fprintf(stderr, "Buttons: %04X\n", generic_data.buttons);
 	}
 
@@ -193,7 +193,8 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int len)
 				case 0x31: // Y-axis
 					//lAxisY = (LONG)value - 128;
 					//fprintf(stderr, "Y: %d\n", value);
-					generic_data.axis_y = value;
+					if(!(s->attr.VendorID == 0x046D && s->attr.ProductID == 0xCA03)) //FIXME MOMO always gives 128, wtf
+						generic_data.axis_y = value;
 					break;
 
 				case 0x32: // Z-axis
@@ -283,7 +284,7 @@ bool find_pad(PADState *s)
 			continue;
 		}
 
-		HidD_GetAttributes(s->usbHandle, &attr);
+		HidD_GetAttributes(s->usbHandle, &(s->attr));
 		PHIDP_PREPARSED_DATA pPreparsedData;
 		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
 
@@ -293,23 +294,25 @@ bool find_pad(PADState *s)
 		if(s->caps.UsagePage == HID_USAGE_PAGE_GENERIC && s->caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
 			gotit = true;
 
-		fprintf(stderr, "Device %i : VID %04X PID %04X\n", i, attr.VendorID, attr.ProductID);
+		//fprintf(stderr, "Device %i : VID %04X PID %04X\n", i, s->attr.VendorID, s->attr.ProductID);
 
 		//if((attr.VendorID==PAD_VID) &&
 		//	(attr.ProductID==PAD_PID || attr.ProductID==DFP_PID))
 		if(gotit)
 		{
-			if(attr.ProductID==DFP_PID)
+			if(s->attr.ProductID==DFP_PID)
 				s->doPassthrough = true;
 
 			s->pPreparsedData = pPreparsedData;
 
 			USHORT capsLength = s->caps.NumberInputButtonCaps;
+			PHIDP_BUTTON_CAPS pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * capsLength);
 			if(HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
 				s->numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
+			free(pButtonCaps);
 
 			free(didData);
-			fprintf(stderr, "Wheel found !!! %04X:%04X\n", attr.VendorID, attr.ProductID);
+			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
 			break;
 		}
 

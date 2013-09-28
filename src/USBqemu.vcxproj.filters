@@ -39,6 +39,12 @@
     <ClCompile Include="usb-pad\usb-pad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="usb-pad\bitjuggling.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="usb-pad\usb-pad-win32.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Win32\USBlinuz.rc">

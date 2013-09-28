@@ -88,6 +88,9 @@
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Win32\USBlinuz.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\Release\USBqemu-wheel.dll G:\Games\PCSX2\Plugins</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -132,14 +135,18 @@
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Win32\USBlinuz.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\Debug\USBqemu-wheel.dll G:\Games\PCSX2\Plugins</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="usb-pad\usb-pad.c" />
-    <ClCompile Include="usb-pad\bitjuggling.c" />
+    <ClCompile Include="usb-pad\usb-pad-win32.cpp" />
+    <ClCompile Include="usb-pad\usb-pad.cpp" />
+    <ClCompile Include="usb-pad\bitjuggling.cpp" />
     <ClCompile Include="qemu-usb\usb-base.cpp" />
     <ClCompile Include="qemu-usb\usb-kbd.cpp" />
     <ClCompile Include="qemu-usb\usb-ohci.cpp" />
-    <ClCompile Include="USB.c" />
+    <ClCompile Include="USB.cpp" />
     <ClCompile Include="qemu-usb\vl.cpp" />
     <ClCompile Include="Win32\Config.cpp" />
     <ClCompile Include="Win32\Win32.cpp" />

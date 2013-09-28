@@ -27,9 +27,6 @@ vstring jsdata;
 GtkWidget *mDialog;
 GtkWidget *mOKButton;
 
-std::string player_joys[2]; //two players
-bool has_rumble[2];
-
 void SaveConfig() {fprintf(stderr, "USB save config\n");}
 void LoadConfig() {
 	fprintf(stderr, "USB load config\n");
