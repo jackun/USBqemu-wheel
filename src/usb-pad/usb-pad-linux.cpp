@@ -148,10 +148,13 @@ int token_out(PADState *s, uint8_t *data, int len)
 
 void destroy_pad(PADState *s)
 {
-	if(fd[0] != -1)
-		close(fd[0]);
-	if(fd[1] != -1)
-		close(fd[1]);
+	if(!s) return;
 
-	fd[0] = fd[1] = -1;
+	uint8_t idx = 1 - s->port;
+	if(idx>1) return;
+
+	if(fd[idx] != -1)
+		close(fd[idx]);
+
+	fd[idx] = -1;
 }
