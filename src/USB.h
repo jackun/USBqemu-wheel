@@ -34,7 +34,7 @@
 
 #else
 
-#include <gtk/gtk.h>
+//#include <gtk/gtk.h>
 
 #define __inline inline
 
@@ -294,7 +294,7 @@ struct ohci_td {
 #define OHCI_CC_BUFFEROVERRUN       0xc
 #define OHCI_CC_BUFFERUNDERRUN      0xd
 
-int64_t get_clock();
+s64 get_clock();
 
 OHCIState *ohci_create(uint32_t base, int ports);
 
@@ -309,5 +309,8 @@ USBDevice *usb_hub_init(int nb_ports);
 USBDevice *usb_msd_init(const char *filename);
 USBDevice *eyetoy_init(void);
 USBDevice *usb_mouse_init(void);
+
+/* usb-pad.c */
+USBDevice *pad_init(int port);
 
 #endif

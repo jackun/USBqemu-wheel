@@ -134,13 +134,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="usb-pad\usb-pad.cpp" />
-    <ClCompile Include="Win32\Config.cpp" />
+    <ClCompile Include="usb-pad\usb-pad.c" />
+    <ClCompile Include="usb-pad\bitjuggling.c" />
     <ClCompile Include="qemu-usb\usb-base.cpp" />
     <ClCompile Include="qemu-usb\usb-kbd.cpp" />
     <ClCompile Include="qemu-usb\usb-ohci.cpp" />
-    <ClCompile Include="USB.cpp" />
+    <ClCompile Include="USB.c" />
     <ClCompile Include="qemu-usb\vl.cpp" />
+    <ClCompile Include="Win32\Config.cpp" />
     <ClCompile Include="Win32\Win32.cpp" />
   </ItemGroup>
   <ItemGroup>

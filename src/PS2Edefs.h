@@ -39,6 +39,10 @@
 #include <windows.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* common defines */
 
 #if defined(GSdefs)   || defined(PADdefs)  || defined(SIOdefs)  || \
@@ -805,5 +809,7 @@ _FWfreeze          FWfreeze;
 _FWtest            FWtest;
 _FWabout           FWabout;
 #endif
-
+#ifdef __cplusplus
+} //extern "C" {
+#endif
 #endif /* __PS2EDEFS_H__ */

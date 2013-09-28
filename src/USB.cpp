@@ -17,11 +17,12 @@
  */
 
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 #include <errno.h>
 
 #include "qemu-usb/vl.h"
 #include "USB.h"
+#include "usb-pad/config.h"
 
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
@@ -35,15 +36,14 @@ static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
 ;
 
 OHCIState *qemu_ohci;
-USBDevice *usb_device;
-
-#define PLAYER_TWO_PORT 0
-#define PLAYER_ONE_PORT 1
-#define USB_PORT PLAYER_ONE_PORT
+USBDevice *usb_device1 = NULL;
+USBDevice *usb_device2 = NULL;
 
 Config conf;
-
-HWND gsWnd=NULL;
+char USBfreezeID[] = "USB STv0";
+typedef struct {
+	OHCIState t;
+} USBfreezeData;
 
 u8 *usbR;
 u8 *ram;
@@ -54,6 +54,32 @@ int64_t usb_frame_time;
 int64_t usb_bit_time;
 
 s64 clocks;
+
+#if _WIN32
+HWND gsWnd=NULL;
+#endif
+
+
+void USBirq(int cycles)
+{
+	USB_LOG("USBirq.\n");
+
+	_USBirq(cycles);
+}
+
+void __Log(char *fmt, ...) {
+	va_list list;
+
+	if (!conf.Log) return;
+
+	va_start(list, fmt);
+	vfprintf(usbLog, fmt, list);
+	va_end(list);
+}
+
+#if __cplusplus
+extern "C" {
+#endif
 
 u32 CALLBACK PS2EgetLibType() {
 	return PS2E_LT_USB;
@@ -67,25 +93,8 @@ u32 CALLBACK PS2EgetLibVersion2(u32 type) {
 	return (version<<16) | (revision<<8) | build | (fix << 24);
 }
 
-void __Log(char *fmt, ...) {
-	va_list list;
-
-	if (!conf.Log) return;
-
-	va_start(list, fmt);
-	vfprintf(usbLog, fmt, list);
-	va_end(list);
-}
-
-void USBirq(int cycles)
-{
-	USB_LOG("USBirq.\n");
-
-	_USBirq(cycles);
-}
-
 s32 CALLBACK USBinit() {
-    LoadConfig();
+	LoadConfig();
 	if (conf.Log)
 	{
 		usbLog = fopen("logs/usbLog.txt", "w");
@@ -96,15 +105,28 @@ s32 CALLBACK USBinit() {
 
 	qemu_ohci = ohci_create(0x1f801600,2);
 
-	usb_device = pad_init();
-	qemu_ohci->rhport[USB_PORT].port.attach(&(qemu_ohci->rhport[USB_PORT].port),usb_device);
+	if(!player_joys[0].empty())
+	{
+		usb_device1 = pad_init(PLAYER_ONE_PORT);
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
+	}
+
+	if(!player_joys[1].empty())
+	{
+		usb_device2 = pad_init(PLAYER_TWO_PORT);
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
+	}
 
 	return 0;
 }
 
 void CALLBACK USBshutdown() {
 
-	qemu_ohci->rhport[USB_PORT].port.dev->handle_destroy(qemu_ohci->rhport[USB_PORT].port.dev);
+	if(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev)
+	qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
+	
+	if(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev)
+	qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
 
 	free(qemu_ohci);
 
@@ -116,6 +138,7 @@ void CALLBACK USBshutdown() {
 s32 CALLBACK USBopen(void *pDsp) {
 	USB_LOG("USBopen\n");
 
+#if _WIN32
 	HWND hWnd=(HWND)pDsp;
 
 	if (!IsWindow (hWnd) && !IsBadReadPtr ((u32*)hWnd, 4))
@@ -128,6 +151,7 @@ s32 CALLBACK USBopen(void *pDsp) {
 			hWnd = GetParent (hWnd);
 	}
 	gsWnd = hWnd;
+#endif
 
 	return 0;
 }
@@ -189,14 +213,6 @@ void CALLBACK USBsetRAM(void *mem) {
 	ram = (u8*)mem;
 }
 
-// extended funcs
-
-char USBfreezeID[] = "USB STv0";
-
-typedef struct {
-	OHCIState t;
-} USBfreezeData;
-
 //TODO update VID/PID and various buffer lengths with changes in usb-pad.c?
 s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 	USBfreezeData *usbd;
@@ -240,14 +256,19 @@ s32  CALLBACK USBtest() {
 	return 0;
 }
 
+#if __cplusplus
+} //extern "C" {
+#endif
+
 void cpu_physical_memory_rw(u32 addr, u8 *buf,
-                            int len, int is_write)
+							int len, int is_write)
 {
 	if(is_write)
 		memcpy(&(ram[addr]),buf,len);
 	else
 		memcpy(buf,&(ram[addr]),len);
 }
+
 
 s64 get_clock()
 {
