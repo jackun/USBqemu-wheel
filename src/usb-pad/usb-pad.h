@@ -23,6 +23,7 @@ bool find_pad(PADState *s);
 void destroy_pad(PADState *s);
 //extern 
 int token_out(PADState *s, uint8_t *data, int len);
+PADState* get_new_padstate();
 
 /**
   linux hid-lg4ff.c

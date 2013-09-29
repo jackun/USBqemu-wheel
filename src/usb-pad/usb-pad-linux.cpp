@@ -9,6 +9,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+extern bool file_exists(std::string filename);
+extern bool dir_exists(std::string filename);
+
 int fd[2] = {-1};
 int axis_count = 0, button_count = 0;
 
@@ -88,6 +91,11 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int buflen)
 
 	memcpy(buf, &generic_data[idx], sizeof(generic_data_t));
 	return buflen;
+}
+
+PADState* get_new_padstate()
+{
+	return (PADState*)qemu_mallocz(sizeof(PADState));
 }
 
 bool find_pad(PADState *s)

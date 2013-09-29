@@ -45,8 +45,8 @@ typedef struct {
 	OHCIState t;
 } USBfreezeData;
 
-u8 *usbR;
-u8 *ram;
+u8 *usbR = 0;
+u8 *ram = 0;
 usbStruct usb;
 USBcallback _USBirq;
 FILE *usbLog;
@@ -105,15 +105,13 @@ s32 CALLBACK USBinit() {
 
 	qemu_ohci = ohci_create(0x1f801600,2);
 
-	//if(!player_joys[0].empty())
+	if((usb_device1 = pad_init(PLAYER_ONE_PORT)))
 	{
-		usb_device1 = pad_init(PLAYER_ONE_PORT);
 		qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
 	}
 
-	if(!player_joys[1].empty())
+	if((usb_device2 = pad_init(PLAYER_TWO_PORT)))
 	{
-		usb_device2 = pad_init(PLAYER_TWO_PORT);
 		qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
 	}
 
@@ -129,6 +127,8 @@ void CALLBACK USBshutdown() {
 	qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
 
 	free(qemu_ohci);
+
+	ram = 0;
 
 //#ifdef _DEBUG
 	if (conf.Log && usbLog) fclose(usbLog);

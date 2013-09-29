@@ -13,6 +13,9 @@
       <UniqueIdentifier>{d0743a5f-7994-4a80-b1c2-a6b82e51d0a3}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
     </Filter>
+    <Filter Include="Header Files\usb-pad">
+      <UniqueIdentifier>{b9cb0660-d5ee-42be-9934-c330c8883f27}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Win32\Config.cpp">
@@ -102,6 +105,12 @@
     </ClInclude>
     <ClInclude Include="qemu-usb\vl.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="usb-pad\config.h">
+      <Filter>Header Files\usb-pad</Filter>
+    </ClInclude>
+    <ClInclude Include="usb-pad\usb-pad.h">
+      <Filter>Header Files\usb-pad</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

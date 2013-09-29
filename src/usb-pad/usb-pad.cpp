@@ -206,7 +206,7 @@ USBDevice *pad_init(int port)
 {
 	PADState *s;
 
-	s = (PADState *)qemu_mallocz(sizeof(PADState));
+	s = (PADState *)get_new_padstate();//qemu_mallocz(sizeof(PADState));
 	if (!s)
 		return NULL;
 	s->dev.speed = USB_SPEED_FULL;

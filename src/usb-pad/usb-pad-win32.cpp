@@ -1,12 +1,33 @@
 #include "usb-pad.h"
 #include "config.h"
+#include <setupapi.h>
+extern "C" {
+	#include "../ddk/hidsdi.h"
+}
 
 ULONG value = 0;
 
+typedef struct Win32PADState {
+	PADState padState;
 
-int usb_pad_poll(PADState *s, uint8_t *buf, int len)
+	HIDP_CAPS caps;
+	HIDD_ATTRIBUTES attr;
+	PHIDP_PREPARSED_DATA pPreparsedData;
+	//ULONG value;// = 0;
+	USHORT numberOfButtons;// = 0;
+	USHORT numberOfValues;// = 0;
+	HANDLE usbHandle;// = (HANDLE)-1;
+	//HANDLE readData;// = (HANDLE)-1;
+	OVERLAPPED ovl;
+	
+	uint32_t reportInSize;// = 0;
+	uint32_t reportOutSize;// = 0;
+} Win32PADState;
+
+int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 {
-	uint8_t idx = 1 - s->port;
+	Win32PADState *s = (Win32PADState*) ps;
+	uint8_t idx = 1 - s->padState.port;
 	if(idx>1) return 0;
 	if(s->usbHandle==INVALID_HANDLE_VALUE) return 0;
 
@@ -14,25 +35,24 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int len)
 	DWORD waitRes;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
-	if(s->doPassthrough)
+	if(s->padState.doPassthrough)
 	{
 		//ZeroMemory(buf, len);
 		ReadFile(s->usbHandle, buf, s->caps.InputReportByteLength, 0, &s->ovl);
-		waitRes = WaitForSingleObject(s->ovl.hEvent, 30);
+		waitRes = WaitForSingleObject(s->ovl.hEvent, 300);
 		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
 			CancelIo(s->usbHandle);
 		return len;
 	}
-	else
-	{
-		ZeroMemory(data, 64);
-		// Be sure to read 'reportInSize' bytes or you get interleaved reads of data and garbage or something
-		ReadFile(s->usbHandle, data, s->caps.InputReportByteLength, 0, &s->ovl);
-		waitRes = WaitForSingleObject(s->ovl.hEvent, 30);
-		// if the transaction timed out, then we have to manually cancel the request
-		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
-			CancelIo(s->usbHandle);
-	}
+
+	ZeroMemory(data, 64);
+	// Be sure to read 'reportInSize' bytes or you get interleaved reads of data and garbage or something
+	ReadFile(s->usbHandle, data, s->caps.InputReportByteLength, 0, &s->ovl);
+	waitRes = WaitForSingleObject(s->ovl.hEvent, 300);
+	// if the transaction timed out, then we have to manually cancel the request
+	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
+		CancelIo(s->usbHandle);
+	
 	//fprintf(stderr, "\tData 0:%02X 8:%02X 16:%02X 24:%02X 32:%02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 
 	/** try to get DFP working, faaail, only buttons **/
@@ -135,8 +155,9 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int len)
  
 	//PHIDP_PREPARSED_DATA pPreparsedData;
 	USHORT capsLength = 0;
+	USAGE usage[MAX_BUTTONS] = {0};
 
-	ZeroMemory(&generic_data, sizeof(generic_data));
+	ZeroMemory(&generic_data, sizeof(generic_data_t));
 
 	// Setting to unpressed
 	generic_data.axis_x = 0x3FF >> 1;
@@ -153,15 +174,18 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int len)
 		(PHIDP_BUTTON_CAPS)HeapAlloc(heap, 0, sizeof(HIDP_BUTTON_CAPS) * s->caps.NumberInputButtonCaps);
 
 	ULONG usageLength = s->numberOfButtons;
-	if(HidP_GetUsages(
-			HidP_Input, pButtonCaps->UsagePage, 0, s->usage, &usageLength, s->pPreparsedData,
-			(PCHAR)data, s->caps.InputReportByteLength) == HIDP_STATUS_SUCCESS )
+	NTSTATUS stat;
+	if((stat = HidP_GetUsages(
+			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, s->pPreparsedData,
+			(PCHAR)data, s->caps.InputReportByteLength)) == HIDP_STATUS_SUCCESS )
 	{
-		// 10 from generic_data_t.buttons, maybe bring it to 12 bits
-		for(ULONG i = 0; i < usageLength && i < 10; i++)
-			generic_data.buttons |=  1 << (s->usage[i] - pButtonCaps->Range.UsageMin);
-		//fprintf(stderr, "Buttons: %04X\n", generic_data.buttons);
+		for(int i = 0; i < usageLength; i++)
+		{
+			generic_data.buttons |=  (1 << (usage[i] - pButtonCaps->Range.UsageMin - 1)) & 0x3FF; //10bit mask
+		}
 	}
+	//else if(stat != HIDP_STATUS_BUTTON_NOT_PRESSED) //damn HIDP_STATUS_USAGE_NOT_FOUND
+	//	fprintf(stderr, "ntstatus %08X\n", stat);
 
 	/// Get axes' values
 	PHIDP_VALUE_CAPS pValueCaps
@@ -237,71 +261,42 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int len)
 	return len;
 }
 
-bool find_pad(PADState *s)
+PADState* get_new_padstate()
 {
-	int i=0;
-	DWORD needed=0;
-	unsigned char buf[8];
-	HDEVINFO devInfo;
-	GUID guid;
-	SP_DEVICE_INTERFACE_DATA diData;
-	PSP_DEVICE_INTERFACE_DETAIL_DATA didData;
+	return (PADState*)qemu_mallocz(sizeof(Win32PADState));
+}
+
+bool find_pad(PADState *ps)
+{
+	
+	Win32PADState *s = (Win32PADState*) ps;
+	uint8_t idx = 1 - s->padState.port;
+	if(idx > 1) return false;
+
+	PHIDP_PREPARSED_DATA pPreparsedData;
 
 	memset(&s->ovl, 0, sizeof(OVERLAPPED));
 	s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
 	s->ovl.Offset = 0;
 	s->ovl.OffsetHigh = 0;
 
-	s->doPassthrough = false;
+	s->padState.doPassthrough = false;
 	s->usbHandle = (HANDLE)-1;
 	s->pPreparsedData = NULL;
+	ZeroMemory(&generic_data, sizeof(generic_data_t));
 
-	HidD_GetHidGuid(&guid);
-
-	devInfo=SetupDiGetClassDevs(&guid, 0, 0, DIGCF_DEVICEINTERFACE);
-	if(!devInfo) return 0;
-
-	diData.cbSize=sizeof(diData);
-
-	while(SetupDiEnumDeviceInterfaces(devInfo, 0, &guid, i, &diData)){
-		if(s->usbHandle!=INVALID_HANDLE_VALUE)CloseHandle(s->usbHandle);
-
-		SetupDiGetDeviceInterfaceDetail(devInfo, &diData, 0, 0, &needed, 0);
-
-		didData=(PSP_DEVICE_INTERFACE_DETAIL_DATA)malloc(needed);
-		didData->cbSize=sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-		if(!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)){
-			free(didData);
-			break;
-		}
-
-		s->usbHandle = CreateFile(didData->DevicePath, GENERIC_READ|GENERIC_WRITE,
-			FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
-		if(s->usbHandle==INVALID_HANDLE_VALUE){
-			fprintf(stderr,"Could not open device %i\n", i);
-			free(didData);
-			i++;
-			continue;
-		}
-
+	s->usbHandle = CreateFile(player_joys[idx].c_str(), GENERIC_READ|GENERIC_WRITE,
+		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+	if(s->usbHandle != INVALID_HANDLE_VALUE)
+	{
 		HidD_GetAttributes(s->usbHandle, &(s->attr));
-		PHIDP_PREPARSED_DATA pPreparsedData;
 		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
-
 		HidP_GetCaps(pPreparsedData, &(s->caps));
 
-		bool gotit = false;
 		if(s->caps.UsagePage == HID_USAGE_PAGE_GENERIC && s->caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
-			gotit = true;
-
-		//fprintf(stderr, "Device %i : VID %04X PID %04X\n", i, s->attr.VendorID, s->attr.ProductID);
-
-		//if((attr.VendorID==PAD_VID) &&
-		//	(attr.ProductID==PAD_PID || attr.ProductID==DFP_PID))
-		if(gotit)
 		{
-			if(s->attr.ProductID==DFP_PID)
-				s->doPassthrough = true;
+			if(s->attr.ProductID == DFP_PID)
+				s->padState.doPassthrough = true;
 
 			s->pPreparsedData = pPreparsedData;
 
@@ -311,25 +306,24 @@ bool find_pad(PADState *s)
 				s->numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
 			free(pButtonCaps);
 
-			free(didData);
 			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
-			break;
+			return true;
 		}
-
-		HidD_FreePreparsedData(pPreparsedData);
-		i++;
+		else
+		{
+			CloseHandle(s->usbHandle);
+			s->usbHandle = INVALID_HANDLE_VALUE;
+			HidD_FreePreparsedData(pPreparsedData);
+		}
 	}
 
-	if(s->usbHandle==INVALID_HANDLE_VALUE){
-		fprintf(stderr, "Could not find wheels\n");
-		return false;
-	}
-
-	return true;
+	fprintf(stderr, "Could not open device '%s'\n", player_joys[idx]);
+	return false;
 }
 
-int token_out(PADState *s, uint8_t *data, int len)
+int token_out(PADState *ps, uint8_t *data, int len)
 {
+	Win32PADState *s = (Win32PADState*) ps;
 	DWORD out = 0, err = 0, waitRes = 0;
 	BOOL res;
 	uint8_t outbuf[65];
@@ -351,8 +345,9 @@ int token_out(PADState *s, uint8_t *data, int len)
 	return 0;
 }
 
-void destroy_pad(PADState *s)
+void destroy_pad(PADState *ps)
 {
+	Win32PADState *s = (Win32PADState*) ps;
 	if(s->pPreparsedData)
 		HidD_FreePreparsedData(s->pPreparsedData);
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
