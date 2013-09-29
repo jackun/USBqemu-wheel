@@ -39,7 +39,8 @@ PADState* get_new_padstate();
 //GT4 seems to disregard report desc.
 //#define pad_hid_report_descriptor pad_driving_force_pro_hid_report_descriptor
 //#define pad_hid_report_descriptor pad_momo_hid_report_descriptor
-#define pad_hid_report_descriptor pad_driving_force_hid_report_descriptor
+//#define pad_hid_report_descriptor pad_driving_force_hid_report_descriptor
+#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
 
 /* descriptor Logitech Driving Force Pro */
 static /*const*/ uint8_t pad_dev_descriptor[] = {
@@ -262,6 +263,54 @@ static const uint8_t pad_momo_hid_report_descriptor[] = {
 	0x09, 0x31, /* Usage (Y), */
 	0x81, 0x02, /* Input (Variable), */
 	0x09, 0x32, /* Usage (Z), */
+	0x81, 0x02, /* Input (Variable), */
+	0x06, 0x00, 0xFF, /* Usage Page (FF00h), */
+	0x09, 0x01, /* Usage (01h), */
+	0x81, 0x02, /* Input (Variable), */
+	0xC0, /* End Collection, */
+	0xA1, 0x02, /* Collection (Logical), */
+	0x09, 0x02, /* Usage (02h), */
+	0x95, 0x07, /* Report Count (7), */
+	0x91, 0x02, /* Output (Variable), */
+	0xC0, /* End Collection, */
+	0xC0 /* End Collection */
+};
+
+static const uint8_t pad_generic_hid_report_descriptor[] = {
+	0x05, 0x01, /* Usage Page (Desktop), */
+	0x09, 0x04, /* Usage (Joystik), */
+	0xA1, 0x01, /* Collection (Application), */
+	0xA1, 0x02, /* Collection (Logical), */
+	0x95, 0x01, /* Report Count (1), */
+	0x75, 0x0A, /* Report Size (10), */
+	0x14, 0x00, /* Logical Minimum (0), */
+	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x35, 0x00, /* Physical Minimum (0), */
+	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
+	0x09, 0x30, /* Usage (X), */
+	0x81, 0x02, /* Input (Variable), */
+	0x95, 0x0a, /* Report Count (10), */
+	0x75, 0x01, /* Report Size (1), */
+	0x25, 0x01, /* Logical Maximum (1), */
+	0x45, 0x01, /* Physical Maximum (1), */
+	0x05, 0x09, /* Usage Page (Button), */
+	0x19, 0x01, /* Usage Minimum (01h), */
+	0x29, 0x0a, /* Usage Maximum (0ah), */
+	0x81, 0x02, /* Input (Variable), */
+	0x06, 0x00, 0xFF, /* Usage Page (FF00h), */
+	0x75, 0x0C, /* Report Size (12), */
+	0x95, 0x01, /* Report Count (1), */
+	0x26, 0xFF, 0x00, /* Logical Maximum (255), */
+	0x46, 0xFF, 0x00, /* Physical Maximum (255), */
+	0x09, 0x00, /* Usage (00h), */
+	0x81, 0x02, /* Input (Variable), */
+	0x05, 0x01, /* Usage Page (Desktop), */
+	0x75, 0x08, /* Report Size (8), */
+	0x09, 0x31, /* Usage (Y), */
+	0x81, 0x02, /* Input (Variable), */
+	0x09, 0x32, /* Usage (Z), */
+	0x81, 0x02, /* Input (Variable), */
+	0x09, 0x35, /* Usage (RZ), */
 	0x81, 0x02, /* Input (Variable), */
 	0x06, 0x00, 0xFF, /* Usage Page (FF00h), */
 	0x09, 0x01, /* Usage (01h), */
