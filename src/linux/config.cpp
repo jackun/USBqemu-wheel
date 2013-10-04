@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <vector>
 #include <string>
 #include <gtk/gtk.h>
 
@@ -18,18 +19,43 @@
 #include <linux/input.h>
 #include <linux/joystick.h>
 
+#include "ini.h"
+
 //libjoyrumble used as an example
 //Hopefully PCSX2 has inited all the GTK stuff already
 using namespace std;
 
-typedef map<int, pair<string,string> > vstring;
+typedef vector< pair<string,string> > vstring;
 vstring jsdata;
 GtkWidget *mDialog;
 GtkWidget *mOKButton;
+int id1 = 0, id2 = 1;
 
-void SaveConfig() {fprintf(stderr, "USB save config\n");}
+void SaveConfig() {
+	fprintf(stderr, "USB save config\n");
+	char* envptr = getenv("HOME");
+	if(envptr == NULL)
+		return;
+	char path[1024];
+	sprintf(path, "%s/.config/pcsx2/inis/USBqemu-wheel.ini", envptr);
+	//fprintf(stderr, "%s\n", path);
+
+	INISaveString(path, "Joystick", "Player1", player_joys[0].c_str());
+	INISaveString(path, "Joystick", "Player2", player_joys[1].c_str());
+}
+
 void LoadConfig() {
 	fprintf(stderr, "USB load config\n");
+	char* envptr = getenv("HOME");
+	if(envptr == NULL)
+		return;
+	char path[1024];
+	char joy[1024] = {0};
+	sprintf(path, "%s/.config/pcsx2/inis/USBqemu-wheel.ini", envptr);
+	INILoadString(path, "Joystick", "Player1", joy);
+	player_joys[0] = string(joy);
+	INILoadString(path, "Joystick", "Player2", joy);
+	player_joys[1] = string(joy);
 }
 
 void joystickChanged (GtkComboBox *widget, gpointer data)
@@ -38,7 +64,7 @@ void joystickChanged (GtkComboBox *widget, gpointer data)
 	if(data)
 	{
 		int ply = *((int*)data);
-		string devPath = jsdata.at(idx).second;
+		string devPath = (jsdata.begin() + idx)->second;
 		player_joys[ply] = devPath;
 		fprintf(stderr, "Selected player %d idx: %d dev: '%s'\n", ply, idx, devPath.c_str());
 	}
@@ -72,14 +98,14 @@ extern "C" {
 
 void CALLBACK USBconfigure() {
 
+	LoadConfig();
 	void * that = NULL;
-	int id1 = 0, id2 = 1;
 	jsdata.clear();
-	jsdata.insert(make_pair(0, make_pair("None", "")));
-	//jsdata.insert(make_pair(1, make_pair("Logitech MOMO Force Wheel", "/dev/input/js0")));
+	jsdata.push_back(make_pair("None", ""));
+	//jsdata.push_back(make_pair("Fake Vendor FakePad", "Fake"));
 
 {
-	int count=0, j=0, idx=1, fd=0;
+	int count=0, j=0, fd=0;
 	stringstream str, event;
 	for (count = 0; count < MAX_JOYS; count++)
 	{
@@ -108,10 +134,12 @@ void CALLBACK USBconfigure() {
 						if (ioctl(fd, JSIOCGNAME(sizeof(name_c_str)), name_c_str) < -1)
 						{
 							fprintf(stderr, "Cannot get controller's name\n");
+							//XXX though it also could mean that controller is unusable
+							jsdata.push_back(make_pair(str.str(), str.str()));
 						}
 						else
 						{
-							jsdata.insert(make_pair(idx++, make_pair(string(name_c_str), str.str())));
+							jsdata.push_back(make_pair(string(name_c_str), str.str()));
 						}
 						close(fd);
 					}
@@ -168,19 +196,19 @@ void CALLBACK USBconfigure() {
 	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), &id1);
 	//g_object_set_data (G_OBJECT (ro_cb), "joystick-option", ro_label);
 
-	uint idx = 0, sel_renderer_idx = 0;
+	uint32_t idx = 0, sel_idx = 0;
 
 	for (vstring::const_iterator r = jsdata.begin(); r != jsdata.end (); r++, idx++)
 	{
 		stringstream str;
-		str << r->second.first <<  " [" << r->second.second << "]";
+		str << r->first <<  " [" << r->second << "]";
 		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), str.str().c_str ());
-		//if (mSelectedRenderSystem == *r)
-		//	sel_renderer_idx = idx;
+		if(r->second == player_joys[0])
+			sel_idx = idx;
 	}
 
 	gtk_widget_show (rs_hbox);
-	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_renderer_idx);
+	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
 
 	/*** PLAYER 2 ***/
 	rs_hbox = gtk_hbox_new (FALSE, 0);
@@ -198,30 +226,30 @@ void CALLBACK USBconfigure() {
 
 	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), &id2);
 
-	idx = 0; sel_renderer_idx = 0;
+	idx = 0, sel_idx = 0;
 
 	for (vstring::const_iterator r = jsdata.begin(); r != jsdata.end (); r++, idx++)
 	{
 		stringstream str;
-		str << r->second.first <<  " [" << r->second.second << "]";
+		str << r->first <<  " [" << r->second << "]";
 		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), str.str().c_str ());
-		//if (mSelectedRenderSystem == *r)
-		//	sel_renderer_idx = idx;
+		if(r->second == player_joys[1])
+			sel_idx = idx;
 	}
 
 	gtk_widget_show (rs_hbox);
-	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_renderer_idx);
+	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
 
 	// Modal loop
 	gint result = gtk_dialog_run (GTK_DIALOG (mDialog));
 	gtk_widget_destroy (mDialog);
 
 	// Wait for all gtk events to be consumed ...
-	//while (gtk_events_pending ())
-	//	gtk_main_iteration_do (FALSE);
+	while (gtk_events_pending ())
+		gtk_main_iteration_do (FALSE);
 
-	//if (result != GTK_RESPONSE_OK)
-	//    return false;
+	if (result == GTK_RESPONSE_OK)
+		SaveConfig();
 
 }
 

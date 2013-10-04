@@ -5,8 +5,6 @@ extern "C" {
 	#include "../ddk/hidsdi.h"
 }
 
-ULONG value = 0;
-
 typedef struct Win32PADState {
 	PADState padState;
 
@@ -33,6 +31,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 
 	uint8_t data[64];
 	DWORD waitRes;
+	ULONG value = 0;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
 	if(s->padState.doPassthrough)

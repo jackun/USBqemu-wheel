@@ -64,13 +64,20 @@ IF(WIN32)
 ENDIF(WIN32)
 
 IF(UNIX)
+	LIST(APPEND HDRS 
+		./linux/ini.h
+		./linux/actualfile.h
+	)
 	LIST(APPEND SRCS 
 		./usb-pad/usb-pad-linux.cpp
 		./linux/config.cpp
+		./linux/ini.c
+		./linux/actualfile.c
 	)
 ENDIF(UNIX)
 
 IF(UNIX)
+	add_definitions(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
 	find_package(GTK2 REQUIRED)
 	LIST(APPEND LIBS ${GTK2_LIBRARIES})
 	include_directories(${GTK2_INCLUDE_DIRS})
