@@ -19,6 +19,7 @@ typedef struct Win32PADState {
 	HANDLE usbHandle;// = (HANDLE)-1;
 	//HANDLE readData;// = (HANDLE)-1;
 	OVERLAPPED ovl;
+	OVERLAPPED ovlW;
 	
 	uint32_t reportInSize;// = 0;
 	uint32_t reportOutSize;// = 0;
@@ -39,20 +40,24 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	{
 		//ZeroMemory(buf, len);
 		ReadFile(s->usbHandle, buf, s->caps.InputReportByteLength, 0, &s->ovl);
-		waitRes = WaitForSingleObject(s->ovl.hEvent, 300);
-		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
+		waitRes = WaitForSingleObject(s->ovl.hEvent, 5);
+		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
 			CancelIo(s->usbHandle);
+			return 0;
+		}
 		return len;
 	}
 
 	ZeroMemory(data, 64);
 	// Be sure to read 'reportInSize' bytes or you get interleaved reads of data and garbage or something
 	ReadFile(s->usbHandle, data, s->caps.InputReportByteLength, 0, &s->ovl);
-	waitRes = WaitForSingleObject(s->ovl.hEvent, 300);
+	waitRes = WaitForSingleObject(s->ovl.hEvent, 5);
 	// if the transaction timed out, then we have to manually cancel the request
-	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
+	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
 		CancelIo(s->usbHandle);
-	
+		return 0;
+	}
+
 	//fprintf(stderr, "\tData 0:%02X 8:%02X 16:%02X 24:%02X 32:%02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 
 	/** try to get DFP working, faaail, only buttons **/
@@ -153,7 +158,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	 * 
 	 ***/
  
-	//PHIDP_PREPARSED_DATA pPreparsedData;
+	PHIDP_PREPARSED_DATA pPreparsedData;
 	USHORT capsLength = 0;
 	USAGE usage[MAX_BUTTONS] = {0};
 
@@ -165,7 +170,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	generic_data.axis_z = 0xFF;
 	generic_data.axis_rz = 0xFF;
 
-	//HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
+	HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
 	//HidP_GetCaps(pPreparsedData, &caps);
 
 	/// Get buttons' values
@@ -176,7 +181,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	ULONG usageLength = s->numberOfButtons;
 	NTSTATUS stat;
 	if((stat = HidP_GetUsages(
-			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, s->pPreparsedData,
+			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, /*s->*/pPreparsedData,
 			(PCHAR)data, s->caps.InputReportByteLength)) == HIDP_STATUS_SUCCESS )
 	{
 		for(int i = 0; i < usageLength; i++)
@@ -257,7 +262,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 
 	HeapFree(heap, 0, pButtonCaps);
 	HeapFree(heap, 0, pValueCaps);
-	//HidD_FreePreparsedData(pPreparsedData);
+	HidD_FreePreparsedData(pPreparsedData);
 	return len;
 }
 
@@ -276,9 +281,9 @@ bool find_pad(PADState *ps)
 	PHIDP_PREPARSED_DATA pPreparsedData;
 
 	memset(&s->ovl, 0, sizeof(OVERLAPPED));
+	memset(&s->ovlW, 0, sizeof(OVERLAPPED));
 	s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
-	s->ovl.Offset = 0;
-	s->ovl.OffsetHigh = 0;
+	s->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
 
 	s->padState.doPassthrough = false;
 	s->usbHandle = (HANDLE)-1;
@@ -334,8 +339,8 @@ int token_out(PADState *ps, uint8_t *data, int len)
 	outbuf[0] = 0;
 
 	//CancelIo(s->usbHandle); //Mind the ERROR_IO_PENDING, may break FFB
-	res = WriteFile(s->usbHandle, outbuf, s->caps.OutputReportByteLength, &out, &s->ovl);
-	waitRes = WaitForSingleObject(s->ovl.hEvent, 30);
+	res = WriteFile(s->usbHandle, outbuf, s->caps.OutputReportByteLength, &out, &s->ovlW);
+	waitRes = WaitForSingleObject(s->ovlW.hEvent, 300);
 
 	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
 		CancelIo(s->usbHandle);
@@ -353,6 +358,8 @@ void destroy_pad(PADState *ps)
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 		CloseHandle(s->usbHandle);
 
+	CloseHandle(s->ovl.hEvent);
+	CloseHandle(s->ovlW.hEvent);
 	s->usbHandle = INVALID_HANDLE_VALUE;
 	s->pPreparsedData = NULL;
 }

@@ -99,7 +99,7 @@ static const uint8_t momo_config_descriptor[] = {
 	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
 	0x03, //_INTERRUPT,                 //Attributes
 	DESC_CONFIG_WORD(16),        //size
-	0xFF,                       //Interval, shouldn't this be infinite and updates get pushed as they happen?
+	0x0A,                       //Interval, shouldn't this be infinite and updates get pushed as they happen?
 
 	/* Endpoint Descriptor */
 	0x07,/*sizeof(USB_EP_DSC)*/
@@ -107,7 +107,7 @@ static const uint8_t momo_config_descriptor[] = {
 	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
 	0x03, //_INTERRUPT,                 //Attributes
 	DESC_CONFIG_WORD(16),        //size
-	0xFF,                        //Interval
+	0x0A,                        //Interval
 	//41 bytes
 /* Terminator */
 	0	/* bLength */
