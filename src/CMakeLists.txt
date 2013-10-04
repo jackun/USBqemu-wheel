@@ -29,6 +29,8 @@ set(HDRS
 	./usb-mic/demo.h
 	./usb-mic/usbhw.h
 	./usb-mic/adcuser.h
+	./usb-pad/usb-pad.h
+	./usb-pad/config.h
 )
 
 set(SRCS
@@ -50,6 +52,7 @@ set(SRCS
 IF(WIN32)
 	LIST(APPEND HDRS 
 		./Win32/resource.h
+		./Win32/Config.h
 		./ddk/hidpi.h
 		./ddk/setupapi.h
 		./ddk/hidsdi.h
@@ -61,6 +64,10 @@ IF(WIN32)
 		./Win32/Win32.cpp
 	)
 	file(GLOB RCS ./Win32/*.rc)
+	file(GLOB DEF ./Win32/*.def)
+	LIST(APPEND LIBS hid setupapi)
+	#Less fcking around with platform sdks
+	link_directories(${PROJECT_SOURCE_DIR}/ddk)
 ENDIF(WIN32)
 
 IF(UNIX)
@@ -83,7 +90,7 @@ IF(UNIX)
 	include_directories(${GTK2_INCLUDE_DIRS})
 ENDIF()
 
-add_library(${TargetName} SHARED ${SRCS} ${HDRS} ${RCS})
+add_library(${TargetName} SHARED ${SRCS} ${HDRS} ${RCS} ${DEF})
 target_link_libraries(${TargetName} ${LIBS})
 set_target_properties(${TargetName} PROPERTIES DEBUG_POSTFIX _d)
 set_target_properties(${TargetName} PROPERTIES VERSION ${PLUGIN_VERSION} SOVERSION ${PLUGIN_VERSION_MAJOR})

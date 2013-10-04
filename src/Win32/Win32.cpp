@@ -5,15 +5,12 @@
 
 #include "../USB.h"
 #include "resource.h"
+#include "Config.h"
 #include "../usb-pad/config.h"
-
-#include <setupapi.h>
-extern "C" {
-	#include "../ddk/hidsdi.h"
-}
 
 HINSTANCE hInst;
 std::vector<std::string> joys;
+uint8_t btnMap[MAX_BUTTONS];
 
 void SysMessage(char *fmt, ...) {
 	va_list list;
@@ -82,6 +79,10 @@ void populate(HWND hW)
 		}
 
 		HidD_GetAttributes(usbHandle, &attr);
+		
+			//FIXME just testing
+			LoadMappings(attr.VendorID, attr.ProductID, btnMap);
+			SaveMappings(attr.VendorID, attr.ProductID, btnMap);
 		HidD_GetPreparsedData(usbHandle, &pPreparsedData);
 
 		HidP_GetCaps(pPreparsedData, &caps);
@@ -90,6 +91,7 @@ void populate(HWND hW)
 		{
 			fprintf(stderr, "Joystick found %04X:%04X\n", attr.VendorID, attr.ProductID);
 			joys.push_back(std::string(didData->DevicePath));
+
 
 			wchar_t str[MAX_PATH];
 			HidD_GetProductString(usbHandle, str, sizeof(str));//TODO HidD_GetProductString returns unicode always?

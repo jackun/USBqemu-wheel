@@ -1,27 +1,5 @@
 #include "usb-pad.h"
-#include "config.h"
-#include <setupapi.h>
-extern "C" {
-	#include "../ddk/hidsdi.h"
-}
-
-typedef struct Win32PADState {
-	PADState padState;
-
-	HIDP_CAPS caps;
-	HIDD_ATTRIBUTES attr;
-	PHIDP_PREPARSED_DATA pPreparsedData;
-	//ULONG value;// = 0;
-	USHORT numberOfButtons;// = 0;
-	USHORT numberOfValues;// = 0;
-	HANDLE usbHandle;// = (HANDLE)-1;
-	//HANDLE readData;// = (HANDLE)-1;
-	OVERLAPPED ovl;
-	OVERLAPPED ovlW;
-	
-	uint32_t reportInSize;// = 0;
-	uint32_t reportOutSize;// = 0;
-} Win32PADState;
+#include "../Win32/Config.h"
 
 int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 {
@@ -138,7 +116,11 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	df_data.buttons = momo_data.buttons;
 	memcpy(buf, &df_data, sizeof(df_data));*/
 
-	/*** raw version, MOMO to generic 0xC294, works kinda ***/
+	/***
+	*
+	* raw version, MOMO to generic 0xC294, works kinda
+	*
+	***/
 	/*ZeroMemory(&generic_data, sizeof(generic_data_t));
 	memcpy(&momo_data, data, sizeof(momo_data_t));
 	//memcpy(&generic_data, data, sizeof(momo_data_t));
@@ -149,12 +131,12 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	generic_data.axis_rz = momo_data.axis_rz;
 	memcpy(buf, &generic_data, sizeof(generic_data_t));*/
 
-	/** *
-	 * 
-	 * 
+	/***
+	 *
+	 *
 	 * rawinput API version 
-	 * 
-	 * 
+	 *
+	 *
 	 ***/
  
 	PHIDP_PREPARSED_DATA pPreparsedData;
@@ -174,22 +156,21 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 
 	/// Get buttons' values
 	HANDLE heap = GetProcessHeap();
-	PHIDP_BUTTON_CAPS pButtonCaps =
-		(PHIDP_BUTTON_CAPS)HeapAlloc(heap, 0, sizeof(HIDP_BUTTON_CAPS) * s->caps.NumberInputButtonCaps);
+	//PHIDP_BUTTON_CAPS pButtonCaps =
+	//	(PHIDP_BUTTON_CAPS)HeapAlloc(heap, 0, sizeof(HIDP_BUTTON_CAPS) * s->caps.NumberInputButtonCaps);
 
 	ULONG usageLength = s->numberOfButtons;
 	NTSTATUS stat;
+	//XXX duh, this needs HidP_GetButtonCaps too
 	if((stat = HidP_GetUsages(
-			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, /*s->*/pPreparsedData,
+			HidP_Input, s->pButtonCaps->UsagePage, 0, usage, &usageLength, /*s->*/pPreparsedData,
 			(PCHAR)data, s->caps.InputReportByteLength)) == HIDP_STATUS_SUCCESS )
 	{
 		for(int i = 0; i < usageLength; i++)
 		{
-			generic_data.buttons |=  (1 << (usage[i] - pButtonCaps->Range.UsageMin - 1)) & 0x3FF; //10bit mask
+			generic_data.buttons |=  (1 << (ps->mappings[usage[i] - s->pButtonCaps->Range.UsageMin])) & 0x3FF; //10bit mask
 		}
 	}
-	//else if(stat != HIDP_STATUS_BUTTON_NOT_PRESSED) //damn HIDP_STATUS_USAGE_NOT_FOUND
-	//	fprintf(stderr, "ntstatus %08X\n", stat);
 
 	/// Get axes' values
 	PHIDP_VALUE_CAPS pValueCaps
@@ -259,7 +240,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	//TODO Currently config descriptor has 16 byte buffer and generic_data_t is just 8 bytes
 	memcpy(buf, &generic_data, sizeof(generic_data_t));
 
-	HeapFree(heap, 0, pButtonCaps);
+	//HeapFree(heap, 0, pButtonCaps);
 	HeapFree(heap, 0, pValueCaps);
 	HidD_FreePreparsedData(pPreparsedData);
 	return len;
@@ -305,10 +286,11 @@ bool find_pad(PADState *ps)
 			s->pPreparsedData = pPreparsedData;
 
 			USHORT capsLength = s->caps.NumberInputButtonCaps;
-			PHIDP_BUTTON_CAPS pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * capsLength);
-			if(HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
-				s->numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
-			free(pButtonCaps);
+			s->pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * capsLength);
+			if(HidP_GetButtonCaps(HidP_Input, s->pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
+				s->numberOfButtons = s->pButtonCaps->Range.UsageMax - s->pButtonCaps->Range.UsageMin + 1;
+			//free(s->pButtonCaps);
+			LoadMappings(s->attr.VendorID, s->attr.ProductID, ps->mappings);
 
 			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
 			return true;
@@ -354,6 +336,8 @@ void destroy_pad(PADState *ps)
 	Win32PADState *s = (Win32PADState*) ps;
 	if(s->pPreparsedData)
 		HidD_FreePreparsedData(s->pPreparsedData);
+	if(s->pButtonCaps)
+		free(s->pButtonCaps);
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 		CloseHandle(s->usbHandle);
 
@@ -361,4 +345,5 @@ void destroy_pad(PADState *ps)
 	CloseHandle(s->ovlW.hEvent);
 	s->usbHandle = INVALID_HANDLE_VALUE;
 	s->pPreparsedData = NULL;
+	s->pButtonCaps = NULL;
 }
