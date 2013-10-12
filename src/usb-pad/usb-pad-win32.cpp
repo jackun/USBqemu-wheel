@@ -168,7 +168,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	{
 		for(int i = 0; i < usageLength; i++)
 		{
-			generic_data.buttons |=  (1 << (ps->mappings[usage[i] - s->pButtonCaps->Range.UsageMin])) & 0x3FF; //10bit mask
+			generic_data.buttons |=  (1 << (ps->btnsmap[usage[i] - s->pButtonCaps->Range.UsageMin])) & 0x3FF; //10bit mask
 		}
 	}
 
@@ -278,7 +278,8 @@ bool find_pad(PADState *ps)
 		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
 		HidP_GetCaps(pPreparsedData, &(s->caps));
 
-		if(s->caps.UsagePage == HID_USAGE_PAGE_GENERIC && s->caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
+		if(s->caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
+			s->caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
 		{
 			if(s->attr.ProductID == DFP_PID)
 				s->padState.doPassthrough = true;
@@ -290,7 +291,7 @@ bool find_pad(PADState *ps)
 			if(HidP_GetButtonCaps(HidP_Input, s->pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
 				s->numberOfButtons = s->pButtonCaps->Range.UsageMax - s->pButtonCaps->Range.UsageMin + 1;
 			//free(s->pButtonCaps);
-			LoadMappings(s->attr.VendorID, s->attr.ProductID, ps->mappings);
+			LoadMappings(idx, s->attr.VendorID, s->attr.ProductID, ps->btnsmap, ps->axesmap);
 
 			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
 			return true;

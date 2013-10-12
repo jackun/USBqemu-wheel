@@ -112,6 +112,9 @@
     <ClInclude Include="usb-pad\usb-pad.h">
       <Filter>Header Files\usb-pad</Filter>
     </ClInclude>
+    <ClInclude Include="Win32\Config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Win32\USBlinuz.def">

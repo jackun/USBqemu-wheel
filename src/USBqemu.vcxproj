@@ -168,6 +168,7 @@
     <ClInclude Include="PS2Etypes.h" />
     <ClInclude Include="usb-pad\config.h" />
     <ClInclude Include="usb-pad\usb-pad.h" />
+    <ClInclude Include="Win32\Config.h" />
     <ClInclude Include="Win32\resource.h" />
     <ClInclude Include="usb-mic\type.h" />
     <ClInclude Include="qemu-usb\usb.h" />
