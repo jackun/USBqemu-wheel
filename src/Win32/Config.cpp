@@ -7,7 +7,7 @@ extern HINSTANCE hInst;
 char *szIni = "\\inis\\USBqemu-wheel.ini";
 
 //XXX Allowing PLayer One and Two have different mappings with "ply".
-void LoadMappings(int ply, int vid, int pid, PS2Buttons *maps, PS2Axis *axes)
+void LoadMappings(int ply, int vid, int pid, PS2Buttons *btns, PS2Axis *axes)
 {
 	char *szTemp;
 	char szIniFile[MAX_PATH+1], szValue[256];
@@ -18,12 +18,12 @@ void LoadMappings(int ply, int vid, int pid, PS2Buttons *maps, PS2Axis *axes)
 	if(!szTemp) return;
 	strcpy(szTemp, szIni);
 
-	memset(maps, PAD_BUTTON_COUNT, MAX_BUTTONS);
+	memset(btns, PAD_BUTTON_COUNT, MAX_BUTTONS);
 	memset(axes, PAD_AXIS_COUNT, MAX_AXES);
 
 	// Default 1-to-1
 	for(int i = 0; i < PAD_BUTTON_COUNT /*MAX_BUTTONS*/; i++) //FIXME max buttons
-		maps[i] = (PS2Buttons)i;
+		btns[i] = (PS2Buttons)i;
 	for(int i = 0; i < PAD_AXIS_COUNT /*MAX_AXES*/; i++) //FIXME max axes
 		axes[i] = (PS2Axis)i;
 
@@ -34,7 +34,7 @@ void LoadMappings(int ply, int vid, int pid, PS2Buttons *maps, PS2Axis *axes)
 		char *tok = strtok(szValue, ",");
 		while(tok != NULL)
 		{
-			sscanf(tok, "%X,", maps++);
+			sscanf(tok, "%X,", btns++);
 			tok = strtok(NULL, ",");
 		}
 	}
@@ -53,7 +53,7 @@ void LoadMappings(int ply, int vid, int pid, PS2Buttons *maps, PS2Axis *axes)
 	return;
 }
 
-void SaveMappings(int ply, int vid, int pid, PS2Buttons *maps, PS2Axis *axes)
+void SaveMappings(int ply, int vid, int pid, PS2Buttons *btns, PS2Axis *axes)
 {
 	char *szTemp;
 	char szIniFile[MAX_PATH+1], szValue[256] = {0};
@@ -68,7 +68,7 @@ void SaveMappings(int ply, int vid, int pid, PS2Buttons *maps, PS2Axis *axes)
 	sprintf(dev, "%X_%X_%d", vid, pid, ply);
 	for(int i = 0; i<16 /*MAX_BUTTONS*/; i++)
 	{
-		sprintf(tmp, "%X,", maps[i]);
+		sprintf(tmp, "%X,", btns[i]);
 		strcat(szValue, tmp);
 	}
 

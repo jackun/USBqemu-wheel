@@ -155,7 +155,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	//HidP_GetCaps(pPreparsedData, &caps);
 
 	/// Get buttons' values
-	HANDLE heap = GetProcessHeap();
+	HANDLE heap = GetProcessHeap(); //win32 malloc is HeapAlloc anyway?
 	//PHIDP_BUTTON_CAPS pButtonCaps =
 	//	(PHIDP_BUTTON_CAPS)HeapAlloc(heap, 0, sizeof(HIDP_BUTTON_CAPS) * s->caps.NumberInputButtonCaps);
 
@@ -166,7 +166,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 			HidP_Input, s->pButtonCaps->UsagePage, 0, usage, &usageLength, /*s->*/pPreparsedData,
 			(PCHAR)data, s->caps.InputReportByteLength)) == HIDP_STATUS_SUCCESS )
 	{
-		for(int i = 0; i < usageLength; i++)
+		for(uint32_t i = 0; i < usageLength; i++)
 		{
 			generic_data.buttons |=  (1 << (ps->btnsmap[usage[i] - s->pButtonCaps->Range.UsageMin])) & 0x3FF; //10bit mask
 		}
@@ -194,22 +194,26 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 			switch(pValueCaps[i].Range.UsageMin)
 			{
 				case 0x30: // X-axis
-					//lAxisX = (LONG)value - 128;
 					//fprintf(stderr, "X: %d\n", value);
-					generic_data.axis_x = value; // * (pValueCaps[i].LogicalMax / 1023);
+					// Need for logical min too?
+					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / pValueCaps[i].LogicalMax;
+
+					//XXX Limit value range to 0..1023 if using 'generic' wheel descriptor
+					generic_data.axis_x = (value * 0x3FF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x31: // Y-axis
-					//lAxisY = (LONG)value - 128;
 					//fprintf(stderr, "Y: %d\n", value);
-					if(!(s->attr.VendorID == 0x046D && s->attr.ProductID == 0xCA03)) //FIXME MOMO always gives 128, wtf
-						generic_data.axis_y = value;
+					//FIXME MOMO always gives 128. Some flag in caps to detect this?
+					if(!(s->attr.VendorID == 0x046D && s->attr.ProductID == 0xCA03))
+						//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
+						generic_data.axis_y = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x32: // Z-axis
-					//lAxisZ = (LONG)value - 128;
 					//fprintf(stderr, "Z: %d\n", value);
-					generic_data.axis_z = value;
+					//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
+					generic_data.axis_z = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x33: // Rotate-X
@@ -218,18 +222,16 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 					break;
 
 				case 0x34: // Rotate-Y
-					//lAxisRy = (LONG)value - 128;
 					//fprintf(stderr, "Ry: %d\n", value);
 					break;
 
 				case 0x35: // Rotate-Z
-					//lAxisRz = (LONG)value - 128;
 					//fprintf(stderr, "Rz: %d\n", value);
-					generic_data.axis_rz = value;
+					//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
+					generic_data.axis_rz = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
-				case 0x39: // Hat Switch
-					//lHat = value;
+				case 0x39: // TODO Hat Switch, also map some keyboard keys (for F1 '06 etc.)
 					//fprintf(stderr, "Hat: %02X\n", value);
 					generic_data.hatswitch = value;
 					break;
@@ -246,6 +248,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	return len;
 }
 
+//Too much C, not enough C++ ? :P
 PADState* get_new_padstate()
 {
 	return (PADState*)qemu_mallocz(sizeof(Win32PADState));

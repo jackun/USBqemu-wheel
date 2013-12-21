@@ -163,9 +163,21 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		switch(value >> 8) {
 		case 0x22:
 			fprintf(stderr, "Sending hid report desc.\n");
-			memcpy(data, pad_hid_report_descriptor, 
-				sizeof(pad_hid_report_descriptor));
-			ret = sizeof(pad_hid_report_descriptor);
+#if _WIN32
+			//TODO For now, only supporting DFP
+			if(s->doPassthrough)
+			{
+				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
+				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
+			}
+			else
+			{
+#endif
+				ret = sizeof(pad_hid_report_descriptor);
+				memcpy(data, pad_hid_report_descriptor, ret);
+#if _WIN32
+			}
+#endif
 			break;
 		default:
 			goto fail;

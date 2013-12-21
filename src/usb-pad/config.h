@@ -34,7 +34,7 @@ enum PS2Axis : uint32_t {
 typedef struct PADState {
 	USBDevice	dev;
 	uint8_t		port;
-	bool		doPassthrough;// = false;
+	bool		doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
 	PS2Buttons	btnsmap[MAX_BUTTONS];
 	PS2Axis		axesmap[MAX_AXES];
 

@@ -518,8 +518,10 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					if(selectedJoy[0] > 0 && selectedJoy[0] == selectedJoy[1])
 					{
 						//selectedJoy[0] = *tmpIter;
+						selectedJoy[0] = 0;
+						resetState(hW);
 						//SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, std::distance(joys.begin(), *tmpIter), 0);
-						SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, 0, 0);
+						SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, selectedJoy[0], 0);
 						SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Both players can't have the same controller."); //Actually, whatever, but config logics are limited ;P
 					}
 					break;
@@ -530,8 +532,10 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					if(selectedJoy[1] > 0  && selectedJoy[0] == selectedJoy[1])
 					{
 						//selectedJoy[1] = *tmpIter;
+						selectedJoy[1] = 0;
+						resetState(hW);
 						//SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, std::distance(joys.begin(), *tmpIter), 0);
-						SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, 0, 0);
+						SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, selectedJoy[1], 0);
 						SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Both players can't have the same controller."); //Actually, whatever, but config logics are limited ;P
 					}
 					break;
