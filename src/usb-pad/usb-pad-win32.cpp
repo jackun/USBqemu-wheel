@@ -229,6 +229,8 @@ void destroy_pad(PADState *ps)
 		HidD_FreePreparsedData(s->pPreparsedData);
 	if(s->pButtonCaps)
 		free(s->pButtonCaps);
+	if(s->pValueCaps)
+		free(s->pValueCaps);
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(s->usbHandle);
@@ -239,4 +241,5 @@ void destroy_pad(PADState *ps)
 	s->usbHandle = INVALID_HANDLE_VALUE;
 	s->pPreparsedData = NULL;
 	s->pButtonCaps = NULL;
+	s->pValueCaps = NULL;
 }
