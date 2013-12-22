@@ -32,105 +32,12 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	// if the transaction timed out, then we have to manually cancel the request
 	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
 		CancelIo(s->usbHandle);
+		fprintf(stderr, "usb_pad_poll: waitRes 0x%08X\n", waitRes);
 		return 0;
 	}
 
 	//fprintf(stderr, "\tData 0:%02X 8:%02X 16:%02X 24:%02X 32:%02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
-
-	/** try to get DFP working, faaail, only buttons **/
-	/**
-	ZeroMemory(buf, len);
-	//bitarray_copy(data, 8, 10, buf, 0);
-	//bitarray_copy(data, 28, 10, buf, 14 + 2); //buttons, 10 bits -> 12 bits
-	int wheel = (data[1] | (data[2] & 0x3) << 8) * (0x3FFF/0x3FF) ;
-	buf[0] = 0;//wheel & 0xFF;
-	buf[1] = (wheel >> 8) & 0xFF;
-
-	// Axis X
-	buf[3] = 0x0;
-	buf[4] = 0x0;
-	buf[5] = 0x0;
-	buf[6] = 0x0;
-	buf[7] = 0x0;
-	buf[8] = 0x0;
-	buf[9] = 0x0;
-	buf[10] = 0x0;
-	buf[11] = 0x0;
-	buf[12] = 0x0;
-	buf[13] = 0x0;
-	buf[14] = 0x0;
-	buf[15] = 0x0;
-
-	// MOMO to DFP buttons
-	buf[1] |= (data[2] << 4) & 0xC0; //2 bits 2..3 -> 6..7
-	buf[2] |= (data[2] >> 4) & 0xF; //4 bits 4..7 -> 0..3
-	buf[2] |= (data[3] << 4) & 0xF0; //4 bits 0..3 -> 4..7
-	**/
-
-	//buf[1] = 1<<4; //
-	//buf[1] = 1<<5; // ??
-	//buf[1] |= 1<<6; // cross 15
-	//buf[1] = 1<<7; // square 16
-	//buf[2] = 1<<0; // circle 17
-	//buf[2] = 1<<1; // triangle 18
-	//buf[2] |= 1<<2; // R1 gear up 19
-	//buf[2] |= 1<<3; // L1 gear down 20
-	//buf[2] |= 1<<4; // R2 21
-	//buf[2] |= 1<<5; // L2 22
-	//buf[2] |= 1<<6; // select 23
-	//buf[2] |= 1<<7; // start??? 24
-
-	//buf[3] = 1<<0; //25
-	//buf[3] = 1<<1;//shift?? //26
-	//buf[3] = 1<<2;//shift?? //27
-	//buf[3] = 1<<3;//shift up?? //28
-	//buf[3] |= 1<<4;//view right //29
-	//buf[3] |= 1<<5;//view FR?? //30 // 4|5 bits view RL
-	//buf[3] = 1<<6;//view back R2?? //31
-	//buf[3] |= 1<<7;//view ahead?? //32
-	//buf[4] = 0xff;//???
-
-	//buf[5] = 0x0;//data[5]; //y -> y
-	//buf[6] = 0xFF ;//data[6]; //z -> rz
-	//buf[7] = 1<<4; //steer left
-	//buf[10] = 0xFF;
-
-	//fprintf(stderr, "\tData %02X %02X %02X %02X %02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
-	//memcpy(&momo_data, data, sizeof(momo_data_t));
-	//fprintf(stderr, "\tmomo_data: %d %04X %02X %02X\n",momo_data.axis_x, momo_data.buttons, momo_data.axis_z, momo_data.axis_rz);
-	//memcpy(buf, &data, len);
-	//memset(&dfp_data, 0, sizeof(dfp_data_t));
-	//dfp_data.buttons = momo_data.buttons;
-
-	//dfp_data.axis_x = momo_data.axis_x ;// * (0x3fff/0x3ff);
-	//dfp_data.axis_z = momo_data.axis_z;
-	//dfp_data.axis_rz = momo_data.axis_rz;
-
-	//fprintf(stderr, "\tdfp_data: %04X %02X %02X\n", dfp_data.axis_x, dfp_data.axis_z, dfp_data.axis_rz);
-
-	//memcpy(buf, &dfp_data, sizeof(dfp_data_t));
-
-	/*df_data.axis_x = momo_data.axis_x;
-	df_data.axis_z = momo_data.axis_z;
-	df_data.axis_rz = momo_data.axis_rz;
-	df_data.buttons = momo_data.buttons;
-	memcpy(buf, &df_data, sizeof(df_data));*/
-
-	/***
-	*
-	* raw version, MOMO to generic 0xC294, works kinda
-	*
-	***/
-	/*ZeroMemory(&generic_data, sizeof(generic_data_t));
-	memcpy(&momo_data, data, sizeof(momo_data_t));
-	//memcpy(&generic_data, data, sizeof(momo_data_t));
-	generic_data.buttons = momo_data.buttons;
-	generic_data.axis_x = momo_data.axis_x;
-	generic_data.axis_y = 0xff; //set to 0xFF aka not pressed
-	generic_data.axis_z = momo_data.axis_z;
-	generic_data.axis_rz = momo_data.axis_rz;
-	memcpy(buf, &generic_data, sizeof(generic_data_t));*/
-
+	
 	/***
 	 *
 	 *
@@ -138,8 +45,6 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	 *
 	 *
 	 ***/
- 
-	PHIDP_PREPARSED_DATA pPreparsedData;
 	USHORT capsLength = 0;
 	USAGE usage[MAX_BUTTONS] = {0};
 
@@ -150,20 +55,11 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	generic_data.axis_y = 0xFF;
 	generic_data.axis_z = 0xFF;
 	generic_data.axis_rz = 0xFF;
-
-	HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
-	//HidP_GetCaps(pPreparsedData, &caps);
-
-	/// Get buttons' values
-	HANDLE heap = GetProcessHeap(); //win32 malloc is HeapAlloc anyway?
-	//PHIDP_BUTTON_CAPS pButtonCaps =
-	//	(PHIDP_BUTTON_CAPS)HeapAlloc(heap, 0, sizeof(HIDP_BUTTON_CAPS) * s->caps.NumberInputButtonCaps);
-
+	
 	ULONG usageLength = s->numberOfButtons;
 	NTSTATUS stat;
-	//XXX duh, this needs HidP_GetButtonCaps too
 	if((stat = HidP_GetUsages(
-			HidP_Input, s->pButtonCaps->UsagePage, 0, usage, &usageLength, /*s->*/pPreparsedData,
+			HidP_Input, s->pButtonCaps->UsagePage, 0, usage, &usageLength, s->pPreparsedData,
 			(PCHAR)data, s->caps.InputReportByteLength)) == HIDP_STATUS_SUCCESS )
 	{
 		for(uint32_t i = 0; i < usageLength; i++)
@@ -173,17 +69,14 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	}
 
 	/// Get axes' values
-	PHIDP_VALUE_CAPS pValueCaps
-		= (PHIDP_VALUE_CAPS)HeapAlloc(heap, 0, sizeof(HIDP_VALUE_CAPS) * s->caps.NumberInputValueCaps);
-
 	capsLength = s->caps.NumberInputValueCaps;
-	if(HidP_GetValueCaps(HidP_Input, pValueCaps, &capsLength, s->pPreparsedData) == HIDP_STATUS_SUCCESS )
+	if(HidP_GetValueCaps(HidP_Input, s->pValueCaps, &capsLength, s->pPreparsedData) == HIDP_STATUS_SUCCESS )
 	{
 		for(USHORT i = 0; i < capsLength; i++)
 		{
 			if(HidP_GetUsageValue(
-					HidP_Input, pValueCaps[i].UsagePage, 0,
-					pValueCaps[i].Range.UsageMin, &value, s->pPreparsedData,
+					HidP_Input, s->pValueCaps[i].UsagePage, 0,
+					s->pValueCaps[i].Range.UsageMin, &value, s->pPreparsedData,
 					(PCHAR)data, s->caps.InputReportByteLength
 				) != HIDP_STATUS_SUCCESS )
 			{
@@ -191,7 +84,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 			}
 
 			//fprintf(stderr, "Min/max %d/%d\t", pValueCaps[i].LogicalMin, pValueCaps[i].LogicalMax);
-			switch(pValueCaps[i].Range.UsageMin)
+			switch(s->pValueCaps[i].Range.UsageMin)
 			{
 				case 0x30: // X-axis
 					//fprintf(stderr, "X: %d\n", value);
@@ -199,7 +92,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / pValueCaps[i].LogicalMax;
 
 					//XXX Limit value range to 0..1023 if using 'generic' wheel descriptor
-					generic_data.axis_x = (value * 0x3FF) / pValueCaps[i].LogicalMax;
+					generic_data.axis_x = (value * 0x3FF) / s->pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x31: // Y-axis
@@ -207,13 +100,13 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 					//FIXME MOMO always gives 128. Some flag in caps to detect this?
 					if(!(s->attr.VendorID == 0x046D && s->attr.ProductID == 0xCA03))
 						//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
-						generic_data.axis_y = (value * 0xFF) / pValueCaps[i].LogicalMax;
+						generic_data.axis_y = (value * 0xFF) / s->pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x32: // Z-axis
 					//fprintf(stderr, "Z: %d\n", value);
 					//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
-					generic_data.axis_z = (value * 0xFF) / pValueCaps[i].LogicalMax;
+					generic_data.axis_z = (value * 0xFF) / s->pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x33: // Rotate-X
@@ -228,7 +121,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 				case 0x35: // Rotate-Z
 					//fprintf(stderr, "Rz: %d\n", value);
 					//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
-					generic_data.axis_rz = (value * 0xFF) / pValueCaps[i].LogicalMax;
+					generic_data.axis_rz = (value * 0xFF) / s->pValueCaps[i].LogicalMax;
 					break;
 
 				case 0x39: // TODO Hat Switch, also map some keyboard keys (for F1 '06 etc.)
@@ -241,10 +134,6 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 
 	//TODO Currently config descriptor has 16 byte buffer and generic_data_t is just 8 bytes
 	memcpy(buf, &generic_data, sizeof(generic_data_t));
-
-	//HeapFree(heap, 0, pButtonCaps);
-	HeapFree(heap, 0, pValueCaps);
-	HidD_FreePreparsedData(pPreparsedData);
 	return len;
 }
 
@@ -261,8 +150,6 @@ bool find_pad(PADState *ps)
 	uint8_t idx = 1 - s->padState.port;
 	if(idx > 1) return false;
 
-	PHIDP_PREPARSED_DATA pPreparsedData;
-
 	memset(&s->ovl, 0, sizeof(OVERLAPPED));
 	memset(&s->ovlW, 0, sizeof(OVERLAPPED));
 	s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
@@ -278,8 +165,8 @@ bool find_pad(PADState *ps)
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 	{
 		HidD_GetAttributes(s->usbHandle, &(s->attr));
-		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(s->caps));
+		HidD_GetPreparsedData(s->usbHandle, &(s->pPreparsedData));
+		HidP_GetCaps(s->pPreparsedData, &(s->caps));
 
 		if(s->caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
 			s->caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
@@ -287,13 +174,15 @@ bool find_pad(PADState *ps)
 			if(s->attr.ProductID == DFP_PID)
 				s->padState.doPassthrough = true;
 
-			s->pPreparsedData = pPreparsedData;
-
+			//Get buttons' caps
 			USHORT capsLength = s->caps.NumberInputButtonCaps;
 			s->pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * capsLength);
-			if(HidP_GetButtonCaps(HidP_Input, s->pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
+			if(HidP_GetButtonCaps(HidP_Input, s->pButtonCaps, &capsLength, s->pPreparsedData) == HIDP_STATUS_SUCCESS )
 				s->numberOfButtons = s->pButtonCaps->Range.UsageMax - s->pButtonCaps->Range.UsageMin + 1;
-			//free(s->pButtonCaps);
+
+			//Get axes' caps
+			s->pValueCaps = (PHIDP_VALUE_CAPS)malloc(sizeof(HIDP_VALUE_CAPS) * s->caps.NumberInputValueCaps);
+
 			LoadMappings(idx, s->attr.VendorID, s->attr.ProductID, ps->btnsmap, ps->axesmap);
 
 			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
@@ -303,7 +192,7 @@ bool find_pad(PADState *ps)
 		{
 			CloseHandle(s->usbHandle);
 			s->usbHandle = INVALID_HANDLE_VALUE;
-			HidD_FreePreparsedData(pPreparsedData);
+			HidD_FreePreparsedData(s->pPreparsedData);
 		}
 	}
 
@@ -343,10 +232,12 @@ void destroy_pad(PADState *ps)
 	if(s->pButtonCaps)
 		free(s->pButtonCaps);
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
+	{
 		CloseHandle(s->usbHandle);
+		CloseHandle(s->ovl.hEvent);
+		CloseHandle(s->ovlW.hEvent);
+	}
 
-	CloseHandle(s->ovl.hEvent);
-	CloseHandle(s->ovlW.hEvent);
 	s->usbHandle = INVALID_HANDLE_VALUE;
 	s->pPreparsedData = NULL;
 	s->pButtonCaps = NULL;

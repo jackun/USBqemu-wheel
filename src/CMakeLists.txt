@@ -127,9 +127,9 @@ IF(MINGW OR UNIX)
     set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/dist)
 ENDIF(MINGW OR UNIX)
 
-# if win32, add INSTALL project
+# if win32, add INSTALL project  -DCMAKE_INSTALL_PREFIX=...\pcsx2\plugins
 IF(WIN32)
     install(TARGETS ${TargetName}
-        RUNTIME DESTINATION bin
+        RUNTIME DESTINATION .
         CONFIGURATIONS Release RelWithDebInfo MinSizeRel Debug) #All
 ENDIF(WIN32)

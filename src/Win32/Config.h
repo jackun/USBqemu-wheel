@@ -15,6 +15,7 @@ typedef struct Win32PADState {
 	HIDD_ATTRIBUTES attr;
 	PHIDP_PREPARSED_DATA pPreparsedData;
 	PHIDP_BUTTON_CAPS pButtonCaps;
+	PHIDP_VALUE_CAPS pValueCaps;
 	//ULONG value;// = 0;
 	USHORT numberOfButtons;// = 0;
 	USHORT numberOfValues;// = 0;
