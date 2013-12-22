@@ -40,9 +40,13 @@ USBDevice *usb_device1 = NULL;
 USBDevice *usb_device2 = NULL;
 
 Config conf;
-char USBfreezeID[] = "USB STv0";
+char USBfreezeID[] = "USBqemuW01";
 typedef struct {
+	char freezeID[11];
+	s64 cycles;
+	s64 remaining;
 	OHCIState t;
+	int extraData; // for future expansion with the device state
 } USBfreezeData;
 
 u8 *usbR = 0;
@@ -53,7 +57,8 @@ FILE *usbLog;
 int64_t usb_frame_time;
 int64_t usb_bit_time;
 
-s64 clocks;
+s64 clocks = 0;
+s64 remaining = 0;
 
 #if _WIN32
 HWND gsWnd=NULL;
@@ -215,22 +220,62 @@ void CALLBACK USBsetRAM(void *mem) {
 
 //TODO update VID/PID and various buffer lengths with changes in usb-pad.c?
 s32 CALLBACK USBfreeze(int mode, freezeData *data) {
-	USBfreezeData *usbd;
+	USBfreezeData usbd;
 
-	if (mode == FREEZE_LOAD) {
-		usbd = (USBfreezeData*)data->data;
-		if (data->size != sizeof(USBfreezeData)) return -1;
+	if (mode == FREEZE_LOAD) 
+	{
+		if(data->size < sizeof(USBfreezeData))
+		{
+			SysMessage("ERROR: Unable to load freeze data! Got %d bytes, expected >= %d.", data->size, sizeof(USBfreezeData));
+			return -1;
+		}
+
+		usbd = *(USBfreezeData*)data->data;
+		usbd.freezeID[9] = 0;
+		usbd.cycles = clocks;
+		usbd.remaining = remaining;
 		
-		memcpy(qemu_ohci, usbd, sizeof(OHCIState));
-		//qemu_ohci->rhport[0].port.dev->handle_reset(usb_device);
+		if( strcmp(usbd.freezeID, USBfreezeID) != 0)
+		{
+			SysMessage("ERROR: Unable to load freeze data! Found ID '%s', expected ID '%s'.", usbd.freezeID, USBfreezeID);
+			return -1;
+		}
 
-	} else
-	if (mode == FREEZE_SAVE) {
+		if (data->size != sizeof(USBfreezeData))
+			return -1;
+		
+		for(int i=0; i< qemu_ohci->num_ports; i++)
+		{
+			usbd.t.rhport[i].port.opaque = qemu_ohci;
+			//usbd.t.rhport[i].port.ops = qemu_ohci->rhport[i].port.ops;
+			usbd.t.rhport[i].port.dev = qemu_ohci->rhport[i].port.dev; // pointers
+		}
+		*qemu_ohci = usbd.t;
+
+		// WARNING: TODO: Load the state of the attached devices!
+
+	}
+	else if (mode == FREEZE_SAVE) 
+	{
 		data->size = sizeof(USBfreezeData);
 		data->data = (s8*)malloc(data->size);
-		if (data->data == NULL) return -1;
-		usbd = (USBfreezeData*)data->data;
-		memcpy(usbd, qemu_ohci, sizeof(OHCIState));
+		if (data->data == NULL)
+			return -1;
+		
+
+		strcpy(usbd.freezeID, USBfreezeID);
+		usbd.t = *qemu_ohci;
+		for(int i=0; i< qemu_ohci->num_ports; i++)
+		{
+			//usbd.t.rhport[i].port.ops = NULL; // pointers
+			usbd.t.rhport[i].port.opaque = NULL; // pointers
+			usbd.t.rhport[i].port.dev = NULL; // pointers
+		}
+
+		clocks = usbd.cycles;
+		remaining = usbd.remaining;
+
+		// WARNING: TODO: Save the state of the attached devices!
 	}
 
 	return 0;
@@ -238,18 +283,7 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 
 void CALLBACK USBasync(u32 cycles)
 {
-	clocks+=cycles;
-	if(qemu_ohci->eof_timer>0)
-	{
-		while(cycles>=qemu_ohci->eof_timer)
-		{
-			cycles-=qemu_ohci->eof_timer;
-			qemu_ohci->eof_timer=0;
-			ohci_frame_boundary(qemu_ohci);
-		}
-		if((cycles>0)&&(qemu_ohci->eof_timer>0))
-			qemu_ohci->eof_timer-=cycles;
-	}
+	remaining += cycles;	clocks += remaining;	if(qemu_ohci->eof_timer>0)	{		while(remaining>=qemu_ohci->eof_timer)		{			remaining-=qemu_ohci->eof_timer;			qemu_ohci->eof_timer=0;			ohci_frame_boundary(qemu_ohci);		}		if((remaining>0)&&(qemu_ohci->eof_timer>0))		{			s64 m = qemu_ohci->eof_timer;			if(remaining < m)				m = remaining;			qemu_ohci->eof_timer -= m;			remaining -= m;		}	}	//if(qemu_ohci->eof_timer <= 0)	//{	//	ohci_frame_boundary(qemu_ohci);	//}
 }
 
 s32  CALLBACK USBtest() {
