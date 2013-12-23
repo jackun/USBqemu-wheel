@@ -22,6 +22,7 @@
 
 #include "qemu-usb/vl.h"
 #include "USB.h"
+#include "qemu-usb/USBinternal.h"
 #include "usb-pad/config.h"
 
 const unsigned char version  = PS2E_USB_VERSION;
@@ -51,7 +52,7 @@ typedef struct {
 
 u8 *usbR = 0;
 u8 *ram = 0;
-usbStruct usb;
+//usbStruct usb;
 USBcallback _USBirq;
 FILE *usbLog;
 int64_t usb_frame_time;
@@ -63,6 +64,30 @@ s64 remaining = 0;
 #if _WIN32
 HWND gsWnd=NULL;
 #endif
+
+__declspec(noinline)
+void cpu_physical_memory_rw(u32 addr, u8 *buf,
+							int len, int is_write)
+{
+	if(is_write)
+		memcpy(&(ram[addr]),buf,len);
+	else
+		memcpy(buf,&(ram[addr]),len);
+}
+
+
+s64 get_clock()
+{
+	return clocks;
+}
+
+void *qemu_mallocz(uint32_t size)
+{
+	void *m=malloc(size);
+	if(!m) return NULL;
+	memset(m,0,size);
+	return m;
+}
 
 
 void USBirq(int cycles)
@@ -108,16 +133,21 @@ s32 CALLBACK USBinit() {
 		USB_LOG("USBinit\n");
 	}
 
-	qemu_ohci = ohci_create(0x1f801600,2);
+	qemu_ohci = (OHCIState*)qemu_mallocz(sizeof(OHCIState));
+	//qemu_ohci = ohci_create(0x1f801600,2);
+	//ohci_read: Bad offset 1f801608
+	usb_ohci_init(qemu_ohci, NULL, 2, 0x1f801600, NULL, 0, NULL);
 
 	if((usb_device1 = pad_init(PLAYER_ONE_PORT)))
 	{
-		qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev = usb_device1;
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.ops->attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port));
 	}
 
 	if((usb_device2 = pad_init(PLAYER_TWO_PORT)))
 	{
-		qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev = usb_device2;
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.ops->attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port));
 	}
 
 	return 0;
@@ -126,10 +156,16 @@ s32 CALLBACK USBinit() {
 void CALLBACK USBshutdown() {
 
 	if(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev)
-	qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
+	{
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.ops->detach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port));
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->klass->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
+	}
 	
 	if(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev)
-	qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
+	{
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.ops->detach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port));
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->klass->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
+	}
 
 	free(qemu_ohci);
 
@@ -177,7 +213,7 @@ u16  CALLBACK USBread16(u32 addr) {
 u32  CALLBACK USBread32(u32 addr) {
 	u32 hard;
 
-	hard=ohci_mem_read(qemu_ohci,addr);
+	hard=ohci_mem_read(qemu_ohci,addr, sizeof(u32));
 
 	USB_LOG("* Known 32bit read at address %lx: %lx\n", addr, hard);
 
@@ -194,7 +230,7 @@ void CALLBACK USBwrite16(u32 addr, u16 value) {
 
 void CALLBACK USBwrite32(u32 addr, u32 value) {
 	USB_LOG("* Known 32bit write at address %lx value %lx\n", addr, value);
-	ohci_mem_write(qemu_ohci,addr,value);
+	ohci_mem_write(qemu_ohci,addr,value,sizeof(u32));
 }
 
 void CALLBACK USBirqCallback(USBcallback callback) {
@@ -293,26 +329,3 @@ s32  CALLBACK USBtest() {
 #if __cplusplus
 } //extern "C" {
 #endif
-
-void cpu_physical_memory_rw(u32 addr, u8 *buf,
-							int len, int is_write)
-{
-	if(is_write)
-		memcpy(&(ram[addr]),buf,len);
-	else
-		memcpy(buf,&(ram[addr]),len);
-}
-
-
-s64 get_clock()
-{
-	return clocks;
-}
-
-void *qemu_mallocz(uint32_t size)
-{
-	void *m=malloc(size);
-	if(!m) return NULL;
-	memset(m,0,size);
-	return m;
-}

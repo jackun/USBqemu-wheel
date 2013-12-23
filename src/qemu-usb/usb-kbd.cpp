@@ -21,17 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "vl.h"
-#include <windows.h>
-#include <setupapi.h>
-extern "C"{
-#include "../ddk/hidsdi.h"
-}
+#include "USBinternal.h"
 
-#pragma comment(lib, "setupapi.lib")
-#pragma comment(lib, "ddk/hid.lib")
-
-#if 0
 /* HID interface requests */
 #define GET_REPORT   0xa101
 #define GET_IDLE     0xa102
@@ -47,7 +38,8 @@ typedef struct USBKeyboardState {
 	int keyboard_grabbed;
 } USBKeyboardState;
 
-extern HWND gsWnd;
+USBDeviceInfo devinfo;
+
 
 #define VK_BASED
 
@@ -466,10 +458,8 @@ static const uint8_t qemu_keyboard_dev_descriptor[] = {
 	0x00,       /*  u8  bDeviceProtocol; [ low/full speeds only ] */
 	0x08,       /*  u8  bMaxPacketSize0; 8 Bytes */
 
-//	0x27, 0x06, /*  u16 idVendor; */
-	0x4C, 0x05,
- //	0x01, 0x00, /*  u16 idProduct; */
-	0x00, 0x10,
+	0x27, 0x06, /*  u16 idVendor; */
+ 	0x01, 0x00, /*  u16 idProduct; */
 	0x00, 0x00, /*  u16 bcdDevice */
 
 	0x03,       /*  u8  iManufacturer; */
@@ -623,42 +613,83 @@ static const uint8_t qemu_keyboard_hid_report_descriptor[] = {
     0xc0                           // END_COLLECTION
 };
 
-#define BUZZER_VID			0x054C
-#define BUZZER_PID			0x1000
-#define BUZZER_PID2			0x0002
-
-unsigned char comp_data[6];
-HANDLE usb_buzzer=(HANDLE)-1;
-HANDLE readData=(HANDLE)-1;
-OVERLAPPED ovl;
-
 static int usb_keyboard_poll(USBKeyboardState *s, uint8_t *buf, int len)
 {
-	unsigned char data[6];
+	static unsigned char keys[256];
+    int i,l;
 
-	ReadFile(usb_buzzer, data, 6, 0, &ovl);
+    if (!s->keyboard_grabbed) {
+		//qemu_add_keyboard_event_handler(usb_keyboard_event, s, 0);
+		s->keyboard_grabbed = 1;
+    }
 
-	if(!memcmp(data, comp_data, 6) || (data[0]!=0x00 && data[1]!=0x7F && data[2]!=0x7F)){
-		//No event from buzzers
-	//	CancelIo(usb_buzzer);
-		return USB_RET_STALL;
-	}else{
-		//We got an event !!!
-		memset(buf, 0, 6);
-		memcpy(comp_data, data, 6);
-
-		buf[0]=0x7F;
-		buf[1]=0x7F;
-		buf[2]=data[3];
-		buf[3]=data[4];
-		buf[4]=data[5]|0xF0;
-
-	//	printf("Got buzzer event !!!\nData %02X %02X %02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5]);
-
-		return 16;
+	if(gsWindowHandle != GetForegroundWindow())
+	{
+		for(int i=0;i<256;i++)
+		{
+			keys[i] = 0;
+		}
+	}
+	else
+	{
+		for(int i=0;i<256;i++)
+		{
+			keys[i] = GetAsyncKeyState(i)>>8;
+		}
 	}
 
-	return 16;
+	l=1;
+	l=2;
+	buf[0] = 0;
+	if(keys[VK_LCONTROL]>>7)	buf[0]|=(1<<0);
+	if(keys[VK_LSHIFT]>>7)		buf[0]|=(1<<1);
+	if(keys[VK_LMENU]>>7)		buf[0]|=(1<<2); //ALT key
+	if(keys[VK_LWIN]>>7)		buf[0]|=(1<<3);
+	if(keys[VK_RCONTROL]>>7)	buf[0]|=(1<<4);
+	if(keys[VK_RSHIFT]>>7)		buf[0]|=(1<<5);
+	if(keys[VK_RMENU]>>7)		buf[0]|=(1<<6);
+	if(keys[VK_RWIN]>>7)		buf[0]|=(1<<7);
+
+	buf[1] = 0; //reserved byte
+
+	int k=0;
+	for(int i=0;i<256;i++)
+	{
+		if(keys[i]>>7) //if pressed
+		{
+			if(l==8)
+			{
+				buf[1]=buf[1]=buf[1]=buf[1]=buf[1]=buf[1]=buf[1]=buf[1]=1;
+			}
+#ifdef VK_BASED
+			int uc = vk_to_key_code[i];
+#else
+			int sc = MapVirtualKey(i,MAPVK_VK_TO_VSC_EX);
+			if((sc>>8)!=0)
+				sc=(sc&0x1FF)+256;
+			int uc = scan_to_usb[sc];
+			printf("// %08x->%02x ",i,sc);
+			k++;
+#endif
+			if((uc>0)&&(uc<=0x65)) //
+				buf[l++]=uc;
+		}
+
+	}
+	if(k) printf("\n");
+
+	/*if(l>=1)
+	{
+		while(l<8)
+			buf[l++]=0;
+		printf("KEYS: %02x %02x %02x %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6]);
+		l=l;
+	}*/
+
+	while(l<7)
+		buf[l++]=0;
+	
+    return l;
 }
 
 static void usb_keyboard_handle_reset(USBDevice *dev)
@@ -666,12 +697,11 @@ static void usb_keyboard_handle_reset(USBDevice *dev)
     USBKeyboardState *s = (USBKeyboardState *)dev;
 }
 
-static int usb_keyboard_handle_control(USBDevice *dev, int request, int value,
-                                  int index, int length, uint8_t *data)
+static int usb_keyboard_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
+                          int index, int length, uint8_t *data)
 {
     USBKeyboardState *s = (USBKeyboardState *)dev;
     int ret = 0;
-	unsigned char buf[8];
 
     switch(request) {
     case DeviceRequest | USB_REQ_GET_STATUS:
@@ -777,22 +807,10 @@ static int usb_keyboard_handle_control(USBDevice *dev, int request, int value,
     case GET_REPORT:
 	    ret = usb_keyboard_poll(s, data, length);
         break;
-	case 0x2109:
-		ret=0;
-		memset(buf, 0, 8);
-		buf[2]=data[1];
-		buf[3]=data[2];
-		buf[4]=data[3];
-		buf[5]=data[4];
-	//	printf("Lamps %02X %02X %02X %02X %02X %02X %02X\nlen = %i\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], length);
-		CancelIo(usb_buzzer);
-		WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-		break;
     case SET_IDLE:
         ret = 0;
         break;
     default:
-		printf("Bad request value %08X", request);
     fail:
         ret = USB_RET_STALL;
         break;
@@ -800,32 +818,20 @@ static int usb_keyboard_handle_control(USBDevice *dev, int request, int value,
     return ret;
 }
 
-static int usb_keyboard_handle_data(USBDevice *dev, int pid, 
-                                 uint8_t devep, uint8_t *data, int len)
+static int usb_keyboard_handle_data(USBDevice *dev, USBPacket* packet)
 {
     USBKeyboardState *s = (USBKeyboardState *)dev;
     int ret = 0;
-	unsigned char buf[8];
 
-    switch(pid) {
+    switch(packet->pid) {
     case USB_TOKEN_IN:
-        if (devep == 1) {
-			ret = usb_keyboard_poll(s, data, len);
+        if (packet->devep == 1) {
+			ret = usb_keyboard_poll(s, packet->data, packet->len);
         } else {
             goto fail;
         }
         break;
     case USB_TOKEN_OUT:
-		ret=0;
-		memset(buf, 0, 8);
-		buf[2]=data[1];
-		buf[3]=data[2];
-		buf[4]=data[3];
-		buf[5]=data[4];
-	//	printf("Lamps %02X %02X %02X %02X %02X %02X %02X %02X", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
-		CancelIo(usb_buzzer);
-		WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-		break;
     default:
     fail:
         ret = USB_RET_STALL;
@@ -840,7 +846,6 @@ static void usb_keyboard_handle_destroy(USBDevice *dev)
 
     //qemu_add_keyboard_event_handler(NULL, NULL, 0);
     free(s);
-	CloseHandle(usb_buzzer);
 }
 
 USBDevice *usb_keyboard_init(void)
@@ -852,95 +857,13 @@ USBDevice *usb_keyboard_init(void)
         return NULL;
     memset(s,0,sizeof(USBKeyboardState));
     s->dev.speed = USB_SPEED_FULL;
-    s->dev.handle_packet = usb_generic_handle_packet;
-
-    s->dev.handle_reset = usb_keyboard_handle_reset;
-    s->dev.handle_control = usb_keyboard_handle_control;
-    s->dev.handle_data = usb_keyboard_handle_data;
-    s->dev.handle_destroy = usb_keyboard_handle_destroy;
-
-    strncpy(s->dev.devname, "Generic USB Keyboard", sizeof(s->dev.devname));
-
-	int i=0;
-	DWORD needed=0;
-	unsigned char buf[8];
-	HDEVINFO devInfo;
-	GUID guid;
-	SP_DEVICE_INTERFACE_DATA diData;
-	PSP_DEVICE_INTERFACE_DETAIL_DATA didData;
-	HIDD_ATTRIBUTES attr;
-
-	readData=CreateEvent(0, 0, 0, 0);
-	memset(&ovl, 0, sizeof(OVERLAPPED));
-	ovl.hEvent=readData;
-	ovl.Offset=0;
-	ovl.OffsetHigh=0;
-
-	HidD_GetHidGuid(&guid);
-	
-	devInfo=SetupDiGetClassDevs(&guid, 0, 0, DIGCF_DEVICEINTERFACE);
-	if(!devInfo)return 0;
-	
-	diData.cbSize=sizeof(diData);
-
-	while(SetupDiEnumDeviceInterfaces(devInfo, 0, &guid, i, &diData)){
-		if(usb_buzzer!=INVALID_HANDLE_VALUE)CloseHandle(usb_buzzer);
-
-		SetupDiGetDeviceInterfaceDetail(devInfo, &diData, 0, 0, &needed, 0);
-
-		didData=(PSP_DEVICE_INTERFACE_DETAIL_DATA)malloc(needed);
-		didData->cbSize=sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-		if(!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)){
-			free(didData);
-			break;
-		}
-
-		usb_buzzer=CreateFile(didData->DevicePath, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
-		if(usb_buzzer==INVALID_HANDLE_VALUE){
-			printf("Could not open device %i\n", i);
-			free(didData);
-			i++;
-			continue;
-		}
-
-		HidD_GetAttributes(usb_buzzer, &attr);
-
-		printf("Device %i : VID %04X PID %04X\n", i, attr.VendorID, attr.ProductID);
-
-		if((attr.VendorID==BUZZER_VID) && (attr.ProductID==BUZZER_PID || attr.ProductID==BUZZER_PID2)){
-			//We've found our buzzers !!!
-			free(didData);
-			printf("Buzzers found !!!\n");
-			
-			memset(buf, 0, 8);
-			buf[2]=0xFF;
-			WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-			Sleep(100);
-
-			memset(buf, 0, 8);
-			buf[3]=0xFF;
-			WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-			Sleep(100);
-
-			memset(buf, 0, 8);
-			buf[4]=0xFF;
-			WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-			Sleep(100);
-
-			memset(buf, 0, 8);
-			buf[5]=0xFF;
-			WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-			Sleep(100);
-
-			memset(buf, 0, 8);
-			WriteFile(usb_buzzer, buf, 8, 0, &ovl);
-			break;
-		}
-		i++;
-	}
-
-	if(usb_buzzer==INVALID_HANDLE_VALUE)
-		printf("Could not find buzzers\n");
+	s->dev.info = &devinfo;
+    s->dev.info->handle_packet = usb_generic_handle_packet;
+    s->dev.info->handle_reset = usb_keyboard_handle_reset;
+    s->dev.info->handle_control = usb_keyboard_handle_control;
+    s->dev.info->handle_data = usb_keyboard_handle_data;
+    s->dev.info->handle_destroy = usb_keyboard_handle_destroy;
+    s->dev.info->product_desc = "Generic USB Keyboard";
 
     return (USBDevice *)s;
 }
@@ -2188,5 +2111,4 @@ int ps2kbd_init()
 
   return 0;
 }
-#endif
 #endif

@@ -86,14 +86,14 @@ PS2Axis    axisCapturing = PAD_AXIS_COUNT;
 #define CHECK(exp)		{ if(!(exp)) goto Error; }
 #define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
 
-void SysMessage(char *fmt, ...) {
+void SysMessage(const char *fmt, ...) {
 	va_list list;
 	char tmp[512];
 
 	va_start(list,fmt);
 	vsprintf_s(tmp,512,fmt,list);
 	va_end(list);
-	MessageBox(0, tmp, "USBlinuz Msg", 0);
+	MessageBox(0, tmp, "USBqemu Msg", 0);
 }
 
 void populate(HWND hW)

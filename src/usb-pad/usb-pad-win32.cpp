@@ -200,7 +200,7 @@ bool find_pad(PADState *ps)
 	return false;
 }
 
-int token_out(PADState *ps, uint8_t *data, int len)
+void token_out(PADState *ps, uint8_t *data, int len)
 {
 	Win32PADState *s = (Win32PADState*) ps;
 	DWORD out = 0, err = 0, waitRes = 0;
@@ -220,8 +220,6 @@ int token_out(PADState *ps, uint8_t *data, int len)
 		CancelIo(s->usbHandle);
 	//err = GetLastError();
 	//fprintf(stderr,"usb-pad: wrote %d, res: %d, err: %d\n", out, res, err);
-
-	return 0;
 }
 
 void destroy_pad(PADState *ps)

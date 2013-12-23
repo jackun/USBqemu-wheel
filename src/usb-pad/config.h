@@ -1,7 +1,7 @@
 #ifndef USBCONFIG_H
 #define USBCONFIG_H
 
-#include <string>
+#include "../qemu-usb/vl.h"
 
 //Generic wheel buttons, may need fixing
 enum PS2Buttons : uint32_t {

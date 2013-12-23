@@ -16,8 +16,12 @@ set(HDRS
 	./USB.h
 	./PS2Etypes.h
 	./PS2Edefs.h
+	./qemu-usb/desc.h
 	./qemu-usb/vl.h
 	./qemu-usb/usb.h
+	./qemu-usb/iov.h
+	./qemu-usb/qemu-queue.h
+	./qemu-usb/USBinternal.h
 	./usb-mic/usbreg.h
 	./usb-mic/usbcore.h
 	./usb-mic/audio.h
@@ -34,8 +38,11 @@ set(HDRS
 )
 
 set(SRCS
-	./USB.cpp
-	./qemu-usb/usb-hid.cpp
+	#./qemu-usb/usb-hid.cpp
+	./qemu-usb/bus.cpp
+	./qemu-usb/memops.cpp
+	./qemu-usb/iov.cpp
+	./qemu-usb/desc.cpp
 	./qemu-usb/usb-hub.cpp
 	./qemu-usb/vl.cpp
 	./qemu-usb/usb-base.cpp
@@ -43,6 +50,7 @@ set(SRCS
 	./qemu-usb/usb-ohci.cpp
 	./usb-pad/bitjuggling.cpp
 	./usb-pad/usb-pad.cpp
+	./USB.cpp
 	#./qemu-usb/usb-kbd.cpp
 	#./usb-mic/usb-mic-dummy.cpp
 	#./usb-mic/usb-mic.cpp

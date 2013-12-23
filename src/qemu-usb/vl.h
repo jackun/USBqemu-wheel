@@ -28,7 +28,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <string.h>
+#include <string>
+
 
 #if _WIN32
 	typedef signed __int8 int8_t;
@@ -62,7 +63,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #define fsync _commit
-#define lseek _lseeki64
+//#define lseek _lseeki64
 //#define ENOTSUP 4096
 extern int qemu_ftruncate64(int, int64_t);
 #define ftruncate qemu_ftruncate64
@@ -81,6 +82,7 @@ static inline char *realpath(const char *path, char *resolved_path)
 #endif
 
 #include "usb.h"
+#include "desc.h"
 
 #ifndef glue
 #define xglue(x, y) x ## y
@@ -99,8 +101,18 @@ static inline char *realpath(const char *path, char *resolved_path)
 /* vl.c */
 uint64_t muldiv64(uint64_t a, uint32_t b, uint32_t c);
 void cpu_physical_memory_rw(uint32_t addr, uint8_t *buf, int len, int is_write);
-static inline void cpu_physical_memory_read(uint32_t addr, uint8_t *buf, int len);
-static inline void cpu_physical_memory_write(uint32_t addr, const uint8_t *buf, int len);
+static //inline 
+	void cpu_physical_memory_read(uint32_t addr, uint8_t *buf, int len)
+{
+    cpu_physical_memory_rw(addr, buf, len, 0);
+}
+
+static //inline 
+	void cpu_physical_memory_write(uint32_t addr, const uint8_t *buf, int len)
+{
+    cpu_physical_memory_rw(addr, (uint8_t *)buf, len, 1);
+}
+
 void *qemu_mallocz(uint32_t size);
 
 #endif /* VL_H */

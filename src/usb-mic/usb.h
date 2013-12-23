@@ -16,8 +16,8 @@
  *      Copyright (c) 2005-2006 Keil Software.
  *---------------------------------------------------------------------------*/
 
-#ifndef __USB_H__
-#define __USB_H__
+#ifndef __MIC_USB_H__
+#define __MIC_USB_H__
 
 
 #pragma pack(1)
