@@ -67,10 +67,10 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 	PADState *s = (PADState *)dev;
 	int ret = 0;
 
-	ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
-	if (ret >= 0) {
-		return;
-	}
+	//ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
+	//if (ret >= 0) {
+	//	return;
+	//}
 
 	switch(request) {
 	case DeviceRequest | USB_REQ_GET_STATUS:
@@ -238,7 +238,7 @@ static const USBDescStrings desc_strings = {
 	"Logitech",
 	"Driving Force Pro",
 	"1",
-	"Full speed config (usb 1.1)"
+	"HID Joystick"
 };
 
 USBDescEndpoint eps[2];
@@ -250,8 +250,16 @@ USBDevice *pad_init(int port)
 	s = (PADState *)get_new_padstate();//qemu_mallocz(sizeof(PADState));
 	if (!s)
 		return NULL;
+	
+	s->port = port;
 
-	//I don't yet if these are needed. Just here for now for usb_desc_* functions.
+	if(!find_pad(s))
+	{
+		free(s);
+		return NULL;
+	}
+
+	//I don't know yet if these are needed. Just here for now for usb_desc_* functions.
 	desc_iface_full.bInterfaceNumber              = 0;
 	desc_iface_full.bNumEndpoints                 = 2;
 	desc_iface_full.bInterfaceClass               = USB_CLASS_HID;
@@ -268,14 +276,15 @@ USBDevice *pad_init(int port)
 
 	desc_iface_full.eps = eps;
 
-	desc_device_full.bcdUSB                        = 0x0200;
+	desc_device_full.bcdUSB                        = 0x0110;
 	desc_device_full.bMaxPacketSize0               = 8;
 	desc_device_full.bNumConfigurations            = 1;
-	USBDescConfig conf;
+	USBDescConfig conf = {0};
 	conf.bNumInterfaces        = 1;
 	conf.bConfigurationValue   = 1;
 	conf.iConfiguration        = STR_CONFIG_FULL;
-	conf.bmAttributes          = 0xc0;
+	conf.bmAttributes          = 0xa0;
+	conf.bMaxPower             = 80;
 	conf.nif = 1;
 	conf.ifs = &desc_iface_full;
 	desc_device_full.confs = &conf;
@@ -300,9 +309,7 @@ USBDevice *pad_init(int port)
 	s->dev.klass->handle_destroy = pad_handle_destroy;
 	s->dev.klass->handle_attach  = usb_desc_attach;
 	s->dev.klass->usb_desc = &desc;
-	s->port = port;
-	//Hackish
-	s->dev.ep_ctl.dev = &s->dev;
+	s->dev.usb_desc = &desc;
 
 	// GT4 doesn't seem to care for a proper name?
 	strncpy(s->dev.product_desc, "Driving Force Pro", sizeof(s->dev.product_desc));
@@ -310,16 +317,12 @@ USBDevice *pad_init(int port)
 
 	//usb_desc_create_serial(&s->dev);
 	usb_desc_init(&s->dev);
+	//Hackish
+	//usb_desc_set_config(&s->dev, 1);
+	usb_desc_ep_init(&s->dev);
 
 	//Dunno if correct but we don't care
 	s->dev.klass->product_desc = s->dev.product_desc;
-
-	if(!find_pad(s))
-	{
-		free(s->dev.klass);
-		free(s);
-		return NULL;
-	}
 
 	return (USBDevice *)s;
 

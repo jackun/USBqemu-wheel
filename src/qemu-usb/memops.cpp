@@ -37,5 +37,5 @@ bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
 bool dma_memory_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
 	int len, DMADirection dir)
 {
-	return address_space_rw(as, addr, buf, len, dir == DMADirection::DMA_DIRECTION_TO_DEVICE);
+	return address_space_rw(as, addr, buf, len, dir == DMADirection::DMA_DIRECTION_FROM_DEVICE);
 }

@@ -15,11 +15,30 @@
 
 #define OHCI_MAX_PORTS 2
 
-//Maybe needs to be defined actually
-#define le32_to_cpu(x) x
-#define cpu_to_le32(x) x
-#define le16_to_cpu(x) x
-#define cpu_to_le16(x) x
+//just in case
+#if defined(__BIG_ENDIAN__) || defined(_BIG_ENDIAN)
+
+#define le32_to_cpu(x) (\
+	(((x)>>24)&0xff)\
+	|\
+	(((x)>>8)&0xff00)\
+	|\
+	(((x)<<8)&0xff0000)\
+	|\
+	(((x)<<24)&0xff000000)\
+)
+
+#define le16_to_cpu(x) ( (((x)>>8)&0xff) | (((x)<<8)&0xff00) )
+
+#else
+
+#define le32_to_cpu(x) (x)
+#define le16_to_cpu(x) (x)
+
+#endif
+
+#define cpu_to_le32(x) le32_to_cpu(x)
+#define cpu_to_le16(x) le16_to_cpu(x)
 
 #if defined(_MSC_VER)
 #include <BaseTsd.h>
@@ -334,3 +353,6 @@ void cpu_physical_memory_rw(u32 addr, u8 *buf,
 							int len, int is_write);
 //usb-base.cpp
 static void usb_process_one(USBPacket *p);
+
+void usb_desc_ep_init(USBDevice *dev);
+int usb_desc_set_config(USBDevice *dev, int value);

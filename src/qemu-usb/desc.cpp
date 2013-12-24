@@ -368,7 +368,8 @@ static int usb_desc_bos(const USBDesc *desc, uint8_t *dest, size_t len)
 
 /* ------------------------------------------------------------------ */
 
-static void usb_desc_ep_init(USBDevice *dev)
+//static 
+	void usb_desc_ep_init(USBDevice *dev)
 {
     const USBDescIface *iface;
     int i, e, pid, ep;
@@ -440,7 +441,8 @@ static int usb_desc_set_interface(USBDevice *dev, int index, int value)
     return 0;
 }
 
-static int usb_desc_set_config(USBDevice *dev, int value)
+//static 
+	int usb_desc_set_config(USBDevice *dev, int value)
 {
     int i;
 

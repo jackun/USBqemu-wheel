@@ -1045,7 +1045,7 @@ static void ohci_sof(OHCIState *ohci)
 {
     ohci->sof_time = get_clock(); //qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 	/* modify the current timer so that it will be fired when current_time
-	>= expire_time. The corresponding callback will be called. */
+	>= expire_time. The corresponding callback (ohci_frame_boundary) will be called. */
     //timer_mod(ohci->eof_timer, ohci->sof_time + usb_frame_time);
 	ohci->eof_timer += usb_frame_time;
     ohci_set_interrupt(ohci, OHCI_INTR_SF);
@@ -1698,7 +1698,7 @@ int usb_ohci_init(OHCIState *ohci, DeviceState *dev,
         }
     }*/
 
-	//FIXME simpler version is enough?
+	//XXX Should be enough?
 	for (i = 0; i < num_ports; i++) {
 		ohci->rhport[i].port.opaque = ohci;
 		ohci->rhport[i].port.index = i;
@@ -1716,7 +1716,7 @@ int usb_ohci_init(OHCIState *ohci, DeviceState *dev,
 
     ohci->async_td = 0;
     //qemu_register_reset(ohci_reset, ohci);
-	ohci_reset(ohci);
+	//ohci_reset(ohci);
 
     return 0;
 }

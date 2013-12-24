@@ -135,7 +135,7 @@ s32 CALLBACK USBinit() {
 
 	qemu_ohci = (OHCIState*)qemu_mallocz(sizeof(OHCIState));
 	//qemu_ohci = ohci_create(0x1f801600,2);
-	//ohci_read: Bad offset 1f801608
+	//ohci_read: Bad offset 1f801608, addr &= 0xFF seems to fix it
 	usb_ohci_init(qemu_ohci, NULL, 2, 0x1f801600, NULL, 0, NULL);
 
 	if((usb_device1 = pad_init(PLAYER_ONE_PORT)))

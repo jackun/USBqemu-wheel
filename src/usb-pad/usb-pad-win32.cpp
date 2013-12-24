@@ -176,24 +176,31 @@ bool find_pad(PADState *ps)
 
 			//Get buttons' caps
 			USHORT capsLength = s->caps.NumberInputButtonCaps;
-			s->pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * capsLength);
+			s->pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * s->caps.NumberInputButtonCaps);
 			if(HidP_GetButtonCaps(HidP_Input, s->pButtonCaps, &capsLength, s->pPreparsedData) == HIDP_STATUS_SUCCESS )
 				s->numberOfButtons = s->pButtonCaps->Range.UsageMax - s->pButtonCaps->Range.UsageMin + 1;
 
 			//Get axes' caps
+			//Could init caps here, but it is nice to check if HidP_GetValueCaps fails in usb_pad_poll
 			s->pValueCaps = (PHIDP_VALUE_CAPS)malloc(sizeof(HIDP_VALUE_CAPS) * s->caps.NumberInputValueCaps);
+			//capsLength = s->caps.NumberInputValueCaps;
+			//if(HidP_GetValueCaps(HidP_Input, s->pValueCaps, &capsLength, s->pPreparsedData) == HIDP_STATUS_SUCCESS)
+			{
+				LoadMappings(idx, s->attr.VendorID, s->attr.ProductID, ps->btnsmap, ps->axesmap);
 
-			LoadMappings(idx, s->attr.VendorID, s->attr.ProductID, ps->btnsmap, ps->axesmap);
+				fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
+				return true;
+			}
 
-			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
-			return true;
+			free(s->pButtonCaps);
+			s->pButtonCaps = NULL;
+			free(s->pValueCaps);
+			s->pValueCaps = NULL;
 		}
-		else
-		{
-			CloseHandle(s->usbHandle);
-			s->usbHandle = INVALID_HANDLE_VALUE;
-			HidD_FreePreparsedData(s->pPreparsedData);
-		}
+
+		CloseHandle(s->usbHandle);
+		s->usbHandle = INVALID_HANDLE_VALUE;
+		HidD_FreePreparsedData(s->pPreparsedData);
 	}
 
 	fprintf(stderr, "Could not open device '%s'\n", player_joys[idx]);
