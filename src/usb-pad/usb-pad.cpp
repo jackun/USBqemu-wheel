@@ -191,7 +191,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		case 0x22:
 			fprintf(stderr, "Sending hid report desc.\n");
 			//TODO For now, only supporting DFP
-			if(s->doPassthrough || t == WT_DRIVING_FORCE_PRO)
+			if(/*s->doPassthrough ||*/ t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
