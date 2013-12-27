@@ -33,6 +33,7 @@
 
 uint32_t bits = 0;
 uint32_t need_interrupt = 0;
+//#define DEBUG_PACKET
 
 extern FILE* usbLog;
 
@@ -152,7 +153,8 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
 }
 
 /* Reset the controller */
-static void ohci_reset(OHCIState *ohci)
+//static 
+	void ohci_reset(OHCIState *ohci)
 {
     OHCIPort *port;
     int i;
@@ -161,8 +163,6 @@ static void ohci_reset(OHCIState *ohci)
     ohci->status = 0;
     ohci->intr_status = 0;
     ohci->intr = OHCI_INTR_MIE;
-
-	
 
     ohci->hcca = 0;
     ohci->ctrl_head = ohci->ctrl_cur = 0;
@@ -190,8 +190,15 @@ static void ohci_reset(OHCIState *ohci)
       {
         port = &ohci->rhport[i];
         port->ctrl = 0;
-        if (port->port.dev)
-            ohci_attach(&port->port, port->port.dev);
+        
+		//FIXME testing
+		//Detach so it would send an interrupt
+		USBDevice *dev = port->port.dev;
+        //ohci_attach(&port->port, NULL);
+        if (dev)
+            ohci_attach(&port->port, dev);
+        //usb_device_reset(dev);
+		//if (dev) dev->handle_packet(dev, USB_MSG_RESET, 0, 0, NULL, 0);
       }
     dprintf("usb-ohci: Reset.\n");
 }

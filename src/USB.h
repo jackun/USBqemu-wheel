@@ -18,8 +18,8 @@
 
 #pragma once
 
-#ifndef __USB_H__
-#define __USB_H__
+#ifndef __PS2USB_H__
+#define __PS2USB_H__
 
 #include <stdio.h>
 
@@ -44,6 +44,11 @@
 
 typedef struct {
   int Log;
+  int Port0; //player2
+  int Port1; //player1
+  int DFPPass;
+  int WheelType1;
+  int WheelType2;
 } Config;
 
 extern Config conf;
@@ -302,6 +307,7 @@ uint32_t ohci_mem_read(OHCIState *ohci, uint32_t addr );
 void ohci_mem_write(OHCIState *ohci, uint32_t addr, uint32_t value );
 void ohci_frame_boundary(void *opaque);
 
+void ohci_reset(OHCIState *ohci);
 int ohci_bus_start(OHCIState *ohci);
 void ohci_bus_stop(OHCIState *ohci);
 
@@ -310,7 +316,14 @@ USBDevice *usb_msd_init(const char *filename);
 USBDevice *eyetoy_init(void);
 USBDevice *usb_mouse_init(void);
 
-/* usb-pad.c */
+/* usb-pad.cpp */
 USBDevice *pad_init(int port);
+
+/* usb-pad-win32.cpp */
+#if _WIN32
+extern HWND msgWindow;
+int InitWindow(HWND);
+void UninitWindow();
+#endif
 
 #endif

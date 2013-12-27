@@ -6,8 +6,16 @@
 extern HINSTANCE hInst;
 char *szIni = "\\inis\\USBqemu-wheel.ini";
 
-//XXX Allowing PLayer One and Two have different mappings with "ply".
-void LoadMappings(int ply, int vid, int pid, PS2Buttons *btns, PS2Axis *axes)
+inline bool MapExists(MapVector *maps, char* hid)
+{
+	MapVector::iterator it;
+	for(it = maps->begin(); it != maps->end(); it++)
+		if(!(*it)->hidPath.compare(hid))
+			return true;
+	return false;
+}
+
+void LoadMappings(MapVector *maps)
 {
 	char *szTemp;
 	char szIniFile[MAX_PATH+1], szValue[256];
@@ -17,43 +25,56 @@ void LoadMappings(int ply, int vid, int pid, PS2Buttons *btns, PS2Axis *axes)
 
 	if(!szTemp) return;
 	strcpy(szTemp, szIni);
-
-	memset(btns, PAD_BUTTON_COUNT, MAX_BUTTONS);
-	memset(axes, PAD_AXIS_COUNT, MAX_AXES);
-
-	// Default 1-to-1
-	for(int i = 0; i < PAD_BUTTON_COUNT /*MAX_BUTTONS*/; i++) //FIXME max buttons
-		btns[i] = (PS2Buttons)i;
-	for(int i = 0; i < PAD_AXIS_COUNT /*MAX_AXES*/; i++) //FIXME max axes
-		axes[i] = (PS2Axis)i;
-
-	char dev[128];
-	sprintf(dev, "%X_%X_%d", vid, pid, ply);
-	if(GetPrivateProfileString("Mappings", dev, NULL, szValue, 256, szIniFile))
+	maps->clear();
+	
+	char sec[32] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
+	int j = 0, v = 0;
+	while(j < 25)
 	{
-		char *tok = strtok(szValue, ",");
-		while(tok != NULL)
+		sprintf(sec, "DEVICE %d", j++);
+		if(GetPrivateProfileString(sec, "HID", NULL, hid, MAX_PATH, szIniFile)
+			&& hid && !MapExists(maps, hid))
 		{
-			sscanf(tok, "%X,", btns++);
-			tok = strtok(NULL, ",");
-		}
-	}
+			Mappings *m = new Mappings;
+			//ZeroMemory(m, sizeof(Mappings));
+			maps->push_back(m);
+			Mappings *ptr = maps->back();
 
-	ZeroMemory(szValue, sizeof(szValue));
-	if(GetPrivateProfileString("Axes", dev, NULL, szValue, 256, szIniFile))
-	{
-		char *tok = strtok(szValue, ",");
-		while(tok != NULL)
-		{
-			sscanf(tok, "%X,", axes++);
-			tok = strtok(NULL, ",");
+			ptr->hidPath = std::string(hid);
+			ptr->devName = std::string(hid);
+			//ResetData(&ptr->data[0]);
+			//ResetData(&ptr->data[1]);
+			ZeroMemory(&ptr->data[0], sizeof(wheel_data_t));
+			ZeroMemory(&ptr->data[1], sizeof(wheel_data_t));
+
+			for(int i = 0; i<MAX_BUTTONS; i++)
+			{
+				sprintf(bind, "Button %d", i);
+				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
+				sscanf(tmp, "%08X", &(ptr->btnMap[i]));
+			}
+
+			for(int i = 0; i<MAX_AXES; i++)
+			{
+				sprintf(bind, "Axis %d", i);
+				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
+				sscanf(tmp, "%08X", &ptr->axisMap[i]);
+			}
+
+			for(int i = 0; i<4; i++)
+			{
+				sprintf(bind, "Hat %d", i);
+				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
+				sscanf(tmp, "%08X", &ptr->hatMap[i]);
+			}
+			ptr = NULL;
 		}
 	}
 
 	return;
 }
 
-void SaveMappings(int ply, int vid, int pid, PS2Buttons *btns, PS2Axis *axes)
+void SaveMappings(MapVector *maps)
 {
 	char *szTemp;
 	char szIniFile[MAX_PATH+1], szValue[256] = {0};
@@ -64,24 +85,37 @@ void SaveMappings(int ply, int vid, int pid, PS2Buttons *btns, PS2Axis *axes)
 	if(!szTemp) return;
 	strcpy(szTemp, szIni);
 
-	char dev[128], tmp[8];
-	sprintf(dev, "%X_%X_%d", vid, pid, ply);
-	for(int i = 0; i<16 /*MAX_BUTTONS*/; i++)
+	MapVector::iterator it;
+	uint32_t numDevice = 0;
+	for(it = maps->begin(); it != maps->end(); it++)
 	{
-		sprintf(tmp, "%X,", btns[i]);
-		strcat(szValue, tmp);
+		char dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
+
+		sprintf(dev, "DEVICE %d", numDevice++);
+		WritePrivateProfileString(dev, "HID", (*it)->hidPath.c_str(), szIniFile);
+
+		//writing everything separately, then string lengths are more predictable
+		for(int i = 0; i<MAX_BUTTONS; i++)
+		{
+			sprintf(bind, "Button %d", i);
+			sprintf(tmp, "%08X", (*it)->btnMap[i]);
+			WritePrivateProfileString(dev, bind, tmp, szIniFile);
+		}
+
+		for(int i = 0; i<MAX_AXES; i++)
+		{
+			sprintf(bind, "Axis %d", i);
+			sprintf(tmp, "%08X", (*it)->axisMap[i]);
+			WritePrivateProfileString(dev, bind, tmp, szIniFile);
+		}
+
+		for(int i = 0; i<4; i++)
+		{
+			sprintf(bind, "Hat %d", i);
+			sprintf(tmp, "%08X", (*it)->hatMap[i]);
+			WritePrivateProfileString(dev, bind, tmp, szIniFile);
+		}
 	}
-
-	WritePrivateProfileString("Mappings", dev, szValue, szIniFile);
-
-	ZeroMemory(szValue, sizeof(szValue));
-	for(int i = 0; i<6 /*MAX_AXES*/; i++)
-	{
-		sprintf(tmp, "%X,", axes[i]);
-		strcat(szValue, tmp);
-	}
-
-	WritePrivateProfileString("Axes", dev, szValue, szIniFile);
 
 	return;
 }
@@ -97,8 +131,28 @@ void SaveConfig()
 
 	if(!szTemp) return;
 	strcpy(szTemp, szIni);
+
+	//FILE *f = fopen(szIniFile, "w+");
+	//if(f) fclose(f);
+
 	sprintf(szValue,"%u",Conf1->Log);
 	WritePrivateProfileString("Interface", "Logging",szValue,szIniFile);
+
+	sprintf(szValue,"%u",Conf1->DFPPass);
+	WritePrivateProfileString("Devices", "DFP Passthrough",szValue,szIniFile);
+
+	sprintf(szValue,"%u",Conf1->Port0);
+	WritePrivateProfileString("Devices", "Port 0",szValue,szIniFile);
+
+	sprintf(szValue,"%u",Conf1->Port1);
+	WritePrivateProfileString("Devices", "Port 1",szValue,szIniFile);
+
+	sprintf(szValue,"%u",Conf1->WheelType1);
+	WritePrivateProfileString("Devices", "Wheel Type 1",szValue,szIniFile);
+
+	sprintf(szValue,"%u",Conf1->WheelType2);
+	WritePrivateProfileString("Devices", "Wheel Type 2",szValue,szIniFile);
+	
 	WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile);
 	WritePrivateProfileString("Joystick", "Player2", player_joys[1].c_str(), szIniFile);
 
@@ -128,11 +182,29 @@ void LoadConfig() {
 	fclose(fp);
 
 	GetPrivateProfileString("Interface", "Logging", NULL, szValue, 20, szIniFile);
+	Conf1->Log = strtoul(szValue, NULL, 10);
+
+	GetPrivateProfileString("Devices", "DFP Passthrough", NULL, szValue, 20, szIniFile);
+	Conf1->DFPPass = strtoul(szValue, NULL, 10);
+
+	GetPrivateProfileString("Devices", "Port 0", NULL, szValue, 20, szIniFile);
+	Conf1->Port0 = strtoul(szValue, NULL, 10);
+
+	GetPrivateProfileString("Devices", "Port 1", NULL, szValue, 20, szIniFile);
+	Conf1->Port1 = strtoul(szValue, NULL, 10);
+
+	GetPrivateProfileString("Devices", "Wheel Type 1", NULL, szValue, 20, szIniFile);
+	Conf1->WheelType1 = strtoul(szValue, NULL, 10);
+
+	GetPrivateProfileString("Devices", "Wheel Type 2", NULL, szValue, 20, szIniFile);
+	Conf1->WheelType2 = strtoul(szValue, NULL, 10);
+
 	GetPrivateProfileString("Joystick", "Player1", NULL, szValue, MAX_PATH, szIniFile);
 	player_joys[0] = szValue;
+
 	GetPrivateProfileString("Joystick", "Player2", NULL, szValue, MAX_PATH, szIniFile);
 	player_joys[1] = szValue;
-	Conf1->Log = strtoul(szValue, NULL, 10);
+	
 	return ;
 
 }

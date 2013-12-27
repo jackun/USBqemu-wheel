@@ -35,7 +35,7 @@ static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
 #endif
 ;
 
-OHCIState *qemu_ohci;
+OHCIState *qemu_ohci = NULL;
 USBDevice *usb_device1 = NULL;
 USBDevice *usb_device2 = NULL;
 
@@ -98,28 +98,37 @@ u32 CALLBACK PS2EgetLibVersion2(u32 type) {
 	return (version<<16) | (revision<<8) | build | (fix << 24);
 }
 
+//Simpler to reset and reattach after USBclose/USBopen
+void ResetAttach()
+{
+	if(qemu_ohci)
+	{
+		ohci_reset(qemu_ohci);
+		if(usb_device1)
+			qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
+
+		if(usb_device2)
+			qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
+	}
+}
+
 s32 CALLBACK USBinit() {
 	LoadConfig();
+	conf.Log = 1;
 	if (conf.Log)
 	{
 		usbLog = fopen("logs/usbLog.txt", "w");
 		setvbuf(usbLog, NULL,  _IONBF, 0);
-		USB_LOG("usblinuz plugin version %d,%d\n",revision,build);
+		USB_LOG("usbqemu wheel mod plugin version %d,%d\n",revision,build);
 		USB_LOG("USBinit\n");
 	}
 
 	qemu_ohci = ohci_create(0x1f801600,2);
-
-	if((usb_device1 = pad_init(PLAYER_ONE_PORT)))
-	{
-		qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
-	}
-
-	if((usb_device2 = pad_init(PLAYER_TWO_PORT)))
-	{
-		qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
-	}
-
+	if(conf.Port1 == 1)
+		usb_device1 = pad_init(PLAYER_ONE_PORT);
+	if(conf.Port0 == 1)
+		usb_device2 = pad_init(PLAYER_TWO_PORT);
+	ResetAttach();
 	return 0;
 }
 
@@ -142,6 +151,8 @@ void CALLBACK USBshutdown() {
 
 s32 CALLBACK USBopen(void *pDsp) {
 	USB_LOG("USBopen\n");
+	ResetAttach(); //But not desirable if game is resumed instead
+	//ohci_reset(qemu_ohci);
 
 #if _WIN32
 	HWND hWnd=(HWND)pDsp;
@@ -156,12 +167,17 @@ s32 CALLBACK USBopen(void *pDsp) {
 			hWnd = GetParent (hWnd);
 	}
 	gsWnd = hWnd;
+	if(msgWindow == NULL)
+		InitWindow(hWnd);
 #endif
 
 	return 0;
 }
 
 void CALLBACK USBclose() {
+#if _WIN32
+	UninitWindow();
+#endif
 }
 
 u8   CALLBACK USBread8(u32 addr) {
@@ -231,7 +247,7 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 		}
 
 		usbd = *(USBfreezeData*)data->data;
-		usbd.freezeID[9] = 0;
+		usbd.freezeID[10] = 0;
 		usbd.cycles = clocks;
 		usbd.remaining = remaining;
 		

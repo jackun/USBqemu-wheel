@@ -10,6 +10,7 @@
 #define IDC_COMBO1                      1008
 #define IDC_COMBO2                      1009
 #define IDC_LIST1                       1010
+#define IDC_COMBO_FFB                   1011
 #define IDC_BUTTON1                     1012
 #define IDC_BUTTON2                     1013
 #define IDC_BUTTON3                     1014
@@ -31,10 +32,13 @@
 #define IDC_BUTTON19                    1030
 #define IDC_BUTTON20                    1031
 #define IDC_BUTTON21                    1032
-#define IDC_BUTTON22                    1033
+#define IDC_DFP_PASS                    1032
+#define IDC_UNBIND                      1033
 #define IDC_STATIC_CAP                  1034
+#define IDC_COMBO3                      1035
 #define IDC_BUILD_DATE                  1036
-#define IDC_LIST2                       1037
+#define IDC_COMBO_WHEEL_TYPE            1037
+#define IDC_TAB1                        1038
 
 // Next default values for new objects
 // 
@@ -42,7 +46,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        106
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1038
+#define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -52,7 +52,7 @@ static /*const*/ uint8_t pad_dev_descriptor[] = {
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(DF_PID), //WBVAL(0xc294), 0xc298 dfp
+	/* idProduct           */ WBVAL(GENERIC_PID), //WBVAL(0xc294), 0xc298 dfp
 	/* bcdDevice           */ WBVAL(0x0001), //(1)
 	/* iManufacturer       */ 0x01, //(1)
 	/* iProduct            */ 0x02, //(2)
@@ -432,12 +432,14 @@ struct generic_data_t
 	uint32_t axis_rz : 8;
 	uint32_t pad2 : 8;
 };
-
 extern struct momo_data_t		momo_data;
+
+//in config.h
 #if _WIN32
-extern struct generic_data_t	generic_data;
+//extern struct generic_data_t	generic_data;
 #else
 extern struct generic_data_t	generic_data[2];
 #endif
 
+extern void ResetData(generic_data_t *d);
 #endif

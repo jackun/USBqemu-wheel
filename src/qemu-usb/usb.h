@@ -158,6 +158,7 @@ int usb_generic_handle_packet(USBDevice *s, int pid,
                               uint8_t devaddr, uint8_t devep,
                               uint8_t *data, int len);
 int set_usb_string(uint8_t *buf, const char *str);
+void usb_device_reset(USBDevice *dev);
 
 /* usb hub */
 USBDevice *usb_hub_init(int nb_ports);

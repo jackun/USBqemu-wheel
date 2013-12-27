@@ -1,17 +1,15 @@
-#define _WIN32_WINNT  0x0501
+#define _WIN32_WINNT  0x0501 //Why are you on XP?
 #include <stdio.h>
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
 
 #include <algorithm>
-#include <vector>
 #include <map>
 
 #include "../USB.h"
 #include "resource.h"
 #include "Config.h"
-#include "../usb-pad/config.h"
 
 #define TXT(x) (#x)
 char *BTN2TXT[] = { 
@@ -36,14 +34,12 @@ char *AXIS2TXT[] = {
 	"Axis RZ"
 };
 
+HWND dgHwnd = NULL;
 HINSTANCE hInst;
-std::vector<std::string> joys;
+//std::vector<std::wstring> joysName;
+std::vector<std::string> joysDev;
 DWORD selectedJoy[2];
 //std::vector<std::string>::iterator* tmpIter;
-typedef struct _Mappings {
-	PS2Buttons	btnMap[MAX_BUTTONS];
-	PS2Axis		axisMap[MAX_AXES];
-} Mappings_t;
 
 typedef struct _DevInfo
 {
@@ -70,21 +66,17 @@ typedef struct _DevInfo
 
 } DevInfo_t;
 
-typedef std::map<const DevInfo_t, Mappings_t> MappingsMap;
-MappingsMap mappings;
-
-PS2Buttons	*pbtnMap;
-PS2Axis		*paxisMap;
+//typedef std::map<const DevInfo_t, Mappings_t> MappingsMap;
+//MappingsMap mappings;
 
 uint32_t  axisDiff[MAX_AXES]; //previous axes values
 bool      axisPass2 = false;
 
+//eh, global var for currently selected player
+static int plyCapturing = 0;
 PS2Buttons btnCapturing  = PAD_BUTTON_COUNT;
 PS2Axis    axisCapturing = PAD_AXIS_COUNT;
-
-#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
-#define CHECK(exp)		{ if(!(exp)) goto Error; }
-#define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
+PS2HatSwitch hatCapturing = PAD_HAT_COUNT;
 
 void SysMessage(char *fmt, ...) {
 	va_list list;
@@ -98,9 +90,12 @@ void SysMessage(char *fmt, ...) {
 
 void populate(HWND hW)
 {
-	mappings.clear();
-	joys.clear();
-	joys.push_back("");
+	//mappings.clear();
+	//joysName.clear();
+	//joysName.push_back("None");
+	joysDev.clear();
+	joysDev.push_back("");
+
 	int i=0, sel_idx=1;
 	HANDLE usbHandle = INVALID_HANDLE_VALUE;
 	DWORD needed=0;
@@ -125,22 +120,51 @@ void populate(HWND hW)
 
 	diData.cbSize = sizeof(diData);
 
+	//Mappings listview
 	LVCOLUMN LvCol;
 	memset(&LvCol,0,sizeof(LvCol));
 	LvCol.mask=LVCF_TEXT|LVCF_WIDTH|LVCF_SUBITEM;
-	LvCol.pszText="PC";
+	LvCol.pszText="Device";
 	LvCol.cx=0x4F;
 	SendDlgItemMessage(hW, IDC_LIST1, LVM_SETEXTENDEDLISTVIEWSTYLE,
 		0,LVS_EX_FULLROWSELECT); // Set style
+	ListView_InsertColumn(GetDlgItem(hW, IDC_LIST1), 0, &LvCol);
+
+	LvCol.pszText="PC";
 	ListView_InsertColumn(GetDlgItem(hW, IDC_LIST1), 1, &LvCol);
 
 	LvCol.pszText="PS2";
-	ListView_InsertColumn(GetDlgItem(hW, IDC_LIST1), 1, &LvCol);
+	ListView_InsertColumn(GetDlgItem(hW, IDC_LIST1), 2, &LvCol);
 
-	SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)L"None");
-	SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)L"None");
-	SendDlgItemMessageW(hW, IDC_COMBO1, CB_SETCURSEL, 0, 0);
-	SendDlgItemMessageW(hW, IDC_COMBO2, CB_SETCURSEL, 0, 0);
+	//Tab control
+	TCITEMA tie;
+	tie.pszText = "Player 1";
+	tie.cchTextMax = 32;
+	tie.mask = TCIF_TEXT;
+	SendDlgItemMessageA(hW, IDC_TAB1, TCM_INSERTITEM, 0, (LPARAM)&tie);
+
+	tie.pszText = "Player 2";
+	SendDlgItemMessageA(hW, IDC_TAB1, TCM_INSERTITEM, 1, (LPARAM)&tie);
+
+	//Selected emulated devices. Maybe add virtual USB stick, keyboard and mouse
+	SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"None");
+	SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"None");
+	SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"Wheel");
+	SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"Wheel");
+	//Port 1 aka device/player 1
+	SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, conf.Port1, 0);
+	//Port 0 aka device/player 2
+	SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, conf.Port0, 0);
+
+	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Generic Logitech Wheel");
+	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
+	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType1, 0);
+	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force GT");
+
+	//Selected FFB target device
+	SendDlgItemMessageA(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)"None");
+	SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, 0, 0);
 
 	while(SetupDiEnumDeviceInterfaces(devInfo, 0, &guid, i, &diData)){
 		if(usbHandle != INVALID_HANDLE_VALUE)
@@ -169,26 +193,27 @@ void populate(HWND hW)
 		HidD_GetPreparsedData(usbHandle, &pPreparsedData);
 		HidP_GetCaps(pPreparsedData, &caps);
 
-		if(caps.UsagePage == HID_USAGE_PAGE_GENERIC && caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
+		if(caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
+			caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
 		{
 			fprintf(stderr, "Joystick found %04X:%04X\n", attr.VendorID, attr.ProductID);
 			std::string strPath(didData->DevicePath);
 			std::transform(strPath.begin(), strPath.end(), strPath.begin(), ::toupper);
-			joys.push_back(strPath);
+			joysDev.push_back(strPath);
 
-			wchar_t str[MAX_PATH];
+			wchar_t str[MAX_PATH+1];
 			HidD_GetProductString(usbHandle, str, sizeof(str));//TODO HidD_GetProductString returns unicode always?
-			SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)str);
-			SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)str);
+			SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
+			//joysName.push_back(str);
+			//SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)str);
 
 			if(player_joys[0] == strPath)
 			{
-				SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, sel_idx, 0);
+				SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, sel_idx, 0);
 				selectedJoy[0] = sel_idx;
 			}
 			else if(player_joys[1] == strPath)
 			{
-				SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, sel_idx, 0);
 				selectedJoy[1] = sel_idx;
 			}
 			sel_idx++;
@@ -197,113 +222,128 @@ void populate(HWND hW)
 		HidD_FreePreparsedData(pPreparsedData);
 		i++;
 	}
+	if(usbHandle != INVALID_HANDLE_VALUE)
+		CloseHandle(usbHandle);
 }
 
-void populateMappings(HWND hW, int ply)
+void populateMappings(HWND hW)
 {
-	HANDLE usbHandle = INVALID_HANDLE_VALUE;
-	OVERLAPPED ovl;
-	HIDD_ATTRIBUTES attr;
-	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
-	HIDP_CAPS caps;
-	PS2Buttons btns[MAX_BUTTONS], *pbtns;
-	PS2Axis axes[MAX_AXES], *paxes;
-	DevInfo_t mapDevInfo;
-	MappingsMap::iterator iter;
-
-	pbtns = btns;
-	paxes = axes;
-
-	memset(&ovl, 0, sizeof(OVERLAPPED));
-	ovl.hEvent = CreateEvent(0, 0, 0, 0);
-	ovl.Offset = 0;
-	ovl.OffsetHigh = 0;
 	LVITEM lvItem;
 	HWND lv = GetDlgItem(hW, IDC_LIST1);
 
-	std::string joy = *(joys.begin() + selectedJoy[ply]);
-
-	usbHandle = CreateFile(joy.c_str(), GENERIC_READ|GENERIC_WRITE,
-		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
-
-	if(usbHandle == INVALID_HANDLE_VALUE){
-		fprintf(stderr,"Could not open device %s\n", joy.c_str());
-		goto Error;
-	}
-
-	HidD_GetAttributes(usbHandle, &attr);
-	HidD_GetPreparsedData(usbHandle, &pPreparsedData);
-	HidP_GetCaps(pPreparsedData, &caps);
-	
-	mapDevInfo.ply = ply;
-	mapDevInfo.hid.dwProductId = attr.ProductID;
-	mapDevInfo.hid.dwVendorId = attr.VendorID;
-	mapDevInfo.hid.dwVersionNumber = attr.VersionNumber;
-	mapDevInfo.hid.usUsagePage = 1;
-	mapDevInfo.hid.usUsage = 4;
-	iter = mappings.find(mapDevInfo);
-
-	if(iter != mappings.end())
-	{
-		pbtns = iter->second.btnMap;
-		paxes = iter->second.axisMap;
-	}
-	else
-		LoadMappings(ply, attr.VendorID, attr.ProductID, pbtns, paxes);
+	//LoadMappings(&mapVector);
 
 	memset(&lvItem,0,sizeof(lvItem));
 	
-	lvItem.mask = LVIF_TEXT;
+	lvItem.mask = LVIF_TEXT|LVIF_PARAM;
 	lvItem.cchTextMax = 256;
 	lvItem.iItem = 0;
 	lvItem.iSubItem = 0;
 
-	for(int i = 0; i<MAX_BUTTONS; i++)
-	{
-		if(pbtns[i] >= PAD_BUTTON_COUNT)
-			continue;
-		
-		lvItem.iItem = i;
-		char tmp[256];
-		sprintf_s(tmp, 256, "%d: Button %d", ply, i);
-		lvItem.pszText = tmp;
-		ListView_InsertItem(lv, &lvItem);
+	MapVector::iterator it;
+	char tmp[256];
+	int m[3];
 
-		sprintf_s(tmp, 256, "%s", BTN2TXT[pbtns[i]]);
-		ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
+	for(it = mapVector.begin(); it != mapVector.end(); it++)
+	{
+		//TODO feels a bit hacky
+		bool isKB = ((*it)->devName == "Keyboard");
+		if(isKB)
+		{
+			m[0] = PAD_BUTTON_COUNT;
+			m[1] = PAD_AXIS_COUNT;
+			m[2] = PAD_HAT_COUNT;
+		}
+		else
+		{
+			m[0] = MAX_BUTTONS;
+			m[1] = MAX_AXES;
+			m[2] = 4;
+		}
+		
+		for(int i = 0; i<m[0]; i++)
+		{
+			//if((*it).btnMap[i] >= PAD_BUTTON_COUNT)
+			//	continue;
+			int btn = (*it)->btnMap[i];
+			int val = PLY_GET_VALUE(plyCapturing, btn);
+		
+			lvItem.iItem = ListView_GetItemCount(lv);
+			if(PLY_IS_MAPPED(plyCapturing, btn) /*&& val < PAD_BUTTON_COUNT*/)
+			{
+				sprintf_s(tmp, 255, "%s", (*it)->devName.c_str()); //TODO
+				lvItem.pszText = tmp;
+				lvItem.lParam = (LPARAM)&((*it)->btnMap[i]);
+				ListView_InsertItem(lv, &lvItem);
+				sprintf_s(tmp, 255, "P%d: Button %d", plyCapturing+1, isKB ? val : i);
+				ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
+				
+				sprintf_s(tmp, 255, "%s", isKB ? BTN2TXT[i] : BTN2TXT[val]);
+				ListView_SetItemText(lv, lvItem.iItem, 2, tmp);
+			}
+		}
+
+		for(int i = 0; i<m[1]; i++)
+		{
+			//if((*it).axisMap[i] >= PAD_AXIS_COUNT)
+			//	continue;
+			int axis = (*it)->axisMap[i];
+			int val = PLY_GET_VALUE(plyCapturing, axis);
+
+			if(PLY_IS_MAPPED(plyCapturing, axis)/* && val < PAD_AXIS_COUNT*/)
+			{
+				lvItem.iItem = ListView_GetItemCount(lv);
+				sprintf_s(tmp, 255, "%s", (*it)->devName.c_str()); //TODO
+				lvItem.pszText = tmp;
+				lvItem.lParam = (LPARAM)&((*it)->axisMap[i]);
+				ListView_InsertItem(lv, &lvItem);
+
+				sprintf_s(tmp, 255, "P%d: Axis %d", plyCapturing+1, isKB ? val : i);
+				ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
+
+				sprintf_s(tmp, 255, "%s", isKB ? AXIS2TXT[i] : AXIS2TXT[val]);
+				ListView_SetItemText(lv, lvItem.iItem, 2, tmp);
+			}
+		}
+
+		for(int i = 0; i<m[2]; i++)
+		{
+			int hat = (*it)->hatMap[i];
+			int val = PLY_GET_VALUE(plyCapturing, hat);
+
+			if(PLY_IS_MAPPED(plyCapturing, hat) /*&& val < PAD_HAT_COUNT*/)
+			{
+				lvItem.iItem = ListView_GetItemCount(lv);
+				sprintf_s(tmp, 255, "%s", (*it)->devName.c_str()); //TODO
+				lvItem.pszText = tmp;
+				lvItem.lParam = (LPARAM)&((*it)->hatMap[i]);
+				ListView_InsertItem(lv, &lvItem);
+
+				sprintf_s(tmp, 255, "P%d: Hat %d", plyCapturing+1, isKB ? val : i);
+				ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
+
+				sprintf_s(tmp, 255, "Hat %d", isKB ? i : val);
+				ListView_SetItemText(lv, lvItem.iItem, 2, tmp);
+			}
+		}
 	}
 
-	for(int i = 0; i<MAX_AXES; i++)
-	{
-		if(paxes[i] >= PAD_AXIS_COUNT)
-			continue;
-		
-		lvItem.iItem = ListView_GetItemCount(lv);
-		char tmp[256];
-		sprintf_s(tmp, 256, "%d: Axis %d", ply, i);
-		lvItem.pszText = tmp;
-		ListView_InsertItem(lv, &lvItem);
-
-		sprintf_s(tmp, 256, "%s", AXIS2TXT[paxes[i]]);
-		ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
-	}
-
-Error:
-	if(pPreparsedData)
-		HidD_FreePreparsedData(pPreparsedData);
 }
 
 #define CHECKDIFF(x) \
 	if(axisPass2) {\
 		if((uint32_t)abs((int)(axisDiff[(int)x] - value)) > (logical >> 2)){\
-			paxisMap[x] = axisCapturing;\
+			mapping->axisMap[x] = PLY_SET_MAPPED(plyCapturing, axisCapturing);\
 			axisPass2 = false;\
+			fprintf(stderr, "Selected axis %d\n", x);\
+			sprintf(buf, "Captured wheel axis %d", x); \
+			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf); \
 			axisCapturing = PAD_AXIS_COUNT;\
 			goto Error;\
 		}\
 	break;}
 
-void ParseRawInput(PRAWINPUT pRawInput)
+static void ParseRawInput(PRAWINPUT pRawInput)
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 	HIDP_CAPS            Caps;
@@ -313,125 +353,176 @@ void ParseRawInput(PRAWINPUT pRawInput)
 	UINT                 bufferSize;
 	USAGE                usage[MAX_BUTTONS];
 	ULONG                i, usageLength, value;
-	char                 name[1024];
+	char                 name[1024] = {0};
 	UINT                 nameSize = 1024;
 	UINT                 pSize;
 	RID_DEVICE_INFO      devInfo;
 	std::string          devName;
-	DevInfo_t            mapDevInfo;
-	Mappings_t           maps;
-	std::pair<MappingsMap::iterator, bool> iter;
+	//DevInfo_t            mapDevInfo;
+	Mappings             *mapping = NULL;
+	MapVector::iterator  it;
+	char buf[256];
+	//std::pair<MappingsMap::iterator, bool> iter;
 
 	//
 	// Get the preparsed data block
 	//
 	
-	CHECK( GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_PREPARSEDDATA, NULL, &bufferSize) == 0 );
-	CHECK( pPreparsedData = (PHIDP_PREPARSED_DATA)malloc(bufferSize) );
-	CHECK( (int)GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_PREPARSEDDATA, pPreparsedData, &bufferSize) >= 0 );
-	CHECK( HidP_GetCaps(pPreparsedData, &Caps) == HIDP_STATUS_SUCCESS );
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
 	pSize = sizeof(devInfo);
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICEINFO, &devInfo, &pSize);
 
-	devName = name;
-	std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
-	uint8_t idx = -1;
-	if(*(joys.begin() + selectedJoy[0]) == devName)
-		idx = 0;
-	else if(*(joys.begin() + selectedJoy[1]) == devName)
-		idx = 1;
-	else
-		goto Error;
-
-	mapDevInfo.ply = idx;
-	mapDevInfo.hid = devInfo.hid;
-	iter = mappings.insert(std::make_pair(mapDevInfo, maps));
-
-	pbtnMap = mappings[mapDevInfo].btnMap;
-	paxisMap = mappings[mapDevInfo].axisMap;
-
-	if(iter.second) //false -> already loaded
-		LoadMappings(idx, devInfo.hid.dwVendorId, devInfo.hid.dwProductId, pbtnMap, paxisMap);
-
-	//Capture buttons
-	if(btnCapturing < PAD_BUTTON_COUNT)
+	if(devInfo.dwType == RIM_TYPEKEYBOARD)
 	{
-		// Button caps
-		CHECK( pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * Caps.NumberInputButtonCaps) );
+		devName = "Keyboard";
+	}
+	else
+	{
+		CHECK( GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_PREPARSEDDATA, NULL, &bufferSize) == 0 );
+		CHECK( pPreparsedData = (PHIDP_PREPARSED_DATA)malloc(bufferSize) );
+		CHECK( (int)GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_PREPARSEDDATA, pPreparsedData, &bufferSize) >= 0 );
+		CHECK( HidP_GetCaps(pPreparsedData, &Caps) == HIDP_STATUS_SUCCESS );
 
-		capsLength = Caps.NumberInputButtonCaps;
-		CHECK( HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
-		int numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
-
-		usageLength = numberOfButtons;
-		CHECK(
-			HidP_GetUsages(
-				HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
-				(PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid
-			) == HIDP_STATUS_SUCCESS );
-
-		if(usageLength > 0)
+		devName = name;
+		std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
+	}
+	
+	for(it = mapVector.begin(); it != mapVector.end(); it++)
+	{
+		if((*it)->hidPath == devName)
 		{
-			pbtnMap[usage[0] - pButtonCaps->Range.UsageMin] = btnCapturing;
-			btnCapturing = PAD_BUTTON_COUNT;
+			mapping = *it;
+			break;
 		}
 	}
-	else if(axisCapturing < PAD_AXIS_COUNT)
-	{
-		// Value caps
-		CHECK( pValueCaps = (PHIDP_VALUE_CAPS)malloc(sizeof(HIDP_VALUE_CAPS) * Caps.NumberInputValueCaps) );
-		capsLength = Caps.NumberInputValueCaps;
-		CHECK( HidP_GetValueCaps(HidP_Input, pValueCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
 
-		for(i = 0; i < Caps.NumberInputValueCaps && axisCapturing < PAD_AXIS_COUNT; i++)
+	if(mapping == NULL)
+	{
+		Mappings *m = new Mappings;
+		ZeroMemory(m, sizeof(Mappings));
+		mapVector.push_back(m);
+		mapping = mapVector.back();
+		mapping->devName = devName;
+		mapping->hidPath = devName;
+	}
+	//TODO get real dev name, probably from registry (see lilypad)
+	if(!mapping->devName.length()) mapping->devName = devName;
+
+	///FIXME Move to uint32_t or something to fix 0x3F being max mappable keyboard button
+	if(devInfo.dwType == RIM_TYPEKEYBOARD)
+	{
+		if(pRawInput->data.keyboard.VKey > 0x3F) return;
+		if(btnCapturing < PAD_BUTTON_COUNT)
 		{
+			mapping->btnMap[btnCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
+			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
+			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+			btnCapturing = PAD_BUTTON_COUNT;
+		}
+		else if(hatCapturing < PAD_HAT_COUNT)
+		{
+			mapping->hatMap[hatCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
+			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
+			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+			hatCapturing = PAD_HAT_COUNT;
+		}
+		else if(axisCapturing < PAD_AXIS_COUNT)
+		{
+			mapping->axisMap[axisCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
+			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
+			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+			axisCapturing = PAD_AXIS_COUNT;
+		}
+	}
+	else //if(devInfo.dwType == RIM_TYPEHID)
+	{
+		//Capture buttons
+		if(btnCapturing < PAD_BUTTON_COUNT || hatCapturing < PAD_HAT_COUNT)
+		{
+			// Button caps
+			CHECK( pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * Caps.NumberInputButtonCaps) );
+
+			capsLength = Caps.NumberInputButtonCaps;
+			CHECK( HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
+			int numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
+
+			usageLength = numberOfButtons;
 			CHECK(
-				HidP_GetUsageValue(
-					HidP_Input, pValueCaps[i].UsagePage, 0, pValueCaps[i].Range.UsageMin, &value, pPreparsedData,
+				HidP_GetUsages(
+					HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
 					(PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid
 				) == HIDP_STATUS_SUCCESS );
 
-			uint32_t logical = pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin;
-
-			switch(pValueCaps[i].Range.UsageMin)
+			if(usageLength > 0)//Using first button only though
 			{
-			case 0x30:	// X-axis
-				CHECKDIFF(0);
-				axisDiff[0] = value;
-				break;
-
-			case 0x31:	// Y-axis
-				CHECKDIFF(1);
-				axisDiff[1] = value;
-				break;
-
-			case 0x32: // Z-axis
-				CHECKDIFF(2);
-				axisDiff[2] = value;
-				break;
-
-			case 0x33: // Rotate-X
-				CHECKDIFF(3);
-				axisDiff[3] = value;
-				break;
-
-			case 0x34: // Rotate-Y
-				CHECKDIFF(4);
-				axisDiff[4] = value;
-				break;
-
-			case 0x35: // Rotate-Z
-				CHECKDIFF(5);
-				axisDiff[5] = value;
-				break;
-
-			case 0x39:	// Hat Switch
-				break;
+				if(btnCapturing < PAD_BUTTON_COUNT)
+				{
+					mapping->btnMap[usage[0] - pButtonCaps->Range.UsageMin] = PLY_SET_MAPPED(plyCapturing, btnCapturing);
+					btnCapturing = PAD_BUTTON_COUNT;
+				}
+				else if(hatCapturing < PAD_HAT_COUNT)
+				{
+					mapping->hatMap[usage[0] - pButtonCaps->Range.UsageMin] = PLY_SET_MAPPED(plyCapturing, hatCapturing);
+					hatCapturing = PAD_HAT_COUNT;
+				}
 			}
 		}
+		else if(axisCapturing < PAD_AXIS_COUNT)
+		{
+			// Value caps
+			CHECK( pValueCaps = (PHIDP_VALUE_CAPS)malloc(sizeof(HIDP_VALUE_CAPS) * Caps.NumberInputValueCaps) );
+			capsLength = Caps.NumberInputValueCaps;
+			CHECK( HidP_GetValueCaps(HidP_Input, pValueCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
 
-		axisPass2 = true;
+			for(i = 0; i < Caps.NumberInputValueCaps && axisCapturing < PAD_AXIS_COUNT; i++)
+			{
+				CHECK(
+					HidP_GetUsageValue(
+						HidP_Input, pValueCaps[i].UsagePage, 0, pValueCaps[i].Range.UsageMin, &value, pPreparsedData,
+						(PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid
+					) == HIDP_STATUS_SUCCESS );
+
+				uint32_t logical = pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin;
+
+				switch(pValueCaps[i].Range.UsageMin)
+				{
+				case 0x30:	// X-axis
+					CHECKDIFF(0);
+					axisDiff[0] = value;
+					break;
+
+				case 0x31:	// Y-axis
+					CHECKDIFF(1);
+					axisDiff[1] = value;
+					break;
+
+				case 0x32: // Z-axis
+					CHECKDIFF(2);
+					axisDiff[2] = value;
+					break;
+
+				case 0x33: // Rotate-X
+					CHECKDIFF(3);
+					axisDiff[3] = value;
+					break;
+
+				case 0x34: // Rotate-Y
+					CHECKDIFF(4);
+					axisDiff[4] = value;
+					break;
+
+				case 0x35: // Rotate-Z
+					CHECKDIFF(5);
+					axisDiff[5] = value;
+					break;
+
+				case 0x39:	// Hat Switch
+					break;
+				}
+			}
+
+			axisPass2 = true;
+		}
 	}
 
 Error:
@@ -440,69 +531,101 @@ Error:
 	SAFE_FREE(pValueCaps);
 }
 
+//Also when switching player
 void resetState(HWND hW)
 {
+	SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
 	SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"");
+
+	if(plyCapturing == 0)
+		SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType1, 0);
+	else
+		SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType2, 0);
+
 	btnCapturing = PAD_BUTTON_COUNT;
 	axisCapturing = PAD_AXIS_COUNT;
-	paxisMap = NULL;
-	pbtnMap = NULL;
+	hatCapturing = PAD_HAT_COUNT;
 	ListView_DeleteAllItems(GetDlgItem(hW, IDC_LIST1));
-	populateMappings(hW, 0);
-	populateMappings(hW, 1);
+	populateMappings(hW);
 }
 
 BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 	BOOL ret;
+	char buf[256];
+	LVITEM lv;
 
 	switch(uMsg) {
 		case WM_INITDIALOG:
+			dgHwnd = hW;
 			SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
-			RAWINPUTDEVICE rid;
-			rid.usUsagePage = 1;
-			rid.usUsage     = 4;	// Joystick
-			rid.dwFlags     = RIDEV_INPUTSINK;
-			rid.hwndTarget  = hW;
-			ret = RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
+			
+			RAWINPUTDEVICE rid[3];
+			rid[0].usUsagePage = 0x01; 
+			rid[0].usUsage = 0x05; 
+			rid[0].dwFlags = RIDEV_INPUTSINK; // adds game pad
+			rid[0].hwndTarget = hW;
+
+			rid[1].usUsagePage = 0x01; 
+			rid[1].usUsage = 0x04; 
+			rid[1].dwFlags = RIDEV_INPUTSINK; // adds joystick
+			rid[1].hwndTarget = hW;
+
+			rid[2].usUsagePage = 0x01; 
+			rid[2].usUsage = 0x06; 
+			rid[2].dwFlags = RIDEV_INPUTSINK | RIDEV_NOLEGACY;   // adds HID keyboard and also ignores legacy keyboard messages
+			rid[2].hwndTarget = hW;
+
+			if (!RegisterRawInputDevices(rid, 3, sizeof(rid[0]))) {
+				SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)"Could not register raw input devices.");
+			}
 
 			LoadConfig();
+			LoadMappings(&mapVector);
 			if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
+			CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
 			populate(hW);
-			ListView_DeleteAllItems(GetDlgItem(hW, IDC_LIST1));
-			populateMappings(hW, 0);
+			resetState(hW);
 			return TRUE;
 
 		case WM_INPUT:
 			if(axisCapturing == PAD_AXIS_COUNT &&
-					btnCapturing == PAD_BUTTON_COUNT)
-				return 0;
+					btnCapturing == PAD_BUTTON_COUNT &&
+					hatCapturing == PAD_HAT_COUNT)
+				break;
 
 			PRAWINPUT pRawInput;
 			UINT      bufferSize;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &bufferSize, sizeof(RAWINPUTHEADER));
 			pRawInput = (PRAWINPUT)malloc(bufferSize);
 			if(!pRawInput)
-				return 0;
+				break;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER));
 			ParseRawInput(pRawInput);
 			free(pRawInput);
 
-			if(axisCapturing == PAD_AXIS_COUNT && btnCapturing == PAD_BUTTON_COUNT){
-				SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"");
-				ListView_DeleteAllItems(GetDlgItem(hW, IDC_LIST1));
-				populateMappings(hW, 0);
-				populateMappings(hW, 1);
+			if(axisCapturing == PAD_AXIS_COUNT && 
+				btnCapturing == PAD_BUTTON_COUNT && 
+				hatCapturing == PAD_HAT_COUNT)
+			{
+				resetState(hW);
 			}
 			return 0;
 
 		case WM_KEYDOWN:
 			if(LOWORD(lParam) == VK_ESCAPE)
 			{
-				btnCapturing = PAD_BUTTON_COUNT;
-				axisCapturing = PAD_AXIS_COUNT;
-				SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"");
+				resetState(hW);
 				return TRUE;
+			}
+			break;
+		case WM_NOTIFY:
+			switch (((LPNMHDR)lParam)->code)
+			{
+			case TCN_SELCHANGE:
+				plyCapturing = SendDlgItemMessage(hW, IDC_TAB1, TCM_GETCURSEL, 0, 0);
+				resetState(hW);
+				break;
 			}
 			break;
 		case WM_COMMAND:
@@ -511,33 +634,28 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			case LBN_SELCHANGE:
 				switch (LOWORD(wParam))
 				{
-				case IDC_COMBO1:
-					//tmpIter = &selectedJoy[0];
-					selectedJoy[0] = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
-					resetState(hW);
-					if(selectedJoy[0] > 0 && selectedJoy[0] == selectedJoy[1])
+				case IDC_COMBO_WHEEL_TYPE:
+					if(plyCapturing == 0)
+						conf.WheelType1 = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
+					else
+						conf.WheelType2 = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
+					break;
+				case IDC_COMBO_FFB:
+					selectedJoy[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_GETCURSEL, 0, 0);
+					player_joys[plyCapturing] = *(joysDev.begin() + selectedJoy[plyCapturing]);
+					//resetState(hW);
+					/*if(selectedJoy[plyCapturing] > 0 && selectedJoy[plyCapturing] == selectedJoy[1-plyCapturing])
 					{
-						//selectedJoy[0] = *tmpIter;
-						selectedJoy[0] = 0;
+						selectedJoy[plyCapturing] = 0;
 						resetState(hW);
-						//SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, std::distance(joys.begin(), *tmpIter), 0);
-						SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, selectedJoy[0], 0);
+						SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
+						//But would you want to?
 						SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Both players can't have the same controller."); //Actually, whatever, but config logics are limited ;P
-					}
+					}*/
+					break;
+				case IDC_COMBO1:
 					break;
 				case IDC_COMBO2:
-					//tmpIter = &selectedJoy[1];
-					selectedJoy[1] = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
-					resetState(hW);
-					if(selectedJoy[1] > 0  && selectedJoy[0] == selectedJoy[1])
-					{
-						//selectedJoy[1] = *tmpIter;
-						selectedJoy[1] = 0;
-						resetState(hW);
-						//SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, std::distance(joys.begin(), *tmpIter), 0);
-						SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, selectedJoy[1], 0);
-						SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Both players can't have the same controller."); //Actually, whatever, but config logics are limited ;P
-					}
 					break;
 				default:
 					return FALSE;
@@ -545,16 +663,30 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				break;
 			case BN_CLICKED:
 				switch(LOWORD(wParam)) {
+				case IDC_UNBIND:
+					if(ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1)) > -1)
+					{
+						ZeroMemory(&lv, sizeof(LVITEM));
+						lv.iItem = ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1));
+						ListView_GetItem(GetDlgItem(hW, IDC_LIST1), &lv);
+						int *map = (int*)lv.lParam;
+						if(map)
+						*map = PLY_UNSET_MAPPED(plyCapturing, *map);
+						resetState(hW);
+					}
+					break;
 				case IDC_BUTTON1://cross
 				case IDC_BUTTON2://square
 				case IDC_BUTTON3://circle
 				case IDC_BUTTON4://triangle
 				case IDC_BUTTON5://L1
-				case IDC_BUTTON6://L2
-				case IDC_BUTTON7://R1
+				case IDC_BUTTON6://R1
+				case IDC_BUTTON7://L2
 				case IDC_BUTTON8://R2
-				case IDC_BUTTON9://select
-				case IDC_BUTTON10://start
+				case IDC_BUTTON9://L3
+				case IDC_BUTTON10://R3
+				case IDC_BUTTON11://select
+				case IDC_BUTTON12://start
 					btnCapturing = (PS2Buttons) (LOWORD(wParam) - IDC_BUTTON1);
 					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing a button, press ESC to cancel");
 					return TRUE;
@@ -563,31 +695,41 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				case IDC_BUTTON19://z
 				case IDC_BUTTON20://rz
 					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
-					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing an axis, press ESC to cancel");
+					sprintf(buf, "Capturing for axis %d, press ESC to cancel", axisCapturing);
+					SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
+				case IDC_BUTTON13:
+					hatCapturing = PAD_HAT_UP;
+					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					break;
+				case IDC_BUTTON14:
+					hatCapturing = PAD_HAT_LEFT;
+					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					break;
+				case IDC_BUTTON15:
+					hatCapturing = PAD_HAT_RIGHT;
+					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					break;
+				case IDC_BUTTON16:
+					hatCapturing = PAD_HAT_DOWN;
+					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					break;
 				case IDCANCEL:
 					if(btnCapturing < PAD_BUTTON_COUNT || axisCapturing < PAD_AXIS_COUNT)
 						return FALSE;
 					EndDialog(hW, TRUE);
 					return TRUE;
 				case IDOK:
-					if (IsDlgButtonChecked(hW, IDC_LOGGING))
-						 conf.Log = 1;
-					else conf.Log = 0;
+					conf.Log = IsDlgButtonChecked(hW, IDC_LOGGING);
+					conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
+					conf.Port1 = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
+					conf.Port0 = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
 					
-					if(joys.size() > 0)
-					{
-						player_joys[0] = *(joys.begin() + SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0));
-						player_joys[1] = *(joys.begin() + SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0));
-					}
 					SaveConfig();
-					for(MappingsMap::iterator it = mappings.begin(); it != mappings.end(); it++)
-					{
-						SaveMappings(it->first.ply, it->first.hid.dwVendorId, it->first.hid.dwProductId, it->second.btnMap, it->second.axisMap);
-					}
+					SaveMappings(&mapVector);
 					EndDialog(hW, FALSE);
 					return TRUE;
-			}
+				}
 			}
 			
 	}
@@ -614,7 +756,7 @@ BOOL CALLBACK AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 void CALLBACK USBconfigure() {
     DialogBox(hInst,
               MAKEINTRESOURCE(IDD_CONFIG),
-              NULL,//GetActiveWindow(),  
+              NULL,//GetActiveWindow(),
               (DLGPROC)ConfigureDlgProc); 
 }
 
@@ -625,9 +767,9 @@ void CALLBACK USBabout() {
               (DLGPROC)AboutDlgProc);
 }
 
-BOOL APIENTRY DllMain(HANDLE hModule,                  // DLL INIT
+BOOL APIENTRY DllMain(HANDLE hModule,
                       DWORD  dwReason, 
                       LPVOID lpReserved) {
 	hInst = (HINSTANCE)hModule;
-	return TRUE;                                          // very quick :)
+	return TRUE;
 }

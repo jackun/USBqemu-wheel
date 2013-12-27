@@ -191,3 +191,15 @@ int set_usb_string(uint8_t *buf, const char *str)
     }
     return q - buf;
 }
+
+void usb_device_reset(USBDevice *dev)
+{
+    if (dev == NULL /*|| !dev->attached*/) {
+        return;
+    }
+    dev->remote_wakeup = 0;
+    dev->addr = 0;
+    dev->state = USB_STATE_DEFAULT;
+    if(dev->handle_reset)
+        dev->handle_reset(dev);
+}

@@ -1,16 +1,16 @@
 //#include "../qemu-usb/vl.h"
-
+#include "../USB.h"
 #include "usb-pad.h"
 
 //struct df_data_t	df_data;
 //struct dfp_data_t	dfp_data;
 //struct dfp_buttons_t	dfp_buttons;
 //struct dfgt_buttons_t	dfgt_buttons;
-struct momo_data_t	momo_data;
+struct momo_data_t	momo_data = {0};
 #if _WIN32
-struct generic_data_t	generic_data;
+//struct generic_data_t	generic_data;
 #else
-struct generic_data_t	generic_data[2];
+struct generic_data_t generic_data[2] = {0};
 #endif
 
 std::string player_joys[2]; //two players
@@ -25,6 +25,22 @@ bool has_rumble[2];
 #define SET_IDLE     0x210a
 #define SET_PROTOCOL 0x210b
 
+struct lg4ff_native_cmd {
+	const uint8_t cmd_num;	/* Number of commands to send */
+	const uint8_t cmd[];
+};
+
+static const struct lg4ff_native_cmd native_dfp = {
+	1,
+	{0xf8, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00}
+};
+
+static const struct lg4ff_native_cmd native_dfgt = {
+	2,
+	{0xf8, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 1st command */
+	 0xf8, 0x09, 0x03, 0x01, 0x00, 0x00, 0x00}	/* 2nd command */
+};
+
 static int pad_handle_data(USBDevice *dev, int pid, 
 							uint8_t devep, uint8_t *data, int len)
 {
@@ -36,13 +52,16 @@ static int pad_handle_data(USBDevice *dev, int pid,
 	case USB_TOKEN_IN:
 		if (devep == 1) {
 			ret = usb_pad_poll(s, data, len);
-		}
-		else{
+		} else {
 			goto fail;
 		}
 		break;
 	case USB_TOKEN_OUT:
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
+		if(len > 6 && !memcmp(native_dfp.cmd, data, 7)) //len is prolly 16
+			fprintf(stderr,"usb-pad: tried to set DFP to native mode\n");
+		uint8_t tmp[8];
+		memcpy(tmp, data, 7);
 		ret = token_out(s, data, len);
 		break;
 	default:
@@ -65,6 +84,12 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 	PADState *s = (PADState *)dev;
 	int ret = 0;
 	if(s == NULL) return USB_RET_STALL;
+
+	int t;
+	if(s->port == 1)
+		t = conf.WheelType1;
+	else
+		t = conf.WheelType2;
 
 	switch(request) {
 	case DeviceRequest | USB_REQ_GET_STATUS:
@@ -95,14 +120,16 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
 		switch(value >> 8) {
 		case USB_DT_DEVICE:
-
-#if _WIN32
-			if(s->doPassthrough)
+			if(/*s->doPassthrough ||*/ t == WT_DRIVING_FORCE_PRO)
 			{
 				pad_dev_descriptor[10] = 0xC2;
-				pad_dev_descriptor[11] = 0x98;
+				pad_dev_descriptor[11] = DFP_PID & 0xFF;
 			}
-#endif
+			else if(t == WT_DRIVING_FORCE)
+			{
+				pad_dev_descriptor[10] = 0xC2;
+				pad_dev_descriptor[11] = DF_PID & 0xFF;
+			}
 
 			memcpy(data, pad_dev_descriptor, 
 				   sizeof(pad_dev_descriptor));
@@ -163,21 +190,17 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		switch(value >> 8) {
 		case 0x22:
 			fprintf(stderr, "Sending hid report desc.\n");
-#if _WIN32
 			//TODO For now, only supporting DFP
-			if(s->doPassthrough)
+			if(s->doPassthrough || t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
 			}
 			else
 			{
-#endif
 				ret = sizeof(pad_hid_report_descriptor);
 				memcpy(data, pad_hid_report_descriptor, ret);
-#if _WIN32
 			}
-#endif
 			break;
 		default:
 			goto fail;
@@ -240,4 +263,13 @@ USBDevice *pad_init(int port)
 
 	return (USBDevice *)s;
 
+}
+
+void ResetData(generic_data_t *d)
+{
+	ZeroMemory(d, sizeof(generic_data_t));
+	d->axis_x = 0x3FF >> 1;
+	d->axis_y = 0xFF;
+	d->axis_z = 0xFF;
+	d->axis_rz = 0xFF;
 }
