@@ -114,7 +114,7 @@ void ResetAttach()
 
 s32 CALLBACK USBinit() {
 	LoadConfig();
-	conf.Log = 1;
+
 	if (conf.Log)
 	{
 		usbLog = fopen("logs/usbLog.txt", "w");
@@ -151,7 +151,7 @@ void CALLBACK USBshutdown() {
 
 s32 CALLBACK USBopen(void *pDsp) {
 	USB_LOG("USBopen\n");
-	ResetAttach(); //But not desirable if game is resumed instead
+	//ResetAttach(); //But not desirable if game is resumed instead
 	//ohci_reset(qemu_ohci);
 
 #if _WIN32
