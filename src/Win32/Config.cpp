@@ -18,7 +18,7 @@ inline bool MapExists(MapVector *maps, char* hid)
 void LoadMappings(MapVector *maps)
 {
 	char *szTemp;
-	char szIniFile[MAX_PATH+1], szValue[256];
+	char szIniFile[MAX_PATH+1];
 
 	GetModuleFileName(GetModuleHandle((LPCSTR)hInst), szIniFile, MAX_PATH);
 	szTemp = strrchr(szIniFile, '\\');
@@ -31,7 +31,7 @@ void LoadMappings(MapVector *maps)
 	int j = 0, v = 0;
 	while(j < 25)
 	{
-		sprintf(sec, "DEVICE %d", j++);
+		sprintf_s(sec, "DEVICE %d", j++);
 		if(GetPrivateProfileString(sec, "HID", NULL, hid, MAX_PATH, szIniFile)
 			&& hid && !MapExists(maps, hid))
 		{
@@ -49,23 +49,23 @@ void LoadMappings(MapVector *maps)
 
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
-				sprintf(bind, "Button %d", i);
+				sprintf_s(bind, "Button %d", i);
 				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
-				sscanf(tmp, "%08X", &(ptr->btnMap[i]));
+				sscanf_s(tmp, "%08X", &(ptr->btnMap[i]));
 			}
 
 			for(int i = 0; i<MAX_AXES; i++)
 			{
-				sprintf(bind, "Axis %d", i);
+				sprintf_s(bind, "Axis %d", i);
 				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
-				sscanf(tmp, "%08X", &ptr->axisMap[i]);
+				sscanf_s(tmp, "%08X", &ptr->axisMap[i]);
 			}
 
 			for(int i = 0; i<4; i++)
 			{
-				sprintf(bind, "Hat %d", i);
+				sprintf_s(bind, "Hat %d", i);
 				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
-				sscanf(tmp, "%08X", &ptr->hatMap[i]);
+				sscanf_s(tmp, "%08X", &ptr->hatMap[i]);
 			}
 			ptr = NULL;
 		}
@@ -91,28 +91,28 @@ void SaveMappings(MapVector *maps)
 	{
 		char dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
 
-		sprintf(dev, "DEVICE %d", numDevice++);
+		sprintf_s(dev, "DEVICE %d", numDevice++);
 		WritePrivateProfileString(dev, "HID", (*it)->hidPath.c_str(), szIniFile);
 
 		//writing everything separately, then string lengths are more predictable
 		for(int i = 0; i<MAX_BUTTONS; i++)
 		{
-			sprintf(bind, "Button %d", i);
-			sprintf(tmp, "%08X", (*it)->btnMap[i]);
+			sprintf_s(bind, "Button %d", i);
+			sprintf_s(tmp, "%08X", (*it)->btnMap[i]);
 			WritePrivateProfileString(dev, bind, tmp, szIniFile);
 		}
 
 		for(int i = 0; i<MAX_AXES; i++)
 		{
-			sprintf(bind, "Axis %d", i);
-			sprintf(tmp, "%08X", (*it)->axisMap[i]);
+			sprintf_s(bind, "Axis %d", i);
+			sprintf_s(tmp, "%08X", (*it)->axisMap[i]);
 			WritePrivateProfileString(dev, bind, tmp, szIniFile);
 		}
 
 		for(int i = 0; i<4; i++)
 		{
-			sprintf(bind, "Hat %d", i);
-			sprintf(tmp, "%08X", (*it)->hatMap[i]);
+			sprintf_s(bind, "Hat %d", i);
+			sprintf_s(tmp, "%08X", (*it)->hatMap[i]);
 			WritePrivateProfileString(dev, bind, tmp, szIniFile);
 		}
 	}
@@ -135,22 +135,22 @@ void SaveConfig()
 	//FILE *f = fopen(szIniFile, "w+");
 	//if(f) fclose(f);
 
-	sprintf(szValue,"%u",Conf1->Log);
+	sprintf_s(szValue,"%u",Conf1->Log);
 	WritePrivateProfileString("Interface", "Logging",szValue,szIniFile);
 
-	sprintf(szValue,"%u",Conf1->DFPPass);
+	sprintf_s(szValue,"%u",Conf1->DFPPass);
 	WritePrivateProfileString("Devices", "DFP Passthrough",szValue,szIniFile);
 
-	sprintf(szValue,"%u",Conf1->Port0);
+	sprintf_s(szValue,"%u",Conf1->Port0);
 	WritePrivateProfileString("Devices", "Port 0",szValue,szIniFile);
 
-	sprintf(szValue,"%u",Conf1->Port1);
+	sprintf_s(szValue,"%u",Conf1->Port1);
 	WritePrivateProfileString("Devices", "Port 1",szValue,szIniFile);
 
-	sprintf(szValue,"%u",Conf1->WheelType1);
+	sprintf_s(szValue,"%u",Conf1->WheelType1);
 	WritePrivateProfileString("Devices", "Wheel Type 1",szValue,szIniFile);
 
-	sprintf(szValue,"%u",Conf1->WheelType2);
+	sprintf_s(szValue,"%u",Conf1->WheelType2);
 	WritePrivateProfileString("Devices", "Wheel Type 2",szValue,szIniFile);
 	
 	WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile);

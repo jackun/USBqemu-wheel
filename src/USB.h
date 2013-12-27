@@ -23,9 +23,6 @@
 
 #include <stdio.h>
 
-#define USBdefs
-#include "PS2Edefs.h"
-
 #ifdef _WIN32
 
 #define usleep(x)	Sleep(x / 1000)
@@ -39,6 +36,9 @@
 #define __inline inline
 
 #endif
+
+#define USBdefs
+#include "PS2Edefs.h"
 
 #define USB_LOG __Log
 
