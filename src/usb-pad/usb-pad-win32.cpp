@@ -40,43 +40,67 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 
 	//fprintf(stderr, "\tData 0:%02X 8:%02X 16:%02X 24:%02X 32:%02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 	
-	//TODO Currently config descriptor has 16 byte buffer and generic_data_t is just 8 bytes
+	//XXX Currently config descriptor has 16 byte buffer and generic_data_t is just 8 bytes
 	//FIXME if wheel type is DF Pro switch to proper struct 
 	generic_data_t generic_data;
 	ZeroMemory(&generic_data, sizeof(generic_data_t));
 	ResetData(&generic_data);
+
+	//in case compiler magic with bitfields interferes
+	wheel_data_t data_summed;
+	memset(&data_summed, 0xFF, sizeof(data_summed));
+
+	int hs = 0;
+	generic_data.hatswitch = -1;
+
+	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
 	for(; it!=mapVector.end(); it++)
 	{
-		if(it == mapVector.begin())
+		//Yeah, but what if first is not a wheel with mapped axes...
+		if(false && it == mapVector.begin())
 		{
-			generic_data.axis_x = (*it)->data[idx].axis_x;
-			generic_data.axis_y = (*it)->data[idx].axis_y;
-			generic_data.axis_z = (*it)->data[idx].axis_z;
-			generic_data.axis_rz = (*it)->data[idx].axis_rz;
+			if((*it)->data[idx].axis_x != 0xFFFFFFFF)
+				generic_data.axis_x = (*it)->data[idx].axis_x;
+
+			if((*it)->data[idx].axis_y != 0xFFFFFFFF)
+				generic_data.axis_y = (*it)->data[idx].axis_y;
+
+			if((*it)->data[idx].axis_z != 0xFFFFFFFF)
+				generic_data.axis_z = (*it)->data[idx].axis_z;
+
+			if((*it)->data[idx].axis_rz != 0xFFFFFFFF)
+				generic_data.axis_rz = (*it)->data[idx].axis_rz;
 		}
 		else
 		{
-			if(generic_data.axis_x < (*it)->data[idx].axis_x)
-				generic_data.axis_x = (*it)->data[idx].axis_x;
+			if(data_summed.axis_x < (*it)->data[idx].axis_x)
+				data_summed.axis_x = (*it)->data[idx].axis_x;
 
-			if(generic_data.axis_y < (*it)->data[idx].axis_y)
-				generic_data.axis_y = (*it)->data[idx].axis_y;
+			if(data_summed.axis_y < (*it)->data[idx].axis_y)
+				data_summed.axis_y = (*it)->data[idx].axis_y;
 
-			if(generic_data.axis_z < (*it)->data[idx].axis_z)
-				generic_data.axis_z = (*it)->data[idx].axis_z;
+			if(data_summed.axis_z < (*it)->data[idx].axis_z)
+				data_summed.axis_z = (*it)->data[idx].axis_z;
 
-			if(generic_data.axis_rz < (*it)->data[idx].axis_rz)
-				generic_data.axis_rz = (*it)->data[idx].axis_rz;
+			if(data_summed.axis_rz < (*it)->data[idx].axis_rz)
+				data_summed.axis_rz = (*it)->data[idx].axis_rz;
 		}
 		
 		generic_data.buttons |= (*it)->data[idx].buttons;
-		generic_data.hatswitch |= (*it)->data[idx].hatswitch;
+		if(generic_data.hatswitch < (*it)->data[idx].hatswitch)
+			generic_data.hatswitch = (*it)->data[idx].hatswitch;
 	}
 
+	generic_data.axis_x = data_summed.axis_x;
+	generic_data.axis_y = data_summed.axis_y;
+	generic_data.axis_z = data_summed.axis_z;
+	generic_data.axis_rz = data_summed.axis_rz;
+	
 	memcpy(buf, &generic_data, sizeof(generic_data_t));
 	return len;
 }
+
 
 int token_out(PADState *ps, uint8_t *data, int len)
 {
@@ -115,7 +139,6 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	ULONG                usageLength, value;
 	char                 name[1024] = {0};
 	UINT                 nameSize = 1024;
-	UINT                 pSize;
 	RID_DEVICE_INFO      devInfo;
 	std::string          devName;
 	USHORT               capsLength = 0;
@@ -150,38 +173,11 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	//Unset buttons/axes mapped to this device
 	//ResetData(&mapping->data[0]);
 	//ResetData(&mapping->data[1]);
-	ZeroMemory(&mapping->data[0], sizeof(generic_data_t));
-	ZeroMemory(&mapping->data[1], sizeof(generic_data_t));
+	memset(&mapping->data[0], 0xFF, sizeof(wheel_data_t));
+	memset(&mapping->data[1], 0xFF, sizeof(wheel_data_t));
+	mapping->data[0].buttons = 0;
+	mapping->data[1].buttons = 0;
 
-	/*for(int j=0; j<2; j++)
-	{
-		for(int i=0; i<Caps.NumberInputButtonCaps && i<MAX_BUTTONS; i++)
-		{
-			if(PLY_IS_MAPPED(j, mapping->btnMap[i]))
-				mapping->data[j].buttons &= ~(1 << PLY_GET_VALUE(j, mapping->btnMap[i]));
-		}
-		for(int i=0; i<Caps.NumberInputValueCaps && i<MAX_AXES; i++)
-		{
-			if(!PLY_IS_MAPPED(j, mapping->axisMap[i]))
-				continue;
-			switch(PLY_GET_VALUE(j, mapping->axisMap[i]))
-			{
-			case PAD_AXIS_X:
-				mapping->data[j].axis_x = 0x3FF >> 1;
-				break;
-			case PAD_AXIS_Y:
-				mapping->data[j].axis_y = 0xFF;
-				break;
-			case PAD_AXIS_Z:
-				mapping->data[j].axis_z = 0xFF;
-				break;
-			case PAD_AXIS_RZ:
-				mapping->data[j].axis_rz = 0xFF;
-				break;
-			}
-		}
-	}*/
-	
 	//Get pressed buttons
 	CHECK( pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * Caps.NumberInputButtonCaps) );
 	//If fails, maybe wheel has only axes
@@ -256,6 +252,11 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				case HID_USAGE_GENERIC_HATSWITCH:
 					//fprintf(stderr, "Hat: %02X\n", value);
 					//TODO 4 vs 8 direction hat switch
+					//FIXME no hatswitch axis mapping so set to player one
+					if(pValueCaps[i].LogicalMax == 4 && value < 4)
+						mapping->data[0].hatswitch = hats7to4[value];
+					else
+						mapping->data[0].hatswitch = value;
 					break;
 			}
 
@@ -352,7 +353,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 		}
 	}
 
-	for(uint32_t i = 0; i < 4; i++)
+	for(uint32_t i = 0; i < 4 /*PAD_HAT_COUNT*/; i++)
 	{
 		uint16_t btn = mapping->hatMap[i];
 		for(int j=0; j<2; j++)
@@ -361,10 +362,9 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 			{
 				if(PLY_GET_VALUE(j, mapping->hatMap[i]) == pRawInput->data.keyboard.VKey)
 				if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
-					mapping->data[j].hatswitch &= ~(1 << i); //unset
+					mapping->data[j].hatswitch = -1;
 				else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
-					mapping->data[j].hatswitch |= (1 << i); //set
-					
+					mapping->data[j].hatswitch = hats7to4[i];
 			}
 		}
 	}
@@ -517,6 +517,7 @@ LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return CallWindowProc(eatenWndProc, hWnd, uMsg, wParam, lParam);
 	//else
 	//	return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	return 0;
 }
 
 LRESULT CALLBACK HookProc(INT code, WPARAM wParam, LPARAM lParam)

@@ -13,10 +13,9 @@ struct momo_data_t	momo_data = {0};
 struct generic_data_t generic_data[2] = {0};
 #endif
 
+//move to Config?
 std::string player_joys[2]; //two players
 bool has_rumble[2];
-
-//extern OHCIState *qemu_ohci;
 
 /* HID interface requests */
 #define GET_REPORT   0xa101

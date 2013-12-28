@@ -1,5 +1,5 @@
-#ifndef USBCONFIG_H
-#define USBCONFIG_H
+#ifndef USBPADCONFIG_H
+#define USBPADCONFIG_H
 
 #include <vector>
 #include <string>
@@ -7,9 +7,9 @@
 //L3/R3 for newer wheels
 enum PS2Buttons : uint32_t {
 	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
-	PAD_L1, PAD_L2, PAD_R1, PAD_R2, 
-	PAD_L3, PAD_R3, //order
+	PAD_L1, PAD_L2, PAD_R1, PAD_R2,
 	PAD_SELECT, PAD_START,
+	PAD_L3, PAD_R3, //order
 	PAD_BUTTON_COUNT
 };
 
@@ -21,11 +21,21 @@ enum PS2Axis : uint32_t {
 	PAD_AXIS_COUNT
 };
 
-//FIXME Put these in the same order as the bits in usb data
+//Ugh
 enum PS2HatSwitch {
-	PAD_HAT_LEFT, PAD_HAT_UP, PAD_HAT_RIGHT, PAD_HAT_DOWN, 
+	PAD_HAT_N = 0,
+	PAD_HAT_NE,
+	PAD_HAT_E,
+	PAD_HAT_SE,
+	PAD_HAT_S,
+	PAD_HAT_SW,
+	PAD_HAT_W,
+	PAD_HAT_NW,
 	PAD_HAT_COUNT
 };
+
+//y u no bitmap, ugh
+static int hats7to4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 
 enum PS2WheelTypes {
 	WT_GENERIC, // 'dumb' wheel
@@ -58,13 +68,13 @@ typedef struct PADState {
 // convert momo to 'generic' wheel aka 0xC294
 struct wheel_data_t
 {
-	uint32_t axis_x;
+	int32_t axis_x;
 	uint32_t buttons;
-	uint32_t hatswitch;
+	int32_t  hatswitch;
 
-	uint8_t axis_y;
-	uint8_t axis_z;
-	uint8_t axis_rz;
+	int8_t axis_y;
+	int8_t axis_z;
+	int8_t axis_rz;
 };
 
 extern std::string player_joys[2]; //two players
@@ -84,7 +94,7 @@ extern bool has_rumble[2];
 struct Mappings {
 	uint32_t	btnMap[MAX_BUTTONS];
 	uint32_t	axisMap[MAX_AXES];
-	uint32_t	hatMap[4];
+	uint32_t	hatMap[8];
 	wheel_data_t data[2];
 	std::string devName;
 #if _WIN32

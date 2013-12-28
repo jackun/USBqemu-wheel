@@ -332,8 +332,7 @@ struct df_data_t
 	uint32_t padding0 : 2; //??
 
 	uint32_t vendor_stuff : 8;
-	uint32_t hatswitch : 4;
-	uint32_t something : 4; //??
+	uint32_t hatswitch : 8;
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8; //+56??
 };
@@ -413,25 +412,27 @@ struct momo_data_t
 	uint32_t buttons : 10;
 	uint32_t padding0 : 4;//32
 
-	uint32_t padding1 : 8;
-	uint32_t axis_z : 8;
-	uint32_t axis_rz : 8;
-	uint32_t padding2 : 8;//32
+	uint8_t padding1; //or non-existent hatswitch
+	uint8_t axis_z;
+	uint8_t axis_rz;
+	uint8_t padding2;//32
 };
 
 // convert momo to 'generic' wheel aka 0xC294
 struct generic_data_t
 {
 	uint32_t axis_x : 10;
-	uint32_t buttons : 10;
-	uint32_t hatswitch : 4;// maybe
-	uint32_t pad0 : 8;// 8bits to axis??
+	uint32_t buttons : 12;
+	uint32_t pad0 : 2;// maybe
+	uint32_t axis_y : 8;//clutch?? 
 
-	uint32_t axis_y : 8;//clutch??
+	int32_t hatswitch : 8;
+	
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
 	uint32_t pad2 : 8;
 };
+
 extern struct momo_data_t		momo_data;
 
 //in config.h

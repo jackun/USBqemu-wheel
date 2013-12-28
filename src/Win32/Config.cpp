@@ -44,8 +44,12 @@ void LoadMappings(MapVector *maps)
 			ptr->devName = std::string(hid);
 			//ResetData(&ptr->data[0]);
 			//ResetData(&ptr->data[1]);
-			ZeroMemory(&ptr->data[0], sizeof(wheel_data_t));
-			ZeroMemory(&ptr->data[1], sizeof(wheel_data_t));
+			memset(&ptr->data[0], 0xFF, sizeof(wheel_data_t));
+			memset(&ptr->data[1], 0xFF, sizeof(wheel_data_t));
+			ptr->data[0].buttons = 0;
+			ptr->data[1].buttons = 0;
+			//ptr->data[0].hatswitch = 0; //memset to 0xFF already or set to -1
+			//ptr->data[1].hatswitch = 0;
 
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
@@ -61,7 +65,7 @@ void LoadMappings(MapVector *maps)
 				sscanf_s(tmp, "%08X", &ptr->axisMap[i]);
 			}
 
-			for(int i = 0; i<4; i++)
+			for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 			{
 				sprintf_s(bind, "Hat %d", i);
 				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
@@ -109,7 +113,7 @@ void SaveMappings(MapVector *maps)
 			WritePrivateProfileString(dev, bind, tmp, szIniFile);
 		}
 
-		for(int i = 0; i<4; i++)
+		for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 		{
 			sprintf_s(bind, "Hat %d", i);
 			sprintf_s(tmp, "%08X", (*it)->hatMap[i]);

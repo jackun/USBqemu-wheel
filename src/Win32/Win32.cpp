@@ -10,6 +10,7 @@
 #include "../USB.h"
 #include "resource.h"
 #include "Config.h"
+#include "../usb-pad/config.h"
 
 #define TXT(x) (#x)
 char *BTN2TXT[] = { 
@@ -34,6 +35,7 @@ char *AXIS2TXT[] = {
 	"Axis RZ"
 };
 
+void resetState(HWND hW);
 HWND dgHwnd = NULL;
 HINSTANCE hInst;
 //std::vector<std::wstring> joysName;
@@ -252,7 +254,7 @@ void populateMappings(HWND hW)
 		{
 			m[0] = PAD_BUTTON_COUNT;
 			m[1] = PAD_AXIS_COUNT;
-			m[2] = PAD_HAT_COUNT;
+			m[2] = 4;
 		}
 		else
 		{
@@ -343,7 +345,7 @@ void populateMappings(HWND hW)
 		}\
 	break;}
 
-static void ParseRawInput(PRAWINPUT pRawInput)
+static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 	HIDP_CAPS            Caps;
@@ -408,10 +410,14 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 	//TODO get real dev name, probably from registry (see lilypad)
 	if(!mapping->devName.length()) mapping->devName = devName;
 
-	///FIXME Move to uint32_t or something to fix 0x3F being max mappable keyboard button
-	if(devInfo.dwType == RIM_TYPEKEYBOARD)
+	if(devInfo.dwType == RIM_TYPEKEYBOARD && 
+		(pRawInput->data.keyboard.Flags & RI_KEY_BREAK) != RI_KEY_BREAK)
 	{
-		if(pRawInput->data.keyboard.VKey > 0x3F) return;
+		if(pRawInput->data.keyboard.VKey == 0xff) return; //TODO
+		if(pRawInput->data.keyboard.VKey == VK_ESCAPE) {
+			resetState(hW);
+			return;
+		}
 		if(btnCapturing < PAD_BUTTON_COUNT)
 		{
 			mapping->btnMap[btnCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
@@ -421,7 +427,11 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 		}
 		else if(hatCapturing < PAD_HAT_COUNT)
 		{
-			mapping->hatMap[hatCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
+			for(int h=0; h < 4; h++)
+			{
+				if(hats7to4[h] == hatCapturing)
+					mapping->hatMap[h] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
+			}
 			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
 			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			hatCapturing = PAD_HAT_COUNT;
@@ -601,7 +611,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			if(!pRawInput)
 				break;
 			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER));
-			ParseRawInput(pRawInput);
+			ParseRawInput(pRawInput, hW);
 			free(pRawInput);
 
 			if(axisCapturing == PAD_AXIS_COUNT && 
@@ -642,7 +652,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					break;
 				case IDC_COMBO_FFB:
 					selectedJoy[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_GETCURSEL, 0, 0);
-					player_joys[plyCapturing] = *(joysDev.begin() + selectedJoy[plyCapturing]);
+					//player_joys[plyCapturing] = *(joysDev.begin() + selectedJoy[plyCapturing]);
 					//resetState(hW);
 					/*if(selectedJoy[plyCapturing] > 0 && selectedJoy[plyCapturing] == selectedJoy[1-plyCapturing])
 					{
@@ -699,23 +709,25 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
 				case IDC_BUTTON13:
-					hatCapturing = PAD_HAT_UP;
+					hatCapturing = PAD_HAT_N;
 					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
 					break;
 				case IDC_BUTTON14:
-					hatCapturing = PAD_HAT_LEFT;
+					hatCapturing = PAD_HAT_W;
 					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
 					break;
 				case IDC_BUTTON15:
-					hatCapturing = PAD_HAT_RIGHT;
+					hatCapturing = PAD_HAT_E;
 					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
 					break;
 				case IDC_BUTTON16:
-					hatCapturing = PAD_HAT_DOWN;
+					hatCapturing = PAD_HAT_S;
 					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
 					break;
 				case IDCANCEL:
-					if(btnCapturing < PAD_BUTTON_COUNT || axisCapturing < PAD_AXIS_COUNT)
+					if(btnCapturing < PAD_BUTTON_COUNT || 
+							axisCapturing < PAD_AXIS_COUNT || 
+							hatCapturing < PAD_HAT_COUNT)
 						return FALSE;
 					EndDialog(hW, TRUE);
 					return TRUE;
@@ -724,6 +736,8 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
 					conf.Port1 = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
 					conf.Port0 = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
+					player_joys[0] = *(joysDev.begin() + selectedJoy[0]);
+					player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
 					
 					SaveConfig();
 					SaveMappings(&mapVector);
