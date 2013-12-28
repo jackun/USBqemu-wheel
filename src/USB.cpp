@@ -232,6 +232,8 @@ USBhandler CALLBACK USBirqHandler(void) {
 
 void CALLBACK USBsetRAM(void *mem) {
 	ram = (u8*)mem;
+	if(qemu_ohci)
+		ResetAttach();
 }
 
 //TODO update VID/PID and various buffer lengths with changes in usb-pad.c?

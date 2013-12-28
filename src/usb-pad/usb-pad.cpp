@@ -41,6 +41,14 @@ static const struct lg4ff_native_cmd native_dfgt = {
 	 0xf8, 0x09, 0x03, 0x01, 0x00, 0x00, 0x00}	/* 2nd command */
 };
 
+//All here is speculation
+static const uint8_t GT4Inits[4] = {
+	0xf3,// 0, 0, 0, 0, 0, 0}, //de-activate all forces?
+	0xf4,// 0, 0, 0, 0, 0, 0}, //activate autocenter?
+	0x09,// 6, 0, 0, 0, 0, 0}, //switch wheel mode
+	0xf5                       //activate autocenter?
+};
+
 static int pad_handle_data(USBDevice *dev, int pid, 
 							uint8_t devep, uint8_t *data, int len)
 {
@@ -60,8 +68,8 @@ static int pad_handle_data(USBDevice *dev, int pid,
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
 		if(len > 6 && !memcmp(native_dfp.cmd, data, 7)) //len is prolly 16
 			fprintf(stderr,"usb-pad: tried to set DFP to native mode\n");
-		uint8_t tmp[8];
-		memcpy(tmp, data, 7);
+		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
+		//	s->initStage ++;
 		ret = token_out(s, data, len);
 		break;
 	default:
@@ -120,6 +128,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
 		switch(value >> 8) {
 		case USB_DT_DEVICE:
+			//if(s->initStage > 2)
 			if(/*s->doPassthrough ||*/ t == WT_DRIVING_FORCE_PRO)
 			{
 				pad_dev_descriptor[10] = 0xC2;
@@ -191,7 +200,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		case 0x22:
 			fprintf(stderr, "Sending hid report desc.\n");
 			//TODO For now, only supporting DFP
-			if(/*s->doPassthrough ||*/ t == WT_DRIVING_FORCE_PRO)
+			if(/*s->doPassthrough ||*/ /*s->initStage > 2 &&*/ t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);

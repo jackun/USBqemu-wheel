@@ -396,6 +396,7 @@ bool find_pad(PADState *ps)
 	s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
 	s->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
 
+	s->padState.initStage = 0;
 	s->padState.doPassthrough = false;
 	s->usbHandle = (HANDLE)-1;
 	//s->pPreparsedData = NULL;

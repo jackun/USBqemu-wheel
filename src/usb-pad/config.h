@@ -51,6 +51,7 @@ enum PS2WheelTypes {
 typedef struct PADState {
 	USBDevice	dev;
 	uint8_t		port;
+	int			initStage;
 	bool		doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
 } PADState;
 
