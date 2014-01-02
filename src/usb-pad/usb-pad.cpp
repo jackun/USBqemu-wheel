@@ -24,22 +24,6 @@ bool has_rumble[2];
 #define SET_IDLE     0x210a
 #define SET_PROTOCOL 0x210b
 
-struct lg4ff_native_cmd {
-	const uint8_t cmd_num;	/* Number of commands to send */
-	const uint8_t cmd[];
-};
-
-static const struct lg4ff_native_cmd native_dfp = {
-	1,
-	{0xf8, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00}
-};
-
-static const struct lg4ff_native_cmd native_dfgt = {
-	2,
-	{0xf8, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 1st command */
-	 0xf8, 0x09, 0x03, 0x01, 0x00, 0x00, 0x00}	/* 2nd command */
-};
-
 //All here is speculation
 static const uint8_t GT4Inits[4] = {
 	0xf3,// 0, 0, 0, 0, 0, 0}, //de-activate all forces?
@@ -65,8 +49,6 @@ static int pad_handle_data(USBDevice *dev, int pid,
 		break;
 	case USB_TOKEN_OUT:
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
-		if(len > 6 && !memcmp(native_dfp.cmd, data, 7)) //len is prolly 16
-			fprintf(stderr,"usb-pad: tried to set DFP to native mode\n");
 		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
 		//	s->initStage ++;
 		ret = token_out(s, data, len);
@@ -275,7 +257,7 @@ USBDevice *pad_init(int port)
 
 void ResetData(generic_data_t *d)
 {
-	ZeroMemory(d, sizeof(generic_data_t));
+	memset(d, 0, sizeof(generic_data_t));
 	d->axis_x = 0x3FF >> 1;
 	d->axis_y = 0xFF;
 	d->axis_z = 0xFF;

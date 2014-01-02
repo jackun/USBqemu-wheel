@@ -31,6 +31,15 @@ GtkWidget *mDialog;
 GtkWidget *mOKButton;
 int id1 = 0, id2 = 1;
 
+void SysMessage(char *fmt, ...)
+{
+	va_list arglist;
+
+	va_start(arglist, fmt);
+	vfprintf(stderr, fmt, arglist);
+	va_end(arglist);
+}
+
 void SaveConfig() {
 	fprintf(stderr, "USB save config\n");
 	char* envptr = getenv("HOME");
