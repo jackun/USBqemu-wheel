@@ -20,14 +20,19 @@
 #include <string>
 #include <errno.h>
 
+#if BUILD_DX
+	#include "usb-pad/dx/global.h"
+	#include "usb-pad/dx/dialog.h"
+#endif
+
 #include "qemu-usb/vl.h"
 #include "USB.h"
 #include "usb-pad/config.h"
 
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
-const unsigned char build    = 1;    // increase that with each version
-const unsigned char fix      = 1;
+const unsigned char build    = 2;    // increase that with each version
+const unsigned char fix      = 0;
 
 static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
 #ifdef _DEBUG
@@ -99,17 +104,10 @@ u32 CALLBACK PS2EgetLibVersion2(u32 type) {
 }
 
 //Simpler to reset and reattach after USBclose/USBopen
-void ResetAttach()
+void Reset()
 {
 	if(qemu_ohci)
-	{
 		ohci_reset(qemu_ohci);
-		if(usb_device1)
-			qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
-
-		if(usb_device2)
-			qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
-	}
 }
 
 s32 CALLBACK USBinit() {
@@ -124,11 +122,34 @@ s32 CALLBACK USBinit() {
 	}
 
 	qemu_ohci = ohci_create(0x1f801600,2);
-	if(conf.Port1 == 1)
-		usb_device1 = pad_init(PLAYER_ONE_PORT);
-	if(conf.Port0 == 1)
-		usb_device2 = pad_init(PLAYER_TWO_PORT);
-	ResetAttach();
+	if(!qemu_ohci) return 1;
+
+	switch(conf.Port1)
+	{
+	case 1:
+		usb_device1 = pad_init(PLAYER_ONE_PORT, 0);
+		break;
+	case 2:
+		usb_device1 = pad_init(PLAYER_ONE_PORT, 1);
+		break;
+	default:
+		break;
+	}
+	
+	switch(conf.Port0)
+	{
+	case 1:
+		usb_device2 = pad_init(PLAYER_TWO_PORT, 0);
+		break;
+	case 2:
+		usb_device2 = pad_init(PLAYER_TWO_PORT, 1);
+		break;
+	default:
+		break;
+	}
+	//No need for NUL check. NULL device means detach port.
+	qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
+	qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
 	return 0;
 }
 
@@ -151,10 +172,13 @@ void CALLBACK USBshutdown() {
 
 s32 CALLBACK USBopen(void *pDsp) {
 	USB_LOG("USBopen\n");
-	//ResetAttach(); //But not desirable if game is resumed instead
-	//ohci_reset(qemu_ohci);
 
 #if _WIN32
+
+	//TODO linux
+	if(usb_device1 && usb_device1->open) usb_device1->open();
+	if(usb_device2 && usb_device2->open) usb_device2->open();
+
 	HWND hWnd=(HWND)pDsp;
 
 	if (!IsWindow (hWnd) && !IsBadReadPtr ((u32*)hWnd, 4))
@@ -176,11 +200,14 @@ s32 CALLBACK USBopen(void *pDsp) {
 
 void CALLBACK USBclose() {
 #if _WIN32
+	//TODO linux
+	if(usb_device1 && usb_device1->close) usb_device1->close();
+	if(usb_device2 && usb_device2->close) usb_device2->close();
 	UninitWindow();
 #endif
 }
 
-u8   CALLBACK USBread8(u32 addr) {
+u8  CALLBACK USBread8(u32 addr) {
 	USB_LOG("* Invalid 8bit read at address %lx\n", addr);
 	return 0;
 }
@@ -232,7 +259,7 @@ USBhandler CALLBACK USBirqHandler(void) {
 
 void CALLBACK USBsetRAM(void *mem) {
 	ram = (u8*)mem;
-	ResetAttach();
+	Reset();
 }
 
 //TODO update VID/PID and various buffer lengths with changes in usb-pad.c?
@@ -260,7 +287,7 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 
 		if (data->size != sizeof(USBfreezeData))
 			return -1;
-		
+
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
 			usbd.t.rhport[i].port.opaque = qemu_ohci;
@@ -278,9 +305,8 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 		data->data = (s8*)malloc(data->size);
 		if (data->data == NULL)
 			return -1;
-		
 
-		strcpy(usbd.freezeID, USBfreezeID);
+		strcpy_s(usbd.freezeID, USBfreezeID);
 		usbd.t = *qemu_ohci;
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
@@ -300,7 +326,27 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 
 void CALLBACK USBasync(u32 cycles)
 {
-	remaining += cycles;	clocks += remaining;	if(qemu_ohci->eof_timer>0)	{		while(remaining>=qemu_ohci->eof_timer)		{			remaining-=qemu_ohci->eof_timer;			qemu_ohci->eof_timer=0;			ohci_frame_boundary(qemu_ohci);		}		if((remaining>0)&&(qemu_ohci->eof_timer>0))		{			s64 m = qemu_ohci->eof_timer;			if(remaining < m)				m = remaining;			qemu_ohci->eof_timer -= m;			remaining -= m;		}	}	//if(qemu_ohci->eof_timer <= 0)	//{	//	ohci_frame_boundary(qemu_ohci);	//}
+	remaining += cycles;
+	clocks += remaining;
+	if(qemu_ohci->eof_timer>0)	{		while(remaining>=qemu_ohci->eof_timer)
+		{
+			remaining-=qemu_ohci->eof_timer;
+			qemu_ohci->eof_timer=0;
+			ohci_frame_boundary(qemu_ohci);
+		}
+		if((remaining>0)&&(qemu_ohci->eof_timer>0))
+		{
+			s64 m = qemu_ohci->eof_timer;
+			if(remaining < m)
+				m = remaining;
+			qemu_ohci->eof_timer -= m;
+			remaining -= m;
+		}
+	}
+	//if(qemu_ohci->eof_timer <= 0)
+	//{
+	//ohci_frame_boundary(qemu_ohci);
+	//}
 }
 
 s32  CALLBACK USBtest() {
@@ -308,11 +354,10 @@ s32  CALLBACK USBtest() {
 }
 
 #if __cplusplus
-} //extern "C" {
+} //extern "C"
 #endif
 
-void cpu_physical_memory_rw(u32 addr, u8 *buf,
-							int len, int is_write)
+void cpu_physical_memory_rw(u32 addr, u8 *buf, int len, int is_write)
 {
 	if(is_write)
 		memcpy(&(ram[addr]),buf,len);
@@ -320,14 +365,12 @@ void cpu_physical_memory_rw(u32 addr, u8 *buf,
 		memcpy(buf,&(ram[addr]),len);
 }
 
-
 s64 get_clock()
 {
 	return clocks;
 }
 
-void *qemu_mallocz(uint32_t size)
-{
+void *qemu_mallocz(uint32_t size){
 	void *m=malloc(size);
 	if(!m) return NULL;
 	memset(m,0,size);

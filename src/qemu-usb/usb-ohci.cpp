@@ -955,6 +955,7 @@ void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
 OHCIState *ohci_create(uint32_t base, int ports)
 {
 	OHCIState *ohci=(OHCIState*)malloc(sizeof(OHCIState));
+	if(!ohci) return NULL;
     int i;
 
 	const int ticks_per_sec = PSXCLK;

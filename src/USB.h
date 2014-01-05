@@ -317,9 +317,9 @@ USBDevice *eyetoy_init(void);
 USBDevice *usb_mouse_init(void);
 
 /* usb-pad.cpp */
-USBDevice *pad_init(int port);
+USBDevice *pad_init(int port, int type);
 
-/* usb-pad-win32.cpp */
+/* usb-pad-raw.cpp */
 #if _WIN32
 extern HWND msgWindow;
 int InitWindow(HWND);

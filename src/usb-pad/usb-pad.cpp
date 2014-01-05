@@ -1,19 +1,13 @@
-//#include "../qemu-usb/vl.h"
 #include "../USB.h"
 #include "usb-pad.h"
 
-//struct df_data_t	df_data;
-//struct dfp_data_t	dfp_data;
-//struct dfp_buttons_t	dfp_buttons;
-//struct dfgt_buttons_t	dfgt_buttons;
-struct momo_data_t	momo_data = {0};
 #if _WIN32
 //struct generic_data_t	generic_data;
 #else
 struct generic_data_t generic_data[2] = {0};
 #endif
 
-//move to Config?
+//TODO move to Config?
 std::string player_joys[2]; //two players
 bool has_rumble[2];
 
@@ -41,8 +35,8 @@ static int pad_handle_data(USBDevice *dev, int pid,
 
 	switch(pid) {
 	case USB_TOKEN_IN:
-		if (devep == 1) {
-			ret = usb_pad_poll(s, data, len);
+		if (devep == 1 && s->usb_pad_poll) {
+			ret = s->usb_pad_poll(s, data, len);
 		} else {
 			goto fail;
 		}
@@ -51,7 +45,8 @@ static int pad_handle_data(USBDevice *dev, int pid,
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
 		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
 		//	s->initStage ++;
-		ret = token_out(s, data, len);
+		if(s->token_out)
+			ret = s->token_out(s, data, len);
 		break;
 	default:
 	fail:
@@ -213,8 +208,8 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 static void pad_handle_destroy(USBDevice *dev)
 {
 	PADState *s = (PADState *)dev;
-	if(s){
-		destroy_pad(s);
+	if(s && s->destroy_pad){
+		s->destroy_pad(s);
 		free(s);
 	}
 }
@@ -227,11 +222,22 @@ int pad_handle_packet(USBDevice *s, int pid,
 	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
-USBDevice *pad_init(int port)
+USBDevice *pad_init(int port, int type)
 {
 	PADState *s;
 
-	s = (PADState *)get_new_padstate();//qemu_mallocz(sizeof(PADState));
+#if BUILD_RAW
+	if(type == 0)
+		s = (PADState *)get_new_raw_padstate();
+	else
+#endif
+#if BUILD_DX
+	if(type == 1)
+		s = (PADState *)get_new_dx_padstate();
+#else
+		return NULL; //BUILD_RAW else
+#endif
+
 	if (!s)
 		return NULL;
 	s->dev.speed = USB_SPEED_FULL;
@@ -245,7 +251,7 @@ USBDevice *pad_init(int port)
 	// GT4 doesn't seem to care for a proper name?
 	strncpy(s->dev.devname, "Driving Force Pro", sizeof(s->dev.devname));
 
-	if(!find_pad(s))
+	if(s->find_pad && !s->find_pad(s))
 	{
 		free(s);
 		return NULL;

@@ -14,16 +14,13 @@ void
 bitarray_copy(const uint8_t*src_org, int src_offset, int src_len,
                     uint8_t*dst_org, int dst_offset);
 
-/// These functions are in platform specific files
-//extern 
-int usb_pad_poll(PADState *s, uint8_t *buf, int len);
-//extern 
-bool find_pad(PADState *s);
-//extern 
-void destroy_pad(PADState *s);
-//extern 
-int token_out(PADState *s, uint8_t *data, int len);
-PADState* get_new_padstate();
+#if BUILD_RAW
+PADState* get_new_raw_padstate();
+#endif
+
+#if BUILD_DX
+PADState* get_new_dx_padstate();
+#endif
 
 /**
   linux hid-lg4ff.c
@@ -43,6 +40,23 @@ PADState* get_new_padstate();
 #define pad_hid_report_descriptor pad_generic_hid_report_descriptor
 
 /* descriptor Logitech Driving Force Pro */
+static /*const*/ uint8_t df_dev_descriptor[] = {
+	/* bLength             */ 0x12, //(18)
+	/* bDescriptorType     */ 0x01, //(1)
+	/* bcdUSB              */ WBVAL(0x0100), //(272) //USB 1.1
+	/* bDeviceClass        */ 0x00, //(0)
+	/* bDeviceSubClass     */ 0x00, //(0)
+	/* bDeviceProtocol     */ 0x00, //(0)
+	/* bMaxPacketSize0     */ 0x08, //(8)
+	/* idVendor            */ WBVAL(0x046d),
+	/* idProduct           */ WBVAL(DF_PID), //WBVAL(0xc294), 0xc298 dfp
+	/* bcdDevice           */ WBVAL(0x0001), //(1)
+	/* iManufacturer       */ 0x03, //(1)
+	/* iProduct            */ 0x01, //(2)
+	/* iSerialNumber       */ 0x00, //(0)
+	/* bNumConfigurations  */ 0x01, //(1)
+};
+
 static /*const*/ uint8_t pad_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
@@ -62,6 +76,53 @@ static /*const*/ uint8_t pad_dev_descriptor[] = {
 };
 
 #define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
+
+static const uint8_t df_config_descriptor[] = {
+	0x09,   /* bLength */
+	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
+	WBVAL(41),                        /* wTotalLength */
+	0x01,                                 /* bNumInterfaces */
+	0x01,                                 /* bConfigurationValue */
+	0x00,                                 /* iConfiguration */
+	0xc0,               /* bmAttributes */
+	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
+
+	/* Interface Descriptor */
+	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
+	0x04,                   // INTERFACE descriptor type
+	0,                      // Interface Number
+	0,                      // Alternate Setting Number
+	2,                      // Number of endpoints in this intf
+	USB_CLASS_HID,               // Class code
+	0,     // Subclass code
+	0,     // Protocol code
+	0,                      // Interface string index
+
+	/* HID Class-Specific Descriptor */
+	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
+	0x21,                // HID descriptor type
+	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
+	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
+	1,                      // Number of class descriptors, see usbcfg.h
+	0x22,//DSC_RPT,                // Report descriptor type
+	DESC_CONFIG_WORD(82),          // Size of the report descriptor
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(8),        //size
+	0x0A,                       //Interval, shouldn't this be infinite and updates get pushed as they happen?
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(8),        //size
+	0x0A,                        //Interval
+};
 
 static const uint8_t momo_config_descriptor[] = {
 	0x09,   /* bLength */
@@ -433,7 +494,20 @@ struct generic_data_t
 	uint32_t pad2 : 8;
 };
 
-extern struct momo_data_t		momo_data;
+//packet is 8 bytes
+struct ff_data
+{
+	uint32_t reportid : 8; //17 or 19?
+	uint32_t index : 8; //0-255
+	uint32_t data1 : 8; //0-255
+	uint32_t data2 : 8; //always 128 ??
+	//32
+	uint32_t pad1 : 8; //packet is 8 bytes
+	uint32_t pad2 : 8; //
+	uint32_t pad3 : 8; //
+	uint32_t pad4 : 8; //
+	//32
+};
 
 //in config.h
 #if _WIN32

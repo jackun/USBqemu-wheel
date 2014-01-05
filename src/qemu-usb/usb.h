@@ -120,6 +120,10 @@ struct USBDevice {
                          uint8_t *data, int len);
     void (*handle_destroy)(USBDevice *dev);
 
+	//might be useful
+	void (*open)();
+	void (*close)();
+
     int speed;
     
     /* The following fields are used by the generic USB device

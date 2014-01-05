@@ -4,6 +4,10 @@
 #include <vector>
 #include <string>
 
+#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
+#define CHECK(exp)		{ if(!(exp)) goto Error; }
+#define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
+
 //L3/R3 for newer wheels
 enum PS2Buttons : uint32_t {
 	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
@@ -60,6 +64,12 @@ enum PS2WheelTypes {
 
 typedef struct PADState {
 	USBDevice	dev;
+
+	bool (*find_pad)(PADState *ps);
+	int (*usb_pad_poll)(PADState *ps, uint8_t *buf, int len);
+	int (*token_out)(PADState *ps, uint8_t *data, int len);
+	void (*destroy_pad)(PADState *ps);
+
 	uint8_t		port;
 	int			initStage;
 	bool		doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
@@ -79,33 +89,4 @@ struct wheel_data_t
 
 extern std::string player_joys[2]; //two players
 extern bool has_rumble[2];
-
-//Maybe getting too convoluted
-//Check for which player(s) the mapping is for
-//Using MSB (right? :P) to indicate if valid mapping
-#define PLY_IS_MAPPED(p, x) (x & (0x8000 << (16*p)))
-// Add owning player bits to mapping
-#define PLY_SET_MAPPED(p, x) (((x & 0x7FFF) | 0x8000) << (16*p))
-#define PLY_UNSET_MAPPED(p, x) (x & ~(0xFFFF << (16*p)))
-#define PLY_GET_VALUE(p, x) ((x >> (16*p)) & 0x7FFF)
-
-//Joystick: btnMap/axisMap/hatMap[physical button] = ps2 button
-//Keyboard: btnMap/axisMap/hatMap[ps2 button] = vkey
-struct Mappings {
-	uint32_t	btnMap[MAX_BUTTONS];
-	uint32_t	axisMap[MAX_AXES];
-	uint32_t	hatMap[8];
-	wheel_data_t data[2];
-	std::string devName;
-#if _WIN32
-	std::string hidPath;
-#endif
-};
-
-typedef std::vector<Mappings*> MapVector;
-static MapVector mapVector;
-
-void LoadMappings(MapVector *maps);
-void SaveMappings(MapVector *maps);
-
 #endif

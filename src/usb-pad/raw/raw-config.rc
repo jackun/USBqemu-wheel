@@ -1,0 +1,167 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "raw-config-res.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_RAWCONFIG DIALOGEX 0, 0, 385, 260
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Configure (raw input api)"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,270,240,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,326,240,50,14
+    CONTROL         "",IDC_TAB1,"SysTabControl32",0x0,6,6,372,228
+    PUSHBUTTON      "Cross",IDC_BUTTON1,192,42,50,14
+    PUSHBUTTON      "Square",IDC_BUTTON2,246,42,50,14
+    PUSHBUTTON      "Circle",IDC_BUTTON3,192,60,50,14
+    PUSHBUTTON      "Triangle",IDC_BUTTON4,246,60,50,14
+    PUSHBUTTON      "L1",IDC_BUTTON5,192,79,50,14
+    PUSHBUTTON      "R1",IDC_BUTTON6,246,79,50,14
+    PUSHBUTTON      "L2",IDC_BUTTON7,192,95,50,14
+    PUSHBUTTON      "R2",IDC_BUTTON8,246,95,50,14
+    PUSHBUTTON      "L3",IDC_BUTTON9,192,114,50,14
+    PUSHBUTTON      "R3",IDC_BUTTON10,246,114,50,14
+    PUSHBUTTON      "Select",IDC_BUTTON11,192,132,50,14
+    PUSHBUTTON      "Start",IDC_BUTTON12,246,132,50,14
+    PUSHBUTTON      "Up",IDC_BUTTON13,222,156,50,14
+    PUSHBUTTON      "Left",IDC_BUTTON14,192,175,50,14
+    PUSHBUTTON      "Right",IDC_BUTTON15,252,175,50,14
+    PUSHBUTTON      "Down",IDC_BUTTON16,222,191,50,14
+    PUSHBUTTON      "Wheel [X]",IDC_BUTTON17,306,42,50,14
+    PUSHBUTTON      "Clutch? [Y]",IDC_BUTTON18,306,60,50,14
+    PUSHBUTTON      "Accel [Z]",IDC_BUTTON19,306,79,50,14
+    PUSHBUTTON      "Brake [Rz]",IDC_BUTTON20,306,95,50,14
+    LTEXT           "",IDC_STATIC_CAP,192,216,156,8
+    CONTROL         "",IDC_LIST1,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,12,42,174,136
+    COMBOBOX        IDC_COMBO_FFB,66,199,120,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "FFB device:",IDC_STATIC,24,198,38,8
+    CONTROL         "DF Pro pass-through",IDC_DFP_PASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,234,6,144,12
+    PUSHBUTTON      "Unbind",IDC_UNBIND,12,180,50,14
+    COMBOBOX        IDC_COMBO_WHEEL_TYPE,66,215,120,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Emulated wheel:",IDC_STATIC,12,215,54,8
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_RAWCONFIG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 378
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 253
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog Info
+//
+
+IDD_RAWCONFIG DLGINIT
+BEGIN
+    IDC_COMBO_FFB, 0x403, 10, 0
+0x6f4e, 0x4420, 0x7665, 0x6369, 0x0065, 
+    IDC_COMBO_FFB, 0x403, 9, 0
+0x654b, 0x6279, 0x616f, 0x6472, "\000" 
+    IDC_COMBO_FFB, 0x403, 6, 0
+0x6f4d, 0x7375, 0x0065, 
+    IDC_COMBO_FFB, 0x403, 14, 0
+0x7945, 0x7465, 0x796f, 0x4320, 0x6d61, 0x7265, 0x0061, 
+    IDC_COMBO_FFB, 0x403, 20, 0
+0x6953, 0x676e, 0x7473, 0x7261, 0x4d20, 0x6369, 0x6f72, 0x6870, 0x6e6f, 
+0x0065, 
+    IDC_COMBO_WHEEL_TYPE, 0x403, 10, 0
+0x6f4e, 0x4420, 0x7665, 0x6369, 0x0065, 
+    IDC_COMBO_WHEEL_TYPE, 0x403, 9, 0
+0x654b, 0x6279, 0x616f, 0x6472, "\000" 
+    IDC_COMBO_WHEEL_TYPE, 0x403, 6, 0
+0x6f4d, 0x7375, 0x0065, 
+    IDC_COMBO_WHEEL_TYPE, 0x403, 14, 0
+0x7945, 0x7465, 0x796f, 0x4320, 0x6d61, 0x7265, 0x0061, 
+    IDC_COMBO_WHEEL_TYPE, 0x403, 20, 0
+0x6953, 0x676e, 0x7473, 0x7261, 0x4d20, 0x6369, 0x6f72, 0x6870, 0x6e6f, 
+0x0065, 
+    0
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Spanish (Argentina) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
+LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "raw-config-res.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Spanish (Argentina) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

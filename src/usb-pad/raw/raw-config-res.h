@@ -1,14 +1,8 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by USBlinuz.rc
+// Used by raw-config.rc
 //
-#define IDC_CONFIGURE1                  3
-#define IDOK3                           4
-#define IDC_CONFIGURE2                  4
-#define IDD_CONFDLG                     101
-#define IDD_CONFIG                      101
-#define IDD_ABOUT                       103
-#define IDC_NAME                        1000
+#define IDD_RAWCONFIG                   201
 #define IDC_LOGGING                     1007
 #define IDC_COMBO1                      1008
 #define IDC_COMBO2                      1009

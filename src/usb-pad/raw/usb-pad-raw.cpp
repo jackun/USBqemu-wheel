@@ -1,9 +1,29 @@
 #include <algorithm>
-#include "usb-pad.h"
-#include "../USB.h"
-#include "../Win32/Config.h"
+#include "../usb-pad.h"
+#include "../../USB.h"
+#include "raw-config.h"
 
-int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
+typedef struct Win32PADState {
+	PADState padState;
+
+	HIDP_CAPS caps;
+	HIDD_ATTRIBUTES attr;
+	//PHIDP_PREPARSED_DATA pPreparsedData;
+	//PHIDP_BUTTON_CAPS pButtonCaps;
+	//PHIDP_VALUE_CAPS pValueCaps;
+	//ULONG value;// = 0;
+	USHORT numberOfButtons;// = 0;
+	USHORT numberOfValues;// = 0;
+	HANDLE usbHandle;// = (HANDLE)-1;
+	//HANDLE readData;// = (HANDLE)-1;
+	OVERLAPPED ovl;
+	OVERLAPPED ovlW;
+	
+	uint32_t reportInSize;// = 0;
+	uint32_t reportOutSize;// = 0;
+} Win32PADState;
+
+static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 {
 	Win32PADState *s = (Win32PADState*) ps;
 	uint8_t idx = 1 - s->padState.port;
@@ -102,7 +122,7 @@ int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 }
 
 
-int token_out(PADState *ps, uint8_t *data, int len)
+static int token_out(PADState *ps, uint8_t *data, int len)
 {
 	Win32PADState *s = (Win32PADState*) ps;
 	DWORD out = 0, err = 0, waitRes = 0;
@@ -378,13 +398,7 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 		ParseRawInputHID(pRawInput);
 }
 
-//Too much C, not enough C++ ? :P
-PADState* get_new_padstate()
-{
-	return (PADState*)qemu_mallocz(sizeof(Win32PADState));
-}
-
-bool find_pad(PADState *ps)
+static bool find_pad(PADState *ps)
 {
 	Win32PADState *s = (Win32PADState*) ps;
 	uint8_t idx = 1 - s->padState.port;
@@ -434,7 +448,7 @@ bool find_pad(PADState *ps)
 	return false;
 }
 
-void destroy_pad(PADState *ps)
+static void destroy_pad(PADState *ps)
 {
 	Win32PADState *s = (Win32PADState*) ps;
 	/*if(s->pPreparsedData)
@@ -456,6 +470,20 @@ void destroy_pad(PADState *ps)
 	s->pValueCaps = NULL;*/
 }
 
+//Too much C, not enough C++ ? :P
+PADState* get_new_raw_padstate()
+{
+	PADState *s = (PADState*)qemu_mallocz(sizeof(Win32PADState));
+
+	s->dev.open = NULL;
+	s->dev.close = NULL;
+
+	s->destroy_pad = destroy_pad;
+	s->token_out = token_out;
+	s->usb_pad_poll = usb_pad_poll;
+	s->find_pad = find_pad;
+	return s;
+}
 
 HWND msgWindow = NULL;
 WNDPROC eatenWndProc = NULL;
