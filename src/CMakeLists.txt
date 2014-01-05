@@ -113,8 +113,10 @@ IF(WIN32)
 	ELSE()
 		add_definitions(-DBUILD_DX=1)
 		getenv_path(DXSDK_DIR)
-		include_directories(${ENV_DXSDK_DIR}/Include)
-		link_directories(${ENV_DXSDK_DIR}/Lib/x86)
+		SET (BUILD_DX_INCLUDE "${ENV_DXSDK_DIR}/Include" CACHE PATH "DirectX include dir")
+		SET (BUILD_DX_LIB "${ENV_DXSDK_DIR}/Lib/x86" CACHE PATH "DirectX library dir")
+		include_directories(${BUILD_DX_INCLUDE})
+		link_directories(${BUILD_DX_LIB})
 		LIST(APPEND HDRS_DX
 			./usb-pad/dx/di.h
 			./usb-pad/dx/dialog.h
