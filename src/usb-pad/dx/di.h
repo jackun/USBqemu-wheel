@@ -526,9 +526,9 @@ void SetConstantForce(LONG magnitude)
 	WriteLogFile("DINPUT: Apply Force");
 
 	if(INVERTFORCES)
-		cfw.lMagnitude = -(127-magnitude) * 78.4803149606299;
-	else
 		cfw.lMagnitude = (127-magnitude) * 78.4803149606299;
+	else
+		cfw.lMagnitude = -(127-magnitude) * 78.4803149606299;
 	
 	if(g_pEffect) {
 		g_pEffect->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);

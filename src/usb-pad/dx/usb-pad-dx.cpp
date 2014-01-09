@@ -18,9 +18,9 @@ struct ff_data	ffdata;
 
 bool bdown=false;
 DWORD calibrationtime = 0;
+int calidata = 0;
 bool alternate = false;
 bool calibrating = false;
-
 
 typedef struct Win32PADState {
 	PADState padState;
@@ -73,12 +73,18 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		//steering
 		if(calibrating){
 			//Alternate full extents
-			if(alternate)generic_data.axis_x = 0;		//pass full extent
-			else generic_data.axis_x = 1023;		//pass full extent
-			alternate= !alternate;  //invert
+			if (alternate)calidata--;
+			else calidata++;
 
-			//breakout after 15 seconds
-			if(GetTickCount()-calibrationtime > 15000)calibrating = false; 
+			if(calidata>1022 || calidata < 1) alternate = !alternate;  //invert
+
+			generic_data.axis_x = calidata;		//pass fake
+
+			//breakout after 11 seconds
+			if(GetTickCount()-calibrationtime > 11000){
+				calibrating = false;
+				generic_data.axis_x = 511;
+			}
 		}else{
 			generic_data.axis_x = 511+(int)(GetControl(STEERING, false)*511.0f) ;
 		}
@@ -170,6 +176,8 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 		case 243://initialize
 			{
 				if(BYPASSCAL){
+					alternate=false;
+					calidata=0;
 					calibrating = true;
 					calibrationtime = GetTickCount();
 				}

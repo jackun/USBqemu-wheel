@@ -101,7 +101,6 @@ void ControlTest( ) //thread: waits for window
 		GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
 		MapWindowPoints(GetDlgItem(hWnd,IDC_PICTURE), hWnd, (POINT *) &rect, 2);
 		InvalidateRect( hWnd, &rect, TRUE );
-
 	}else{
 		TESTV=0;
 	}
@@ -484,6 +483,7 @@ void InitDialog()
 	//slider
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, 50);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, 50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, 50);
 
 	SendMessage(GetDlgItem(hWnd,IDC_CHECK1), BM_SETCHECK, INVERTFORCES, 0);
 	SendMessage(GetDlgItem(hWnd,IDC_CHECK2), BM_SETCHECK, BYPASSCAL, 0);
