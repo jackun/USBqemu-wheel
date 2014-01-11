@@ -61,6 +61,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	ZeroMemory(&generic_data, sizeof(generic_data_t));
 	generic_data.axis_x = 0x3FF >> 1;
 	generic_data.axis_y = 0xFF;
+	generic_data.axis_z = 0xFF;
 	generic_data.axis_rz = 0xFF;
 	generic_data.hatswitch = 0x8;
 
@@ -90,7 +91,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		}
 
 		//throttle
-		generic_data.axis_y = 255-(int)(GetControl(THROTTLE, false)*255.0f);
+		generic_data.axis_z = 255-(int)(GetControl(THROTTLE, false)*255.0f);
 		//brake
 		generic_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
 
