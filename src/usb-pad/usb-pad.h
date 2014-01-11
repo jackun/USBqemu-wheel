@@ -487,7 +487,7 @@ struct generic_data_t
 	uint32_t pad0 : 2;// maybe
 	uint32_t axis_y : 8;//clutch?? 
 
-	int32_t hatswitch : 8;
+	uint32_t hatswitch : 8;
 	
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;

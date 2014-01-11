@@ -80,7 +80,7 @@ struct wheel_data_t
 {
 	int32_t axis_x;
 	uint32_t buttons;
-	int32_t  hatswitch;
+	uint32_t  hatswitch;
 
 	int8_t axis_y;
 	int8_t axis_z;

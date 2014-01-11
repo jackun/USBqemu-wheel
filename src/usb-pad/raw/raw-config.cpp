@@ -56,8 +56,8 @@ void LoadMappings(MapVector *maps)
 			memset(&ptr->data[1], 0xFF, sizeof(wheel_data_t));
 			ptr->data[0].buttons = 0;
 			ptr->data[1].buttons = 0;
-			//ptr->data[0].hatswitch = 0; //memset to 0xFF already or set to -1
-			//ptr->data[1].hatswitch = 0;
+			ptr->data[0].hatswitch = 0x8; //memset to 0xFF already or set to -1
+			ptr->data[1].hatswitch = 0x8;
 
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{

@@ -71,7 +71,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	memset(&data_summed, 0xFF, sizeof(data_summed));
 
 	int hs = 0;
-	generic_data.hatswitch = -1;
+	generic_data.hatswitch = 0x8;
 
 	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
@@ -108,7 +108,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		}
 		
 		generic_data.buttons |= (*it)->data[idx].buttons;
-		if(generic_data.hatswitch < (*it)->data[idx].hatswitch)
+		if(generic_data.hatswitch > (*it)->data[idx].hatswitch)
 			generic_data.hatswitch = (*it)->data[idx].hatswitch;
 	}
 
@@ -403,7 +403,9 @@ static bool find_pad(PADState *ps)
 	Win32PADState *s = (Win32PADState*) ps;
 	uint8_t idx = 1 - s->padState.port;
 	if(idx > 1) return false;
-	
+	//TODO Better place
+	LoadMappings(&mapVector);
+
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 	memset(&s->ovl, 0, sizeof(OVERLAPPED));
 	memset(&s->ovlW, 0, sizeof(OVERLAPPED));
@@ -429,8 +431,6 @@ static bool find_pad(PADState *ps)
 		{
 			if(conf.DFPPass)// && s->attr.VendorID == PAD_VID && s->attr.ProductID == DFP_PID)
 				s->padState.doPassthrough = true;
-
-			LoadMappings(&mapVector);
 
 			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
 			HidD_FreePreparsedData(pPreparsedData);
