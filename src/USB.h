@@ -317,6 +317,9 @@ USBDevice *usb_msd_init(const char *filename);
 USBDevice *eyetoy_init(void);
 USBDevice *usb_mouse_init(void);
 
+void DestroyDevices();
+void CreateDevices();
+
 /* usb-pad.cpp */
 USBDevice *pad_init(int port, int type);
 

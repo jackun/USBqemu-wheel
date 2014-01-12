@@ -87,22 +87,6 @@ void __Log(char *fmt, ...) {
 	va_end(list);
 }
 
-#if __cplusplus
-extern "C" {
-#endif
-
-u32 CALLBACK PS2EgetLibType() {
-	return PS2E_LT_USB;
-}
-
-char* CALLBACK PS2EgetLibName() {
-	return libraryName;
-}
-
-u32 CALLBACK PS2EgetLibVersion2(u32 type) {
-	return (version<<16) | (revision<<8) | build | (fix << 24);
-}
-
 //Simpler to reset and reattach after USBclose/USBopen
 void Reset()
 {
@@ -110,20 +94,26 @@ void Reset()
 		ohci_reset(qemu_ohci);
 }
 
-s32 CALLBACK USBinit() {
-	LoadConfig();
+void DestroyDevices()
+{
+	if(qemu_ohci && qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev)
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
+	else if(usb_device1) //maybe redundant
+		usb_device1->handle_destroy(usb_device1);
+	
+	if(qemu_ohci && qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev)
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
+	else if(usb_device2)
+		usb_device2->handle_destroy(usb_device2);
 
-	if (conf.Log)
-	{
-		usbLog = fopen("logs/usbLog.txt", "w");
-		setvbuf(usbLog, NULL,  _IONBF, 0);
-		USB_LOG("usbqemu wheel mod plugin version %d,%d\n",revision,build);
-		USB_LOG("USBinit\n");
-	}
+	usb_device1 = NULL;
+	usb_device2 = NULL;
+}
 
-	qemu_ohci = ohci_create(0x1f801600,2);
-	if(!qemu_ohci) return 1;
-
+void CreateDevices()
+{
+	if(!qemu_ohci) return; //No USBinit yet
+	DestroyDevices();
 	switch(conf.Port1)
 	{
 	case 1:
@@ -154,19 +144,49 @@ s32 CALLBACK USBinit() {
 		break;
 	}
 
-	//No need for NUL check. NULL device means detach port.
+	//No need for NULL check. NULL device means detach port.
 	qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
 	qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
+}
+
+#if __cplusplus
+extern "C" {
+#endif
+
+u32 CALLBACK PS2EgetLibType() {
+	return PS2E_LT_USB;
+}
+
+char* CALLBACK PS2EgetLibName() {
+	return libraryName;
+}
+
+u32 CALLBACK PS2EgetLibVersion2(u32 type) {
+	return (version<<16) | (revision<<8) | build | (fix << 24);
+}
+
+s32 CALLBACK USBinit() {
+	LoadConfig();
+
+	if (conf.Log)
+	{
+		usbLog = fopen("logs/usbLog.txt", "w");
+		setvbuf(usbLog, NULL,  _IONBF, 0);
+		USB_LOG("usbqemu wheel mod plugin version %d,%d\n",revision,build);
+		USB_LOG("USBinit\n");
+	}
+
+	qemu_ohci = ohci_create(0x1f801600,2);
+	if(!qemu_ohci) return 1;
+
+	CreateDevices();
+
 	return 0;
 }
 
 void CALLBACK USBshutdown() {
 
-	if(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev)
-	qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
-	
-	if(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev)
-	qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
+	DestroyDevices();
 
 	free(qemu_ohci);
 

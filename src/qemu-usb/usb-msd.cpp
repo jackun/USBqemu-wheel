@@ -318,7 +318,7 @@ static void set_sense(void *opaque, uint32_t sense, uint8_t *extra, uint32_t len
 static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, uint32_t len)
 {
 	MSDState *s = (MSDState *)opaque;
-	DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
+	DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x\n", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
 
 	uint32_t lba;
 	uint32_t xfer_len;
@@ -369,16 +369,17 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//right?
 		*blk_len = LBA_BLOCK_SIZE;//descriptor is currently max 64 bytes for bulk though
 		*last_lba = end_tell / *blk_len;
-		*last_lba = bswap32(*last_lba);
-		*blk_len = bswap32(*blk_len);
 
 		DPRINTF("read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
+
+		*last_lba = bswap32(*last_lba);
+		*blk_len = bswap32(*blk_len);
 		s->result = GOOD;
 		break;
 
 	case READ_12:
 	case READ_10:
-		s->result = NO_SENSE;//everything is fine
+		s->result = GOOD;//everything is fine
 		s->off = 0;
 		set_sense(s, NO_SENSE, NULL, 0);
 
@@ -395,19 +396,22 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
 			s->result = 0x2;//?
+			set_sense(s, MEDIUM_ERROR, NULL, 0);
 			return;
 		}
 
 		memset(s->buf, 0, sizeof(s->buf));
 		//Or do actual reading in USB_MSDM_DATAIN?
 		//TODO probably dont set data_len to read length
-		if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile)))
+		if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile))) {
 			s->result = 0x2;//?
+			set_sense(s, MEDIUM_ERROR, NULL, 0);
+		}
 		break;
 
 	case WRITE_12:
 	case WRITE_10:
-		s->result = NO_SENSE;//everything is fine
+		s->result = GOOD;//everything is fine
 		s->off = 0;
 		set_sense(s, NO_SENSE, NULL, 0);
 
@@ -422,6 +426,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//	break;
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
 			s->result = 0x2;//?
+			set_sense(s, MEDIUM_ERROR, NULL, 0);
 			return;
 		}
 		s->data_len = xfer_len * LBA_BLOCK_SIZE;
@@ -513,10 +518,10 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
         data[0] = 1;
         ret = 1;
         break;
+	case InterfaceOutRequest | USB_REQ_SET_INTERFACE: //better place?
     case DeviceOutRequest | USB_REQ_SET_CONFIGURATION:
         ret = 0;
         break;
-	case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
     case DeviceRequest | USB_REQ_GET_INTERFACE:
         data[0] = 0;
         ret = 1;
@@ -641,7 +646,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             if (len > s->data_len)
                 len = s->data_len;
 
-			if(s->off >= sizeof(s->buf)) //TODO off by one?
+			if(s->off + len > sizeof(s->buf))
 				goto fail;
 
 			memcpy(data, &s->buf[s->off], len);

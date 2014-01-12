@@ -136,6 +136,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						return FALSE;
 					}
 					SaveConfig();
+					CreateDevices();
 					EndDialog(hW, FALSE);
 					return TRUE;
 				}
