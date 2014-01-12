@@ -675,9 +675,9 @@ static void usb_msd_handle_destroy(USBDevice *dev)
     MSDState *s = (MSDState *)dev;
 
     //scsi_disk_destroy(s->scsi_dev);
-    //qemu_free(s);
 	if(s->hfile)
 		fclose(s->hfile);
+	free(s);
 }
 
 USBDevice *usb_msd_init(const char *filename)
