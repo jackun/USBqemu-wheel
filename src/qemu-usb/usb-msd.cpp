@@ -691,7 +691,7 @@ USBDevice *usb_msd_init(const char *filename)
 	s->hfile = NULL;
     s->hfile = fopen(filename, "r+b");
 	if (!s->hfile) {
-		DPRINTF("Could not open '%s'\n", filename);
+		fprintf(stderr, "usb-msd: Could not open '%s'\n", filename);
         return NULL;
 	}
 
