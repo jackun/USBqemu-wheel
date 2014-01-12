@@ -62,7 +62,7 @@ set(SRCS_QEMU
 	./qemu-usb/usb-hub.cpp
 	./qemu-usb/vl.cpp
 	./qemu-usb/usb-base.cpp
-	#./qemu-usb/usb-msd.cpp
+	./qemu-usb/usb-msd.cpp
 	./qemu-usb/usb-ohci.cpp
 )
 
