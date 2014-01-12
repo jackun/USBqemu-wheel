@@ -133,7 +133,7 @@ static const uint8_t qemu_msd_config_descriptor[] = {
 	0x05,       /*  u8  ep_bDescriptorType; Endpoint */
 	0x02,       /*  u8  ep_bEndpointAddress; OUT Endpoint 2 */
  	0x02,       /*  u8  ep_bmAttributes; Bulk */
- 	0x40, 0x00, /*  u16 ep_wMaxPacketSize; */
+ 	0x00, 0x02, /*  u16 ep_wMaxPacketSize; */
 	0x00        /*  u8  ep_bInterval; */
 };
 
@@ -261,6 +261,8 @@ static const uint8_t qemu_msd_config_descriptor[] = {
 #define ABORTED_COMMAND     0x0b
 #define VOLUME_OVERFLOW     0x0d
 #define MISCOMPARE          0x0e
+/* Additional sense codes */
+#define INVALID_COMMAND_OPERATION 0x20
 
 static void usb_msd_command_complete(void *opaque, uint32_t tag, int fail)
 {
@@ -293,26 +295,22 @@ static void usb_msd_handle_reset(USBDevice *dev)
 #define bswap16(x) ( (((x)>>8)&0xff) | (((x)<<8)&0xff00) )
 #endif
 
-static void set_sense(void *opaque, uint32_t sense, uint8_t *extra, uint32_t len)
+static void set_sense(void *opaque, uint32_t sense, uint8_t extra)
 {
 	MSDState *s = (MSDState *)opaque;
 	memset(s->sense_buf, 0, sizeof(s->sense_buf));
-	if(len) {
-		memcpy_s(s->sense_buf, sizeof(s->sense_buf), extra, len);
-	} else {
-		//SENSE request
-		s->sense_buf[0] = 0x70;//0x70 - current sense
-		//s->sense_buf[1] = 0x00;
-		s->sense_buf[2] = sense;//ILLEGAL_REQUEST;
-		//sense information like LBA where error occured
-		s->sense_buf[3] = 0x00;
-		s->sense_buf[4] = 0x00;
-		s->sense_buf[5] = 0x00;
-		s->sense_buf[6] = 0x00;
-		//s->sense_buf[7] = 0x00; //Additional sense length (10 bytes if any)
-		//s->sense_buf[12] = 0x0; //Additional sense code
-		//s->sense_buf[13] = 0x0; //Additional sense code qualifier
-	}
+	//SENSE request
+	s->sense_buf[0] = 0x70;//0x70 - current sense
+	//s->sense_buf[1] = 0x00;
+	s->sense_buf[2] = sense;//ILLEGAL_REQUEST;
+	//sense information like LBA where error occured
+	//s->sense_buf[3] = 0x00;
+	//s->sense_buf[4] = 0x00;
+	//s->sense_buf[5] = 0x00;
+	//s->sense_buf[6] = 0x00;
+	s->sense_buf[7] = extra ? 0x0a : 0x00; //Additional sense length (10 bytes if any)
+	s->sense_buf[12] = extra; //Additional sense code
+	//s->sense_buf[13] = 0x0; //Additional sense code qualifier
 }
 
 static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, uint32_t len)
@@ -329,16 +327,16 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 	case TEST_UNIT_READY:
 		//Do something?
 		s->result = GOOD;
-		set_sense(s, NO_SENSE, NULL, 0);
+		set_sense(s, NO_SENSE, 0);
 		//s->result = CHECK_CONDITION;
-		//set_sense(s, NOT_READY, NULL, 0);
+		//set_sense(s, NOT_READY, 0);
 		break;
 	case REQUEST_SENSE: //device shall keep old sense buf
 		s->result = GOOD;
 		memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf));
 		break;
 	case INQUIRY:
-		set_sense(s, NO_SENSE, NULL, 0);
+		set_sense(s, NO_SENSE, 0);
 		memset(s->buf, 0, sizeof(s->buf));
 		s->off = 0;
 		s->buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
@@ -355,7 +353,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		long cur_tell, end_tell;
 		uint32_t *last_lba, *blk_len;
 
-		set_sense(s, NO_SENSE, NULL, 0);
+		set_sense(s, NO_SENSE, 0);
 		memset(s->buf, 0, sizeof(s->buf));
 		s->off = 0;
 
@@ -381,7 +379,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 	case READ_10:
 		s->result = GOOD;//everything is fine
 		s->off = 0;
-		set_sense(s, NO_SENSE, NULL, 0);
+		set_sense(s, NO_SENSE, 0);
 
 		lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
 		if(cbw->cmd[0] == READ_10)
@@ -396,7 +394,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
 			s->result = 0x2;//?
-			set_sense(s, MEDIUM_ERROR, NULL, 0);
+			set_sense(s, MEDIUM_ERROR, 0);
 			return;
 		}
 
@@ -405,7 +403,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//TODO probably dont set data_len to read length
 		if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile))) {
 			s->result = 0x2;//?
-			set_sense(s, MEDIUM_ERROR, NULL, 0);
+			set_sense(s, MEDIUM_ERROR, 0);
 		}
 		break;
 
@@ -413,7 +411,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 	case WRITE_10:
 		s->result = GOOD;//everything is fine
 		s->off = 0;
-		set_sense(s, NO_SENSE, NULL, 0);
+		set_sense(s, NO_SENSE, 0);
 
 		lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
 		if(cbw->cmd[0] == WRITE_10)
@@ -426,15 +424,15 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//	break;
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
 			s->result = 0x2;//?
-			set_sense(s, MEDIUM_ERROR, NULL, 0);
+			set_sense(s, MEDIUM_ERROR, 0);
 			return;
 		}
 		s->data_len = xfer_len * LBA_BLOCK_SIZE;
 		//Actual write comes with next command in USB_MSDM_DATAOUT
 		break;
 	default:
-		s->result = COMMAND_TERMINATED; //??
-		set_sense(s, ILLEGAL_REQUEST, NULL, 0);
+		s->result = 0x1; //COMMAND_FAILED
+		set_sense(s, ILLEGAL_REQUEST, INVALID_COMMAND_OPERATION);
 		break;
 	}
 }
