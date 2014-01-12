@@ -49,6 +49,7 @@ typedef struct {
   int DFPPass;
   int WheelType1;
   int WheelType2;
+  char usb_img[MAX_PATH+1];
 } Config;
 
 extern Config conf;

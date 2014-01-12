@@ -38,7 +38,9 @@ void SaveConfig()
 
 	sprintf_s(szValue,"%u",Conf1->WheelType2);
 	WritePrivateProfileString("Devices", "Wheel Type 2",szValue,szIniFile);
-	
+
+	WritePrivateProfileString("Devices", "USB Image",Conf1->usb_img,szIniFile);
+
 	//WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile);
 	//WritePrivateProfileString("Joystick", "Player2", player_joys[1].c_str(), szIniFile);
 
@@ -84,6 +86,8 @@ void LoadConfig() {
 
 	GetPrivateProfileString("Devices", "Wheel Type 2", NULL, szValue, 20, szIniFile);
 	Conf1->WheelType2 = strtoul(szValue, NULL, 10);
+
+	GetPrivateProfileString("Devices", "USB Image", NULL, Conf1->usb_img, sizeof(Conf1->usb_img), szIniFile);
 
 	//GetPrivateProfileString("Joystick", "Player1", NULL, szValue, MAX_PATH, szIniFile);
 	//player_joys[0] = szValue;

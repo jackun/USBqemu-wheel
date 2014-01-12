@@ -33,7 +33,10 @@ struct usb_msd_csw {
 };
 
 #define LBA_BLOCK_SIZE 512
+
+#if _DEBUG
 #define DEBUG_MSD
+#endif
 
 #ifdef DEBUG_MSD
 #define DPRINTF(fmt, ...) { fprintf(stderr, "usb-msd: " fmt , __VA_ARGS__); }
@@ -57,12 +60,15 @@ typedef struct {
     enum USBMSDMode mode;
     uint32_t data_len;
     uint32_t tag;
-    //SCSIDevice *scsi_dev;
     FILE *hfile;
+    //char fn[MAX_PATH+1]; //TODO Could use with open/close, 
+							//but error recovery currently can't deal with file suddenly
+							//becoming not accessible
     int result;
 
     uint32_t off; //buffer offset
     uint8_t buf[4096];//random length right now
+    uint8_t sense_buf[18];
     uint8_t last_cmd;
 } MSDState;
 
@@ -273,6 +279,7 @@ static void usb_msd_handle_reset(USBDevice *dev)
     s->mode = USB_MSDM_CBW;
 }
 
+#ifndef bswap32
 #define bswap32(x) (\
         (((x)>>24)&0xff)\
         |\
@@ -284,22 +291,57 @@ static void usb_msd_handle_reset(USBDevice *dev)
 )
 
 #define bswap16(x) ( (((x)>>8)&0xff) | (((x)<<8)&0xff00) )
+#endif
+
+static void set_sense(void *opaque, uint32_t sense, uint8_t *extra, uint32_t len)
+{
+	MSDState *s = (MSDState *)opaque;
+	memset(s->sense_buf, 0, sizeof(s->sense_buf));
+	if(len) {
+		memcpy_s(s->sense_buf, sizeof(s->sense_buf), extra, len);
+	} else {
+		//SENSE request
+		s->sense_buf[0] = 0x70;//0x70 - current sense
+		//s->sense_buf[1] = 0x00;
+		s->sense_buf[2] = sense;//ILLEGAL_REQUEST;
+		//sense information like LBA where error occured
+		s->sense_buf[3] = 0x00;
+		s->sense_buf[4] = 0x00;
+		s->sense_buf[5] = 0x00;
+		s->sense_buf[6] = 0x00;
+		//s->sense_buf[7] = 0x00; //Additional sense length (10 bytes if any)
+		//s->sense_buf[12] = 0x0; //Additional sense code
+		//s->sense_buf[13] = 0x0; //Additional sense code qualifier
+	}
+}
 
 static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, uint32_t len)
 {
 	MSDState *s = (MSDState *)opaque;
-	DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x", cbw->lun, cbw->tag, cbw->cmd[0]);
+	DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
 
 	uint32_t lba;
-	uint16_t xfer_len;
+	uint32_t xfer_len;
+	s->last_cmd = cbw->cmd[0];
 
 	switch(cbw->cmd[0])
 	{
+	case TEST_UNIT_READY:
+		//Do something?
+		s->result = GOOD;
+		set_sense(s, NO_SENSE, NULL, 0);
+		//s->result = CHECK_CONDITION;
+		//set_sense(s, NOT_READY, NULL, 0);
+		break;
+	case REQUEST_SENSE: //device shall keep old sense buf
+		s->result = GOOD;
+		memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf));
+		break;
 	case INQUIRY:
-		s->last_cmd = INQUIRY;
+		set_sense(s, NO_SENSE, NULL, 0);
 		memset(s->buf, 0, sizeof(s->buf));
 		s->off = 0;
-		s->buf[0] = 0 & 0x4; //0x1f - no fdd
+		s->buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
 		s->buf[1] = 1 << 7; //removable
 		s->buf[3] = 1; //UFI response data format
 		//inq data len can be zero
@@ -310,12 +352,13 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		break;
 
 	case READ_CAPACITY:
-		s->last_cmd = READ_CAPACITY;
 		long cur_tell, end_tell;
 		uint32_t *last_lba, *blk_len;
 
+		set_sense(s, NO_SENSE, NULL, 0);
 		memset(s->buf, 0, sizeof(s->buf));
 		s->off = 0;
+
 		cur_tell = ftell(s->hfile);
 		fseek(s->hfile, 0, SEEK_END);
 		end_tell = ftell(s->hfile);
@@ -329,40 +372,51 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		*last_lba = bswap32(*last_lba);
 		*blk_len = bswap32(*blk_len);
 
-		//DPRINTF("usb-msd: read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
+		DPRINTF("read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
 		s->result = GOOD;
 		break;
 
+	case READ_12:
 	case READ_10:
 		s->result = NO_SENSE;//everything is fine
 		s->off = 0;
-		s->last_cmd = READ_10;
+		set_sense(s, NO_SENSE, NULL, 0);
 
 		lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
-		xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
-		DPRINTF("usb-msd: read (10) lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+		if(cbw->cmd[0] == READ_10)
+			xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
+		else
+			xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
 
-		//if(xfer_len == 0) //nothing to do
-		//	break;
+		DPRINTF("read lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+
+		if(xfer_len == 0) //TODO nothing to do
+			break;
+
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
 			s->result = 0x2;//?
 			return;
 		}
 
 		memset(s->buf, 0, sizeof(s->buf));
-		
+		//Or do actual reading in USB_MSDM_DATAIN?
+		//TODO probably dont set data_len to read length
 		if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile)))
 			s->result = 0x2;//?
 		break;
 
+	case WRITE_12:
 	case WRITE_10:
 		s->result = NO_SENSE;//everything is fine
 		s->off = 0;
-		s->last_cmd = WRITE_10;
+		set_sense(s, NO_SENSE, NULL, 0);
 
 		lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
-		xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
-		DPRINTF("usb-msd: write (10) lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+		if(cbw->cmd[0] == WRITE_10)
+			xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
+		else
+			xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
+		DPRINTF("write lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
 		//if(xfer_len == 0) //nothing to do
 		//	break;
@@ -371,13 +425,11 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 			return;
 		}
 		s->data_len = xfer_len * LBA_BLOCK_SIZE;
-
-		//if(!(s->data_len = fwrite(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile)))
-		//	s->result = 0x2;//?
+		//Actual write comes with next command in USB_MSDM_DATAOUT
 		break;
 	default:
-		//s->result = COMMAND_TERMINATED; //??
-		s->last_cmd = -1;
+		s->result = COMMAND_TERMINATED; //??
+		set_sense(s, ILLEGAL_REQUEST, NULL, 0);
 		break;
 	}
 }
@@ -538,14 +590,14 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             }
             DPRINTF("Command tag 0x%x flags %08x len %d data %d\n",
                     s->tag, cbw.flags, cbw.cmd_len, s->data_len);
-            //scsi_send_command(s->scsi_dev, s->tag, cbw.cmd, 0);
 			send_command(s, &cbw, data, len);
             ret = len;
             break;
 
         case USB_MSDM_DATAOUT:
             DPRINTF("Data out %d/%d\n", len, s->data_len);
-			//len == 0x1f falls into here on write error :S. USB_RET_STALL is correct?
+			//len == 0x1f falls into here on write error :S. Forcing mode to CBW
+			//USB_RET_STALL is correct?
             if (len > s->data_len)
                 goto fail;
 
@@ -638,8 +690,10 @@ USBDevice *usb_msd_init(const char *filename)
 
 	s->hfile = NULL;
     s->hfile = fopen(filename, "r+b");
-	if (!s->hfile)
+	if (!s->hfile) {
+		DPRINTF("Could not open '%s'\n", filename);
         return NULL;
+	}
 
     s->last_cmd = -1;
     s->dev.speed = USB_SPEED_FULL;

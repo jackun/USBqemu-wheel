@@ -132,6 +132,9 @@ s32 CALLBACK USBinit() {
 	case 2:
 		usb_device1 = pad_init(PLAYER_ONE_PORT, 1);
 		break;
+	case 3:
+		usb_device1 = usb_msd_init(conf.usb_img);
+		break;
 	default:
 		break;
 	}
@@ -144,12 +147,12 @@ s32 CALLBACK USBinit() {
 	case 2:
 		usb_device2 = pad_init(PLAYER_TWO_PORT, 1);
 		break;
+	case 3:
+		usb_device2 = usb_msd_init(conf.usb_img);
+		break;
 	default:
 		break;
 	}
-
-	//TODO just testing
-	usb_device2 = usb_msd_init("usb.img");
 
 	//No need for NUL check. NULL device means detach port.
 	qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);

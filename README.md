@@ -6,6 +6,15 @@ PCSX2 usb plugin based on gigaherz et al. usb plugin.
 Started as a way to use Logitech MOMO wheel with Gran Turismo 3/4.
 Probably works properly with Logitech wheels only currently.
 
+Mass storage device
+=======
+
+Now includes preliminary support for usb mass storage devices. Create a image file and format it.
+http://www.fysnet.net/mtools.htm might be of some help to windows users.
+
+A 256 MB image file is included in `Release` folder. 
+You should be able to access files in image file with 7-zip ( http://7-zip.org/ ).
+
 Building
 ==========
 

@@ -10,6 +10,48 @@ extern HINSTANCE hInst;
 	extern BOOL CALLBACK DxDialogProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 #endif
 
+OPENFILENAMEA ofn;
+
+BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	switch(uMsg) {
+		case WM_INITDIALOG:
+			SetWindowTextA(GetDlgItem(hW, IDC_EDIT1), conf.usb_img);
+			return TRUE;
+
+		case WM_COMMAND:
+			if (HIWORD(wParam) == BN_CLICKED) {
+				switch(LOWORD(wParam)) {
+				case IDC_BUTTON1:
+					ZeroMemory(&ofn, sizeof(ofn));
+					ofn.lStructSize = sizeof(ofn);
+					ofn.hwndOwner = hW;
+					ofn.lpstrTitle = "USB image file";
+					ofn.lpstrFile = conf.usb_img;
+					ofn.nMaxFile = sizeof(conf.usb_img);
+					ofn.lpstrFilter = "All\0*.*\0";
+					ofn.nFilterIndex = 1;
+					ofn.lpstrFileTitle = NULL;
+					ofn.nMaxFileTitle = 0;
+					ofn.lpstrInitialDir = NULL;
+					ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+					if(GetOpenFileNameA(&ofn)==TRUE) {
+						SetWindowTextA(GetDlgItem(hW, IDC_EDIT1), ofn.lpstrFile);
+					}
+					break;
+				case IDOK:
+					GetWindowTextA(GetDlgItem(hW, IDC_EDIT1), conf.usb_img, sizeof(conf.usb_img));
+					//strcpy_s(conf.usb_img, ofn.lpstrFile);
+					SaveConfig();
+				case IDCANCEL:
+					EndDialog(hW, FALSE);
+					return TRUE;
+				}
+			}
+	}
+	return FALSE;
+}
+
 BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
 		case WM_INITDIALOG:
@@ -34,6 +76,8 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"Wheel (DX input) (disabled)");
 			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"Wheel (DX input) (disabled)");
 #endif
+			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"Mass-storage");
+			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"Mass-storage");
 			//Port 1 aka device/player 1
 			SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, conf.Port1, 0);
 			//Port 0 aka device/player 2
@@ -65,6 +109,12 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 							(DLGPROC)DxDialogProc, 0);
 						return FALSE;
 #endif
+					case 3:
+						DialogBoxParam(hInst,
+							MAKEINTRESOURCE(IDD_DLGMSD),
+							hW,
+							(DLGPROC)MsdDlgProc, 0);
+						return FALSE;
 					default:
 						break;
 					}
@@ -77,12 +127,14 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
 					conf.Port1 = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
 					conf.Port0 = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
-					if(conf.Port1 == 2 && conf.Port0 == 2)
-					{
-						MessageBoxExA(hW, "Currently only one DX wheel is supported!", "Warning", MB_ICONEXCLAMATION, 0);
+					if(conf.Port1 == 2 && conf.Port0 == 2) {
+						MessageBoxExA(hW, "Currently only one DX wheel\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
+						return FALSE;
+					} else if(conf.Port1 == 3 && conf.Port0 == 3) {
+						// at a time? sounds weird
+						MessageBoxExA(hW, "Currently only one USB storage device\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
 						return FALSE;
 					}
-
 					SaveConfig();
 					EndDialog(hW, FALSE);
 					return TRUE;

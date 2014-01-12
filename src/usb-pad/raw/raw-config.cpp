@@ -456,7 +456,7 @@ void populateMappings(HWND hW)
 			mapping->axisMap[x] = PLY_SET_MAPPED(plyCapturing, axisCapturing);\
 			axisPass2 = false;\
 			fprintf(stderr, "Selected axis %d\n", x);\
-			sprintf(buf, "Captured wheel axis %d", x); \
+			sprintf_s(buf, "Captured wheel axis %d", x); \
 			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf); \
 			axisCapturing = PAD_AXIS_COUNT;\
 			goto Error;\
