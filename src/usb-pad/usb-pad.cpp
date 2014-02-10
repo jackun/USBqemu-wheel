@@ -210,7 +210,6 @@ static void pad_handle_destroy(USBDevice *dev)
 	PADState *s = (PADState *)dev;
 	if(s && s->destroy_pad){
 		s->destroy_pad(s);
-		free(s);
 	}
 }
 

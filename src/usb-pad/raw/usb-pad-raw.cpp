@@ -159,7 +159,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	ULONG                usageLength, value;
 	char                 name[1024] = {0};
 	UINT                 nameSize = 1024;
-	RID_DEVICE_INFO      devInfo;
+	RID_DEVICE_INFO      devInfo = {0};
 	std::string          devName;
 	USHORT               capsLength = 0;
 	USAGE                usage[MAX_BUTTONS] = {0};
@@ -468,6 +468,7 @@ static void destroy_pad(PADState *ps)
 	/*s->pPreparsedData = NULL;
 	s->pButtonCaps = NULL;
 	s->pValueCaps = NULL;*/
+	free(ps);
 }
 
 //Too much C, not enough C++ ? :P
