@@ -33,7 +33,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					ofn.lpstrFileTitle = NULL;
 					ofn.nMaxFileTitle = 0;
 					ofn.lpstrInitialDir = NULL;
-					ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+					ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
 					if(GetOpenFileNameA(&ofn)==TRUE) {
 						SetWindowTextA(GetDlgItem(hW, IDC_EDIT1), ofn.lpstrFile);
