@@ -10,10 +10,17 @@ Mass storage device
 =======
 
 Now includes preliminary support for usb mass storage devices. Create a image file and format it.
-http://www.fysnet.net/mtools.htm might be of some help to windows users.
+http://www.fysnet.net/mtools.htm or http://www.ltr-data.se/opencode.html/ might be of some help to windows users.
 
 A 256 MB image file is included in `Release` folder. 
 You should be able to access files in image file with 7-zip ( http://7-zip.org/ ).
+
+On linux:
+
+	truncate -s 256M usb.img
+	losetup -f usb.img
+	mkfs.vfat -F 32 /dev/loopX
+	mount /dev/loopX /mnt #or something
 
 Building
 ==========
