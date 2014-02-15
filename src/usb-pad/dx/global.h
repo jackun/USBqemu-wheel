@@ -141,11 +141,7 @@ void WriteLogFile(const char* szString)
 }
 void SaveMain()
 {
-	GetModuleFileName (NULL, strPath, 255);
-	pStr = strrchr(strPath, '\\');
-	if (pStr != NULL)
-	    *(++pStr)='\0'; 
-	sprintf_s(strMySystemFile,"%s%s",strPath, "\\inis\\USBqemu-DIwheel.ini");
+	GetIniFile(strMySystemFile);
 
 	sprintf_s(strTemp, "%i", LOG);WriteToFile("MAIN", "LOG", strTemp);
 	sprintf_s(strTemp, "%i", INVERTFORCES);WriteToFile("MAIN", "INVERTFORCES", strTemp);
@@ -169,13 +165,9 @@ void LoadMain()
 	memset(HALF, 0xFF, sizeof(LONG)*numc);
 	memset(BUTTON, 0xFF, sizeof(LONG)*numc);
 
-	GetModuleFileName (NULL, strPath, 255);
-	pStr = strrchr(strPath, '\\');
-	if (pStr != NULL)
-		*(++pStr)='\0'; 
-	sprintf_s(strMySystemFile,"%s%s",strPath, "\\inis\\USBqemu-DIwheel.ini"); //probably should be moved to "my documents" to avoid permission error
+	GetIniFile(strMySystemFile);
 
-	FILE * fp=fopen(strMySystemFile, "rt");//check if ini really exists
+	FILE * fp=fopen(strMySystemFile.c_str(), "rt");//check if ini really exists
 	if (!fp)
 	{
 		CreateDirectory("inis",NULL);

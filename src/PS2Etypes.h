@@ -67,9 +67,4 @@ typedef union _LARGE_INTEGER
 
 #endif
 
-typedef struct {
-	int size;
-	s8 *data;
-} freezeData;
-
 #endif /* __PS2ETYPES_H__ */

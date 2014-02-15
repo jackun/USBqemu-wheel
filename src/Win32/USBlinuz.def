@@ -26,3 +26,5 @@ EXPORTS
 	USBconfigure		@19
 	USBtest				@20
 	USBabout			@21
+	USBsetSettingsDir	@22
+	USBsetLogDir		@23

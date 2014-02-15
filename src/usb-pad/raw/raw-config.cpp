@@ -13,6 +13,8 @@
 
 extern HINSTANCE hInst;
 extern char *szIni;
+extern std::string szIniDir;
+extern void GetIniFile(std::string &iniFile);
 
 inline bool MapExists(MapVector *maps, char* hid)
 {
@@ -26,13 +28,10 @@ inline bool MapExists(MapVector *maps, char* hid)
 void LoadMappings(MapVector *maps)
 {
 	char *szTemp;
-	char szIniFile[MAX_PATH+1];
+	std::string szIniFile;
 
-	GetModuleFileName(GetModuleHandle((LPCSTR)hInst), szIniFile, MAX_PATH);
-	szTemp = strrchr(szIniFile, '\\');
+	GetIniFile(szIniFile);
 
-	if(!szTemp) return;
-	strcpy(szTemp, szIni);
 	maps->clear();
 	
 	char sec[32] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
@@ -40,7 +39,7 @@ void LoadMappings(MapVector *maps)
 	while(j < 25)
 	{
 		sprintf_s(sec, "DEVICE %d", j++);
-		if(GetPrivateProfileString(sec, "HID", NULL, hid, MAX_PATH, szIniFile)
+		if(GetPrivateProfileString(sec, "HID", NULL, hid, MAX_PATH, szIniFile.c_str())
 			&& hid && !MapExists(maps, hid))
 		{
 			Mappings *m = new Mappings;
@@ -62,31 +61,31 @@ void LoadMappings(MapVector *maps)
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
 				sprintf_s(bind, "Button %d", i);
-				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
+				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str());
 				sscanf_s(tmp, "%08X", &(ptr->btnMap[i]));
 			}
 
 			for(int i = 0; i<MAX_AXES; i++)
 			{
 				sprintf_s(bind, "Axis %d", i);
-				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
+				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str());
 				sscanf_s(tmp, "%08X", &ptr->axisMap[i]);
 			}
 
 			for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 			{
 				sprintf_s(bind, "Hat %d", i);
-				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile);
+				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str());
 				sscanf_s(tmp, "%08X", &ptr->hatMap[i]);
 			}
 			ptr = NULL;
 		}
 	}
 
-	GetPrivateProfileString("Joystick", "Player1", NULL, hid, MAX_PATH, szIniFile);
+	GetPrivateProfileString("Joystick", "Player1", NULL, hid, MAX_PATH, szIniFile.c_str());
 	player_joys[0] = hid;
 
-	GetPrivateProfileString("Joystick", "Player2", NULL, hid, MAX_PATH, szIniFile);
+	GetPrivateProfileString("Joystick", "Player2", NULL, hid, MAX_PATH, szIniFile.c_str());
 	player_joys[1] = hid;
 	return;
 }
@@ -94,13 +93,10 @@ void LoadMappings(MapVector *maps)
 void SaveMappings(MapVector *maps)
 {
 	char *szTemp;
-	char szIniFile[MAX_PATH+1], szValue[256] = {0};
+	std::string szIniFile;
+	char szValue[256] = {0};
 
-	GetModuleFileName(GetModuleHandle((LPCSTR)hInst), szIniFile, MAX_PATH);
-	szTemp = strrchr(szIniFile, '\\');
-
-	if(!szTemp) return;
-	strcpy(szTemp, szIni);
+	GetIniFile(szIniFile);
 
 	MapVector::iterator it;
 	uint32_t numDevice = 0;
@@ -109,33 +105,33 @@ void SaveMappings(MapVector *maps)
 		char dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
 
 		sprintf_s(dev, "DEVICE %d", numDevice++);
-		WritePrivateProfileString(dev, "HID", (*it)->hidPath.c_str(), szIniFile);
+		WritePrivateProfileString(dev, "HID", (*it)->hidPath.c_str(), szIniFile.c_str());
 
 		//writing everything separately, then string lengths are more predictable
 		for(int i = 0; i<MAX_BUTTONS; i++)
 		{
 			sprintf_s(bind, "Button %d", i);
 			sprintf_s(tmp, "%08X", (*it)->btnMap[i]);
-			WritePrivateProfileString(dev, bind, tmp, szIniFile);
+			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
 		}
 
 		for(int i = 0; i<MAX_AXES; i++)
 		{
 			sprintf_s(bind, "Axis %d", i);
 			sprintf_s(tmp, "%08X", (*it)->axisMap[i]);
-			WritePrivateProfileString(dev, bind, tmp, szIniFile);
+			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
 		}
 
 		for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 		{
 			sprintf_s(bind, "Hat %d", i);
 			sprintf_s(tmp, "%08X", (*it)->hatMap[i]);
-			WritePrivateProfileString(dev, bind, tmp, szIniFile);
+			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
 		}
 	}
 
-	WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile);
-	WritePrivateProfileString("Joystick", "Player2", player_joys[1].c_str(), szIniFile);
+	WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile.c_str());
+	WritePrivateProfileString("Joystick", "Player2", player_joys[1].c_str(), szIniFile.c_str());
 	return;
 }
 
