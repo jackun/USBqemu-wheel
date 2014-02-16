@@ -40,7 +40,7 @@ void SaveConfig()
 
 	GetIniFile(szIniFile);
 
-	FILE *f = fopen(szIniFile.c_str(), "w+");
+	FILE *f = fopen(szIniFile.c_str(), "a+");
 	if(!f) {
 		MessageBoxA(NULL, "Cannot save to ini!", "USBqemu", MB_ICONERROR);
 	} else

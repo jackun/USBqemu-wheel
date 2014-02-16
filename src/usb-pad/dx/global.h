@@ -37,6 +37,7 @@ char key[255]={0};
 extern HINSTANCE hInst;
 
 bool dialogOpen = false;
+extern HWND gsWnd;
 HWND hWin = NULL;
 DWORD pid = NULL;
 DWORD old = NULL;
@@ -198,8 +199,13 @@ void InitDI()
 {
 
 	LoadMain();
-	pid = GetCurrentProcessId();
-	while(hWin == 0){ hWin = GetWindowHandle(pid);}
+	if(gsWnd) {
+		hWin = gsWnd;
+	} else {
+		pid = GetCurrentProcessId();
+		while(hWin == 0){ hWin = GetWindowHandle(pid);}
+	}
+	
 	
 	InitDirectInput(hWin, 0);
 }

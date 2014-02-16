@@ -325,6 +325,7 @@ USBDevice *pad_init(int port, int type);
 
 /* usb-pad-raw.cpp */
 #if _WIN32
+extern HWND gsWnd;
 extern HWND msgWindow;
 int InitWindow(HWND);
 void UninitWindow();
