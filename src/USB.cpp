@@ -303,9 +303,7 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 
 		usbd = *(USBfreezeData*)data->data;
 		usbd.freezeID[10] = 0;
-		usbd.cycles = clocks;
-		usbd.remaining = remaining;
-		
+
 		if( strcmp(usbd.freezeID, USBfreezeID) != 0)
 		{
 			SysMessage("ERROR: Unable to load freeze data! Found ID '%s', expected ID '%s'.", usbd.freezeID, USBfreezeID);
@@ -315,6 +313,8 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 		if (data->size != sizeof(USBfreezeData))
 			return -1;
 
+		clocks = usbd.cycles;
+		remaining = usbd.remaining;
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
 			usbd.t.rhport[i].port.opaque = qemu_ohci;
@@ -333,7 +333,7 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 		if (data->data == NULL)
 			return -1;
 
-		strcpy_s(usbd.freezeID, USBfreezeID);
+		snprintf(usbd.freezeID, strlen(USBfreezeID), "%s", USBfreezeID);
 		usbd.t = *qemu_ohci;
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
@@ -342,8 +342,10 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 			usbd.t.rhport[i].port.dev = NULL; // pointers
 		}
 
-		clocks = usbd.cycles;
-		remaining = usbd.remaining;
+		usbd.cycles = clocks;
+		usbd.remaining = remaining;
+		memcpy(data->data, &usbd, data->size);
+		//*(USBfreezeData*)data->data = usbd;
 
 		// WARNING: TODO: Save the state of the attached devices!
 	}

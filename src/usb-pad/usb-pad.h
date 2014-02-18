@@ -14,12 +14,20 @@ void
 bitarray_copy(const uint8_t*src_org, int src_offset, int src_len,
                     uint8_t*dst_org, int dst_offset);
 
-#if BUILD_RAW
-PADState* get_new_raw_padstate();
-#endif
+#ifdef _WIN32
 
-#if BUILD_DX
-PADState* get_new_dx_padstate();
+	#if BUILD_RAW
+	PADState* get_new_raw_padstate();
+	#endif
+
+	#if BUILD_DX
+	PADState* get_new_dx_padstate();
+	#endif
+
+#else
+
+PADState* get_new_padstate();
+
 #endif
 
 /**
