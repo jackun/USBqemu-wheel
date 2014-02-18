@@ -788,10 +788,13 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			case BN_CLICKED:
 				switch(LOWORD(wParam)) {
 				case IDC_UNBIND:
-					if(ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1)) > -1)
+					int selection;
+					selection = ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1));
+					if(selection > -1)
 					{
 						ZeroMemory(&lv, sizeof(LVITEM));
 						lv.iItem = ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1));
+						lv.mask = LVIF_PARAM;
 						ListView_GetItem(GetDlgItem(hW, IDC_LIST1), &lv);
 						int *map = (int*)lv.lParam;
 						if(map)
