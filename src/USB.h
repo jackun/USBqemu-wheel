@@ -32,7 +32,8 @@
 #else
 
 //#include <gtk/gtk.h>
-
+#include <limits.h>
+#define MAX_PATH PATH_MAX
 #define __inline inline
 
 #endif

@@ -328,12 +328,16 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//Do something?
 		s->result = GOOD;
 		set_sense(s, NO_SENSE, 0);
+		/* If error */
 		//s->result = CHECK_CONDITION;
 		//set_sense(s, NOT_READY, 0);
 		break;
-	case REQUEST_SENSE: //device shall keep old sense buf
+	case REQUEST_SENSE: //device shall keep old sense data
 		s->result = GOOD;
-		memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf));
+		//memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf)); //not on !WINDOWS
+		memcpy(s->buf, s->sense_buf, 
+			/* TODO or error out instead? */
+			s->data_len < sizeof(s->sense_buf) ? s->data_len : sizeof(s->sense_buf));
 		break;
 	case INQUIRY:
 		set_sense(s, NO_SENSE, 0);
@@ -377,7 +381,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 
 	case READ_12:
 	case READ_10:
-		s->result = GOOD;//everything is fine
+		s->result = GOOD;
 		s->off = 0;
 		set_sense(s, NO_SENSE, 0);
 
@@ -568,7 +572,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
         switch (s->mode) {
         case USB_MSDM_CBW:
             if (len != 31) {
-                fprintf(stderr, "usb-msd: Bad CBW size");
+                fprintf(stderr, "usb-msd: Bad CBW size\n");
                 goto fail;
             }
             memcpy(&cbw, data, 31);
@@ -599,7 +603,8 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 
         case USB_MSDM_DATAOUT:
             DPRINTF("Data out %d/%d\n", len, s->data_len);
-			//len == 0x1f falls into here on write error :S. Forcing mode to CBW
+			//len == 0x1f falls into here on write error :S. 
+			//Forcing mode to CBW in fail label
 			//USB_RET_STALL is correct?
             if (len > s->data_len)
                 goto fail;
@@ -707,7 +712,7 @@ USBDevice *usb_msd_init(const char *filename)
     s->dev.handle_data = usb_msd_handle_data;
     s->dev.handle_destroy = usb_msd_handle_destroy;
 
-	sprintf_s(s->dev.devname, "QEMU USB MSD(%.16s)",
+	sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
              filename);
 
     usb_msd_handle_reset((USBDevice *)s);

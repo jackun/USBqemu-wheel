@@ -219,18 +219,26 @@ int pad_handle_packet(USBDevice *s, int pid,
 
 USBDevice *pad_init(int port, int type)
 {
-	PADState *s;
+	PADState *s = NULL;
 
-#if BUILD_RAW
-	if(type == 0)
-		s = (PADState *)get_new_raw_padstate();
-	else
-#endif
-#if BUILD_DX
-	if(type == 1)
-		s = (PADState *)get_new_dx_padstate();
+#ifdef _WIN32
+
+	#if BUILD_RAW
+		if(type == 0)
+			s = (PADState *)get_new_raw_padstate();
+		else
+	#endif
+	#if BUILD_DX
+		if(type == 1)
+			s = (PADState *)get_new_dx_padstate();
+	#else
+			return NULL; //BUILD_RAW else
+	#endif
+
 #else
-		return NULL; //BUILD_RAW else
+
+	s = (PADState *)get_new_padstate();
+
 #endif
 
 	if (!s)
