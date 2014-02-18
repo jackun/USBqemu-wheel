@@ -333,8 +333,11 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 		data->data = (s8*)malloc(data->size);
 		if (data->data == NULL)
 			return -1;
-
+#ifdef _WIN32
+		strcpy_s(usbd.freezeID, USBfreezeID);
+#else
 		snprintf(usbd.freezeID, strlen(USBfreezeID), "%s", USBfreezeID);
+#endif
 		usbd.t = *qemu_ohci;
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
