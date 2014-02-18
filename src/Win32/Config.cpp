@@ -8,7 +8,7 @@ std::string szIniDir;
 
 void CALLBACK USBsetSettingsDir( const char* dir )
 {
-	printf("USBsetSettingsDir: %s\n", dir);
+	fprintf(stderr, "USBsetSettingsDir: %s\n", dir);
 	szIniDir = dir;
 }
 
@@ -19,6 +19,7 @@ void CALLBACK USBsetLogDir( const char* dir )
 
 void GetIniFile(std::string &iniFile)
 {
+	iniFile.clear();
 	if(!szIniDir.length()) {
 		char *szTemp = NULL, tmp[MAX_PATH];
 		GetModuleFileName(GetModuleHandle((LPCSTR)hInst), tmp, MAX_PATH);
@@ -26,6 +27,7 @@ void GetIniFile(std::string &iniFile)
 		if(!szTemp) return;
 		strcpy(szTemp, "\\inis\\USBqemu-wheel.ini");
 		iniFile.append(tmp);
+		fprintf(stderr, "Ini dir: %s\n", tmp);
 	} else {
 		iniFile.append(szIniDir);
 		iniFile.append("USBqemu-wheel.ini");

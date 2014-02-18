@@ -96,6 +96,7 @@ void Reset()
 
 void DestroyDevices()
 {
+	//FIXME something throws an null ptr exception?
 	if(qemu_ohci && qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev)
 		qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
 	else if(usb_device1) //maybe redundant

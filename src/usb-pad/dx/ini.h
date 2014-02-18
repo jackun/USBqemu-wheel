@@ -4,6 +4,7 @@ std::string strMySystemFile;
 
 static void GetIniFile(std::string &iniFile)
 {
+	iniFile.clear();
 	if(!szIniDir.length()) {
 		char *szTemp = NULL, tmp[MAX_PATH];
 		GetModuleFileName(GetModuleHandle((LPCSTR)hInst), tmp, MAX_PATH);

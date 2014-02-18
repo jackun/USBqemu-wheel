@@ -211,7 +211,7 @@ void SysMessage(char *fmt, ...) {
 	va_start(list,fmt);
 	vsprintf_s(tmp,512,fmt,list);
 	va_end(list);
-	MessageBox(0, tmp, "USBlinuz Msg", 0);
+	MessageBox(0, tmp, "USBqemu Msg", 0);
 }
 
 void populate(HWND hW)

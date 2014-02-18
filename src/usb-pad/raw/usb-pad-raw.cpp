@@ -3,6 +3,10 @@
 #include "../../USB.h"
 #include "raw-config.h"
 
+//FIXME if wheel type is DF Pro switch to proper struct 
+static generic_data_t generic_data;
+static dfp_data_t dfp_data;
+
 typedef struct Win32PADState {
 	PADState padState;
 
@@ -61,17 +65,14 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	//fprintf(stderr, "\tData 0:%02X 8:%02X 16:%02X 24:%02X 32:%02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
 	
 	//XXX Currently config descriptor has 16 byte buffer and generic_data_t is just 8 bytes
-	//FIXME if wheel type is DF Pro switch to proper struct 
-	generic_data_t generic_data;
-	ZeroMemory(&generic_data, sizeof(generic_data_t));
-	ResetData(&generic_data);
-
+	
 	//in case compiler magic with bitfields interferes
 	wheel_data_t data_summed;
 	memset(&data_summed, 0xFF, sizeof(data_summed));
+	data_summed.hatswitch = 0x8;
+	data_summed.buttons = 0;
 
 	int hs = 0;
-	generic_data.hatswitch = 0x8;
 
 	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
@@ -107,17 +108,50 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 				data_summed.axis_rz = (*it)->data[idx].axis_rz;
 		}
 		
-		generic_data.buttons |= (*it)->data[idx].buttons;
-		if(generic_data.hatswitch > (*it)->data[idx].hatswitch)
-			generic_data.hatswitch = (*it)->data[idx].hatswitch;
+		data_summed.buttons |= (*it)->data[idx].buttons;
+		if(data_summed.hatswitch > (*it)->data[idx].hatswitch)
+			data_summed.hatswitch = (*it)->data[idx].hatswitch;
 	}
 
-	generic_data.axis_x = data_summed.axis_x;
-	generic_data.axis_y = data_summed.axis_y;
-	generic_data.axis_z = data_summed.axis_z;
-	generic_data.axis_rz = data_summed.axis_rz;
+	int type = idx == 0 ? conf.WheelType1 : conf.WheelType2;
+
+	switch(type){
+	case WT_GENERIC:
+		ZeroMemory(&generic_data, sizeof(generic_data_t));
+		ResetData(&generic_data);
+		
+		generic_data.buttons = data_summed.buttons;
+		generic_data.hatswitch = data_summed.hatswitch;
+		generic_data.axis_x = data_summed.axis_x;
+		generic_data.axis_y = data_summed.axis_y;
+		generic_data.axis_z = data_summed.axis_z;
+		generic_data.axis_rz = data_summed.axis_rz;
+		memcpy(buf, &generic_data, sizeof(generic_data_t));
+		break;
+
+	case WT_DRIVING_FORCE:
+		break;
+	case WT_DRIVING_FORCE_PRO:
+		
+		ZeroMemory(&dfp_data, sizeof(dfp_data_t));
+		ResetData(&dfp_data);
+
+		dfp_data.buttons = data_summed.buttons;
+		dfp_data.hatswitch = data_summed.hatswitch;
+		dfp_data.axis_x = data_summed.axis_x;
+		//dfp_data.axis_y = data_summed.axis_y;
+		dfp_data.axis_z = data_summed.axis_z;
+		dfp_data.axis_rz = data_summed.axis_rz;
+		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
+
+		break;
+	default:
+		break;
+	}
+
 	
-	memcpy(buf, &generic_data, sizeof(generic_data_t));
+	
+	
 	return len;
 }
 

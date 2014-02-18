@@ -400,24 +400,13 @@ struct df_data_t
 
 struct dfp_data_t
 {
-	//uint32_t pad0 : 8;
-	uint32_t axis_x_1 : 14;
-	uint32_t buttons : 12; //14
-	// 32
-	//uint32_t buttons_high : 4;
-	uint32_t hatswitch : 4;
-	uint32_t paddd : 2;
-
-	uint32_t paddsd : 16;
-	uint32_t axis_z : 8;
+	uint32_t axis_x : 14;
+	uint32_t buttons : 14;
+	uint32_t hatswitch : 4; //32
+	
+	uint32_t axis_z : 8; //or y
 	uint32_t axis_rz : 8;
-	
-	//uint32_t axis_x : 8;
-	//uint32_t pad : 2;
-	
-	//uint32_t axis_y : 10;
-	//uint32_t axis_rz : 8;
-	
+	uint32_t pad1 : 16;
 };
 
 struct dfp_buttons_t
@@ -517,4 +506,5 @@ extern struct generic_data_t	generic_data[2];
 #endif
 
 extern void ResetData(generic_data_t *d);
+extern void ResetData(dfp_data_t *d);
 #endif

@@ -69,11 +69,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 	int ret = 0;
 	if(s == NULL) return USB_RET_STALL;
 
-	int t;
-	if(s->port == 1)
-		t = conf.WheelType1;
-	else
-		t = conf.WheelType2;
+	int t = s->port == 1 ? conf.WheelType1 : conf.WheelType2;
 
 	switch(request) {
 	case DeviceRequest | USB_REQ_GET_STATUS:
@@ -107,13 +103,13 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 			//if(s->initStage > 2)
 			if(/*s->doPassthrough ||*/ t == WT_DRIVING_FORCE_PRO)
 			{
-				pad_dev_descriptor[10] = 0xC2;
-				pad_dev_descriptor[11] = DFP_PID & 0xFF;
+				pad_dev_descriptor[11] = 0xC2;
+				pad_dev_descriptor[10] = DFP_PID & 0xFF;
 			}
 			else if(t == WT_DRIVING_FORCE)
 			{
-				pad_dev_descriptor[10] = 0xC2;
-				pad_dev_descriptor[11] = DF_PID & 0xFF;
+				pad_dev_descriptor[11] = 0xC2;
+				pad_dev_descriptor[10] = DF_PID & 0xFF;
 			}
 
 			memcpy(data, pad_dev_descriptor, 
@@ -265,6 +261,15 @@ void ResetData(generic_data_t *d)
 	memset(d, 0, sizeof(generic_data_t));
 	d->axis_x = 0x3FF >> 1;
 	d->axis_y = 0xFF;
+	d->axis_z = 0xFF;
+	d->axis_rz = 0xFF;
+}
+
+void ResetData(dfp_data_t *d)
+{
+	memset(d, 0, sizeof(dfp_data_t));
+	d->axis_x = 0x3FFF >> 1;
+	//d->axis_y = 0xFF;
 	d->axis_z = 0xFF;
 	d->axis_rz = 0xFF;
 }
