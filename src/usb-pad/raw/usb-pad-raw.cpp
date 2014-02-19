@@ -129,8 +129,6 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		memcpy(buf, &generic_data, sizeof(generic_data_t));
 		break;
 
-	case WT_DRIVING_FORCE:
-		break;
 	case WT_DRIVING_FORCE_PRO:
 		
 		ZeroMemory(&dfp_data, sizeof(dfp_data_t));

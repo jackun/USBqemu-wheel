@@ -41,7 +41,7 @@ PADState* get_new_padstate();
   Currently not emulating reattachment. Any games that expect to?
 **/
 
-//GT4 seems to disregard report desc.
+// Any game actually queries for hid reports?
 //#define pad_hid_report_descriptor pad_driving_force_pro_hid_report_descriptor
 //#define pad_hid_report_descriptor pad_momo_hid_report_descriptor
 //#define pad_hid_report_descriptor pad_driving_force_hid_report_descriptor
@@ -393,19 +393,6 @@ static const uint8_t pad_generic_hid_report_descriptor[] = {
 	0xC0 /* End Collection */
 };
 
-struct df_data_t
-{
-	uint32_t pad0 : 8;//report id?
-	uint32_t axis_x : 10;
-	uint32_t buttons : 12;
-	uint32_t padding0 : 2; //??
-
-	uint32_t vendor_stuff : 8;
-	uint32_t hatswitch : 8;
-	uint32_t axis_z : 8;
-	uint32_t axis_rz : 8; //+56??
-};
-
 struct dfp_data_t
 {
 	uint32_t axis_x : 14;
@@ -476,7 +463,7 @@ struct momo_data_t
 	uint8_t padding2;//32
 };
 
-// convert momo to 'generic' wheel aka 0xC294
+// DF or any LG wheel in non-native mode
 struct generic_data_t
 {
 	uint32_t axis_x : 10;

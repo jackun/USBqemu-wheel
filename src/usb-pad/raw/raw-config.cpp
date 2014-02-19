@@ -272,8 +272,8 @@ void populate(HWND hW)
 	tie.pszText = "Player 2";
 	SendDlgItemMessageA(hW, IDC_TAB1, TCM_INSERTITEM, 1, (LPARAM)&tie);
 
-	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Generic Logitech Wheel");
-	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
+	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
+	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
 	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
 	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType1, 0);
 	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force GT");

@@ -106,11 +106,6 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 				pad_dev_descriptor[11] = 0xC2;
 				pad_dev_descriptor[10] = DFP_PID & 0xFF;
 			}
-			else if(t == WT_DRIVING_FORCE)
-			{
-				pad_dev_descriptor[11] = 0xC2;
-				pad_dev_descriptor[10] = DF_PID & 0xFF;
-			}
 
 			memcpy(data, pad_dev_descriptor, 
 				   sizeof(pad_dev_descriptor));

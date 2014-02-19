@@ -42,16 +42,15 @@ enum PS2HatSwitch {
 static int hats7to4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 
 enum PS2WheelTypes {
-	WT_GENERIC, // 'dumb' wheel
-	WT_DRIVING_FORCE, //has the usual buttons instead of X/Y/A/B on GT Force
+	WT_GENERIC, // DF or any other LG wheel in non-native mode
 	WT_DRIVING_FORCE_PRO, //LPRC-11000? DF GT can be downgraded to Pro (?)
 };
 
 //Hardcoded Logitech MOMO racing wheel, idea is that gamepad/wheel would be selectable instead
 #define PAD_VID			0x046D
 #define PAD_PID			0xCA03 //black MOMO
-#define GENERIC_PID		0xC294 //generic PID
-#define DF_PID			0xC296 //?? wingman fgp 0xC283
+#define GENERIC_PID		0xC294 //actually Driving Force aka PID that all wheels initially report
+#define DF_PID			0xC294
 #define DFP_PID			0xC298 //SELECT + R3 + RIGHT SHIFT PADDLE (R1) ???
 #define DFGT_PID		0xC29A
 #define MAX_BUTTONS		32
