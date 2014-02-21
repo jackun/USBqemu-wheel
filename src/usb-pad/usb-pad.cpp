@@ -2,9 +2,11 @@
 #include "usb-pad.h"
 
 #if _WIN32
-//struct generic_data_t	generic_data;
+static generic_data_t generic_data;
+static dfp_data_t dfp_data;
 #else
-struct generic_data_t generic_data[2] = {0};
+static generic_data_t	generic_data[2] = {0};
+static dfp_data_t		dfp_data[2] = {0};
 #endif
 
 //TODO move to Config?
@@ -22,8 +24,19 @@ bool has_rumble[2];
 static const uint8_t GT4Inits[4] = {
 	0xf3,// 0, 0, 0, 0, 0, 0}, //de-activate all forces?
 	0xf4,// 0, 0, 0, 0, 0, 0}, //activate autocenter?
-	0x09,// 6, 0, 0, 0, 0, 0}, //switch wheel mode
-	0xf5                       //activate autocenter?
+	0x09,// 6, 0, 0, 0, 0, 0}, //???
+	0xf5                       //de-activate autocenter?
+};
+
+static uint8_t last_cmd = 0;
+static uint8_t dfp_range[] =  {
+	//0x81, 
+	//0x0B, 
+	0x19, 
+	0xE6, 
+	0xFF, 
+	0x4A, 
+	0xFF
 };
 
 static int pad_handle_data(USBDevice *dev, int pid, 
@@ -36,12 +49,21 @@ static int pad_handle_data(USBDevice *dev, int pid,
 	switch(pid) {
 	case USB_TOKEN_IN:
 		if (devep == 1 && s->usb_pad_poll) {
+			/*fprintf(stderr, "usb-pad: data poll len=%d last cmd:0x%X\n", len, last_cmd);
+			if(last_cmd == 0xB) {
+				memcpy(data, dfp_range, sizeof(dfp_range));
+				last_cmd = 0;
+			}
+			else*/
 			ret = s->usb_pad_poll(s, data, len);
 		} else {
 			goto fail;
 		}
 		break;
 	case USB_TOKEN_OUT:
+		last_cmd = data[0];
+		/*fprintf(stderr,"usb-pad: data token out len=0x%X %X,%X,%X,%X,%X,%X,%X,%X\n",len, 
+			data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]);*/
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
 		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
 		//	s->initStage ++;
@@ -112,9 +134,9 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 			ret = sizeof(pad_dev_descriptor);
 			break;
 		case USB_DT_CONFIG:
-			memcpy(data, momo_config_descriptor, 
-				sizeof(momo_config_descriptor));
-			ret = sizeof(momo_config_descriptor);
+			memcpy(data, df_config_descriptor, 
+				sizeof(df_config_descriptor));
+			ret = sizeof(df_config_descriptor);
 			break;
 		case USB_DT_STRING:
 			switch(value & 0xff) {
@@ -161,7 +183,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		ret = 0;
 		break;
 		/* hid specific requests */
-	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR:
+	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //Never called?
 		fprintf(stderr, "InterfaceRequest | USB_REQ_GET_DESCRIPTOR %d\n", value>>8);
 		switch(value >> 8) {
 		case 0x22:
@@ -275,4 +297,40 @@ void ResetData(dfp_data_t *d)
 	//d->axis_y = 0xFF;
 	d->axis_z = 0xFF;
 	d->axis_rz = 0xFF;
+}
+
+void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
+{
+	int type = idx == 0 ? conf.WheelType1 : conf.WheelType2;
+
+	switch(type){
+	case WT_GENERIC:
+		//memset(&generic_data, 0, sizeof(generic_data_t));
+		//ResetData(&generic_data);
+		
+		generic_data.buttons = data.buttons;
+		generic_data.hatswitch = data.hatswitch;
+		generic_data.axis_x = data.axis_x;
+		generic_data.axis_y = data.axis_y;
+		generic_data.axis_z = data.axis_z;
+		generic_data.axis_rz = data.axis_rz;
+		memcpy(buf, &generic_data, sizeof(generic_data_t));
+		break;
+
+	case WT_DRIVING_FORCE_PRO:
+		//memset(&dfp_data, 0, sizeof(dfp_data_t));
+		//ResetData(&dfp_data);
+
+		dfp_data.buttons = data.buttons;
+		dfp_data.hatswitch = data.hatswitch;
+		dfp_data.axis_x = data.axis_x;
+		//dfp_data.axis_y = data.axis_y;
+		dfp_data.axis_z = data.axis_z;
+		dfp_data.axis_rz = data.axis_rz;
+		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
+
+		break;
+	default:
+		break;
+	}
 }

@@ -23,6 +23,14 @@
 
 #include <stdio.h>
 
+#ifndef EXPORT_C_
+#ifdef _MSC_VER
+#define EXPORT_C_(type) extern "C" type CALLBACK
+#else
+#define EXPORT_C_(type) extern "C" __attribute__((externally_visible,visibility("default"))) type
+#endif
+#endif
+
 #ifdef _WIN32
 
 #define usleep(x)	Sleep(x / 1000)

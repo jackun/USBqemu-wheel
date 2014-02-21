@@ -31,7 +31,7 @@
 
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
-const unsigned char build    = 3;    // increase that with each version
+const unsigned char build    = 4;    // increase that with each version
 const unsigned char fix      = 0;
 
 static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
@@ -150,23 +150,19 @@ void CreateDevices()
 	qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
 }
 
-#if __cplusplus
-extern "C" {
-#endif
-
-u32 CALLBACK PS2EgetLibType() {
+EXPORT_C_(u32) PS2EgetLibType() {
 	return PS2E_LT_USB;
 }
 
-char* CALLBACK PS2EgetLibName() {
+EXPORT_C_(char*) PS2EgetLibName() {
 	return libraryName;
 }
 
-u32 CALLBACK PS2EgetLibVersion2(u32 type) {
+EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
 	return (version<<16) | (revision<<8) | build | (fix << 24);
 }
 
-s32 CALLBACK USBinit() {
+EXPORT_C_(s32) USBinit() {
 	LoadConfig();
 
 	if (conf.Log)
@@ -185,7 +181,7 @@ s32 CALLBACK USBinit() {
 	return 0;
 }
 
-void CALLBACK USBshutdown() {
+EXPORT_C_(void) USBshutdown() {
 
 	DestroyDevices();
 
@@ -198,14 +194,10 @@ void CALLBACK USBshutdown() {
 //#endif
 }
 
-s32 CALLBACK USBopen(void *pDsp) {
+EXPORT_C_(s32) USBopen(void *pDsp) {
 	USB_LOG("USBopen\n");
 
 #if _WIN32
-
-	//TODO linux
-	if(usb_device1 && usb_device1->open) usb_device1->open();
-	if(usb_device2 && usb_device2->open) usb_device2->open();
 
 	HWND hWnd=(HWND)pDsp;
 
@@ -223,29 +215,30 @@ s32 CALLBACK USBopen(void *pDsp) {
 		InitWindow(hWnd);
 #endif
 
+	if(usb_device1 && usb_device1->open) usb_device1->open();
+	if(usb_device2 && usb_device2->open) usb_device2->open();
 	return 0;
 }
 
-void CALLBACK USBclose() {
-#if _WIN32
-	//TODO linux
+EXPORT_C_(void) USBclose() {
 	if(usb_device1 && usb_device1->close) usb_device1->close();
 	if(usb_device2 && usb_device2->close) usb_device2->close();
+#if _WIN32
 	UninitWindow();
 #endif
 }
 
-u8  CALLBACK USBread8(u32 addr) {
+EXPORT_C_(u8) USBread8(u32 addr) {
 	USB_LOG("* Invalid 8bit read at address %lx\n", addr);
 	return 0;
 }
 
-u16  CALLBACK USBread16(u32 addr) {
+EXPORT_C_(u16) USBread16(u32 addr) {
 	USB_LOG("* Invalid 16bit read at address %lx\n", addr);
 	return 0;
 }
 
-u32  CALLBACK USBread32(u32 addr) {
+EXPORT_C_(u32) USBread32(u32 addr) {
 	u32 hard;
 
 	hard=ohci_mem_read(qemu_ohci,addr);
@@ -255,43 +248,43 @@ u32  CALLBACK USBread32(u32 addr) {
 	return hard;
 }
 
-void CALLBACK USBwrite8(u32 addr,  u8 value) {
+EXPORT_C_(void) USBwrite8(u32 addr,  u8 value) {
 	USB_LOG("* Invalid 8bit write at address %lx value %x\n", addr, value);
 }
 
-void CALLBACK USBwrite16(u32 addr, u16 value) {
+EXPORT_C_(void) USBwrite16(u32 addr, u16 value) {
 	USB_LOG("* Invalid 16bit write at address %lx value %x\n", addr, value);
 }
 
-void CALLBACK USBwrite32(u32 addr, u32 value) {
+EXPORT_C_(void) USBwrite32(u32 addr, u32 value) {
 	USB_LOG("* Known 32bit write at address %lx value %lx\n", addr, value);
 	ohci_mem_write(qemu_ohci,addr,value);
 }
 
-void CALLBACK USBirqCallback(USBcallback callback) {
+EXPORT_C_(void) USBirqCallback(USBcallback callback) {
 	_USBirq = callback;
 }
 
 extern u32 bits;
 
-int CALLBACK _USBirqHandler(void) 
+EXPORT_C_(int) _USBirqHandler(void) 
 {
 	//fprintf(stderr," * USB: IRQ Acknowledged.\n");
 	//qemu_ohci->intr_status&=~bits;
 	return 1;
 }
 
-USBhandler CALLBACK USBirqHandler(void) {
+EXPORT_C_(USBhandler) USBirqHandler(void) {
 	return (USBhandler)_USBirqHandler;
 }
 
-void CALLBACK USBsetRAM(void *mem) {
+EXPORT_C_(void) USBsetRAM(void *mem) {
 	ram = (u8*)mem;
 	Reset();
 }
 
 //TODO update VID/PID and various buffer lengths with changes in usb-pad.c?
-s32 CALLBACK USBfreeze(int mode, freezeData *data) {
+EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 	USBfreezeData usbd;
 
 	if (mode == FREEZE_LOAD) 
@@ -333,11 +326,8 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 		data->data = (s8*)malloc(data->size);
 		if (data->data == NULL)
 			return -1;
-#ifdef _WIN32
-		strcpy_s(usbd.freezeID, USBfreezeID);
-#else
-		snprintf(usbd.freezeID, strlen(USBfreezeID), "%s", USBfreezeID);
-#endif
+
+		strncpy(usbd.freezeID,  USBfreezeID, strlen(USBfreezeID));
 		usbd.t = *qemu_ohci;
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
@@ -357,7 +347,7 @@ s32 CALLBACK USBfreeze(int mode, freezeData *data) {
 	return 0;
 }
 
-void CALLBACK USBasync(u32 cycles)
+EXPORT_C_(void) USBasync(u32 cycles)
 {
 	remaining += cycles;
 	clocks += remaining;
@@ -382,13 +372,9 @@ void CALLBACK USBasync(u32 cycles)
 	//}
 }
 
-s32  CALLBACK USBtest() {
+EXPORT_C_(s32) USBtest() {
 	return 0;
 }
-
-#if __cplusplus
-} //extern "C"
-#endif
 
 void cpu_physical_memory_rw(u32 addr, u8 *buf, int len, int is_write)
 {

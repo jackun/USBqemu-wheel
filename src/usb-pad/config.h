@@ -9,11 +9,36 @@
 #define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
 
 //L3/R3 for newer wheels
+//enum PS2Buttons : uint32_t {
+//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
+//	PAD_L1, PAD_L2, PAD_R1, PAD_R2,
+//	PAD_SELECT, PAD_START,
+//	PAD_L3, PAD_R3, //order
+//	PAD_BUTTON_COUNT
+//};
+
+//???
+//enum DFButtons : uint32_t {
+//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
+//	PAD_R2, 
+//	PAD_L2,
+//	PAD_R1, 
+//	PAD_L1,
+//	PAD_SELECT, PAD_START,
+//	PAD_BUTTON_COUNT
+//};
+
+//DF Pro buttons (?)
+//Based on Tokyo Xtreme Racer Drift 2
+//GT4 flips R1/L1 with R2/L2 with DF wheel type
 enum PS2Buttons : uint32_t {
 	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
-	PAD_L1, PAD_L2, PAD_R1, PAD_R2,
+	PAD_R1, 
+	PAD_L1, 
+	PAD_R2, 
+	PAD_L2,
 	PAD_SELECT, PAD_START,
-	PAD_L3, PAD_R3, //order
+	PAD_R3, PAD_L3, //order
 	PAD_BUTTON_COUNT
 };
 

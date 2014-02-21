@@ -132,56 +132,6 @@ static const uint8_t df_config_descriptor[] = {
 	0x0A,                        //Interval
 };
 
-static const uint8_t momo_config_descriptor[] = {
-	0x09,   /* bLength */
-	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-	WBVAL(41),                        /* wTotalLength */
-	0x01,                                 /* bNumInterfaces */
-	0x01,                                 /* bConfigurationValue */
-	0x00,                                 /* iConfiguration */
-	USB_CONFIG_BUS_POWERED,               /* bmAttributes */
-	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
-
-	/* Interface Descriptor */
-	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
-	0x04,                   // INTERFACE descriptor type
-	0,                      // Interface Number
-	0,                      // Alternate Setting Number
-	2,                      // Number of endpoints in this intf
-	USB_CLASS_HID,               // Class code
-	0,     // Subclass code
-	0,     // Protocol code
-	0,                      // Interface string index
-
-	/* HID Class-Specific Descriptor */
-	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
-	0x21,                // HID descriptor type
-	DESC_CONFIG_WORD(0x0111),                 // HID Spec Release Number in BCD format (1.11)
-	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
-	1,                      // Number of class descriptors, see usbcfg.h
-	0x22,//DSC_RPT,                // Report descriptor type
-	DESC_CONFIG_WORD(87),          // Size of the report descriptor
-
-	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
-	DESC_CONFIG_WORD(16),        //size
-	0x0A,                       //Interval, shouldn't this be infinite and updates get pushed as they happen?
-
-	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
-	DESC_CONFIG_WORD(16),        //size
-	0x0A,                        //Interval
-	//41 bytes
-/* Terminator */
-	0	/* bLength */
-};
-
 //https://lkml.org/lkml/2011/5/28/140
 //https://github.com/torvalds/linux/blob/master/drivers/hid/hid-lg.c
 // separate axes version
@@ -500,6 +450,7 @@ struct ff_data
 extern struct generic_data_t	generic_data[2];
 #endif
 
-extern void ResetData(generic_data_t *d);
-extern void ResetData(dfp_data_t *d);
+void ResetData(generic_data_t *d);
+void ResetData(dfp_data_t *d);
+void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data);
 #endif

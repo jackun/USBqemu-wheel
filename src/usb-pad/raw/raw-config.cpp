@@ -142,12 +142,14 @@ char *BTN2TXT[] = {
 	"Square",
 	"Circle",
 	"Triangle",
-	"L1",
-	"L2",
 	"R1",
+	"L1",
 	"R2",
+	"L2",
 	"Select",
-	"Start"
+	"Start",
+	"R3",
+	"L3"
 };
 
 char *AXIS2TXT[] = { 
@@ -211,7 +213,7 @@ void SysMessage(char *fmt, ...) {
 	va_start(list,fmt);
 	vsprintf_s(tmp,512,fmt,list);
 	va_end(list);
-	MessageBox(0, tmp, "USBqemu Msg", 0);
+	MessageBox(0, tmp, "Qemu USB Msg", 0);
 }
 
 void populate(HWND hW)
@@ -272,11 +274,11 @@ void populate(HWND hW)
 	tie.pszText = "Player 2";
 	SendDlgItemMessageA(hW, IDC_TAB1, TCM_INSERTITEM, 1, (LPARAM)&tie);
 
-	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
-	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
-	SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
-	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType1, 0);
-	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force GT");
+	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
+	////SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
+	//SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+	//SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType1, 0);
+	////SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE, CB_ADDSTRING, 0, (LPARAM)"Driving Force GT");
 
 	//Selected FFB target device
 	SendDlgItemMessageA(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)"None");
@@ -810,10 +812,10 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON6://R1
 				case IDC_BUTTON7://L2
 				case IDC_BUTTON8://R2
-				case IDC_BUTTON9://L3
-				case IDC_BUTTON10://R3
-				case IDC_BUTTON11://select
-				case IDC_BUTTON12://start
+				case IDC_BUTTON9://select
+				case IDC_BUTTON10://start
+				case IDC_BUTTON11://L3
+				case IDC_BUTTON12://R3
 					btnCapturing = (PS2Buttons) (LOWORD(wParam) - IDC_BUTTON1);
 					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing a button, press ESC to cancel");
 					return TRUE;

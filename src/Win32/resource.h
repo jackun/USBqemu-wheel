@@ -18,6 +18,8 @@
 #define IDC_DFP_PASS                    1013
 #define IDC_BUILD_DATE                  1014
 #define IDC_EDIT1                       1015
+#define IDC_COMBO_WHEEL_TYPE1           1037
+#define IDC_COMBO_WHEEL_TYPE2           1038
 
 // Next default values for new objects
 // 

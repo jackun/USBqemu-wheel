@@ -3,10 +3,6 @@
 #include "../../USB.h"
 #include "raw-config.h"
 
-//FIXME if wheel type is DF Pro switch to proper struct 
-static generic_data_t generic_data;
-static dfp_data_t dfp_data;
-
 typedef struct Win32PADState {
 	PADState padState;
 
@@ -82,16 +78,16 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		if(false && it == mapVector.begin())
 		{
 			if((*it)->data[idx].axis_x != 0xFFFFFFFF)
-				generic_data.axis_x = (*it)->data[idx].axis_x;
+				data_summed.axis_x = (*it)->data[idx].axis_x;
 
 			if((*it)->data[idx].axis_y != 0xFFFFFFFF)
-				generic_data.axis_y = (*it)->data[idx].axis_y;
+				data_summed.axis_y = (*it)->data[idx].axis_y;
 
 			if((*it)->data[idx].axis_z != 0xFFFFFFFF)
-				generic_data.axis_z = (*it)->data[idx].axis_z;
+				data_summed.axis_z = (*it)->data[idx].axis_z;
 
 			if((*it)->data[idx].axis_rz != 0xFFFFFFFF)
-				generic_data.axis_rz = (*it)->data[idx].axis_rz;
+				data_summed.axis_rz = (*it)->data[idx].axis_rz;
 		}
 		else
 		{
@@ -113,43 +109,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 			data_summed.hatswitch = (*it)->data[idx].hatswitch;
 	}
 
-	int type = idx == 0 ? conf.WheelType1 : conf.WheelType2;
-
-	switch(type){
-	case WT_GENERIC:
-		ZeroMemory(&generic_data, sizeof(generic_data_t));
-		ResetData(&generic_data);
-		
-		generic_data.buttons = data_summed.buttons;
-		generic_data.hatswitch = data_summed.hatswitch;
-		generic_data.axis_x = data_summed.axis_x;
-		generic_data.axis_y = data_summed.axis_y;
-		generic_data.axis_z = data_summed.axis_z;
-		generic_data.axis_rz = data_summed.axis_rz;
-		memcpy(buf, &generic_data, sizeof(generic_data_t));
-		break;
-
-	case WT_DRIVING_FORCE_PRO:
-		
-		ZeroMemory(&dfp_data, sizeof(dfp_data_t));
-		ResetData(&dfp_data);
-
-		dfp_data.buttons = data_summed.buttons;
-		dfp_data.hatswitch = data_summed.hatswitch;
-		dfp_data.axis_x = data_summed.axis_x;
-		//dfp_data.axis_y = data_summed.axis_y;
-		dfp_data.axis_z = data_summed.axis_z;
-		dfp_data.axis_rz = data_summed.axis_rz;
-		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
-
-		break;
-	default:
-		break;
-	}
-
-	
-	
-	
+	pad_copy_data(idx, buf, data_summed);
 	return len;
 }
 

@@ -82,6 +82,15 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, conf.Port1, 0);
 			//Port 0 aka device/player 2
 			SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, conf.Port0, 0);
+
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_SETCURSEL, conf.WheelType1, 0);
+
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_SETCURSEL, conf.WheelType2, 0);
+
 			return TRUE;
 			break;
 		case WM_COMMAND:
@@ -125,8 +134,12 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				case IDOK:
 					conf.Log = IsDlgButtonChecked(hW, IDC_LOGGING);
 					conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
+					//device type
 					conf.Port1 = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
 					conf.Port0 = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
+					//wheel type
+					conf.WheelType1 = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_GETCURSEL, 0, 0);
+					conf.WheelType2 = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_GETCURSEL, 0, 0);
 					if(conf.Port1 == 2 && conf.Port0 == 2) {
 						MessageBoxExA(hW, "Currently only one DX wheel\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
 						return FALSE;
@@ -147,7 +160,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 
-BOOL CALLBACK AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+EXPORT_C_(BOOL) AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
 		case WM_INITDIALOG:
 			return TRUE;
@@ -162,14 +175,14 @@ BOOL CALLBACK AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return FALSE;
 }
 
-void CALLBACK USBconfigure() {
+EXPORT_C_(void) USBconfigure() {
     DialogBox(hInst,
               MAKEINTRESOURCE(IDD_CONFIG),
               GetActiveWindow(),
               (DLGPROC)ConfigureDlgProc);
 }
 
-void CALLBACK USBabout() {
+EXPORT_C_(void) USBabout() {
     DialogBox(hInst,
               MAKEINTRESOURCE(IDD_ABOUT),
               GetActiveWindow(),

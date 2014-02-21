@@ -1,3 +1,4 @@
+#include "../../USB.h"
 #include "../usb-pad.h"
 
 //externs
@@ -13,14 +14,15 @@ extern void InitDI();
 extern void FreeDirectInput();
 extern DWORD BYPASSCAL;
 
-struct generic_data_t	generic_data;
-struct ff_data	ffdata;
+//struct generic_data_t	generic_data;
+static struct wheel_data_t	wheel_data;
+static struct ff_data	ffdata;
 
-bool bdown=false;
-DWORD calibrationtime = 0;
-int calidata = 0;
-bool alternate = false;
-bool calibrating = false;
+static bool bdown=false;
+static DWORD calibrationtime = 0;
+static int calidata = 0;
+static bool alternate = false;
+static bool calibrating = false;
 
 typedef struct Win32PADState {
 	PADState padState;
@@ -50,26 +52,34 @@ typedef enum CONTROLID
 	START,
 };
 
+static inline int range_max(uint32_t idx)
+{
+	int type = (idx == 0) ? conf.WheelType1 : conf.WheelType2;
+	if(type == WT_DRIVING_FORCE_PRO)
+		return 0x3FFF;
+	return 0x3FF;
+}
+
 static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 {
 	Win32PADState *s = (Win32PADState*) ps;
 	uint8_t idx = 1 - s->padState.port;
 	if(idx>1) return 0;
-
+	int range = range_max(idx);
 
 	// Setting to unpressed
-	ZeroMemory(&generic_data, sizeof(generic_data_t));
-	generic_data.axis_x = 0x3FF >> 1;
-	generic_data.axis_y = 0xFF;
-	generic_data.axis_z = 0xFF;
-	generic_data.axis_rz = 0xFF;
-	generic_data.hatswitch = 0x8;
+	ZeroMemory(&wheel_data, sizeof(wheel_data_t));
+	wheel_data.axis_x = range >> 1;
+	wheel_data.axis_y = 0xFF;
+	wheel_data.axis_z = 0xFF;
+	wheel_data.axis_rz = 0xFF;
+	wheel_data.hatswitch = 0x8;
 
 	PollDevices();
 
 	//Allow in both ports but warn in configure dialog that only one DX wheel is supported for now
 	//if(idx == 0){
-		//generic_data.axis_x = 8191 + (int)(GetControl(STEERING, false)* 8191.0f) ;
+		//wheel_data.axis_x = 8191 + (int)(GetControl(STEERING, false)* 8191.0f) ;
 		
 		//steering
 		if(calibrating){
@@ -77,65 +87,87 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 			if (alternate)calidata--;
 			else calidata++;
 
-			if(calidata>1022 || calidata < 1) alternate = !alternate;  //invert
+			if(calidata>range-1 || calidata < 1) alternate = !alternate;  //invert
 
-			generic_data.axis_x = calidata;		//pass fake
+			wheel_data.axis_x = calidata;		//pass fake
 
 			//breakout after 11 seconds
 			if(GetTickCount()-calibrationtime > 11000){
 				calibrating = false;
-				generic_data.axis_x = 511;
+				wheel_data.axis_x = range >> 1;
 			}
 		}else{
-			generic_data.axis_x = 511+(int)(GetControl(STEERING, false)*511.0f) ;
+			wheel_data.axis_x = (range>>1)+(int)(GetControl(STEERING, false)* (float)(range>>1)) ;
 		}
 
 		//throttle
-		generic_data.axis_z = 255-(int)(GetControl(THROTTLE, false)*255.0f);
+		wheel_data.axis_z = 255-(int)(GetControl(THROTTLE, false)*255.0f);
 		//brake
-		generic_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
+		wheel_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
 
 
-		if(GetControl(CROSS))		generic_data.buttons = generic_data.buttons | 1;
-		if(GetControl(SQUARE))		generic_data.buttons = generic_data.buttons | 2;
-		if(GetControl(CIRCLE))		generic_data.buttons = generic_data.buttons | 4;
-		if(GetControl(TRIANGLE))	generic_data.buttons = generic_data.buttons | 8;
-		if(GetControl(R1))			generic_data.buttons = generic_data.buttons | 16;
-		if(GetControl(L1))			generic_data.buttons = generic_data.buttons | 32;
-		if(GetControl(R2))			generic_data.buttons = generic_data.buttons | 64;
-		if(GetControl(L2))			generic_data.buttons = generic_data.buttons | 128;
-		if(GetControl(SELECT))		generic_data.buttons = generic_data.buttons | 256;
-		if(GetControl(START))		generic_data.buttons = generic_data.buttons | 512;
-		if(GetControl(R3))			generic_data.buttons = generic_data.buttons | 1024;
-		if(GetControl(L3))			generic_data.buttons = generic_data.buttons | 2048;
+		if(GetControl(CROSS))		wheel_data.buttons = 1 << PAD_CROSS;
+		if(GetControl(SQUARE))		wheel_data.buttons |= 1 << PAD_SQUARE;
+		if(GetControl(CIRCLE))		wheel_data.buttons |= 1 << PAD_CIRCLE;
+		if(GetControl(TRIANGLE))	wheel_data.buttons |= 1 << PAD_TRIANGLE;
+		if(GetControl(R1))			wheel_data.buttons |= 1 << PAD_R1;
+		if(GetControl(L1))			wheel_data.buttons |= 1 << PAD_L1;
+		if(GetControl(R2))			wheel_data.buttons |= 1 << PAD_R2;
+		if(GetControl(L2))			wheel_data.buttons |= 1 << PAD_L2;
+		if(GetControl(SELECT))		wheel_data.buttons |= 1 << PAD_SELECT;
+		if(GetControl(START))		wheel_data.buttons |= 1 << PAD_START;
+		if(GetControl(R3))			wheel_data.buttons |= 1 << PAD_R3;
+		if(GetControl(L3))			wheel_data.buttons |= 1 << PAD_L3;
 
 		//diagonal
 		if(GetControl(HATUP, true)  && GetControl(HATRIGHT, true))
-			generic_data.hatswitch = 1;
+			wheel_data.hatswitch = 1;
 		if(GetControl(HATRIGHT, true) && GetControl(HATDOWN, true))
-			generic_data.hatswitch = 3;
+			wheel_data.hatswitch = 3;
 		if(GetControl(HATDOWN, true) && GetControl(HATLEFT, true))
-			generic_data.hatswitch = 5;
+			wheel_data.hatswitch = 5;
 		if(GetControl(HATLEFT, true) && GetControl(HATUP, true))
-			generic_data.hatswitch = 7;
+			wheel_data.hatswitch = 7;
 
 		//regular
-		if(generic_data.hatswitch==0x8){
+		if(wheel_data.hatswitch==0x8){
 			if(GetControl(HATUP, true))
-				generic_data.hatswitch = 0;
+				wheel_data.hatswitch = 0;
 			if(GetControl(HATRIGHT, true))
-				generic_data.hatswitch = 2;
+				wheel_data.hatswitch = 2;
 			if(GetControl(HATDOWN, true))
-				generic_data.hatswitch = 4;
+				wheel_data.hatswitch = 4;
 			if(GetControl(HATLEFT, true))
-				generic_data.hatswitch = 6;
+				wheel_data.hatswitch = 6;
 
 		}
 
-		memcpy(buf, &generic_data, sizeof(generic_data));
+		//memcpy(buf, &generic_data, sizeof(generic_data));
+		pad_copy_data(idx, buf, wheel_data);
 	//} //if(idx ...
 	return len;
 }
+
+//DF pro init by GT4
+//F8,6,0,0,0,0,0,0 //limits, ranges, leds?
+//F8,5,1,0,0,0,0,0 //limits, ranges, leds?
+//B,0,0,0,0,0,0,0 //set led?
+//F3,0,0,0,0,0,0,0 //release all forces?
+//F4,0,0,0,0,0,0,0 //activate auto-center
+//F4,0,0,0,0,0,0,0 //activate auto-center
+//8,0,0,0,0,0,0,0 //set led?
+//B,0,0,0,0,0,0,0 //set led?
+//F8,3,0,0,0,0,0,0 //set range 900 deg?
+//F5,0,0,0,0,0,0,0 //deactivate autocenter
+//F8,3,0,0,0,0,0,0 //set range 900 deg?
+//8,0,0,0,0,0,0,0 //set led?
+//B,0,0,0,0,0,0,0 //set led?
+//13,3,0,0,0,0,0,0 //deactivate force?
+//21,B,7F,7F,77,0,80,0 //autocenter? (0x7f)
+//8,0,0,0,0,0,0,0 //for-
+//B,0,0,0,0,0,0,0 //ever
+//8,0,0,0,0,0,0,0 //and
+//B,0,0,0,0,0,0,0 //ever
 
 static int token_out(PADState *ps, uint8_t *data, int len)
 {
@@ -149,7 +181,7 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 
 	switch(ffdata.reportid)
 	{
-		case 9://mode switch?
+		case 9:
 			{
 				//not handled
 			}
