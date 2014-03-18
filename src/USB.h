@@ -56,8 +56,7 @@ typedef struct {
   int Port0; //player2
   int Port1; //player1
   int DFPPass;
-  int WheelType1;
-  int WheelType2;
+  int WheelType[2];
   char usb_img[MAX_PATH+1];
 } Config;
 

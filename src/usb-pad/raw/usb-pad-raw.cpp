@@ -28,40 +28,25 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	Win32PADState *s = (Win32PADState*) ps;
 	uint8_t idx = 1 - s->padState.port;
 	if(idx>1) return 0;
-	if(s->usbHandle==INVALID_HANDLE_VALUE) return 0;
 
-	//uint8_t data[64];
+	uint8_t data[64];
 	DWORD waitRes;
 	ULONG value = 0;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
-	if(s->padState.doPassthrough)
+	if(s->padState.doPassthrough && s->usbHandle != INVALID_HANDLE_VALUE)
 	{
 		//ZeroMemory(buf, len);
-		ReadFile(s->usbHandle, buf, s->caps.InputReportByteLength, 0, &s->ovl);
-		waitRes = WaitForSingleObject(s->ovl.hEvent, 5);
+		ReadFile(s->usbHandle, data, MIN(s->caps.InputReportByteLength, sizeof(data)), 0, &s->ovl);
+		waitRes = WaitForSingleObject(s->ovl.hEvent, 50);
 		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
 			CancelIo(s->usbHandle);
 			return 0;
 		}
+		memcpy(buf, data, len);
 		return len;
 	}
 
-	/*ZeroMemory(data, 64);
-	// Be sure to read 'reportInSize' bytes or you get interleaved reads of data and garbage or something
-	ReadFile(s->usbHandle, data, s->caps.InputReportByteLength, 0, &s->ovl);
-	waitRes = WaitForSingleObject(s->ovl.hEvent, 5);
-	// if the transaction timed out, then we have to manually cancel the request
-	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
-		CancelIo(s->usbHandle);
-		fprintf(stderr, "usb_pad_poll: waitRes 0x%08X\n", waitRes);
-		return 0;
-	}*/
-
-	//fprintf(stderr, "\tData 0:%02X 8:%02X 16:%02X 24:%02X 32:%02X %02X %02X %02X\n", data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
-	
-	//XXX Currently config descriptor has 16 byte buffer and generic_data_t is just 8 bytes
-	
 	//in case compiler magic with bitfields interferes
 	wheel_data_t data_summed;
 	memset(&data_summed, 0xFF, sizeof(data_summed));
@@ -103,7 +88,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 			if(data_summed.axis_rz < (*it)->data[idx].axis_rz)
 				data_summed.axis_rz = (*it)->data[idx].axis_rz;
 		}
-		
+
 		data_summed.buttons |= (*it)->data[idx].buttons;
 		if(data_summed.hatswitch > (*it)->data[idx].hatswitch)
 			data_summed.hatswitch = (*it)->data[idx].hatswitch;
@@ -133,12 +118,11 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 
 	//CancelIo(s->usbHandle); //Mind the ERROR_IO_PENDING, may break FFB
 	res = WriteFile(s->usbHandle, outbuf, s->caps.OutputReportByteLength, &out, &s->ovlW);
-	
 
 	//err = GetLastError();
 	//fprintf(stderr,"usb-pad: wrote %d, res: %d, err: %d\n", out, res, err);
 
-	return 0;
+	return len;
 }
 
 static void ParseRawInputHID(PRAWINPUT pRawInput)
@@ -189,10 +173,12 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	memset(&mapping->data[1], 0xFF, sizeof(wheel_data_t));
 	mapping->data[0].buttons = 0;
 	mapping->data[1].buttons = 0;
+	mapping->data[0].hatswitch = 0x8;
+	mapping->data[1].hatswitch = 0x8;
 
 	//Get pressed buttons
 	CHECK( pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * Caps.NumberInputButtonCaps) );
-	//If fails, maybe wheel has only axes
+	//If fails, maybe wheel only has axes
 	capsLength = Caps.NumberInputButtonCaps;
 	HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData);
 
@@ -209,7 +195,9 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			for(int j=0; j<2; j++)
 			{
 				if(PLY_IS_MAPPED(j, btn))
-					mapping->data[j].buttons |=  (1 << PLY_GET_VALUE(j, btn)) & 0x3FF; //10bit mask
+					//mapping->data[j].buttons |=  (1 << PLY_GET_VALUE(j, btn)) & 0x3FF; //10bit mask
+					//FIXME L1/R1 etc flipping
+					mapping->data[j].buttons |=  (1 << PLY_GET_VALUE(j, btn)) & 0xFFF; //12bit mask
 			}
 		}
 	}
@@ -232,6 +220,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 
 			//fprintf(stderr, "Min/max %d/%d\t", pValueCaps[i].LogicalMin, pValueCaps[i].LogicalMax);
 			//TODO can be simpler?
+			//Get mapped axis for physical axis
 			uint16_t v = 0;
 			switch(pValueCaps[i].Range.UsageMin)
 			{
@@ -278,10 +267,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				if(!PLY_IS_MAPPED(j, v))
 					continue;
 
-				if(j == 0)
-					type = conf.WheelType1;
-				else
-					type = conf.WheelType2;
+				type = conf.WheelType[j];
 
 				switch(PLY_GET_VALUE(j, v))
 				{
@@ -298,7 +284,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 
 				case PAD_AXIS_Y: // Y-axis
 					//fprintf(stderr, "Y: %d\n", value);
-					//FIXME MOMO always gives 128. Some flag in caps to detect this?
+					//FIXME (MOMO) always gives 128. Some flag in caps to detect this?
 					if(!(devInfo.hid.dwVendorId == 0x046D && devInfo.hid.dwProductId == 0xCA03))
 						//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
 						mapping->data[j].axis_y = (value * 0xFF) / pValueCaps[i].LogicalMax;
@@ -410,11 +396,12 @@ static bool find_pad(PADState *ps)
 	//s->pPreparsedData = NULL;
 	//ZeroMemory(&generic_data, sizeof(generic_data_t));
 
+	//TODO FFB bypass
 	s->usbHandle = CreateFile(player_joys[idx].c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 	{
-		HidD_GetAttributes(s->usbHandle, &(s->attr));
+		/*HidD_GetAttributes(s->usbHandle, &(s->attr));
 		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
 		HidP_GetCaps(pPreparsedData, &(s->caps));
 
@@ -433,11 +420,11 @@ static bool find_pad(PADState *ps)
 			CloseHandle(s->usbHandle);
 			s->usbHandle = INVALID_HANDLE_VALUE;
 			HidD_FreePreparsedData(pPreparsedData);
-		}
+		}*/
 	}
 
 	fprintf(stderr, "Could not open device '%s'\n", player_joys[idx].c_str());
-	return false;
+	return true;
 }
 
 static void destroy_pad(PADState *ps)

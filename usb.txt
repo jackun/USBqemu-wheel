@@ -1,0 +1,27 @@
+Wheel inits
+================
+Also http://vdrift.net/Forum/printthread.php?tid=403&page=5
+
+Driving Force Pro init by GT4
+Results based on G27
+8 byte usb packet sent to wheel
+
+	F8,6,0,0,0,0,0,0 //?
+	F8,5,1,0,0,0,0,0 //?
+	B,0,0,0,0,0,0,0 //reset value range
+	F3,0,0,0,0,0,0,0 //release all forces?
+	F4,0,0,0,0,0,0,0 //activate auto-center
+	F4,0,0,0,0,0,0,0 //activate auto-center
+	8,0,0,0,0,0,0,0 //reset value range
+	B,0,0,0,0,0,0,0 //set value range
+	F8,3,0,0,0,0,0,0 //set range 900 deg (F8,2,0,0,0,0,0,0 sets range to ~220 deg)
+	F5,0,0,0,0,0,0,0 //deactivate autocenter
+	F8,3,0,0,0,0,0,0 //set range 900 deg
+	8,0,0,0,0,0,0,0 //reset value range
+	B,0,0,0,0,0,0,0 //set value range (4105 .. 8841)
+	13,3,0,0,0,0,0,0 //deactivate force?
+	21,B,7F,7F,77,0,80,0 //just center force (0x7f)
+	8,0,0,0,0,0,0,0 //for-
+	B,0,0,0,0,0,0,0 //ever
+	8,0,0,0,0,0,0,0 //and
+	B,0,0,0,0,0,0,0 //ever

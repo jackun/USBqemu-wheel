@@ -60,10 +60,10 @@ void SaveConfig()
 	sprintf_s(szValue,"%u",Conf1->Port1);
 	WritePrivateProfileString("Devices", "Port 1",szValue,szIniFile.c_str());
 
-	sprintf_s(szValue,"%u",Conf1->WheelType1);
+	sprintf_s(szValue,"%u",Conf1->WheelType[0]);
 	WritePrivateProfileString("Devices", "Wheel Type 1",szValue,szIniFile.c_str());
 
-	sprintf_s(szValue,"%u",Conf1->WheelType2);
+	sprintf_s(szValue,"%u",Conf1->WheelType[1]);
 	WritePrivateProfileString("Devices", "Wheel Type 2",szValue,szIniFile.c_str());
 
 	WritePrivateProfileString("Devices", "USB Image",Conf1->usb_img,szIniFile.c_str());
@@ -106,10 +106,10 @@ void LoadConfig() {
 	Conf1->Port1 = strtoul(szValue, NULL, 10);
 
 	GetPrivateProfileString("Devices", "Wheel Type 1", NULL, szValue, 20, szIniFile.c_str());
-	Conf1->WheelType1 = strtoul(szValue, NULL, 10);
+	Conf1->WheelType[0] = strtoul(szValue, NULL, 10);
 
 	GetPrivateProfileString("Devices", "Wheel Type 2", NULL, szValue, 20, szIniFile.c_str());
-	Conf1->WheelType2 = strtoul(szValue, NULL, 10);
+	Conf1->WheelType[1] = strtoul(szValue, NULL, 10);
 
 	GetPrivateProfileString("Devices", "USB Image", NULL, Conf1->usb_img, sizeof(Conf1->usb_img), szIniFile.c_str());
 

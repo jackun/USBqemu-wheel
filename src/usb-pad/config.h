@@ -99,16 +99,16 @@ typedef struct PADState {
 	bool		doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
 } PADState;
 
-// convert momo to 'generic' wheel aka 0xC294
+// hold intermediate wheel data
 struct wheel_data_t
 {
 	int32_t axis_x;
 	uint32_t buttons;
 	uint32_t  hatswitch;
 
-	int8_t axis_y;
-	int8_t axis_z;
-	int8_t axis_rz;
+	int32_t axis_y;
+	int32_t axis_z;
+	int32_t axis_rz;
 };
 
 extern std::string player_joys[2]; //two players

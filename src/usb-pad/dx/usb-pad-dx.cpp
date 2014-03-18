@@ -54,7 +54,7 @@ typedef enum CONTROLID
 
 static inline int range_max(uint32_t idx)
 {
-	int type = (idx == 0) ? conf.WheelType1 : conf.WheelType2;
+	int type = conf.WheelType[idx];
 	if(type == WT_DRIVING_FORCE_PRO)
 		return 0x3FFF;
 	return 0x3FF;
@@ -106,14 +106,25 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		wheel_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
 
 
-		if(GetControl(CROSS))		wheel_data.buttons = 1 << PAD_CROSS;
+		if(GetControl(CROSS))		wheel_data.buttons |= 1 << PAD_CROSS;
 		if(GetControl(SQUARE))		wheel_data.buttons |= 1 << PAD_SQUARE;
 		if(GetControl(CIRCLE))		wheel_data.buttons |= 1 << PAD_CIRCLE;
 		if(GetControl(TRIANGLE))	wheel_data.buttons |= 1 << PAD_TRIANGLE;
-		if(GetControl(R1))			wheel_data.buttons |= 1 << PAD_R1;
-		if(GetControl(L1))			wheel_data.buttons |= 1 << PAD_L1;
-		if(GetControl(R2))			wheel_data.buttons |= 1 << PAD_R2;
-		if(GetControl(L2))			wheel_data.buttons |= 1 << PAD_L2;
+
+		if(conf.WheelType[idx] == WT_GENERIC) {
+			//DF (and GT Force?) flip Rs and Ls
+			if(GetControl(R1))			wheel_data.buttons |= 1 << PAD_R2;
+			if(GetControl(L1))			wheel_data.buttons |= 1 << PAD_L2;
+			if(GetControl(R2))			wheel_data.buttons |= 1 << PAD_R1;
+			if(GetControl(L2))			wheel_data.buttons |= 1 << PAD_L1;
+		} else {
+			//DF Pro
+			if(GetControl(R1))			wheel_data.buttons |= 1 << PAD_R1;
+			if(GetControl(L1))			wheel_data.buttons |= 1 << PAD_L1;
+			if(GetControl(R2))			wheel_data.buttons |= 1 << PAD_R2;
+			if(GetControl(L2))			wheel_data.buttons |= 1 << PAD_L2;
+		}
+
 		if(GetControl(SELECT))		wheel_data.buttons |= 1 << PAD_SELECT;
 		if(GetControl(START))		wheel_data.buttons |= 1 << PAD_START;
 		if(GetControl(R3))			wheel_data.buttons |= 1 << PAD_R3;
@@ -139,7 +150,6 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 				wheel_data.hatswitch = 4;
 			if(GetControl(HATLEFT, true))
 				wheel_data.hatswitch = 6;
-
 		}
 
 		//memcpy(buf, &generic_data, sizeof(generic_data));
@@ -147,27 +157,6 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	//} //if(idx ...
 	return len;
 }
-
-//DF pro init by GT4
-//F8,6,0,0,0,0,0,0 //limits, ranges, leds?
-//F8,5,1,0,0,0,0,0 //limits, ranges, leds?
-//B,0,0,0,0,0,0,0 //set led?
-//F3,0,0,0,0,0,0,0 //release all forces?
-//F4,0,0,0,0,0,0,0 //activate auto-center
-//F4,0,0,0,0,0,0,0 //activate auto-center
-//8,0,0,0,0,0,0,0 //set led?
-//B,0,0,0,0,0,0,0 //set led?
-//F8,3,0,0,0,0,0,0 //set range 900 deg?
-//F5,0,0,0,0,0,0,0 //deactivate autocenter
-//F8,3,0,0,0,0,0,0 //set range 900 deg?
-//8,0,0,0,0,0,0,0 //set led?
-//B,0,0,0,0,0,0,0 //set led?
-//13,3,0,0,0,0,0,0 //deactivate force?
-//21,B,7F,7F,77,0,80,0 //autocenter? (0x7f)
-//8,0,0,0,0,0,0,0 //for-
-//B,0,0,0,0,0,0,0 //ever
-//8,0,0,0,0,0,0,0 //and
-//B,0,0,0,0,0,0,0 //ever
 
 static int token_out(PADState *ps, uint8_t *data, int len)
 {

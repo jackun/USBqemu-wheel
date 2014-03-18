@@ -44,8 +44,7 @@ PADState* get_new_padstate();
 // Any game actually queries for hid reports?
 //#define pad_hid_report_descriptor pad_driving_force_pro_hid_report_descriptor
 //#define pad_hid_report_descriptor pad_momo_hid_report_descriptor
-//#define pad_hid_report_descriptor pad_driving_force_hid_report_descriptor
-#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
+//#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
 
 /* descriptor Logitech Driving Force Pro */
 static /*const*/ uint8_t df_dev_descriptor[] = {
@@ -81,55 +80,6 @@ static /*const*/ uint8_t pad_dev_descriptor[] = {
 	/* iSerialNumber       */ 0x00, //(0)
 	/* bNumConfigurations  */ 0x01, //(1)
 
-};
-
-#define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
-
-static const uint8_t df_config_descriptor[] = {
-	0x09,   /* bLength */
-	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-	WBVAL(41),                        /* wTotalLength */
-	0x01,                                 /* bNumInterfaces */
-	0x01,                                 /* bConfigurationValue */
-	0x00,                                 /* iConfiguration */
-	0xc0,               /* bmAttributes */
-	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
-
-	/* Interface Descriptor */
-	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
-	0x04,                   // INTERFACE descriptor type
-	0,                      // Interface Number
-	0,                      // Alternate Setting Number
-	2,                      // Number of endpoints in this intf
-	USB_CLASS_HID,               // Class code
-	0,     // Subclass code
-	0,     // Protocol code
-	0,                      // Interface string index
-
-	/* HID Class-Specific Descriptor */
-	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
-	0x21,                // HID descriptor type
-	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
-	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
-	1,                      // Number of class descriptors, see usbcfg.h
-	0x22,//DSC_RPT,                // Report descriptor type
-	DESC_CONFIG_WORD(82),          // Size of the report descriptor
-
-	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
-	DESC_CONFIG_WORD(8),        //size
-	0x0A,                       //Interval, shouldn't this be infinite and updates get pushed as they happen?
-
-	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
-	DESC_CONFIG_WORD(8),        //size
-	0x0A,                        //Interval
 };
 
 //https://lkml.org/lkml/2011/5/28/140
@@ -343,15 +293,101 @@ static const uint8_t pad_generic_hid_report_descriptor[] = {
 	0xC0 /* End Collection */
 };
 
-struct dfp_data_t
-{
-	uint32_t axis_x : 14;
-	uint32_t buttons : 14;
-	uint32_t hatswitch : 4; //32
-	
-	uint32_t axis_z : 8; //or y
-	uint32_t axis_rz : 8;
-	uint32_t pad1 : 16;
+#define USB_PSIZE 8
+#define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
+
+static const uint8_t df_config_descriptor[] = {
+	0x09,   /* bLength */
+	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
+	WBVAL(41),                        /* wTotalLength */
+	0x01,                                 /* bNumInterfaces */
+	0x01,                                 /* bConfigurationValue */
+	0x00,                                 /* iConfiguration */
+	0xc0,               /* bmAttributes */
+	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
+
+	/* Interface Descriptor */
+	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
+	0x04,                   // INTERFACE descriptor type
+	0,                      // Interface Number
+	0,                      // Alternate Setting Number
+	2,                      // Number of endpoints in this intf
+	USB_CLASS_HID,               // Class code
+	0,     // Subclass code
+	0,     // Protocol code
+	0,                      // Interface string index
+
+	/* HID Class-Specific Descriptor */
+	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
+	0x21,                // HID descriptor type
+	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
+	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
+	1,                      // Number of class descriptors, see usbcfg.h
+	0x22,//DSC_RPT,                // Report descriptor type
+	DESC_CONFIG_WORD(sizeof(pad_driving_force_hid_report_descriptor)), // Size of the report descriptor
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x02,                       //Interval
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x02,                        //Interval 0x2 - 2ms (G27) , 0x0A default?
+};
+
+static const uint8_t dfp_config_descriptor[] = {
+	0x09,   /* bLength */
+	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
+	WBVAL(41),                        /* wTotalLength */
+	0x01,                                 /* bNumInterfaces */
+	0x01,                                 /* bConfigurationValue */
+	0x00,                                 /* iConfiguration */
+	0xc0,               /* bmAttributes */
+	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
+
+	/* Interface Descriptor */
+	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
+	0x04,                   // INTERFACE descriptor type
+	0,                      // Interface Number
+	0,                      // Alternate Setting Number
+	2,                      // Number of endpoints in this intf
+	USB_CLASS_HID,               // Class code
+	0,     // Subclass code
+	0,     // Protocol code
+	0,                      // Interface string index
+
+	/* HID Class-Specific Descriptor */
+	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
+	0x21,                // HID descriptor type
+	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
+	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
+	1,                      // Number of class descriptors, see usbcfg.h
+	0x22,//DSC_RPT,                // Report descriptor type
+	DESC_CONFIG_WORD(sizeof(pad_driving_force_pro_hid_report_descriptor)),
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x02,                       //Interval
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x02,                        //Interval 0x2 - 2ms (G27) , 0x0A default?
 };
 
 struct dfp_buttons_t
@@ -399,8 +435,21 @@ struct dfgt_buttons_t
 	uint16_t padding: 12;
 };
 
-//fucking bitfields, keep types/size equal or vars start from beginning again
-struct momo_data_t
+struct dfp_data_t
+{
+	uint32_t axis_x : 14;
+	uint32_t buttons : 14;
+	uint32_t hatswitch : 4;
+
+	uint32_t magic1 : 8;
+	
+	uint32_t axis_z : 8; //or y
+	uint32_t axis_rz : 8;
+	uint32_t magic2 : 8;
+	//uint32_t pad3 : 2;
+};
+
+struct momo2_data_t
 {
 	uint32_t pad0 : 8;//report id probably
 	uint32_t axis_x : 10;
@@ -418,11 +467,23 @@ struct generic_data_t
 {
 	uint32_t axis_x : 10;
 	uint32_t buttons : 12;
-	uint32_t pad0 : 2;// maybe
-	uint32_t axis_y : 8;//clutch?? 
+	uint32_t pad0 : 2;//vendor
+	uint32_t axis_y : 8;//constant (0x7f on PC, 0xFF on console?)
 
-	uint32_t hatswitch : 8;
-	
+	uint32_t hatswitch : 4;
+	uint32_t pad1 : 4;//vendor
+	uint32_t axis_z : 8;
+	uint32_t axis_rz : 8;
+	uint32_t pad2 : 8;
+};
+
+struct random_data_t 
+{
+	uint32_t axis_x : 10;
+	uint32_t buttons : 10;
+	uint32_t pad1 : 12;
+
+	uint32_t axis_y : 8;//constant
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
 	uint32_t pad2 : 8;

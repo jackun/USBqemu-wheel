@@ -27,7 +27,6 @@ inline bool MapExists(MapVector *maps, char* hid)
 
 void LoadMappings(MapVector *maps)
 {
-	char *szTemp;
 	std::string szIniFile;
 
 	GetIniFile(szIniFile);
@@ -92,7 +91,6 @@ void LoadMappings(MapVector *maps)
 
 void SaveMappings(MapVector *maps)
 {
-	char *szTemp;
 	std::string szIniFile;
 	char szValue[256] = {0};
 
@@ -537,7 +535,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 		if(btnCapturing < PAD_BUTTON_COUNT)
 		{
 			mapping->btnMap[btnCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
-			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
+			sprintf_s(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
 			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			btnCapturing = PAD_BUTTON_COUNT;
 		}
@@ -548,14 +546,14 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 				if(hats7to4[h] == hatCapturing)
 					mapping->hatMap[h] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
 			}
-			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
+			sprintf_s(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
 			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			hatCapturing = PAD_HAT_COUNT;
 		}
 		else if(axisCapturing < PAD_AXIS_COUNT)
 		{
 			mapping->axisMap[axisCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
-			sprintf(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
+			sprintf_s(buf, "Captured KB button %d", pRawInput->data.keyboard.VKey);
 			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			axisCapturing = PAD_AXIS_COUNT;
 		}
@@ -663,10 +661,7 @@ void resetState(HWND hW)
 	SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
 	SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"");
 
-	if(plyCapturing == 0)
-		SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType1, 0);
-	else
-		SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType2, 0);
+	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType[plyCapturing], 0);
 
 	btnCapturing = PAD_BUTTON_COUNT;
 	axisCapturing = PAD_AXIS_COUNT;
@@ -677,7 +672,6 @@ void resetState(HWND hW)
 
 BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
-	BOOL ret;
 	char buf[256];
 	LVITEM lv;
 
@@ -761,10 +755,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				switch (LOWORD(wParam))
 				{
 				case IDC_COMBO_WHEEL_TYPE:
-					if(plyCapturing == 0)
-						conf.WheelType1 = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
-					else
-						conf.WheelType2 = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
+					conf.WheelType[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
 					break;
 				case IDC_COMBO_FFB:
 					selectedJoy[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_GETCURSEL, 0, 0);
@@ -824,7 +815,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON19://z
 				case IDC_BUTTON20://rz
 					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
-					sprintf(buf, "Capturing for axis %d, press ESC to cancel", axisCapturing);
+					sprintf_s(buf, "Capturing for axis %d, press ESC to cancel", axisCapturing);
 					SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
 				case IDC_BUTTON13:

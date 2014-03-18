@@ -1,8 +1,6 @@
 ; USBlinuz.def : Declares the module parameters for the DLL.
 
-LIBRARY      "USBqemu"
-DESCRIPTION  'USBqemu Driver'
-
+LIBRARY      "USBqemu-wheel"
 EXPORTS
     ; Explicit exports can go here
 	PS2EgetLibType		@2

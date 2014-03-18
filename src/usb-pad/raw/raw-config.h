@@ -7,6 +7,15 @@ extern "C" {
 	#include "../../ddk/hidsdi.h"
 }
 
+/*
+Layout:
+	0x8000 bit means it is a valid mapping,
+	where value is PS2 button/axis and 
+	array (Mappings::btnMap etc.) index is physical button/axis
+	(reversed for keyboard mappings).
+	[31..16] bits player 2 mapping
+	[15..0]  bits player 1 mapping
+*/
 //Maybe getting too convoluted
 //Check for which player(s) the mapping is for
 //Using MSB (right? :P) to indicate if valid mapping
