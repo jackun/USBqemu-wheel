@@ -982,6 +982,7 @@ OHCIState *ohci_create(uint32_t base, int ports)
 
     ohci->num_ports = ports;
     for (i = 0; i < ports; i++) {
+		memset(&(ohci->rhport[i].port), 0, sizeof(USBPort));
 		ohci->rhport[i].port.opaque = ohci;
 		ohci->rhport[i].port.index = i;
 		ohci->rhport[i].port.attach = ohci_attach;

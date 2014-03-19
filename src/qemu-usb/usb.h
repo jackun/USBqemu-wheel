@@ -121,8 +121,8 @@ struct USBDevice {
     void (*handle_destroy)(USBDevice *dev);
 
 	//might be useful
-	void (*open)();
-	void (*close)();
+	int (*open)(USBDevice *dev);
+	void (*close)(USBDevice *dev);
 
     int speed;
     

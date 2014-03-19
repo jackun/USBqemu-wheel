@@ -47,16 +47,16 @@ PADState* get_new_padstate();
 //#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
 
 /* descriptor Logitech Driving Force Pro */
-static /*const*/ uint8_t df_dev_descriptor[] = {
+static /*const*/ uint8_t dfp_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0100), //(272) //USB 1.1
+	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
 	/* bDeviceClass        */ 0x00, //(0)
 	/* bDeviceSubClass     */ 0x00, //(0)
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(DF_PID), //WBVAL(0xc294), 0xc298 dfp
+	/* idProduct           */ WBVAL(DFP_PID),
 	/* bcdDevice           */ WBVAL(0x0001), //(1)
 	/* iManufacturer       */ 0x03, //(1)
 	/* iProduct            */ 0x01, //(2)
@@ -378,7 +378,7 @@ static const uint8_t dfp_config_descriptor[] = {
 	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
 	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
 	0x03, //_INTERRUPT,                 //Attributes
-	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	DESC_CONFIG_WORD(USB_PSIZE),        //size, might be 16 bytes
 	0x02,                       //Interval
 
 	/* Endpoint Descriptor */
@@ -456,7 +456,7 @@ struct momo2_data_t
 	uint32_t buttons : 10;
 	uint32_t padding0 : 4;//32
 
-	uint8_t padding1; //or non-existent hatswitch
+	uint8_t padding1;
 	uint8_t axis_z;
 	uint8_t axis_rz;
 	uint8_t padding2;//32
@@ -504,7 +504,6 @@ struct ff_data
 	//32
 };
 
-//in config.h
 #if _WIN32
 //extern struct generic_data_t	generic_data;
 #else

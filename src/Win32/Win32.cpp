@@ -2,6 +2,8 @@
 #include "resource.h"
 
 extern HINSTANCE hInst;
+//TODO unicode
+static OPENFILENAMEA ofn;
 
 #if BUILD_RAW
 	extern BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -9,8 +11,6 @@ extern HINSTANCE hInst;
 #if BUILD_DX
 	extern BOOL CALLBACK DxDialogProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 #endif
-
-OPENFILENAMEA ofn;
 
 BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
@@ -83,11 +83,11 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			//Port 0 aka device/player 2
 			SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, conf.Port0, 0);
 
-			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force / Generic Logitech Wheel");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
 			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_SETCURSEL, conf.WheelType[0], 0);
 
-			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"DF / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force / Generic Logitech Wheel");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
 			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_SETCURSEL, conf.WheelType[1], 0);
 

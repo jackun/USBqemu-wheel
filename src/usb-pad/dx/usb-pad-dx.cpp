@@ -209,18 +209,19 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	return len;
 }
 
-static void destroy_pad(PADState *ps)
+static void destroy_pad(USBDevice *dev)
 {
-	if(ps)
-		free(ps);
+	if(dev)
+		free(dev);
 }
 
-static void open()
+static int open(USBDevice *dev)
 {
 	InitDI();
+	return 0;
 }
 
-static void close()
+static void close(USBDevice *dev)
 {
 	FreeDirectInput();
 }
@@ -235,6 +236,5 @@ PADState* get_new_dx_padstate()
 	s->destroy_pad = destroy_pad;
 	s->token_out = token_out;
 	s->usb_pad_poll = usb_pad_poll;
-	s->find_pad = NULL;
 	return s;
 }

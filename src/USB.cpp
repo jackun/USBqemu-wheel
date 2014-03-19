@@ -97,13 +97,17 @@ void Reset()
 void DestroyDevices()
 {
 	//FIXME something throws an null ptr exception?
-	if(qemu_ohci && qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev)
+	if(qemu_ohci && qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev) {
 		qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev);
+		qemu_ohci->rhport[PLAYER_ONE_PORT].port.dev = NULL;
+	}
 	else if(usb_device1) //maybe redundant
 		usb_device1->handle_destroy(usb_device1);
 	
-	if(qemu_ohci && qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev)
+	if(qemu_ohci && qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev) {
 		qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev->handle_destroy(qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev);
+		qemu_ohci->rhport[PLAYER_TWO_PORT].port.dev = NULL;
+	}
 	else if(usb_device2)
 		usb_device2->handle_destroy(usb_device2);
 
@@ -215,14 +219,14 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 		InitWindow(hWnd);
 #endif
 
-	if(usb_device1 && usb_device1->open) usb_device1->open();
-	if(usb_device2 && usb_device2->open) usb_device2->open();
+	if(usb_device1 && usb_device1->open) usb_device1->open(usb_device1);
+	if(usb_device2 && usb_device2->open) usb_device2->open(usb_device2);
 	return 0;
 }
 
 EXPORT_C_(void) USBclose() {
-	if(usb_device1 && usb_device1->close) usb_device1->close();
-	if(usb_device2 && usb_device2->close) usb_device2->close();
+	if(usb_device1 && usb_device1->close) usb_device1->close(usb_device1);
+	if(usb_device2 && usb_device2->close) usb_device2->close(usb_device2);
 #if _WIN32
 	UninitWindow();
 #endif

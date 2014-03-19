@@ -36,55 +36,20 @@ BEGIN
     PUSHBUTTON      "Browse",IDC_BUTTON1,252,18,50,14
 END
 
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// DESIGNINFO
-//
-
-#ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
-BEGIN
-    IDD_DLGMSD, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 309
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 67
-    END
-END
-#endif    // APSTUDIO_INVOKED
-
-#endif    // English (United States) resources
-/////////////////////////////////////////////////////////////////////////////
-
-
-/////////////////////////////////////////////////////////////////////////////
-// Spanish (Argentina) resources
-
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
-LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
-#pragma code_page(1252)
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Dialog
-//
-
 IDD_CONFIG DIALOGEX 0, 0, 256, 158
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Qemu USB Configuration"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,194,138,50,14
-    CONTROL         "Enable Logging (for develop use only)",IDC_LOGGING,
+    CONTROL         "Enable Logging (for developer use only)",IDC_LOGGING,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,42,144,12
     COMBOBOX        IDC_COMBO1,60,6,126,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Device in Port 1:",IDC_STATIC,6,6,54,8
     COMBOBOX        IDC_COMBO2,60,24,126,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Device in Port 2:",IDC_STATIC,6,24,54,8
     LTEXT           "Static",IDC_BUILD_DATE,6,144,114,8
-    CONTROL         "DF Pro pass-through",IDC_DFP_PASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,54,144,12
+    CONTROL         "DF / DF Pro pass-through",IDC_DFP_PASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,54,144,12
     DEFPUSHBUTTON   "Configure",IDC_CONFIGURE1,198,6,50,14
     DEFPUSHBUTTON   "Configure",IDC_CONFIGURE2,198,24,50,14
     DEFPUSHBUTTON   "OK",IDOK,138,138,50,14
@@ -116,6 +81,14 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO
 BEGIN
+    IDD_DLGMSD, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 309
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 67
+    END
+
     IDD_CONFIG, DIALOG
     BEGIN
         LEFTMARGIN, 7
@@ -132,32 +105,6 @@ BEGIN
         BOTTOMMARGIN, 99
     END
 END
-#endif    // APSTUDIO_INVOKED
-
-
-#ifdef APSTUDIO_INVOKED
-/////////////////////////////////////////////////////////////////////////////
-//
-// TEXTINCLUDE
-//
-
-1 TEXTINCLUDE 
-BEGIN
-    "resource.h\0"
-END
-
-2 TEXTINCLUDE 
-BEGIN
-    "#include ""afxres.h""\r\n"
-    "\0"
-END
-
-3 TEXTINCLUDE 
-BEGIN
-    "\r\n"
-    "\0"
-END
-
 #endif    // APSTUDIO_INVOKED
 
 
@@ -214,6 +161,42 @@ BEGIN
 0x0065, 
     0
 END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Spanish (Argentina) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
+LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
 
 #endif    // Spanish (Argentina) resources
 /////////////////////////////////////////////////////////////////////////////

@@ -74,7 +74,7 @@ enum PS2WheelTypes {
 //Hardcoded Logitech MOMO racing wheel, idea is that gamepad/wheel would be selectable instead
 #define PAD_VID			0x046D
 #define PAD_PID			0xCA03 //black MOMO
-#define GENERIC_PID		0xC294 //actually Driving Force aka PID that all wheels initially report
+#define GENERIC_PID		0xC294 //actually Driving Force aka PID that most logitech wheels initially report
 #define DF_PID			0xC294
 #define DFP_PID			0xC298 //SELECT + R3 + RIGHT SHIFT PADDLE (R1) ???
 #define DFGT_PID		0xC29A
@@ -89,13 +89,13 @@ enum PS2WheelTypes {
 typedef struct PADState {
 	USBDevice	dev;
 
-	bool (*find_pad)(PADState *ps);
 	int (*usb_pad_poll)(PADState *ps, uint8_t *buf, int len);
 	int (*token_out)(PADState *ps, uint8_t *data, int len);
-	void (*destroy_pad)(PADState *ps);
+	void (*destroy_pad)(USBDevice *dev);
 
 	uint8_t		port;
 	int			initStage;
+	//Config instead?
 	bool		doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
 } PADState;
 

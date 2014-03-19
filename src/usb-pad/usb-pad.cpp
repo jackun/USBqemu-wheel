@@ -49,12 +49,6 @@ static int pad_handle_data(USBDevice *dev, int pid,
 	switch(pid) {
 	case USB_TOKEN_IN:
 		if (devep == 1 && s->usb_pad_poll) {
-			/*fprintf(stderr, "usb-pad: data poll len=%d last cmd:0x%X\n", len, last_cmd);
-			if(last_cmd == 0xB) {
-				memcpy(data, dfp_range, sizeof(dfp_range));
-				last_cmd = 0;
-			}
-			else*/
 			ret = s->usb_pad_poll(s, data, len);
 		} else {
 			goto fail;
@@ -145,6 +139,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 				memcpy(data, df_config_descriptor, ret);
 			}
 			break;
+		//TODO sync with pad_dev_descriptor
 		case USB_DT_STRING:
 			switch(value & 0xff) {
 			case 0:
@@ -160,12 +155,12 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 				ret = set_usb_string(data, "");
 				break;
 			case 2:
-				/* product description */
-				ret = set_usb_string(data, "Driving Force Pro");
-				break;
-			case 3:
 				/* vendor description */
 				ret = set_usb_string(data, "Logitech");
+				break;
+			case 3:
+				/* product description */
+				ret = set_usb_string(data, "Driving Force Pro");
 				break;
 			default:
 				goto fail;
@@ -195,8 +190,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		switch(value >> 8) {
 		case 0x22:
 			fprintf(stderr, "Sending hid report desc.\n");
-			//TODO For now, only supporting DFP
-			if(/*s->doPassthrough ||*/ /*s->initStage > 2 &&*/ t == WT_DRIVING_FORCE_PRO)
+			if(/*s->initStage > 2 &&*/ t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
@@ -229,7 +223,7 @@ static void pad_handle_destroy(USBDevice *dev)
 {
 	PADState *s = (PADState *)dev;
 	if(s && s->destroy_pad){
-		s->destroy_pad(s);
+		s->destroy_pad(dev);
 	}
 }
 
@@ -278,12 +272,6 @@ USBDevice *pad_init(int port, int type)
 	// GT4 doesn't seem to care for a proper name?
 	strncpy(s->dev.devname, "Driving Force Pro", sizeof(s->dev.devname));
 
-	if(s->find_pad && !s->find_pad(s))
-	{
-		free(s);
-		return NULL;
-	}
-
 	return (USBDevice *)s;
 
 }
@@ -306,6 +294,8 @@ void ResetData(dfp_data_t *d)
 	d->axis_rz = 0xFF;
 }
 
+int key = 1;
+int axis = 0x1fff;
 void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 {
 	int type = conf.WheelType[idx];
@@ -336,8 +326,9 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		dfp_data.axis_x = data.axis_x;
 		//dfp_data.axis_y = data.axis_y;
 		dfp_data.axis_z = data.axis_z;
+		
 		dfp_data.axis_rz = data.axis_rz;
-		dfp_data.magic1 = 1 << 0;
+		dfp_data.magic1 = 0xFF;
 		dfp_data.magic2 = (1<<0) /* enable axes? */
 			;
 

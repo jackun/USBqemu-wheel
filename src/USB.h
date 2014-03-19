@@ -51,11 +51,11 @@
 
 #define USB_LOG __Log
 
-typedef struct {
+typedef struct _Config {
   int Log;
   int Port0; //player2
   int Port1; //player1
-  int DFPPass;
+  int DFPPass; //[2]; //TODO per player
   int WheelType[2];
   char usb_img[MAX_PATH+1];
 } Config;
@@ -113,7 +113,7 @@ typedef struct OHCIPort {
 
 typedef uint32_t target_phys_addr_t;
 
-typedef struct {
+typedef struct OHCIState {
     target_phys_addr_t mem_base;
     int mem;
     int num_ports;

@@ -53,7 +53,6 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	data_summed.hatswitch = 0x8;
 	data_summed.buttons = 0;
 
-	int hs = 0;
 
 	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
@@ -376,66 +375,40 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 		ParseRawInputHID(pRawInput);
 }
 
-static bool find_pad(PADState *ps)
+static int open(USBDevice *dev)
 {
-	Win32PADState *s = (Win32PADState*) ps;
+	Win32PADState *s = (Win32PADState*) dev;
 	uint8_t idx = 1 - s->padState.port;
-	if(idx > 1) return false;
-	//TODO Better place
+	if(idx > 1) return 1;
+	//TODO Better place?
 	LoadMappings(&mapVector);
 
-	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 	memset(&s->ovl, 0, sizeof(OVERLAPPED));
 	memset(&s->ovlW, 0, sizeof(OVERLAPPED));
-	s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
-	s->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
 
 	s->padState.initStage = 0;
-	s->padState.doPassthrough = false;
-	s->usbHandle = (HANDLE)-1;
-	//s->pPreparsedData = NULL;
-	//ZeroMemory(&generic_data, sizeof(generic_data_t));
+	s->padState.doPassthrough = conf.DFPPass;//TODO per player
+	s->usbHandle = INVALID_HANDLE_VALUE;
 
-	//TODO FFB bypass
 	s->usbHandle = CreateFile(player_joys[idx].c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 	{
-		/*HidD_GetAttributes(s->usbHandle, &(s->attr));
-		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(s->caps));
-
-		if(s->caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
-			s->caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
-		{
-			if(conf.DFPPass)// && s->attr.VendorID == PAD_VID && s->attr.ProductID == DFP_PID)
-				s->padState.doPassthrough = true;
-
-			fprintf(stderr, "Wheel found !!! %04X:%04X\n", s->attr.VendorID, s->attr.ProductID);
-			HidD_FreePreparsedData(pPreparsedData);
-			return true;
-		}
-		else
-		{
-			CloseHandle(s->usbHandle);
-			s->usbHandle = INVALID_HANDLE_VALUE;
-			HidD_FreePreparsedData(pPreparsedData);
-		}*/
+		s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
+		s->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
 	}
+	else
+		fprintf(stderr, "Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[idx].c_str());
 
-	fprintf(stderr, "Could not open device '%s'\n", player_joys[idx].c_str());
-	return true;
+	return 0;
 }
 
-static void destroy_pad(PADState *ps)
+static void close(USBDevice *dev)
 {
-	Win32PADState *s = (Win32PADState*) ps;
-	/*if(s->pPreparsedData)
-		HidD_FreePreparsedData(s->pPreparsedData);
-	if(s->pButtonCaps)
-		free(s->pButtonCaps);
-	if(s->pValueCaps)
-		free(s->pValueCaps);*/
+	if(!dev) return;
+	Win32PADState *s = (Win32PADState*) dev;
+
 	if(s->usbHandle != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(s->usbHandle);
@@ -444,25 +417,26 @@ static void destroy_pad(PADState *ps)
 	}
 
 	s->usbHandle = INVALID_HANDLE_VALUE;
-	/*s->pPreparsedData = NULL;
-	s->pButtonCaps = NULL;
-	s->pValueCaps = NULL;*/
-	free(ps);
 }
 
-//Too much C, not enough C++ ? :P
+static void destroy_pad(USBDevice *dev)
+{
+	if(!dev) return;
+	close(dev);
+	free(dev);
+}
+
 PADState* get_new_raw_padstate()
 {
-	PADState *s = (PADState*)qemu_mallocz(sizeof(Win32PADState));
+	Win32PADState *s = (Win32PADState*)qemu_mallocz(sizeof(Win32PADState));
+	
+	s->padState.dev.open = open;
+	s->padState.dev.close = close;
 
-	s->dev.open = NULL;
-	s->dev.close = NULL;
-
-	s->destroy_pad = destroy_pad;
-	s->token_out = token_out;
-	s->usb_pad_poll = usb_pad_poll;
-	s->find_pad = find_pad;
-	return s;
+	s->padState.destroy_pad = destroy_pad;
+	s->padState.token_out = token_out;
+	s->padState.usb_pad_poll = usb_pad_poll;
+	return (PADState*)s;
 }
 
 HWND msgWindow = NULL;
@@ -549,41 +523,6 @@ LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
 
 int InitWindow(HWND hWnd)
 {
-	//WM_INPUT isn't passed to wndproc
-#if 0
-	WNDCLASSEXA wcex;
-	HINSTANCE hInstance = GetWindowInstance(hWnd);
-	wcex.cbSize = sizeof(WNDCLASSEXA);
-	wcex.style          = CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc    = RawInputProc;
-	wcex.cbClsExtra     = 0;
-	wcex.cbWndExtra     = 0;
-	wcex.hInstance      = hInstance;
-	wcex.hIcon          = 0; //LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
-	wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-	wcex.lpszMenuName   = NULL;
-	wcex.lpszClassName  = "USBQemu";
-	wcex.hIconSm        = 0;//LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
-
-	if (!RegisterClassExA(&wcex))
-	{
-		MessageBoxA(NULL,
-			"Call to RegisterClassEx failed!",
-			"USBQemu",
-			NULL);
-
-		return 1;
-	}
-
-	msgWindow = CreateWindowExA(0, "USBQemu","",
-		WS_OVERLAPPEDWINDOW, 
-		CW_USEDEFAULT, CW_USEDEFAULT, 100, 100,
-		HWND_MESSAGE, NULL,
-		hInstance,
-		NULL
-	);
-#endif
 #if 1
 	RegisterRaw(hWnd, 0);
 	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
