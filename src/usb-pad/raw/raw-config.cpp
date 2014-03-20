@@ -15,12 +15,13 @@ extern HINSTANCE hInst;
 extern char *szIni;
 extern std::string szIniDir;
 extern void GetIniFile(std::string &iniFile);
+#define MSG_PRESS_ESC(wnd) SendDlgItemMessageW(wnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel")
 
 inline bool MapExists(MapVector *maps, char* hid)
 {
 	MapVector::iterator it;
 	for(it = maps->begin(); it != maps->end(); it++)
-		if(!(*it)->hidPath.compare(hid))
+		if(!it->hidPath.compare(hid))
 			return true;
 	return false;
 }
@@ -41,10 +42,10 @@ void LoadMappings(MapVector *maps)
 		if(GetPrivateProfileString(sec, "HID", NULL, hid, MAX_PATH, szIniFile.c_str())
 			&& hid && !MapExists(maps, hid))
 		{
-			Mappings *m = new Mappings;
-			//ZeroMemory(m, sizeof(Mappings));
+			Mappings m;// = new Mappings;
+			ZeroMemory(&m, sizeof(Mappings));
 			maps->push_back(m);
-			Mappings *ptr = maps->back();
+			Mappings *ptr = &maps->back();
 
 			ptr->hidPath = std::string(hid);
 			ptr->devName = std::string(hid);
@@ -60,22 +61,22 @@ void LoadMappings(MapVector *maps)
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
 				sprintf_s(bind, "Button %d", i);
-				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str());
-				sscanf_s(tmp, "%08X", &(ptr->btnMap[i]));
+				if(GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
+					sscanf_s(tmp, "%08X", &(ptr->btnMap[i]));
 			}
 
 			for(int i = 0; i<MAX_AXES; i++)
 			{
 				sprintf_s(bind, "Axis %d", i);
-				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str());
-				sscanf_s(tmp, "%08X", &ptr->axisMap[i]);
+				if(GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
+					sscanf_s(tmp, "%08X", &ptr->axisMap[i]);
 			}
 
 			for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 			{
 				sprintf_s(bind, "Hat %d", i);
-				GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str());
-				sscanf_s(tmp, "%08X", &ptr->hatMap[i]);
+				if(GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
+					sscanf_s(tmp, "%08X", &ptr->hatMap[i]);
 			}
 			ptr = NULL;
 		}
@@ -103,27 +104,27 @@ void SaveMappings(MapVector *maps)
 		char dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
 
 		sprintf_s(dev, "DEVICE %d", numDevice++);
-		WritePrivateProfileString(dev, "HID", (*it)->hidPath.c_str(), szIniFile.c_str());
+		WritePrivateProfileString(dev, "HID", it->hidPath.c_str(), szIniFile.c_str());
 
 		//writing everything separately, then string lengths are more predictable
 		for(int i = 0; i<MAX_BUTTONS; i++)
 		{
 			sprintf_s(bind, "Button %d", i);
-			sprintf_s(tmp, "%08X", (*it)->btnMap[i]);
+			sprintf_s(tmp, "%08X", it->btnMap[i]);
 			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
 		}
 
 		for(int i = 0; i<MAX_AXES; i++)
 		{
 			sprintf_s(bind, "Axis %d", i);
-			sprintf_s(tmp, "%08X", (*it)->axisMap[i]);
+			sprintf_s(tmp, "%08X", it->axisMap[i]);
 			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
 		}
 
 		for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 		{
 			sprintf_s(bind, "Hat %d", i);
-			sprintf_s(tmp, "%08X", (*it)->hatMap[i]);
+			sprintf_s(tmp, "%08X", it->hatMap[i]);
 			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
 		}
 	}
@@ -156,7 +157,8 @@ char *AXIS2TXT[] = {
 	"Axis Z",
 	//"Axis RX",
 	//"Axis RY",
-	"Axis RZ"
+	"Axis RZ",
+	"Hat Switch"
 };
 
 void resetState(HWND hW);
@@ -363,7 +365,7 @@ void populateMappings(HWND hW)
 	for(it = mapVector.begin(); it != mapVector.end(); it++)
 	{
 		//TODO feels a bit hacky
-		bool isKB = ((*it)->devName == "Keyboard");
+		bool isKB = (it->devName == "Keyboard");
 		if(isKB)
 		{
 			m[0] = PAD_BUTTON_COUNT;
@@ -381,15 +383,15 @@ void populateMappings(HWND hW)
 		{
 			//if((*it).btnMap[i] >= PAD_BUTTON_COUNT)
 			//	continue;
-			int btn = (*it)->btnMap[i];
+			int btn = it->btnMap[i];
 			int val = PLY_GET_VALUE(plyCapturing, btn);
 		
 			lvItem.iItem = ListView_GetItemCount(lv);
 			if(PLY_IS_MAPPED(plyCapturing, btn) /*&& val < PAD_BUTTON_COUNT*/)
 			{
-				sprintf_s(tmp, 255, "%s", (*it)->devName.c_str()); //TODO
+				sprintf_s(tmp, 255, "%s", it->devName.c_str()); //TODO
 				lvItem.pszText = tmp;
-				lvItem.lParam = (LPARAM)&((*it)->btnMap[i]);
+				lvItem.lParam = (LPARAM)&(it->btnMap[i]);
 				ListView_InsertItem(lv, &lvItem);
 				sprintf_s(tmp, 255, "P%d: Button %d", plyCapturing+1, isKB ? val : i);
 				ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
@@ -403,15 +405,15 @@ void populateMappings(HWND hW)
 		{
 			//if((*it).axisMap[i] >= PAD_AXIS_COUNT)
 			//	continue;
-			int axis = (*it)->axisMap[i];
+			int axis = it->axisMap[i];
 			int val = PLY_GET_VALUE(plyCapturing, axis);
 
 			if(PLY_IS_MAPPED(plyCapturing, axis)/* && val < PAD_AXIS_COUNT*/)
 			{
 				lvItem.iItem = ListView_GetItemCount(lv);
-				sprintf_s(tmp, 255, "%s", (*it)->devName.c_str()); //TODO
+				sprintf_s(tmp, 255, "%s", it->devName.c_str()); //TODO
 				lvItem.pszText = tmp;
-				lvItem.lParam = (LPARAM)&((*it)->axisMap[i]);
+				lvItem.lParam = (LPARAM)&(it->axisMap[i]);
 				ListView_InsertItem(lv, &lvItem);
 
 				sprintf_s(tmp, 255, "P%d: Axis %d", plyCapturing+1, isKB ? val : i);
@@ -424,15 +426,15 @@ void populateMappings(HWND hW)
 
 		for(int i = 0; i<m[2]; i++)
 		{
-			int hat = (*it)->hatMap[i];
+			int hat = it->hatMap[i];
 			int val = PLY_GET_VALUE(plyCapturing, hat);
 
 			if(PLY_IS_MAPPED(plyCapturing, hat) /*&& val < PAD_HAT_COUNT*/)
 			{
 				lvItem.iItem = ListView_GetItemCount(lv);
-				sprintf_s(tmp, 255, "%s", (*it)->devName.c_str()); //TODO
+				sprintf_s(tmp, 255, "%s", it->devName.c_str()); //TODO
 				lvItem.pszText = tmp;
-				lvItem.lParam = (LPARAM)&((*it)->hatMap[i]);
+				lvItem.lParam = (LPARAM)&(it->hatMap[i]);
 				ListView_InsertItem(lv, &lvItem);
 
 				sprintf_s(tmp, 255, "P%d: Hat %d", plyCapturing+1, isKB ? val : i);
@@ -505,19 +507,19 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 	
 	for(it = mapVector.begin(); it != mapVector.end(); it++)
 	{
-		if((*it)->hidPath == devName)
+		if(it->hidPath == devName)
 		{
-			mapping = *it;
+			mapping = it._Ptr;
 			break;
 		}
 	}
 
 	if(mapping == NULL)
 	{
-		Mappings *m = new Mappings;
-		ZeroMemory(m, sizeof(Mappings));
+		Mappings m;// = new Mappings;
+		ZeroMemory(&m, sizeof(Mappings));
 		mapVector.push_back(m);
-		mapping = mapVector.back();
+		mapping = &mapVector.back();
 		mapping->devName = devName;
 		mapping->hidPath = devName;
 	}
@@ -641,6 +643,15 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 					break;
 
 				case 0x39:	// Hat Switch
+					if(value < 0x8) {
+						mapping->axisMap[6] = PLY_SET_MAPPED(plyCapturing, axisCapturing);
+						axisPass2 = false;
+						fprintf(stderr, "Selected hat switch\n");
+						sprintf_s(buf, "Captured wheel hat switch"); 
+						SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+						axisCapturing = PAD_AXIS_COUNT;
+						goto Error;
+					}
 					break;
 				}
 			}
@@ -808,31 +819,32 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON11://L3
 				case IDC_BUTTON12://R3
 					btnCapturing = (PS2Buttons) (LOWORD(wParam) - IDC_BUTTON1);
-					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing a button, press ESC to cancel");
+					MSG_PRESS_ESC(hW);
 					return TRUE;
 				case IDC_BUTTON17://x
 				case IDC_BUTTON18://y
 				case IDC_BUTTON19://z
 				case IDC_BUTTON20://rz
+				case IDC_BUTTON21://hat
 					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
 					sprintf_s(buf, "Capturing for axis %d, press ESC to cancel", axisCapturing);
 					SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
 				case IDC_BUTTON13:
 					hatCapturing = PAD_HAT_N;
-					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					MSG_PRESS_ESC(hW);
 					break;
 				case IDC_BUTTON14:
 					hatCapturing = PAD_HAT_W;
-					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					MSG_PRESS_ESC(hW);
 					break;
 				case IDC_BUTTON15:
 					hatCapturing = PAD_HAT_E;
-					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					MSG_PRESS_ESC(hW);
 					break;
 				case IDC_BUTTON16:
 					hatCapturing = PAD_HAT_S;
-					SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel");
+					MSG_PRESS_ESC(hW);
 					break;
 				case IDCANCEL:
 					if(btnCapturing < PAD_BUTTON_COUNT || 

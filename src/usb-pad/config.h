@@ -47,6 +47,7 @@ enum PS2Axis : uint32_t {
 	PAD_AXIS_Y,
 	PAD_AXIS_Z,
 	PAD_AXIS_RZ,
+	PAD_AXIS_HAT,//Treat as axis for mapping purposes
 	PAD_AXIS_COUNT
 };
 
@@ -79,7 +80,7 @@ enum PS2WheelTypes {
 #define DFP_PID			0xC298 //SELECT + R3 + RIGHT SHIFT PADDLE (R1) ???
 #define DFGT_PID		0xC29A
 #define MAX_BUTTONS		32
-#define MAX_AXES		6 //random 6: wheel, clutch, brake, accel + 2
+#define MAX_AXES		7 //random 7: axes + hatswitch
 #define MAX_JOYS		16
 
 #define PLAYER_TWO_PORT 0

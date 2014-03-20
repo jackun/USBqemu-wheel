@@ -58,6 +58,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	MapVector::iterator it = mapVector.begin();
 	for(; it!=mapVector.end(); it++)
 	{
+#if 0
 		//Yeah, but what if first is not a wheel with mapped axes...
 		if(false && it == mapVector.begin())
 		{
@@ -74,23 +75,24 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 				data_summed.axis_rz = (*it)->data[idx].axis_rz;
 		}
 		else
+#endif
 		{
-			if(data_summed.axis_x < (*it)->data[idx].axis_x)
-				data_summed.axis_x = (*it)->data[idx].axis_x;
+			if(data_summed.axis_x < (*it).data[idx].axis_x)
+				data_summed.axis_x = (*it).data[idx].axis_x;
 
-			if(data_summed.axis_y < (*it)->data[idx].axis_y)
-				data_summed.axis_y = (*it)->data[idx].axis_y;
+			if(data_summed.axis_y < (*it).data[idx].axis_y)
+				data_summed.axis_y = (*it).data[idx].axis_y;
 
-			if(data_summed.axis_z < (*it)->data[idx].axis_z)
-				data_summed.axis_z = (*it)->data[idx].axis_z;
+			if(data_summed.axis_z < (*it).data[idx].axis_z)
+				data_summed.axis_z = (*it).data[idx].axis_z;
 
-			if(data_summed.axis_rz < (*it)->data[idx].axis_rz)
-				data_summed.axis_rz = (*it)->data[idx].axis_rz;
+			if(data_summed.axis_rz < (*it).data[idx].axis_rz)
+				data_summed.axis_rz = (*it).data[idx].axis_rz;
 		}
 
-		data_summed.buttons |= (*it)->data[idx].buttons;
-		if(data_summed.hatswitch > (*it)->data[idx].hatswitch)
-			data_summed.hatswitch = (*it)->data[idx].hatswitch;
+		data_summed.buttons |= (*it).data[idx].buttons;
+		if(data_summed.hatswitch > (*it).data[idx].hatswitch)
+			data_summed.hatswitch = (*it).data[idx].hatswitch;
 	}
 
 	pad_copy_data(idx, buf, data_summed);
@@ -106,12 +108,13 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	uint8_t outbuf[65];
 	if(s->usbHandle == INVALID_HANDLE_VALUE) return 0;
 
+	if(data[0] == 0x8 || data[0] == 0xB) return len;
 	//If i'm reading it correctly MOMO report size for output has Report Size(8) and Report Count(7), so that's 7 bytes
 	//Now move that 7 bytes over by one and add report id of 0 (right?). Supposedly mandatory for HIDs.
 	memcpy(outbuf + 1, data, len - 1);
 	outbuf[0] = 0;
 
-	waitRes = WaitForSingleObject(s->ovlW.hEvent, 300);
+	waitRes = WaitForSingleObject(s->ovlW.hEvent, 30);
 	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
 		CancelIo(s->usbHandle);
 
@@ -148,9 +151,9 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 
 	for(it = mapVector.begin(); it != mapVector.end(); it++)
 	{
-		if((*it)->hidPath == devName)
+		if((*it).hidPath == devName)
 		{
-			mapping = (*it);
+			mapping = &(*it);
 			break;
 		}
 	}
@@ -247,16 +250,9 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				case HID_USAGE_GENERIC_RZ: 
 					v = mapping->axisMap[5]; 
 					break;
-
-				//FIXME 0x39 hatswitch as a axis
 				case HID_USAGE_GENERIC_HATSWITCH:
 					//fprintf(stderr, "Hat: %02X\n", value);
-					//TODO 4 vs 8 direction hat switch
-					//FIXME no hatswitch axis mapping so set to player one
-					if(pValueCaps[i].LogicalMax == 4 && value < 4)
-						mapping->data[0].hatswitch = hats7to4[value];
-					else
-						mapping->data[0].hatswitch = value;
+					v = mapping->axisMap[6];
 					break;
 			}
 
@@ -282,29 +278,31 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					break;
 
 				case PAD_AXIS_Y: // Y-axis
-					//fprintf(stderr, "Y: %d\n", value);
-					//FIXME (MOMO) always gives 128. Some flag in caps to detect this?
 					if(!(devInfo.hid.dwVendorId == 0x046D && devInfo.hid.dwProductId == 0xCA03))
-						//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
+						//XXX Limit value range to 0..255
 						mapping->data[j].axis_y = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case PAD_AXIS_Z: // Z-axis
 					//fprintf(stderr, "Z: %d\n", value);
-					//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
+					//XXX Limit value range to 0..255
 					mapping->data[j].axis_z = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case PAD_AXIS_RZ: // Rotate-Z
 					//fprintf(stderr, "Rz: %d\n", value);
-					//XXX Limit value range to 0..255 if using 'generic' wheel descriptor
+					//XXX Limit value range to 0..255
 					mapping->data[j].axis_rz = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
-				//case 0x39: // TODO Hat Switch, also map some keyboard keys (for F1 '06 etc.)
-				//	//fprintf(stderr, "Hat: %02X\n", value);
-				//	generic_data[j].hatswitch = value;
-				//	break;
+				case PAD_AXIS_HAT: // TODO Hat Switch
+					//fprintf(stderr, "Hat: %02X\n", value);
+					//TODO 4 vs 8 direction hat switch
+					if(pValueCaps[i].LogicalMax == 4 && value < 4)
+						mapping->data[j].hatswitch = hats7to4[value];
+					else
+						mapping->data[j].hatswitch = value;
+					break;
 				}
 			}
 		}
@@ -323,9 +321,9 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 
 	for(it = mapVector.begin(); it != mapVector.end(); it++)
 	{
-		if(!(*it)->hidPath.compare("Keyboard"))
+		if(!it->hidPath.compare("Keyboard"))
 		{
-			mapping = (*it);
+			mapping = &(*it);
 			break;
 		}
 	}
@@ -377,9 +375,11 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 
 static int open(USBDevice *dev)
 {
+	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 	Win32PADState *s = (Win32PADState*) dev;
 	uint8_t idx = 1 - s->padState.port;
 	if(idx > 1) return 1;
+
 	//TODO Better place?
 	LoadMappings(&mapVector);
 
@@ -397,6 +397,11 @@ static int open(USBDevice *dev)
 	{
 		s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
 		s->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
+
+		HidD_GetAttributes(s->usbHandle, &(s->attr));
+		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
+		HidP_GetCaps(pPreparsedData, &(s->caps));
+		HidD_FreePreparsedData(pPreparsedData);
 	}
 	else
 		fprintf(stderr, "Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[idx].c_str());

@@ -185,7 +185,13 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 				if(!calibrating){SetConstantForce(ffdata.data1);}
 			}
 			break;
-
+		case 0x21:
+			if(ffdata.index == 0xB)
+			{
+				if(!calibrating){SetConstantForce(ffdata.data1);}
+				break;
+			}
+			//drop through
 		case 254://autocenter?
 		case 255://autocenter?
 		case 244://autocenter?

@@ -295,7 +295,7 @@ void ResetData(dfp_data_t *d)
 }
 
 int key = 1;
-int axis = 0x1fff;
+
 void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 {
 	int type = conf.WheelType[idx];
@@ -324,15 +324,23 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		dfp_data.buttons = data.buttons;
 		dfp_data.hatswitch = data.hatswitch;
 		dfp_data.axis_x = data.axis_x;
-		//dfp_data.axis_y = data.axis_y;
 		dfp_data.axis_z = data.axis_z;
-		
 		dfp_data.axis_rz = data.axis_rz;
-		dfp_data.magic1 = 0xFF;
-		dfp_data.magic2 = (1<<0) /* enable axes? */
-			;
+
+		dfp_data.magic1 = 0;
+		dfp_data.magic2 = //key * 0x9c; //(1<<0) /* enable axes? */
+			1 << 0 |//pedals?
+			0 << 1 |
+			0 << 2 |
+			0 << 3 |
+			1 << 4 | //wheel?
+			0 << 5 |
+			0 << 6 |
+			0 << 7 ;
 
 		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
+
+		key = 1 - key;
 
 		break;
 	default:

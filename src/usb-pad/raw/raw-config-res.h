@@ -29,13 +29,14 @@
 #define IDC_BUTTON19                    1030
 #define IDC_BUTTON20                    1031
 #define IDC_BUTTON21                    1032
-#define IDC_DFP_PASS                    1032
-#define IDC_UNBIND                      1033
-#define IDC_STATIC_CAP                  1034
-#define IDC_COMBO3                      1035
-#define IDC_BUILD_DATE                  1036
-#define IDC_COMBO_WHEEL_TYPE            1037
-#define IDC_TAB1                        1038
+#define IDC_DFP_PASS                    1033
+#define IDC_UNBIND                      1034
+#define IDC_STATIC_CAP                  1035
+#define IDC_COMBO3                      1036
+#define IDC_BUTTON22                    1037
+#define IDC_BUILD_DATE                  1038
+#define IDC_COMBO_WHEEL_TYPE            1039
+#define IDC_TAB1                        1040
 
 // Next default values for new objects
 // 

@@ -38,7 +38,7 @@ struct Mappings {
 #endif
 };
 
-typedef std::vector<Mappings*> MapVector;
+typedef std::vector<Mappings> MapVector;
 static MapVector mapVector;
 
 void LoadMappings(MapVector *maps);
