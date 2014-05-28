@@ -32,9 +32,12 @@
 //Based on Tokyo Xtreme Racer Drift 2
 //GT4 flips R1/L1 with R2/L2 with DF wheel type
 enum PS2Buttons : uint32_t {
-	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
-	PAD_R1, 
-	PAD_L1, 
+	PAD_CROSS = 0, //menu up - GT Force
+	PAD_SQUARE, //menu down
+	PAD_CIRCLE, //X
+	PAD_TRIANGLE, //Y
+	PAD_R1, //A? <pause> in GT4
+	PAD_L1, //B
 	PAD_R2, 
 	PAD_L2,
 	PAD_SELECT, PAD_START,
@@ -70,15 +73,18 @@ static int hats7to4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 enum PS2WheelTypes {
 	WT_GENERIC, // DF or any other LG wheel in non-native mode
 	WT_DRIVING_FORCE_PRO, //LPRC-11000? DF GT can be downgraded to Pro (?)
+	WT_GT_FORCE, //formula gp
 };
 
-//Hardcoded Logitech MOMO racing wheel, idea is that gamepad/wheel would be selectable instead
 #define PAD_VID			0x046D
 #define PAD_PID			0xCA03 //black MOMO
 #define GENERIC_PID		0xC294 //actually Driving Force aka PID that most logitech wheels initially report
 #define DF_PID			0xC294
 #define DFP_PID			0xC298 //SELECT + R3 + RIGHT SHIFT PADDLE (R1) ???
 #define DFGT_PID		0xC29A
+#define FORMULA_PID		0xC202 //Yellow Wingman Formula
+#define FGP_PID			0xC20E //Formula GP (maybe GT FORCE LPRC-1000)
+#define FFGP_PID		0xC293 // Formula Force GP
 #define MAX_BUTTONS		32
 #define MAX_AXES		7 //random 7: axes + hatswitch
 #define MAX_JOYS		16

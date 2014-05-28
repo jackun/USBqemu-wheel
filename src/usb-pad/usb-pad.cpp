@@ -4,6 +4,7 @@
 #if _WIN32
 static generic_data_t generic_data;
 static dfp_data_t dfp_data;
+static gtforce_data_t gtf_data;
 #else
 static generic_data_t	generic_data[2] = {0};
 static dfp_data_t		dfp_data[2] = {0};
@@ -120,8 +121,13 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 			//if(s->initStage > 2)
 			if(t == WT_DRIVING_FORCE_PRO)
 			{
-				pad_dev_descriptor[11] = 0xC2;
+				pad_dev_descriptor[11] = (DFP_PID>>8) & 0xFF;
 				pad_dev_descriptor[10] = DFP_PID & 0xFF;
+			}
+			else if(t == WT_GT_FORCE)
+			{
+				pad_dev_descriptor[11] = (FFGP_PID>>8) & 0xFF;
+				pad_dev_descriptor[10] = FFGP_PID & 0xFF;
 			}
 
 			ret = sizeof(pad_dev_descriptor);
@@ -186,7 +192,7 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		break;
 		/* hid specific requests */
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //Never called?
-		fprintf(stderr, "InterfaceRequest | USB_REQ_GET_DESCRIPTOR %d\n", value>>8);
+		fprintf(stderr, "InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n", value);
 		switch(value >> 8) {
 		case 0x22:
 			fprintf(stderr, "Sending hid report desc.\n");
@@ -343,6 +349,20 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		key = 1 - key;
 
 		break;
+
+	case WT_GT_FORCE:
+		memset(&gtf_data, 0xff, sizeof(gtforce_data_t));
+
+		gtf_data.buttons = data.buttons;
+		gtf_data.hatswitch = data.hatswitch;
+		gtf_data.axis_x = data.axis_x;
+		gtf_data.axis_y = 0xFF; //data.axis_y;
+		gtf_data.axis_z = data.axis_z;
+		gtf_data.axis_rz = data.axis_rz;
+
+		memcpy(buf, &gtf_data, sizeof(gtforce_data_t));
+		break;
+
 	default:
 		break;
 	}

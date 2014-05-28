@@ -477,6 +477,21 @@ struct generic_data_t
 	uint32_t pad2 : 8;
 };
 
+// GT Force?
+struct gtforce_data_t
+{
+	uint32_t axis_x : 10;
+	uint32_t buttons : 12;//Less than 12 buttons though probably
+	uint32_t pad0 : 2;
+	uint32_t axis_y : 8;
+
+	uint32_t axis_z : 8;
+	uint32_t axis_rz : 8;
+	
+	uint32_t pad1 : 8;
+	uint32_t pad2 : 8;
+};
+
 struct random_data_t 
 {
 	uint32_t axis_x : 10;
