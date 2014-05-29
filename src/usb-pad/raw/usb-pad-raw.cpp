@@ -196,10 +196,12 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			uint16_t btn = mapping->btnMap[usage[i] - pButtonCaps->Range.UsageMin];
 			for(int j=0; j<2; j++)
 			{
+				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[j];
 				if(PLY_IS_MAPPED(j, btn))
-					//mapping->data[j].buttons |=  (1 << PLY_GET_VALUE(j, btn)) & 0x3FF; //10bit mask
-					//FIXME L1/R1 etc flipping
-					mapping->data[j].buttons |=  (1 << PLY_GET_VALUE(j, btn)) & 0xFFF; //12bit mask
+				{
+					uint32_t wtbtn = (1 << convert_wt_btn(wt, PLY_GET_VALUE(j, btn))) & 0xFFF; //12bit mask
+					mapping->data[j].buttons |= wtbtn;
+				}
 			}
 		}
 	}
@@ -338,12 +340,15 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 		{
 			if(PLY_IS_MAPPED(j, btn))
 			{
+				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[j];
 				if(PLY_GET_VALUE(j, mapping->btnMap[i]) == pRawInput->data.keyboard.VKey)
-				if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
-					mapping->data[j].buttons &= ~(1 << i); //unset
-				else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
-					mapping->data[j].buttons |= (1 << i); //set
-					
+				{
+					uint32_t wtbtn = convert_wt_btn(wt, i);
+					if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
+						mapping->data[j].buttons &= ~(1 << wtbtn); //unset
+					else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
+						mapping->data[j].buttons |= (1 << wtbtn); //set
+				}
 			}
 		}
 	}
@@ -357,7 +362,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 			{
 				if(PLY_GET_VALUE(j, mapping->hatMap[i]) == pRawInput->data.keyboard.VKey)
 				if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
-					mapping->data[j].hatswitch = -1;
+					mapping->data[j].hatswitch = 0x8;
 				else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
 					mapping->data[j].hatswitch = hats7to4[i];
 			}
@@ -387,7 +392,7 @@ static int open(USBDevice *dev)
 	memset(&s->ovlW, 0, sizeof(OVERLAPPED));
 
 	s->padState.initStage = 0;
-	s->padState.doPassthrough = conf.DFPPass;//TODO per player
+	s->padState.doPassthrough = !!conf.DFPPass;//TODO per player
 	s->usbHandle = INVALID_HANDLE_VALUE;
 
 	s->usbHandle = CreateFile(player_joys[idx].c_str(), GENERIC_READ|GENERIC_WRITE,

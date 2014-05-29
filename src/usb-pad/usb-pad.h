@@ -481,15 +481,14 @@ struct generic_data_t
 struct gtforce_data_t
 {
 	uint32_t axis_x : 10;
-	uint32_t buttons : 12;//Less than 12 buttons though probably
-	uint32_t pad0 : 2;
+	uint32_t buttons : 6;
+	uint32_t pad0 : 8;
 	uint32_t axis_y : 8;
 
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
 	
-	uint32_t pad1 : 8;
-	uint32_t pad2 : 8;
+	uint32_t pad1 : 16;
 };
 
 struct random_data_t 
@@ -528,4 +527,6 @@ extern struct generic_data_t	generic_data[2];
 void ResetData(generic_data_t *d);
 void ResetData(dfp_data_t *d);
 void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data);
+//Convert DF Pro buttons to selected wheel type
+uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn);
 #endif

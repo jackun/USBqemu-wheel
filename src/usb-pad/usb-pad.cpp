@@ -40,6 +40,44 @@ static uint8_t dfp_range[] =  {
 	0xFF
 };
 
+//Convert DF Pro buttons to selected wheel type
+uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn)
+{
+	if(type == WT_GT_FORCE)
+	{
+		/***
+		L1 > SQUARE == menu down	R1 > CROSS == menu up
+		SQUARE > CIRCLE == X		TRIANG > TRIANG == Y
+		CROSS > R1 == A				CIRCLE > L1 == B
+		***/
+		switch(inBtn)
+		{
+		case PAD_R1: return PAD_CROSS;
+		case PAD_L1: return PAD_SQUARE;
+		case PAD_SQUARE: return PAD_CIRCLE;
+		case PAD_TRIANGLE: return PAD_TRIANGLE;
+		case PAD_CIRCLE: return PAD_L1;
+		case PAD_CROSS: return PAD_R1;
+		default:
+			return PAD_BUTTON_COUNT; //Aka invalid
+		}
+	}
+	else if(type == WT_GENERIC)
+	{
+		switch(inBtn)
+		{
+		case PAD_R1: return PAD_R2;
+		case PAD_R2: return PAD_R1;
+		case PAD_L1: return PAD_L2;
+		case PAD_L2: return PAD_L1;
+		default:
+			return inBtn;
+		}
+	}
+
+	return inBtn;
+}
+
 static int pad_handle_data(USBDevice *dev, int pid, 
 							uint8_t devep, uint8_t *data, int len)
 {
@@ -354,7 +392,6 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		memset(&gtf_data, 0xff, sizeof(gtforce_data_t));
 
 		gtf_data.buttons = data.buttons;
-		gtf_data.hatswitch = data.hatswitch;
 		gtf_data.axis_x = data.axis_x;
 		gtf_data.axis_y = 0xFF; //data.axis_y;
 		gtf_data.axis_z = data.axis_z;
