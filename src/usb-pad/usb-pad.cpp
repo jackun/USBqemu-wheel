@@ -52,8 +52,8 @@ uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn)
 		***/
 		switch(inBtn)
 		{
-		case PAD_R1: return PAD_CROSS;
-		case PAD_L1: return PAD_SQUARE;
+		case PAD_L1: return PAD_CROSS;
+		case PAD_R1: return PAD_SQUARE;
 		case PAD_SQUARE: return PAD_CIRCLE;
 		case PAD_TRIANGLE: return PAD_TRIANGLE;
 		case PAD_CIRCLE: return PAD_L1;
