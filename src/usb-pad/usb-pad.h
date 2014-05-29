@@ -441,11 +441,11 @@ struct dfp_data_t
 	uint32_t buttons : 14;
 	uint32_t hatswitch : 4;
 
-	uint32_t magic1 : 8;
+	uint32_t magic1 : 8; //constant
 	
 	uint32_t axis_z : 8; //or y
 	uint32_t axis_rz : 8;
-	uint32_t magic2 : 8;
+	uint32_t magic2 : 8; //constant
 	//uint32_t pad3 : 2;
 };
 

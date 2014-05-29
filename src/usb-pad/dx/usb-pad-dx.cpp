@@ -23,6 +23,7 @@ static DWORD calibrationtime = 0;
 static int calidata = 0;
 static bool alternate = false;
 static bool calibrating = false;
+static bool sendCrap = false;
 
 typedef struct Win32PADState {
 	PADState padState;
@@ -74,6 +75,14 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	wheel_data.axis_z = 0xFF;
 	wheel_data.axis_rz = 0xFF;
 	wheel_data.hatswitch = 0x8;
+
+	//TODO Atleast GT4 detects DFP then
+	if(sendCrap)
+	{
+		pad_copy_data(idx, buf, wheel_data);
+		sendCrap = false;
+		return len;
+	}
 
 	PollDevices();
 
@@ -159,6 +168,10 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 
 	switch(ffdata.reportid)
 	{
+		case 0xF8:
+			if(ffdata.reportid == 5)
+				sendCrap = true;
+		break;
 		case 9:
 			{
 				//not handled
@@ -177,7 +190,9 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 		case 0x21:
 			if(ffdata.index == 0xB)
 			{
-				if(!calibrating){SetConstantForce(ffdata.data1);}
+				//if(!calibrating){
+					SetConstantForce(ffdata.data1);
+				//}
 				break;
 			}
 			//drop through

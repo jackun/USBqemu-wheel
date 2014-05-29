@@ -3,6 +3,8 @@
 #include "../../USB.h"
 #include "raw-config.h"
 
+static bool sendCrap = false;
+
 typedef struct Win32PADState {
 	PADState padState;
 
@@ -53,6 +55,13 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	data_summed.hatswitch = 0x8;
 	data_summed.buttons = 0;
 
+	//TODO Atleast GT4 detects DFP then
+	if(sendCrap)
+	{
+		sendCrap = false;
+		pad_copy_data(idx, buf, data_summed);
+		return len;
+	}
 
 	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
@@ -109,6 +118,8 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	if(s->usbHandle == INVALID_HANDLE_VALUE) return 0;
 
 	if(data[0] == 0x8 || data[0] == 0xB) return len;
+	if(data[0] == 0xF8 && data[1] == 0x5) 
+		sendCrap = true;
 	//If i'm reading it correctly MOMO report size for output has Report Size(8) and Report Count(7), so that's 7 bytes
 	//Now move that 7 bytes over by one and add report id of 0 (right?). Supposedly mandatory for HIDs.
 	memcpy(outbuf + 1, data, len - 1);
