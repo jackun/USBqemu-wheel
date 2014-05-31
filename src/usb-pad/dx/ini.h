@@ -1,19 +1,20 @@
-extern std::string szIniDir; // Win32\Config.cpp
+extern std::string IniDir; // Win32\Config.cpp
 extern HINSTANCE hInst;
 std::string strMySystemFile;
 
 static void GetIniFile(std::string &iniFile)
 {
 	iniFile.clear();
-	if(!szIniDir.length()) {
-		char *szTemp = NULL, tmp[MAX_PATH];
+	if(!IniDir.length()) {
+		char tmp[MAX_PATH] = {0};
 		GetModuleFileName(GetModuleHandle((LPCSTR)hInst), tmp, MAX_PATH);
-		szTemp = strrchr(tmp, '\\');
-		if(!szTemp) return;
-		strcpy(szTemp, "\\inis\\USBqemu-DIwheel.ini");
-		iniFile.append(tmp);
+
+		std::string path(tmp);
+		unsigned last = path.find_last_of("\\");
+		iniFile = path.substr(0, last);
+		iniFile.append("\\inis\\USBqemu-DIwheel.ini");
 	} else {
-		iniFile.append(szIniDir);
+		iniFile.append(IniDir);
 		iniFile.append("USBqemu-DIwheel.ini");
 	}
 }
@@ -26,17 +27,22 @@ static int WriteToFile(char * strFileSection, char * strKey, LPCSTR strValue)
 	return WritePrivateProfileString(strFileSection, strKey, strValue, strMySystemFile.c_str());
 }
 
-static char * ReadFromFile(char * strFileSection, char * strKey)
+template <size_t _Size>
+static int ReadFromFile(const char * strFileSection, const char * strKey, char (&strOut)[_Size])
 {
 	char strValue[255];
 	int lngRtn=0;
+	//memset(strOut, 0, _Size);
 
 	lngRtn = GetPrivateProfileString(strFileSection, strKey, NULL, strValue, MAX_PATH, strMySystemFile.c_str());
 	if (lngRtn > 0)
 	{
-		memcpy(strValue,strValue,lngRtn);
-		return strValue;
+		lngRtn = lngRtn > _Size - 1 ? _Size - 1 : lngRtn;
+		memcpy(strOut, strValue, lngRtn);
+		strOut[lngRtn] = 0;
+		return lngRtn;
 	}
 	else
-		return 0;
+		strOut[0] = 0;
+	return 0;
 }

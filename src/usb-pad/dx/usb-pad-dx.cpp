@@ -169,7 +169,8 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	switch(ffdata.reportid)
 	{
 		case 0xF8:
-			if(ffdata.reportid == 5)
+			//TODO needed?
+			if(ffdata.index == 5)
 				sendCrap = true;
 		break;
 		case 9:
@@ -178,11 +179,18 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 			}
 			break;
 		case 19:
+			//some games issue this command on pause
+			//if(ffdata.reportid == 19 && ffdata.data2 == 0)break;
+			if(ffdata.index == 0x8)
+				SetConstantForce(127); //data1 looks like previous force sent with reportid 0x11
+			//TODO unset spring
+			else if(ffdata.index == 3)
+				SetSpringForce(127);
+
+			//fprintf(stderr, "FFB 0x%X, 0x%X, 0x%X\n", ffdata.reportid, ffdata.index, ffdata.data1);
+			break;
 		case 17://constant force
 			{
-				//some games issue this command on pause
-				if(ffdata.reportid == 19 && ffdata.data2 == 0)break;
-
 				//handle calibration commands
 				if(!calibrating){SetConstantForce(ffdata.data1);}
 			}
@@ -191,7 +199,8 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 			if(ffdata.index == 0xB)
 			{
 				//if(!calibrating){
-					SetConstantForce(ffdata.data1);
+					//SetConstantForce(ffdata.data1);
+					SetSpringForce(ffdata.data1); //spring is broken?
 				//}
 				break;
 			}
@@ -204,6 +213,10 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 					//just release force
 					SetConstantForce(127);
 			}
+			break;
+		case 241:
+			//DF/GTF and GT3
+			if(!calibrating){SetConstantForce(ffdata.pad1);}
 			break;
 		case 243://initialize
 			{

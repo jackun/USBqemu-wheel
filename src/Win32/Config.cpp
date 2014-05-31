@@ -4,32 +4,34 @@
 #include "../USB.h"
 
 extern HINSTANCE hInst;
-std::string szIniDir;
+std::string IniDir;
+std::string LogDir;
 
 void CALLBACK USBsetSettingsDir( const char* dir )
 {
 	fprintf(stderr, "USBsetSettingsDir: %s\n", dir);
-	szIniDir = dir;
+	IniDir = dir;
 }
 
 void CALLBACK USBsetLogDir( const char* dir )
 {
 	printf("USBsetLogDir: %s\n", dir);
+	LogDir = dir;
 }
 
 void GetIniFile(std::string &iniFile)
 {
 	iniFile.clear();
-	if(!szIniDir.length()) {
-		char *szTemp = NULL, tmp[MAX_PATH];
+	if(!IniDir.length()) {
+		char tmp[MAX_PATH] = {0};
 		GetModuleFileName(GetModuleHandle((LPCSTR)hInst), tmp, MAX_PATH);
-		szTemp = strrchr(tmp, '\\');
-		if(!szTemp) return;
-		strcpy(szTemp, "\\inis\\USBqemu-wheel.ini");
-		iniFile.append(tmp);
-		fprintf(stderr, "Ini dir: %s\n", tmp);
+
+		std::string path(tmp);
+		unsigned last = path.find_last_of("\\");
+		iniFile = path.substr(0, last);
+		iniFile.append("\\inis\\USBqemu-wheel.ini");
 	} else {
-		iniFile.append(szIniDir);
+		iniFile.append(IniDir);
 		iniFile.append("USBqemu-wheel.ini");
 	}
 }

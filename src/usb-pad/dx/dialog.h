@@ -1,4 +1,6 @@
-
+#pragma warning (push)
+// floats to int
+#pragma warning (disable : 4244)
 
 void ApplyFilter()
 {
@@ -709,3 +711,5 @@ void LoadDialog()
 {
 	DialogBoxParam (hInst, MAKEINTRESOURCE(IDD_DIALOG1), 0, DxDialogProc, 0);
 }
+
+#pragma warning (pop)

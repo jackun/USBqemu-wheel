@@ -80,7 +80,7 @@ void USBirq(int cycles)
 void __Log(char *fmt, ...) {
 	va_list list;
 
-	if (!conf.Log) return;
+	if (!conf.Log ||!usbLog) return;
 
 	va_start(list, fmt);
 	vfprintf(usbLog, fmt, list);
@@ -172,7 +172,7 @@ EXPORT_C_(s32) USBinit() {
 	if (conf.Log)
 	{
 		usbLog = fopen("logs/usbLog.txt", "w");
-		setvbuf(usbLog, NULL,  _IONBF, 0);
+		if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
 		USB_LOG("usbqemu wheel mod plugin version %d,%d\n",revision,build);
 		USB_LOG("USBinit\n");
 	}

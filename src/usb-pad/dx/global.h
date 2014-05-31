@@ -136,9 +136,18 @@ void GetID(char * name)
 void WriteLogFile(const char* szString)
 {
 	if (!LOG) return;
-	FILE* pFile = fopen("DIwheellog.txt", "a");
-	fprintf(pFile, "%s\n",szString);
-	fclose(pFile);
+#if _DEBUG
+	fprintf(stderr, "%s\n", szString);
+#endif
+
+	FILE* pFile = NULL;
+	errno_t err = fopen_s(&pFile, "DIwheellog.txt", "a");
+	if(err == 0)
+	{
+		fprintf(pFile, "%s\n",szString);
+		fclose(pFile);
+	}
+
 }
 void SaveMain()
 {
@@ -168,29 +177,33 @@ void LoadMain()
 
 	GetIniFile(strMySystemFile);
 
-	FILE * fp=fopen(strMySystemFile.c_str(), "rt");//check if ini really exists
+	FILE * fp = NULL;
+	errno_t err = fopen_s(&fp, strMySystemFile.c_str(), "r");//check if ini really exists
 	if (!fp)
 	{
 		CreateDirectory("inis",NULL);
 		SaveMain();//save
 	}
+	else
+		fclose(fp);
 
-	//char szText[260];
+	char szText[260];
 	//if (ReadFromFile("MAIN", "FFBDEVICE1")) strcpy(szText, ReadFromFile("MAIN", "FFBDEVICE1"));
 	//player_joys[0] = szText;
-	if (ReadFromFile("MAIN", "LOG")) LOG = atoi(ReadFromFile("MAIN", "LOG"));
-	if (ReadFromFile("MAIN", "INVERTFORCES")) INVERTFORCES = atoi(ReadFromFile("MAIN", "INVERTFORCES"));
-	if (ReadFromFile("MAIN", "BYPASSCAL")) BYPASSCAL = atoi(ReadFromFile("MAIN", "BYPASSCAL"));
+	if (ReadFromFile("MAIN", "LOG", szText)) LOG = atoi(szText);
+	if (ReadFromFile("MAIN", "INVERTFORCES", szText)) INVERTFORCES = atoi(szText);
+	if (ReadFromFile("MAIN", "BYPASSCAL", szText)) BYPASSCAL = atoi(szText);
 
 	for(int i=0; i<numc;i++){
-		sprintf_s(text, "AXISID%i", i); if (ReadFromFile("CONTROLS", text)) AXISID[i] = atoi(ReadFromFile("CONTROLS", text));
-		sprintf_s(text, "INVERT%i", i); if (ReadFromFile("CONTROLS", text)) INVERT[i] = atoi(ReadFromFile("CONTROLS", text));
-		sprintf_s(text, "HALF%i", i); if (ReadFromFile("CONTROLS", text)) HALF[i] = atoi(ReadFromFile("CONTROLS", text));
-		sprintf_s(text, "BUTTON%i", i); if (ReadFromFile("CONTROLS", text)) BUTTON[i] = atoi(ReadFromFile("CONTROLS", text));
-		sprintf_s(text, "LINEAR%i", i); if (ReadFromFile("CONTROLS", text)) LINEAR[i] = atoi(ReadFromFile("CONTROLS", text));
-		sprintf_s(text, "OFFSET%i", i); if (ReadFromFile("CONTROLS", text)) OFFSET[i] = atoi(ReadFromFile("CONTROLS", text));
-		sprintf_s(text, "DEADZONE%i", i); if (ReadFromFile("CONTROLS", text)) DEADZONE[i] = atoi(ReadFromFile("CONTROLS", text));
+		sprintf_s(text, "AXISID%i", i); if (ReadFromFile("CONTROLS", text, szText)) AXISID[i] = atoi(szText);
+		sprintf_s(text, "INVERT%i", i); if (ReadFromFile("CONTROLS", text, szText)) INVERT[i] = atoi(szText);
+		sprintf_s(text, "HALF%i", i); if (ReadFromFile("CONTROLS", text, szText)) HALF[i] = atoi(szText);
+		sprintf_s(text, "BUTTON%i", i); if (ReadFromFile("CONTROLS", text, szText)) BUTTON[i] = atoi(szText);
+		sprintf_s(text, "LINEAR%i", i); if (ReadFromFile("CONTROLS", text, szText)) LINEAR[i] = atoi(szText);
+		sprintf_s(text, "OFFSET%i", i); if (ReadFromFile("CONTROLS", text, szText)) OFFSET[i] = atoi(szText);
+		sprintf_s(text, "DEADZONE%i", i); if (ReadFromFile("CONTROLS", text, szText)) DEADZONE[i] = atoi(szText);
 	}
+
 }
 
 //use direct input
