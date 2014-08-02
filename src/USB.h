@@ -171,6 +171,9 @@ struct ohci_hcca {
 #define OHCI_ED_MPS_SHIFT 7
 #define OHCI_ED_MPS_MASK  (0xf<<OHCI_ED_FA_SHIFT)
 
+//#define OHCI_ED_MPS_SHIFT 16
+//#define OHCI_ED_MPS_MASK  (0x7ff<<OHCI_ED_MPS_SHIFT)
+
 /* Flags in the head field of an Endpoint Desciptor.  */
 #define OHCI_ED_H         1
 #define OHCI_ED_C         2
@@ -187,6 +190,22 @@ struct ohci_hcca {
 #define OHCI_TD_EC_MASK   (3<<OHCI_TD_EC_SHIFT)
 #define OHCI_TD_CC_SHIFT  28
 #define OHCI_TD_CC_MASK   (0xf<<OHCI_TD_CC_SHIFT)
+
+/* Bitfields for the first word of an Isochronous Transfer Desciptor.  */
+/* CC & DI - same as in the General Transfer Desciptor */
+#define OHCI_TD_SF_SHIFT  0
+#define OHCI_TD_SF_MASK   (0xffff<<OHCI_TD_SF_SHIFT)
+#define OHCI_TD_FC_SHIFT  24
+#define OHCI_TD_FC_MASK   (7<<OHCI_TD_FC_SHIFT)
+
+/* Isochronous Transfer Desciptor - Offset / PacketStatusWord */
+#define OHCI_TD_PSW_CC_SHIFT 12
+#define OHCI_TD_PSW_CC_MASK  (0xf<<OHCI_TD_PSW_CC_SHIFT)
+#define OHCI_TD_PSW_SIZE_SHIFT 0
+#define OHCI_TD_PSW_SIZE_MASK  (0xfff<<OHCI_TD_PSW_SIZE_SHIFT)
+
+#define OHCI_PAGE_MASK    0xfffff000
+#define OHCI_OFFSET_MASK  0xfff
 
 #define OHCI_DPTR_MASK    0xfffffff0
 
@@ -212,6 +231,15 @@ struct ohci_td {
     uint32_t cbp;
     uint32_t next;
     uint32_t be;
+};
+
+/* Isochronous transfer descriptor */
+struct ohci_iso_td {
+    uint32_t flags;
+    uint32_t bp;
+    uint32_t next;
+    uint32_t be;
+    uint16_t offset[8];
 };
 
 #define USB_HZ                      12000000
@@ -330,6 +358,9 @@ void CreateDevices();
 
 /* usb-pad.cpp */
 USBDevice *pad_init(int port, int type);
+
+/* usb-mic-singstar.cpp */
+USBDevice *singstar_mic_init(int port);
 
 /* usb-pad-raw.cpp */
 #if _WIN32

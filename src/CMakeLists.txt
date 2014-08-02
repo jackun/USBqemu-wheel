@@ -23,6 +23,7 @@ ENDIF(WIN32)
 #    set(CMAKE_LIBRARY_ARCHITECTURE "i686-linux-gnu")
 #endif()
 
+# Some unneeded headers too
 set(HDRS_MIC
 	./usb-mic/usbreg.h
 	./usb-mic/usbcore.h
@@ -72,6 +73,7 @@ set(SRCS_PAD
 )
 
 set(SRCS_MIC
+	./usb-mic/usb-mic-singstar.cpp
 	#./usb-mic/usb-mic-dummy.cpp
 	#./usb-mic/usb-mic.cpp
 	#./usb-eyetoy/usb-eyetoy.cpp

@@ -78,6 +78,10 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 #endif
 			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"Mass-storage");
 			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"Mass-storage");
+
+			//TODO Only one at a time?
+			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"Singstar (2 players) (experimental!)");
+
 			//Port 1 aka device/player 1
 			SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, conf.Port1, 0);
 			//Port 0 aka device/player 2

@@ -21,7 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+// Most stuff is based on Qemu 1.7 USB soundcard passthrough code.
+
 #include "../qemu-usb/vl.h"
+#include <assert.h>
 
 /* HID interface requests */
 #define GET_REPORT   0xa101
@@ -40,9 +44,89 @@
 #include "usbcfg.h"
 #include "usbdesc.h"
 
+// May or may not be needed
+#define ClassEndpointRequest \
+        ((USB_DIR_IN|USB_TYPE_CLASS|USB_RECIP_ENDPOINT)<<8)
+#define ClassEndpointOutRequest \
+        ((USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_ENDPOINT)<<8)
+
+/*
+ * A Basic Audio Device uses these specific values
+ */
+#define USBAUDIO_PACKET_SIZE     192
+#define USBAUDIO_SAMPLE_RATE     48000
+#define USBAUDIO_PACKET_INTERVAL 1
+
+/*
+ * A USB audio device supports an arbitrary number of alternate
+ * interface settings for each interface.  Each corresponds to a block
+ * diagram of parameterized blocks.  This can thus refer to things like
+ * number of channels, data rates, or in fact completely different
+ * block diagrams.  Alternative setting 0 is always the null block diagram,
+ * which is used by a disabled device.
+ */
+enum usb_audio_altset {
+    ALTSET_OFF  = 0x00,         /* No endpoint */
+    ALTSET_ON   = 0x01,         /* Single endpoint */
+};
+
+/*
+ * Class-specific control requests
+ */
+#define CR_SET_CUR      0x01
+#define CR_GET_CUR      0x81
+#define CR_SET_MIN      0x02
+#define CR_GET_MIN      0x82
+#define CR_SET_MAX      0x03
+#define CR_GET_MAX      0x83
+#define CR_SET_RES      0x04
+#define CR_GET_RES      0x84
+#define CR_SET_MEM      0x05
+#define CR_GET_MEM      0x85
+#define CR_GET_STAT     0xff
+
+/*
+ * Feature Unit Control Selectors
+ */
+#define MUTE_CONTROL                    0x01
+#define VOLUME_CONTROL                  0x02
+#define BASS_CONTROL                    0x03
+#define MID_CONTROL                     0x04
+#define TREBLE_CONTROL                  0x05
+#define GRAPHIC_EQUALIZER_CONTROL       0x06
+#define AUTOMATIC_GAIN_CONTROL          0x07
+#define DELAY_CONTROL                   0x08
+#define BASS_BOOST_CONTROL              0x09
+#define LOUDNESS_CONTROL                0x0a
+
+/*
+ * buffering
+ */
+
+struct streambuf {
+    uint8_t *data;
+    uint32_t size;
+    uint32_t prod;
+    uint32_t cons;
+};
+
 typedef struct SINGSTARMICState {
     USBDevice dev;
-	//nothing yet
+    int port;
+
+    /* state */
+    struct {
+        enum usb_audio_altset altset;
+        bool mute;
+        uint8_t vol[2];
+        struct streambuf buf;
+    } out;
+
+    /* properties */
+    uint32_t debug;
+    uint32_t buffer;
+    uint32_t srate[2]; //two mics
+    uint8_t  fifo[2][200]; //on-chip 400byte fifo
 } SINGSTARMICState;
 
 /* descriptor dumped from a real singstar MIC adapter */
@@ -259,6 +343,199 @@ static void singstar_mic_handle_reset(USBDevice *dev)
 	return;
 }
 
+/*
+ * Note: we arbitrarily map the volume control range onto -inf..+8 dB
+ */
+#define ATTRIB_ID(cs, attrib, idif)     \
+    (((cs) << 24) | ((attrib) << 16) | (idif))
+
+
+static void streambuf_init(struct streambuf *buf, uint32_t size)
+{
+    free(buf->data);
+    buf->size = size - (size % USBAUDIO_PACKET_SIZE);
+    buf->data = (uint8_t*)malloc(buf->size);
+    buf->prod = 0;
+    buf->cons = 0;
+}
+
+static void streambuf_fini(struct streambuf *buf)
+{
+    free(buf->data);
+    buf->data = NULL;
+}
+
+static int streambuf_put(struct streambuf *buf, uint8_t *p)
+{
+    uint32_t free = buf->size - (buf->prod - buf->cons);
+
+    if (!free) {
+        return 0;
+    }
+    assert(free >= USBAUDIO_PACKET_SIZE);
+    memcpy(p, buf->data + (buf->prod % buf->size),
+                    USBAUDIO_PACKET_SIZE);
+    buf->prod += USBAUDIO_PACKET_SIZE;
+    return USBAUDIO_PACKET_SIZE;
+}
+
+static uint8_t *streambuf_get(struct streambuf *buf)
+{
+    uint32_t used = buf->prod - buf->cons;
+    uint8_t *data;
+
+    if (!used) {
+        return NULL;
+    }
+    assert(used >= USBAUDIO_PACKET_SIZE);
+    data = buf->data + (buf->cons % buf->size);
+    buf->cons += USBAUDIO_PACKET_SIZE;
+    return data;
+}
+
+//0x0300 - feature bUnitID 0x03
+static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
+                                 uint16_t cscn, uint16_t idif,
+                                 int length, uint8_t *data)
+{
+    uint8_t cs = cscn >> 8;
+    uint8_t cn = cscn - 1;      /* -1 for the non-present master control */
+    uint32_t aid = ATTRIB_ID(cs, attrib, idif);
+    int ret = USB_RET_STALL;
+
+    switch (aid) {
+    case ATTRIB_ID(MUTE_CONTROL, CR_GET_CUR, 0x0300):
+        data[0] = s->out.mute;
+        ret = 1;
+        break;
+    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_CUR, 0x0300):
+        if (cn < 2) {
+            //uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
+            uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
+            data[0] = (uint8_t)(vol & 0xFF);
+            data[1] = vol >> 8;
+            ret = 2;
+        }
+        break;
+    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_MIN, 0x0300):
+        if (cn < 2) {
+            data[0] = 0x01;
+            data[1] = 0x80;
+            //data[0] = 0x00;
+            //data[1] = 0xE1; //0xE100 -31dB
+            ret = 2;
+        }
+        break;
+    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_MAX, 0x0300):
+        if (cn < 2) {
+            data[0] = 0x00;
+            data[1] = 0x08;
+            //data[0] = 0x00;
+            //data[1] = 0x18; //0x1800 +24dB
+            ret = 2;
+        }
+        break;
+    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_RES, 0x0300):
+        if (cn < 2) {
+            data[0] = 0x88;
+            data[1] = 0x00;
+            //data[0] = 0x00;
+            //data[1] = 0x01; //0x0100 1.0 dB
+            ret = 2;
+        }
+        break;
+    }
+
+    return ret;
+}
+
+static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
+                                 uint16_t cscn, uint16_t idif,
+                                 int length, uint8_t *data)
+{
+    uint8_t cs = cscn >> 8;
+    uint8_t cn = cscn - 1;      /* -1 for the non-present master control */
+    uint32_t aid = ATTRIB_ID(cs, attrib, idif);
+    int ret = USB_RET_STALL;
+    bool set_vol = false;
+
+    switch (aid) {
+    case ATTRIB_ID(MUTE_CONTROL, CR_SET_CUR, 0x0300):
+        s->out.mute = data[0] & 1;
+        set_vol = true;
+        ret = 0;
+        break;
+    case ATTRIB_ID(VOLUME_CONTROL, CR_SET_CUR, 0x0300):
+        if (cn < 2) {
+            uint16_t vol = data[0] + (data[1] << 8);
+
+			//qemu usb audiocard formula, singstar has a bit different range
+            vol -= 0x8000;
+            vol = (vol * 255 + 0x4400) / 0x8800;
+            if (vol > 255) {
+                vol = 255;
+            }
+
+            if (/*s->debug*/ s->out.vol[cn] != vol) {
+                fprintf(stderr, "singstar: vol %04x\n", vol);
+            //}
+
+				s->out.vol[cn] = (uint8_t)vol;
+				set_vol = true;
+			}
+            ret = 0;
+        }
+        break;
+    }
+
+    if (set_vol) {
+        //if (s->debug) {
+            fprintf(stderr, "singstar: mute %d, lvol %3d, rvol %3d\n",
+                    s->out.mute, s->out.vol[0], s->out.vol[1]);
+        //}
+        //AUD_set_volume_out(s->out.voice, s->out.mute,
+        //                   s->out.vol[0], s->out.vol[1]);
+    }
+
+    return ret;
+}
+
+static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
+                                 uint16_t cscn, uint16_t ep,
+                                 int length, uint8_t *data)
+{
+    uint8_t cs = cscn >> 8;
+    uint8_t cn = cscn - 1;      /* -1 for the non-present master control */
+    uint32_t aid = ATTRIB_ID(cs, attrib, ep);
+    int ret = USB_RET_STALL;
+
+	//cs 1 cn 0xFF, ep 0x81 attrib 1
+	printf("singstar: ep control cs %x, cn %X, %X %X data:", cs, cn, attrib, ep);
+	for(int i=0; i<length; i++)
+		printf("%02X ", data[i]);
+	printf("\n");
+
+    switch (aid) {
+    case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, CR_SET_CUR, 0x81):
+		if( cn == 0xFF) { //?
+			s->srate[0] = data[0] | (data[1] << 8) | (data[2] << 16);
+			s->srate[1] = s->srate[0];
+		} else if( cn < 2) {
+			s->srate[cn] = data[0] | (data[1] << 8) | (data[2] << 16);
+		}
+        ret = 0;
+        break;
+    case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, CR_GET_CUR, 0x81):
+        data[0] = s->srate[0] & 0xFF;
+		data[1] = (s->srate[0] >> 8) & 0xFF;
+		data[2] = (s->srate[0] >> 16) & 0xFF;
+        ret = 3;
+        break;
+    }
+
+    return ret;
+}
+
 static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                                   int index, int length, uint8_t *data)
 {
@@ -266,6 +543,53 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
     int ret = 0;
 
     switch(request) {
+    /*
+    * Audio device specific request
+    */
+    case ClassInterfaceRequest | CR_GET_CUR:
+    case ClassInterfaceRequest | CR_GET_MIN:
+    case ClassInterfaceRequest | CR_GET_MAX:
+    case ClassInterfaceRequest | CR_GET_RES:
+        ret = usb_audio_get_control(s, request & 0xff, value, index,
+                                    length, data);
+        if (ret < 0) {
+            //if (s->debug) {
+                fprintf(stderr, "singstar: fail: get control\n");
+            //}
+            goto fail;
+        }
+        break;
+
+    case ClassInterfaceOutRequest | CR_SET_CUR:
+    case ClassInterfaceOutRequest | CR_SET_MIN:
+    case ClassInterfaceOutRequest | CR_SET_MAX:
+    case ClassInterfaceOutRequest | CR_SET_RES:
+        ret = usb_audio_set_control(s, request & 0xff, value, index,
+                                    length, data);
+        if (ret < 0) {
+            //if (s->debug) {
+                fprintf(stderr, "singstar: fail: set control\n data:");
+            //}
+            goto fail;
+        }
+        break;
+
+    case ClassEndpointRequest | CR_GET_CUR:
+    case ClassEndpointRequest | CR_GET_MIN:
+    case ClassEndpointRequest | CR_GET_MAX:
+    case ClassEndpointRequest | CR_GET_RES:
+    case ClassEndpointOutRequest | CR_SET_CUR:
+    case ClassEndpointOutRequest | CR_SET_MIN:
+    case ClassEndpointOutRequest | CR_SET_MAX:
+    case ClassEndpointOutRequest | CR_SET_RES:
+        ret = usb_audio_ep_control(s, request & 0xff, value, index,
+                                    length, data);
+        if (ret < 0) goto fail;
+        break;
+
+    /*
+    * Generic usb request
+    */
     case DeviceRequest | USB_REQ_GET_STATUS:
         data[0] = (dev->remote_wakeup << USB_DEVICE_REMOTE_WAKEUP);
         data[1] = 0x00;
@@ -299,9 +623,9 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
             ret = sizeof(singstar_mic_dev_descriptor);
             break;
         case USB_DT_CONFIG:
-			memcpy(data, singstar_mic_config_descriptor, 
-				sizeof(singstar_mic_config_descriptor));
-			ret = sizeof(singstar_mic_config_descriptor);
+            memcpy(data, singstar_mic_config_descriptor, 
+                sizeof(singstar_mic_config_descriptor));
+            ret = sizeof(singstar_mic_config_descriptor);
             break;
         case USB_DT_STRING:
             switch(value & 0xff) {
@@ -313,17 +637,17 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 data[3] = 0x04;
                 ret = 4;
                 break;
-            case 1:
+            case 1:// TODO iSerial = 0
                 /* serial number */
                 ret = set_usb_string(data, "3X0420811");
                 break;
-            case 2:
+            case 2:// TODO iProduct = 2
                 /* product description */
-			    ret = set_usb_string(data, "EyeToy USB camera Namtai");
-	            break;
-            case 3:
+                ret = set_usb_string(data, "USBMIC");
+                break;
+            case 3:// TODO iManufacturer = 1
                 /* vendor description */
-                ret = set_usb_string(data, "PCSX2/QEMU");
+                ret = set_usb_string(data, "Nam Tai E&E Products Ltd.");
                 break;
             default:
                 goto fail;
@@ -349,18 +673,11 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         break;
         /* hid specific requests */
     case InterfaceRequest | USB_REQ_GET_DESCRIPTOR:
-        //switch(value >> 8) {
-        //((case 0x22:
-		//	memcpy(data, qemu_mouse_hid_report_descriptor, 
-		//		sizeof(qemu_mouse_hid_report_descriptor));
-		//	ret = sizeof(qemu_mouse_hid_report_descriptor);
-		//    break;
-        //default:
-            goto fail;
-        //}
+        // Probably never comes here
+        goto fail;
         break;
     case GET_REPORT:
-		ret = 0;
+        ret = 0;
         break;
     case SET_IDLE:
         ret = 0;
@@ -381,11 +698,14 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
     switch(pid) {
     case USB_TOKEN_IN:
+        fprintf(stderr, "token in ep: %d pid: %d len: %d\n", devep, pid, len);
         if (devep == 1) {
-            goto fail;
+            memset(data, 0x33, len);
+            return len;
         }
         break;
     case USB_TOKEN_OUT:
+        printf("token out ep: %d\n", devep);
     default:
     fail:
         ret = USB_RET_STALL;
@@ -406,11 +726,11 @@ int singstar_mic_handle_packet(USBDevice *s, int pid,
                               uint8_t devaddr, uint8_t devep,
                               uint8_t *data, int len)
 {
-	fprintf(stderr,"usb-singstar_mic: packet received with pid=%x, devaddr=%x, devep=%x and len=%x\n",pid,devaddr,devep,len);
+	//fprintf(stderr,"usb-singstar_mic: packet received with pid=%x, devaddr=%x, devep=%x and len=%x\n",pid,devaddr,devep,len);
 	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
-USBDevice *singstar_mic_init()
+USBDevice *singstar_mic_init(int port)
 {
     SINGSTARMICState *s;
 
@@ -423,6 +743,7 @@ USBDevice *singstar_mic_init()
     s->dev.handle_control = singstar_mic_handle_control;
     s->dev.handle_data    = singstar_mic_handle_data;
     s->dev.handle_destroy = singstar_mic_handle_destroy;
+    s->port = port;
 
     strncpy(s->dev.devname, "EyeToy USB camera Namtai", sizeof(s->dev.devname));
 

@@ -31,10 +31,12 @@
 #define USB_MSG_DETACH   0x101
 #define USB_MSG_RESET    0x102
 
-#define USB_RET_NODEV  (-1) 
-#define USB_RET_NAK    (-2)
-#define USB_RET_STALL  (-3)
-#define USB_RET_BABBLE (-4)
+#define USB_RET_NODEV   (-1) 
+#define USB_RET_NAK     (-2)
+#define USB_RET_STALL   (-3)
+#define USB_RET_BABBLE  (-4)
+#define USB_RET_IOERROR (-5)
+//#define USB_RET_ASYNC   (-6)
 
 #define USB_SPEED_LOW   0
 #define USB_SPEED_FULL  1
@@ -79,6 +81,9 @@
 
 #define DeviceRequest ((USB_DIR_IN|USB_TYPE_STANDARD|USB_RECIP_DEVICE)<<8)
 #define DeviceOutRequest ((USB_DIR_OUT|USB_TYPE_STANDARD|USB_RECIP_DEVICE)<<8)
+#define VendorDeviceRequest ((USB_DIR_IN|USB_TYPE_VENDOR|USB_RECIP_DEVICE)<<8)
+#define VendorDeviceOutRequest \
+        ((USB_DIR_OUT|USB_TYPE_VENDOR|USB_RECIP_DEVICE)<<8)
 #define InterfaceRequest \
         ((USB_DIR_IN|USB_TYPE_STANDARD|USB_RECIP_INTERFACE)<<8)
 #define InterfaceOutRequest \
@@ -86,6 +91,10 @@
 #define EndpointRequest ((USB_DIR_IN|USB_TYPE_STANDARD|USB_RECIP_ENDPOINT)<<8)
 #define EndpointOutRequest \
         ((USB_DIR_OUT|USB_TYPE_STANDARD|USB_RECIP_ENDPOINT)<<8)
+#define ClassInterfaceRequest \
+        ((USB_DIR_IN|USB_TYPE_CLASS|USB_RECIP_INTERFACE)<<8)
+#define ClassInterfaceOutRequest \
+        ((USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_INTERFACE)<<8)
 
 #define USB_REQ_GET_STATUS		0x00
 #define USB_REQ_CLEAR_FEATURE		0x01

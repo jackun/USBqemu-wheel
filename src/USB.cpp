@@ -130,6 +130,10 @@ void CreateDevices()
 	case 3:
 		usb_device1 = usb_msd_init(conf.usb_img);
 		break;
+	case 4:
+		//TODO only one at a time?
+		usb_device1 = singstar_mic_init(PLAYER_ONE_PORT);
+		break;
 	default:
 		break;
 	}
@@ -144,6 +148,10 @@ void CreateDevices()
 		break;
 	case 3:
 		usb_device2 = usb_msd_init(conf.usb_img);
+		break;
+	case 4:
+		//TODO only one at a time?
+		usb_device2 = singstar_mic_init(PLAYER_TWO_PORT);
 		break;
 	default:
 		break;
