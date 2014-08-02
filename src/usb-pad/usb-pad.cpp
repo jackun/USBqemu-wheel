@@ -288,13 +288,10 @@ USBDevice *pad_init(int port, int type)
 	#if BUILD_RAW
 		if(type == 0)
 			s = (PADState *)get_new_raw_padstate();
-		else
 	#endif
 	#if BUILD_DX
 		if(type == 1)
 			s = (PADState *)get_new_dx_padstate();
-	#else
-			return NULL; //BUILD_RAW else
 	#endif
 
 #else //linux
