@@ -117,7 +117,7 @@ void DestroyDevices()
 
 void CreateDevices()
 {
-	if(!qemu_ohci) return; //No USBinit yet
+	if(!qemu_ohci) return; //No USBinit yet ie. called from config. dialog
 	DestroyDevices();
 	switch(conf.Port1)
 	{

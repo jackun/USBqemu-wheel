@@ -37,13 +37,36 @@
 #include <windows.h>
 #include <windowsx.h>
 
+#include <vector>
+static void OSDebugOut(const TCHAR *psz_fmt, ...)
+{
+	va_list args;
+	va_start(args, psz_fmt);
+
+#ifdef UNICODE
+	int bufsize = _vscwprintf(psz_fmt, args) + 1;
+	std::vector<TCHAR> msg(bufsize);
+	vswprintf_s(&msg[0], bufsize, psz_fmt, args);
+#else
+	int bufsize = _vscprintf(psz_fmt, args) + 1;
+	std::vector<TCHAR> msg(bufsize);
+	vsprintf_s(&msg[0], bufsize, psz_fmt, args);
+#endif
+
+	//_vsnwprintf_s(&msg[0], bufsize, bufsize-1, psz_fmt, args);
+	va_end(args);
+
+	OutputDebugString(&msg[0]);
+}
+
 #else
 
 //#include <gtk/gtk.h>
 #include <limits.h>
 #define MAX_PATH PATH_MAX
 #define __inline inline
-
+#define OSDebugOut(...) 
+#define TEXT(val) val
 #endif
 
 #define USBdefs
@@ -158,27 +181,27 @@ struct ohci_hcca {
     uint32_t done;
 };
 
-/* Bitfields for the first word of an Endpoint Desciptor.  */
-#define OHCI_ED_FA_SHIFT  0
+/* Bitfields for the first word of an Endpoint Descriptor.  */
+#define OHCI_ED_FA_SHIFT  0  //device address
 #define OHCI_ED_FA_MASK   (0x7f<<OHCI_ED_FA_SHIFT)
-#define OHCI_ED_EN_SHIFT  7
+#define OHCI_ED_EN_SHIFT  7 //endpoint number
 #define OHCI_ED_EN_MASK   (0xf<<OHCI_ED_EN_SHIFT)
-#define OHCI_ED_D_SHIFT   11
+#define OHCI_ED_D_SHIFT   11 //direction
 #define OHCI_ED_D_MASK    (3<<OHCI_ED_D_SHIFT)
-#define OHCI_ED_S         (1<<13)
-#define OHCI_ED_K         (1<<14)
-#define OHCI_ED_F         (1<<15)
-#define OHCI_ED_MPS_SHIFT 7
-#define OHCI_ED_MPS_MASK  (0xf<<OHCI_ED_FA_SHIFT)
+#define OHCI_ED_S         (1<<13) //speed 0 - full, 1 - low
+#define OHCI_ED_K         (1<<14) //skip ED if 1
+#define OHCI_ED_F         (1<<15) //format 0 - inter, bulk or setup, 1 - isoch
+//#define OHCI_ED_MPS_SHIFT 7
+//#define OHCI_ED_MPS_MASK  (0xf<<OHCI_ED_FA_SHIFT)
 
-//#define OHCI_ED_MPS_SHIFT 16
-//#define OHCI_ED_MPS_MASK  (0x7ff<<OHCI_ED_MPS_SHIFT)
+#define OHCI_ED_MPS_SHIFT 16 //max packet size
+#define OHCI_ED_MPS_MASK  (0x7ff<<OHCI_ED_MPS_SHIFT)
 
-/* Flags in the head field of an Endpoint Desciptor.  */
-#define OHCI_ED_H         1
+/* Flags in the head field of an Endpoint Descriptor.  */
+#define OHCI_ED_H         1 //halted
 #define OHCI_ED_C         2
 
-/* Bitfields for the first word of a Transfer Desciptor.  */
+/* Bitfields for the first word of a Transfer Descriptor.  */
 #define OHCI_TD_R         (1<<18)
 #define OHCI_TD_DP_SHIFT  19
 #define OHCI_TD_DP_MASK   (3<<OHCI_TD_DP_SHIFT)
@@ -191,14 +214,14 @@ struct ohci_hcca {
 #define OHCI_TD_CC_SHIFT  28
 #define OHCI_TD_CC_MASK   (0xf<<OHCI_TD_CC_SHIFT)
 
-/* Bitfields for the first word of an Isochronous Transfer Desciptor.  */
-/* CC & DI - same as in the General Transfer Desciptor */
+/* Bitfields for the first word of an Isochronous Transfer Descriptor.  */
+/* CC & DI - same as in the General Transfer Descriptor */
 #define OHCI_TD_SF_SHIFT  0
 #define OHCI_TD_SF_MASK   (0xffff<<OHCI_TD_SF_SHIFT)
 #define OHCI_TD_FC_SHIFT  24
 #define OHCI_TD_FC_MASK   (7<<OHCI_TD_FC_SHIFT)
 
-/* Isochronous Transfer Desciptor - Offset / PacketStatusWord */
+/* Isochronous Transfer Descriptor - Offset / PacketStatusWord */
 #define OHCI_TD_PSW_CC_SHIFT 12
 #define OHCI_TD_PSW_CC_MASK  (0xf<<OHCI_TD_PSW_CC_SHIFT)
 #define OHCI_TD_PSW_SIZE_SHIFT 0
@@ -330,7 +353,7 @@ struct ohci_iso_td {
 #define OHCI_CC_STALL               0x4
 #define OHCI_CC_DEVICENOTRESPONDING 0x5
 #define OHCI_CC_PIDCHECKFAILURE     0x6
-#define OHCI_CC_UNDEXPETEDPID       0x7
+#define OHCI_CC_UNDEXPETEDPID       0x7 // the what?
 #define OHCI_CC_DATAOVERRUN         0x8
 #define OHCI_CC_DATAUNDERRUN        0x9
 #define OHCI_CC_BUFFEROVERRUN       0xc
