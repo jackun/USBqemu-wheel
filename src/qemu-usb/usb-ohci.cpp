@@ -203,19 +203,15 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
     ohci->rhstatus = 0;
 
     for (i = 0; i < ohci->num_ports; i++)
-      {
+    {
         port = &ohci->rhport[i];
         port->ctrl = 0;
-        
-		//FIXME testing
-		//Detach so it would send an interrupt
-		USBDevice *dev = port->port.dev;
+        USBDevice *dev = port->port.dev;
         //ohci_attach(&port->port, NULL);
         if (dev)
             ohci_attach(&port->port, dev);
         //usb_device_reset(dev);
-		//if (dev) dev->handle_packet(dev, USB_MSG_RESET, 0, 0, NULL, 0);
-      }
+    }
     dprintf("usb-ohci: Reset.\n");
 }
 
@@ -307,9 +303,11 @@ static inline int ohci_put_td(uint32_t addr, struct ohci_td *td)
 
 static inline int ohci_put_iso_td(uint32_t addr, struct ohci_iso_td *td)
 {
-    return put_dwords(addr, (uint32_t *)td, 4 ||
-           put_words(addr + 16, td->offset, 8));
+    put_dwords(addr, (uint32_t *)td, 4);
+    put_words(addr + 16, td->offset, 8);
+    return 1;
 }
+
 /* Read/Write the contents of a TD from/to main memory.  */
 static void ohci_copy_td(struct ohci_td *td, uint8_t *buf, int len, int write)
 {
@@ -400,7 +398,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
            OHCI_BM(iso_td.flags, TD_DI), OHCI_BM(iso_td.flags, TD_CC));
 #endif
 
-    if (relative_frame_number < 0) {
+    if (relative_frame_number < 0) { //aka don't start transfer yet i think it means
         DPRINTF("usb-ohci: ISO_TD R=%d < 0\n", relative_frame_number);
         return 1;
     } else if (relative_frame_number > frame_count) {
@@ -512,7 +510,6 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
         bool int_req = relative_frame_number == frame_count &&
                        OHCI_BM(iso_td.flags, TD_DI) == 0;
 
-		//TODO guess work
         ret = USB_RET_NODEV;
         for (i = 0; i < ohci->num_ports; i++) {
             dev = ohci->rhport[i].port.dev;
@@ -613,6 +610,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
     if (!ohci_put_iso_td(addr, &iso_td)) {
         ohci_die(ohci);
     }
+
     return 1;
 }
 /* Service a transport descriptor.
@@ -821,11 +819,6 @@ static int ohci_service_ed_list(OHCIState *ohci, uint32_t head)
 #endif
             active = 1;
 
-            //Without ISOC support
-            //if (ohci_service_td(ohci, &ed))
-            //    break;
-
-            //Without ISOC "support"
             if ((ed.flags & OHCI_ED_F) == 0) {
                  if (ohci_service_td(ohci, &ed))
                      break;
@@ -880,6 +873,11 @@ void ohci_frame_boundary(void *opaque)
             ohci->status &= ~OHCI_STATUS_BLF;
         }
     }
+
+	/* Stop if UnrecoverableError happened or ohci_sof will crash */
+	if (ohci->intr_status & OHCI_INTR_UE) {
+		return;
+	}
 
     /* Frame boundary, so do EOF stuf here */
     ohci->frt = ohci->fit;

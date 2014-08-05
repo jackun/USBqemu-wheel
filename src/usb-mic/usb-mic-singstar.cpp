@@ -24,6 +24,7 @@
 
 // Most stuff is based on Qemu 1.7 USB soundcard passthrough code.
 
+#include "../USB.h"
 #include "../qemu-usb/vl.h"
 #include <assert.h>
 
@@ -44,16 +45,10 @@
 #include "usbcfg.h"
 #include "usbdesc.h"
 
-// May or may not be needed
-#define ClassEndpointRequest \
-        ((USB_DIR_IN|USB_TYPE_CLASS|USB_RECIP_ENDPOINT)<<8)
-#define ClassEndpointOutRequest \
-        ((USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_ENDPOINT)<<8)
-
 /*
  * A Basic Audio Device uses these specific values
  */
-#define USBAUDIO_PACKET_SIZE     192
+#define USBAUDIO_PACKET_SIZE     200 //192
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
 
@@ -126,7 +121,8 @@ typedef struct SINGSTARMICState {
     uint32_t debug;
     uint32_t buffer;
     uint32_t srate[2]; //two mics
-    uint8_t  fifo[2][200]; //on-chip 400byte fifo
+    //uint8_t  fifo[2][200]; //on-chip 400byte fifo
+    streambuf fifo[2];
 } SINGSTARMICState;
 
 /* descriptor dumped from a real singstar MIC adapter */
@@ -373,7 +369,8 @@ static int streambuf_put(struct streambuf *buf, uint8_t *p)
         return 0;
     }
     assert(free >= USBAUDIO_PACKET_SIZE);
-    memcpy(p, buf->data + (buf->prod % buf->size),
+	//TODO
+    memcpy(buf->data + (buf->prod % buf->size), p,
                     USBAUDIO_PACKET_SIZE);
     buf->prod += USBAUDIO_PACKET_SIZE;
     return USBAUDIO_PACKET_SIZE;
@@ -476,10 +473,7 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
                 vol = 255;
             }
 
-            if (/*s->debug*/ s->out.vol[cn] != vol) {
-                fprintf(stderr, "singstar: vol %04x\n", vol);
-            //}
-
+            if (s->out.vol[cn] != vol) {
 				s->out.vol[cn] = (uint8_t)vol;
 				set_vol = true;
 			}
@@ -491,6 +485,8 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
     if (set_vol) {
         //if (s->debug) {
             fprintf(stderr, "singstar: mute %d, lvol %3d, rvol %3d\n",
+                    s->out.mute, s->out.vol[0], s->out.vol[1]);
+			OSDebugOut("singstar: mute %d, lvol %3d, rvol %3d\n",
                     s->out.mute, s->out.vol[0], s->out.vol[1]);
         //}
         //AUD_set_volume_out(s->out.voice, s->out.mute,
@@ -510,18 +506,21 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
     int ret = USB_RET_STALL;
 
 	//cs 1 cn 0xFF, ep 0x81 attrib 1
-	printf("singstar: ep control cs %x, cn %X, %X %X data:", cs, cn, attrib, ep);
+	fprintf(stderr, "singstar: ep control cs %x, cn %X, %X %X data:", cs, cn, attrib, ep);
+	OSDebugOut("singstar: ep control cs %x, cn %X, attr: %02X ep: %04X\n", cs, cn, attrib, ep);
 	for(int i=0; i<length; i++)
-		printf("%02X ", data[i]);
-	printf("\n");
+		fprintf(stderr, "%02X ", data[i]);
+	fprintf(stderr, "\n");
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, CR_SET_CUR, 0x81):
-		if( cn == 0xFF) { //?
+		if( cn == 0xFF) {
 			s->srate[0] = data[0] | (data[1] << 8) | (data[2] << 16);
 			s->srate[1] = s->srate[0];
+			OSDebugOut(TEXT("singstar: set sampling to %d\n"), s->srate[0]);
 		} else if( cn < 2) {
 			s->srate[cn] = data[0] | (data[1] << 8) | (data[2] << 16);
+			OSDebugOut(TEXT("singstar: set cn %d sampling to %d\n"), cn, s->srate[cn]);
 		}
         ret = 0;
         break;
@@ -541,6 +540,8 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
 {
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
     int ret = 0;
+
+	//OSDebugOut("singstar: req %04X val: %04X idx: %04X len: %d\n", request, value, index, length);
 
     switch(request) {
     /*
@@ -586,7 +587,6 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                                     length, data);
         if (ret < 0) goto fail;
         break;
-
     /*
     * Generic usb request
     */
@@ -616,6 +616,10 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         ret = 0;
         break;
     case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
+
+		//TODO qemu has internal buffer of 8KB, but PS2 games' usb driver
+		//first calls with buffer size like 4 or 8 bytes
+		//and then re-requests with 'ret'-urned size buffer.
         switch(value >> 8) {
         case USB_DT_DEVICE:
             memcpy(data, singstar_mic_dev_descriptor, 
@@ -627,6 +631,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 sizeof(singstar_mic_config_descriptor));
             ret = sizeof(singstar_mic_config_descriptor);
             break;
+		//Probably ignored most of the time
         case USB_DT_STRING:
             switch(value & 0xff) {
             case 0:
@@ -668,6 +673,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         data[0] = 0;
         ret = 1;
         break;
+	case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
     case DeviceOutRequest | USB_REQ_SET_INTERFACE:
         ret = 0;
         break;
@@ -698,14 +704,17 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
     switch(pid) {
     case USB_TOKEN_IN:
-        fprintf(stderr, "token in ep: %d pid: %d len: %d\n", devep, pid, len);
+        //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
+		OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
         if (devep == 1) {
-            memset(data, 0x33, len);
-            return len;
+			len = (s->srate[0] / 1000) * 2 * 2;
+			memset(data, 0x33, len);
+			return len;
         }
         break;
     case USB_TOKEN_OUT:
         printf("token out ep: %d\n", devep);
+		OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, len);
     default:
     fail:
         ret = USB_RET_STALL;
@@ -745,7 +754,7 @@ USBDevice *singstar_mic_init(int port)
     s->dev.handle_destroy = singstar_mic_handle_destroy;
     s->port = port;
 
-    strncpy(s->dev.devname, "EyeToy USB camera Namtai", sizeof(s->dev.devname));
+    strncpy(s->dev.devname, "USBMIC", sizeof(s->dev.devname));
 
     return (USBDevice *)s;
 
