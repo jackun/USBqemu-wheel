@@ -32,9 +32,9 @@ struct Mappings {
 	uint32_t	axisMap[MAX_AXES];
 	uint32_t	hatMap[8];
 	wheel_data_t data[2];
-	std::string devName;
+	std::wstring devName;
 #if _WIN32
-	std::string hidPath;
+	std::wstring hidPath;
 #endif
 };
 

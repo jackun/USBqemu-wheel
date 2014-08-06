@@ -59,6 +59,7 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 	OutputDebugString(&msg[0]);
 }
 
+#define wfopen _wfopen
 #else
 
 //#include <gtk/gtk.h>
@@ -67,6 +68,8 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 #define __inline inline
 #define OSDebugOut(...) 
 #define TEXT(val) val
+#define TCHAR char
+#define wfopen fopen
 #endif
 
 #define USBdefs
@@ -80,7 +83,7 @@ typedef struct _Config {
   int Port1; //player1
   int DFPPass; //[2]; //TODO per player
   int WheelType[2];
-  char usb_img[MAX_PATH+1];
+  TCHAR usb_img[MAX_PATH+1];
 } Config;
 
 extern Config conf;
@@ -372,7 +375,7 @@ int ohci_bus_start(OHCIState *ohci);
 void ohci_bus_stop(OHCIState *ohci);
 
 USBDevice *usb_hub_init(int nb_ports);
-USBDevice *usb_msd_init(const char *filename);
+USBDevice *usb_msd_init(const TCHAR *filename);
 USBDevice *eyetoy_init(void);
 USBDevice *usb_mouse_init(void);
 

@@ -7,6 +7,7 @@
  * This code is licenced under the LGPL.
  */
 
+#include "../USB.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -687,7 +688,7 @@ static void usb_msd_handle_destroy(USBDevice *dev)
 	free(s);
 }
 
-USBDevice *usb_msd_init(const char *filename)
+USBDevice *usb_msd_init(const TCHAR *filename)
 {
     MSDState *s;
 
@@ -696,9 +697,9 @@ USBDevice *usb_msd_init(const char *filename)
         return NULL;
 
 	s->hfile = NULL;
-    s->hfile = fopen(filename, "r+b");
+    s->hfile = wfopen(filename, TEXT("r+b"));
 	if (!s->hfile) {
-		fprintf(stderr, "usb-msd: Could not open '%s'\n", filename);
+		fprintf(stderr, "usb-msd: Could not open image file\n");
         return NULL;
 	}
 

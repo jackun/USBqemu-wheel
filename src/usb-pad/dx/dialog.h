@@ -12,11 +12,11 @@ void ApplyFilter()
 	OFFSET[filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50;
 	DEADZONE[filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50;
 
-	sprintf_s(text, "LINEARITY: %i", LINEAR[filtercontrol]);
+	swprintf_s(text, TEXT("LINEARITY: %i"), LINEAR[filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_LINEAR), text);
-	sprintf_s(text, "OFFSET: %i", OFFSET[filtercontrol]);
+	swprintf_s(text, TEXT("OFFSET: %i"), OFFSET[filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_OFFSET), text);
-	sprintf_s(text, "DEAD-ZONE: %i", DEADZONE[filtercontrol]);
+	swprintf_s(text, TEXT("DEAD-ZONE: %i"), DEADZONE[filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_DEADZONE), text);
 
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
@@ -131,9 +131,9 @@ void ListenForControl()
 	}
 
 	if(listening){
-		sprintf_s(text, "Listening... %i", GetListenTimeout()/1000+1);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+		swprintf_s(text, L"Listening... %i", GetListenTimeout()/1000+1);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 	}else{
-		sprintf_s(text, "%i/%i/%i/%i", AXISID[CID], INVERT[CID], HALF[CID], BUTTON[CID]);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+		swprintf_s(text, L"%i/%i/%i/%i", AXISID[CID], INVERT[CID], HALF[CID], BUTTON[CID]);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 	}
 
 }
@@ -143,8 +143,8 @@ void StartListen(char controlid)
 	if(listening)return;
 
 	CID = controlid;
-	sprintf_s(text, "Listening...");SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
-	{sprintf_s(logstring, "Begin Listen %i", numj);WriteLogFile(logstring); ListenAxis(); }
+	swprintf_s(text, L"Listening...");SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+	{swprintf_s(logstring, L"Begin Listen %i", numj);WriteLogFile(logstring); ListenAxis(); }
 }
 
 void DeleteControl(char controlid)
@@ -154,7 +154,7 @@ void DeleteControl(char controlid)
 	INVERT[CID] = -1;
 	HALF[CID] = -1;
 	BUTTON[CID] = -1;
-	sprintf_s(text, "%i/%i/%i/%i", AXISID[CID], INVERT[CID], HALF[CID], BUTTON[CID]);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+	swprintf_s(text, L"%i/%i/%i/%i", AXISID[CID], INVERT[CID], HALF[CID], BUTTON[CID]);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 }
 
 void CreateDrawing(HDC hDrawingDC, int scale)
@@ -444,7 +444,7 @@ void InitDialog()
 					CLIP_DEFAULT_PRECIS,
 					DEFAULT_QUALITY,
 					DEFAULT_PITCH | FF_DONTCARE,
-					"Tahoma");
+					TEXT("Tahoma"));
 	HFONT hFont2 = CreateFont(14,
 					0,
 					0,
@@ -458,7 +458,7 @@ void InitDialog()
 					CLIP_DEFAULT_PRECIS,
 					DEFAULT_QUALITY,
 					DEFAULT_PITCH | FF_DONTCARE,
-					"Tahoma");
+					TEXT("Tahoma"));
 	
 	//pFnPrevFunc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hWnd,IDC_PICTURE),GWLP_WNDPROC,(LONG_PTR) StaticProc);
 	LoadMain();
@@ -475,12 +475,12 @@ void InitDialog()
 	char * string[] = {"STEER LEFT", "STEER RIGHT", "THROTTLE", "BRAKE"};
 
 	for(int i=0;i<4;i++)
-		SendMessage(GetDlgItem(hWnd, IDC_COMBO1),CB_ADDSTRING,0, (LPARAM)string[i]);
+		SendMessageA(GetDlgItem(hWnd, IDC_COMBO1),CB_ADDSTRING,0, (LPARAM)string[i]);
 
 	char * stringp[] = {"200°", "360°", "540°", "720°", "900°"};
 
 	for(int i=0;i<6;i++)
-		SendMessage(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
+		SendMessageA(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
 
 	//slider
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, 50);
@@ -522,7 +522,8 @@ void InitDialog()
 
 	for(int i = 0;i<numc;i++)
 	{
-		sprintf_s(text, "%i/%i/%i/%i", AXISID[i], INVERT[i], HALF[i], BUTTON[i]);SetWindowText(GetDlgItem(hWnd,LABELS[i]),text);
+		swprintf_s(text, L"%i/%i/%i/%i", AXISID[i], INVERT[i], HALF[i], BUTTON[i]);
+		SetWindowText(GetDlgItem(hWnd,LABELS[i]),text);
 	}
 	ShowWindow(hWnd, SW_SHOW);
 
@@ -575,7 +576,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_BUTTON31:
 					{
 						hKey = CreateDialogParam(NULL, MAKEINTRESOURCE(IDD_DIALOG2), 0, HotKeyProc, 0);
-						SetWindowText(GetDlgItem(hKey, IDC_TEXT), "NUMPAD * = Enable Camera Control\nNUMPAD / = Disable Camera Control\n\nNUMPAD 0 = Toggle Mouse\nNUMPAD 9 = Toggle Free-Look\nNUMPAD 1 = Next Preset\nNUMPAD 3 = Toggle TrackIR\n\nNUMPAD 8 = Move Up\nNUMPAD 2 = Move Down\nNUMPAD 4 = Move Left\nNUMPAD 6 = Move Right\nNUMPAD + = Move Forward\nNUMPAD - = Move Backward\n[ = Decrease FOV\n] = Increase FOV\n\nALT+#(0-9) = Save Preset\nCTRL+#(0-9) = Load Preset\n");
+						SetWindowText(GetDlgItem(hKey, IDC_TEXT), TEXT("NUMPAD * = Enable Camera Control\nNUMPAD / = Disable Camera Control\n\nNUMPAD 0 = Toggle Mouse\nNUMPAD 9 = Toggle Free-Look\nNUMPAD 1 = Next Preset\nNUMPAD 3 = Toggle TrackIR\n\nNUMPAD 8 = Move Up\nNUMPAD 2 = Move Down\nNUMPAD 4 = Move Left\nNUMPAD 6 = Move Right\nNUMPAD + = Move Forward\nNUMPAD - = Move Backward\n[ = Decrease FOV\n] = Increase FOV\n\nALT+#(0-9) = Save Preset\nCTRL+#(0-9) = Load Preset\n"));
 						ShowWindow(hKey, SW_SHOW);
 						tw = true;
 						break;
@@ -678,9 +679,9 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_DEL19:{DeleteControl(19);break;}
 
 
-				case IDC_PICTURELINK1:{ShellExecute(NULL, "open", "http://www.ecsimhardware.com",NULL, NULL, SW_SHOWNORMAL);break;}
-				case IDC_PICTURELINK2:{ShellExecute(NULL, "open", "http://www.ecsimshop.com",NULL, NULL, SW_SHOWNORMAL);break;}
-				case IDC_PICTURELINK3:{ShellExecute(NULL, "open", "http://www.tocaedit.com",NULL, NULL, SW_SHOWNORMAL);break;}
+				case IDC_PICTURELINK1:{ShellExecuteA(NULL, "open", "http://www.ecsimhardware.com",NULL, NULL, SW_SHOWNORMAL);break;}
+				case IDC_PICTURELINK2:{ShellExecuteA(NULL, "open", "http://www.ecsimshop.com",NULL, NULL, SW_SHOWNORMAL);break;}
+				case IDC_PICTURELINK3:{ShellExecuteA(NULL, "open", "http://www.tocaedit.com",NULL, NULL, SW_SHOWNORMAL);break;}
 			}
 			break;
 

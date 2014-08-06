@@ -146,10 +146,10 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	PHIDP_VALUE_CAPS     pValueCaps = NULL;
 	UINT                 bufferSize;
 	ULONG                usageLength, value;
-	char                 name[1024] = {0};
+	TCHAR                name[1024] = {0};
 	UINT                 nameSize = 1024;
 	RID_DEVICE_INFO      devInfo = {0};
-	std::string          devName;
+	std::wstring         devName;
 	USHORT               capsLength = 0;
 	USAGE                usage[MAX_BUTTONS] = {0};
 	Mappings             *mapping = NULL;
@@ -334,7 +334,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 
 	for(it = mapVector.begin(); it != mapVector.end(); it++)
 	{
-		if(!it->hidPath.compare("Keyboard"))
+		if(!it->hidPath.compare(TEXT("Keyboard")))
 		{
 			mapping = &(*it);
 			break;

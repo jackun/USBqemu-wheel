@@ -11,7 +11,11 @@ static dfp_data_t		dfp_data[2] = {0};
 #endif
 
 //TODO move to Config?
+#ifdef UNICODE
+std::wstring player_joys[2]; //two players
+#else
 std::string player_joys[2]; //two players
+#endif
 bool has_rumble[2];
 
 /* HID interface requests */

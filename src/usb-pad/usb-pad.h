@@ -3,10 +3,10 @@
 
 #include "../qemu-usb/vl.h"
 
-#include "../usb-mic/type.h"
+//#include "../usb-mic/type.h"
 #include "../usb-mic/usb.h"
-#include "../usb-mic/usbcfg.h"
-#include "../usb-mic/usbdesc.h"
+//#include "../usb-mic/usbcfg.h"
+//#include "../usb-mic/usbdesc.h"
 
 #include "config.h"
 

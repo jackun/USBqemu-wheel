@@ -25,17 +25,18 @@ ENDIF(WIN32)
 
 # Some unneeded headers too
 set(HDRS_MIC
-	./usb-mic/usbreg.h
-	./usb-mic/usbcore.h
+	#./usb-mic/usbreg.h
+	#./usb-mic/usbcore.h
+	#./usb-mic/usbcfg.h
+	#./usb-mic/type.h
+	#./usb-mic/usbuser.h
+	#./usb-mic/usbdesc.h
+	#./usb-mic/demo.h
+	#./usb-mic/usbhw.h
+	#./usb-mic/adcuser.h
 	./usb-mic/audio.h
-	./usb-mic/usbcfg.h
-	./usb-mic/type.h
-	./usb-mic/usbuser.h
 	./usb-mic/usb.h
-	./usb-mic/usbdesc.h
-	./usb-mic/demo.h
-	./usb-mic/usbhw.h
-	./usb-mic/adcuser.h
+	./usb-mic/mic-audiodefs.h
 )
 
 set(HDRS_QEMU
@@ -79,11 +80,8 @@ set(SRCS_MIC
 	#./usb-eyetoy/usb-eyetoy.cpp
 )
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})
-
 IF(WIN32)
-
+	add_definitions(-DUNICODE)
 	LIST(APPEND HDRS_WIN32
 		./Win32/resource.h
 		./Win32/Config.h
@@ -93,7 +91,11 @@ IF(WIN32)
 		./Win32/Config.cpp
 		./Win32/Win32.cpp
 	)
-
+	
+	LIST(APPEND SRCS_MIC
+		./usb-mic/audio-win32.cpp
+	)
+	
 	# These two eventually contain only code that manages raw/dx configurations
 	LIST(APPEND HDRS ${HDRS_WIN32})
 	LIST(APPEND SRCS ${SRCS_WIN32})
@@ -177,6 +179,7 @@ IF(UNIX)
 	)
 	LIST(APPEND SRCS 
 		./usb-pad/usb-pad-linux.cpp
+		./usb-mic/audio-linux.cpp
 		./linux/config.cpp
 		./linux/ini.c
 		./linux/actualfile.c
@@ -187,6 +190,9 @@ IF(UNIX)
 	LIST(APPEND LIBS ${GTK2_LIBRARIES})
 	include_directories(${GTK2_INCLUDE_DIRS})
 ENDIF()
+
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})
 
 add_library(${TargetName} SHARED ${SRCS} ${HDRS} ${RAW_RCS} ${DX_RCS} ${RCS} ${DEF})
 target_link_libraries(${TargetName} ${LIBS})

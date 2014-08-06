@@ -1,9 +1,11 @@
 #include "../USB.h"
+#include "../usb-mic/mic-audiodefs.h"
 #include "resource.h"
 
 extern HINSTANCE hInst;
 //TODO unicode
-static OPENFILENAMEA ofn;
+static OPENFILENAME ofn;
+static AudioDeviceInfoList audioDevs;
 
 #if BUILD_RAW
 	extern BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -15,7 +17,7 @@ static OPENFILENAMEA ofn;
 BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
 		case WM_INITDIALOG:
-			SetWindowTextA(GetDlgItem(hW, IDC_EDIT1), conf.usb_img);
+			SetWindowText(GetDlgItem(hW, IDC_EDIT1), conf.usb_img);
 			return TRUE;
 
 		case WM_COMMAND:
@@ -25,23 +27,56 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					ZeroMemory(&ofn, sizeof(ofn));
 					ofn.lStructSize = sizeof(ofn);
 					ofn.hwndOwner = hW;
-					ofn.lpstrTitle = "USB image file";
+					ofn.lpstrTitle = TEXT("USB image file");
 					ofn.lpstrFile = conf.usb_img;
 					ofn.nMaxFile = sizeof(conf.usb_img);
-					ofn.lpstrFilter = "All\0*.*\0";
+					ofn.lpstrFilter = TEXT("All\0*.*\0");
 					ofn.nFilterIndex = 1;
 					ofn.lpstrFileTitle = NULL;
 					ofn.nMaxFileTitle = 0;
 					ofn.lpstrInitialDir = NULL;
 					ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
-					if(GetOpenFileNameA(&ofn)==TRUE) {
-						SetWindowTextA(GetDlgItem(hW, IDC_EDIT1), ofn.lpstrFile);
+					if(GetOpenFileName(&ofn)==TRUE) {
+						SetWindowText(GetDlgItem(hW, IDC_EDIT1), ofn.lpstrFile);
 					}
 					break;
 				case IDOK:
-					GetWindowTextA(GetDlgItem(hW, IDC_EDIT1), conf.usb_img, sizeof(conf.usb_img));
+					GetWindowText(GetDlgItem(hW, IDC_EDIT1), conf.usb_img, sizeof(conf.usb_img));
 					//strcpy_s(conf.usb_img, ofn.lpstrFile);
+					SaveConfig();
+				case IDCANCEL:
+					EndDialog(hW, FALSE);
+					return TRUE;
+				}
+			}
+	}
+	return FALSE;
+}
+
+BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	switch(uMsg) {
+		case WM_INITDIALOG:
+			SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
+			SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
+
+			if(AudioInit())
+			{
+				GetAudioDevices(audioDevs);
+				AudioDeviceInfoList::iterator it;
+				for(it = audioDevs.begin(); it != audioDevs.end(); it++)
+				{
+					SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+					SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+				}
+				AudioDeinit();
+			}
+			return TRUE;
+
+		case WM_COMMAND:
+			if (HIWORD(wParam) == BN_CLICKED) {
+				switch(LOWORD(wParam)) {
+				case IDOK:
 					SaveConfig();
 				case IDCANCEL:
 					EndDialog(hW, FALSE);
@@ -55,7 +90,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
 		case WM_INITDIALOG:
-			SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
+			SendDlgItemMessageA(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			LoadConfig();
 			CheckDlgButton(hW, IDC_LOGGING, conf.Log);
 			CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
@@ -130,6 +165,12 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 							hW,
 							(DLGPROC)MsdDlgProc, 0);
 						return FALSE;
+					case 4:
+						DialogBoxParam(hInst,
+							MAKEINTRESOURCE(IDD_DLGMIC),
+							hW,
+							(DLGPROC)MicDlgProc, 0);
+						return FALSE;
 					default:
 						break;
 					}
@@ -152,6 +193,9 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					} else if(conf.Port1 == 3 && conf.Port0 == 3) {
 						// at a time? sounds weird
 						MessageBoxExA(hW, "Currently only one USB storage device\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
+						return FALSE;
+					} else if(conf.Port1 == 4 && conf.Port0 == 4) {
+						MessageBoxExA(hW, "Currently only one Singstar device\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
 						return FALSE;
 					}
 					SaveConfig();

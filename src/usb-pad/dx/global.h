@@ -27,8 +27,8 @@ DWORD INVERTFORCES = 0;
 DWORD BYPASSCAL = 0;
  //logfile
 FILE* fl = NULL;
-char logstring[255];
-char	*pStr, strPath[255], strTemp[255];
+TCHAR logstring[255];
+TCHAR	*pStr, strPath[255], strTemp[255];
 
 char key[255]={0};
 
@@ -45,7 +45,7 @@ DWORD old = NULL;
 bool tw = false;
 HWND hKey;
 HWND hWnd;
-char text[1024];
+TCHAR text[1024];
 char CID = 0;
 
 HFONT hFont;
@@ -128,23 +128,23 @@ HWND GetWindowHandle(DWORD tPID)
 	return NULL;
 }
 
-void GetID(char * name)
+void GetID(TCHAR * name)
 {
 	hWin = ::FindWindow(name, NULL);
 	::GetWindowThreadProcessId(hWin, &pid);
 }
-void WriteLogFile(const char* szString)
+void WriteLogFile(const TCHAR* szString)
 {
 	if (!LOG) return;
 #if _DEBUG
-	fprintf(stderr, "%s\n", szString);
+	fwprintf(stderr, L"%s\n", szString);
 #endif
 
 	FILE* pFile = NULL;
-	errno_t err = fopen_s(&pFile, "DIwheellog.txt", "a");
+	errno_t err = _wfopen_s(&pFile, L"DIwheellog.txt", L"a");
 	if(err == 0)
 	{
-		fprintf(pFile, "%s\n",szString);
+		fwprintf(pFile, L"%s\n",szString);
 		fclose(pFile);
 	}
 
@@ -153,18 +153,18 @@ void SaveMain()
 {
 	GetIniFile(strMySystemFile);
 
-	sprintf_s(strTemp, "%i", LOG);WriteToFile("MAIN", "LOG", strTemp);
-	sprintf_s(strTemp, "%i", INVERTFORCES);WriteToFile("MAIN", "INVERTFORCES", strTemp);
-	sprintf_s(strTemp, "%i", BYPASSCAL);WriteToFile("MAIN", "BYPASSCAL", strTemp);
+	swprintf_s(strTemp, L"%i", LOG);WriteToFile(L"MAIN", L"LOG", strTemp);
+	swprintf_s(strTemp, L"%i", INVERTFORCES);WriteToFile(L"MAIN", L"INVERTFORCES", strTemp);
+	swprintf_s(strTemp, L"%i", BYPASSCAL);WriteToFile(L"MAIN", L"BYPASSCAL", strTemp);
 
 	for(int i=0; i<numc;i++){
-		sprintf_s(text, "AXISID%i", i);sprintf_s(strTemp, "%i", AXISID[i]);WriteToFile("CONTROLS", text, strTemp);
-		sprintf_s(text, "INVERT%i", i);sprintf_s(strTemp, "%i", INVERT[i]);WriteToFile("CONTROLS", text, strTemp);
-		sprintf_s(text, "HALF%i", i);sprintf_s(strTemp, "%i", HALF[i]);WriteToFile("CONTROLS", text, strTemp);
-		sprintf_s(text, "BUTTON%i", i);sprintf_s(strTemp, "%i", BUTTON[i]);WriteToFile("CONTROLS", text, strTemp);
-		sprintf_s(text, "LINEAR%i", i);sprintf_s(strTemp, "%i", LINEAR[i]);WriteToFile("CONTROLS", text, strTemp);
-		sprintf_s(text, "OFFSET%i", i);sprintf_s(strTemp, "%i", OFFSET[i]);WriteToFile("CONTROLS", text, strTemp);
-		sprintf_s(text, "DEADZONE%i", i);sprintf_s(strTemp, "%i", DEADZONE[i]);WriteToFile("CONTROLS", text, strTemp);
+		swprintf_s(text, L"AXISID%i", i);swprintf_s(strTemp, L"%i", AXISID[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"INVERT%i", i);swprintf_s(strTemp, L"%i", INVERT[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"HALF%i", i);swprintf_s(strTemp, L"%i", HALF[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"BUTTON%i", i);swprintf_s(strTemp, L"%i", BUTTON[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"LINEAR%i", i);swprintf_s(strTemp, L"%i", LINEAR[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"OFFSET%i", i);swprintf_s(strTemp, L"%i", OFFSET[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"DEADZONE%i", i);swprintf_s(strTemp, L"%i", DEADZONE[i]);WriteToFile(L"CONTROLS", text, strTemp);
 	}
 }
 
@@ -178,30 +178,30 @@ void LoadMain()
 	GetIniFile(strMySystemFile);
 
 	FILE * fp = NULL;
-	errno_t err = fopen_s(&fp, strMySystemFile.c_str(), "r");//check if ini really exists
+	errno_t err = _wfopen_s(&fp, strMySystemFile.c_str(), L"r");//check if ini really exists
 	if (!fp)
 	{
-		CreateDirectory("inis",NULL);
+		CreateDirectory(L"inis",NULL);
 		SaveMain();//save
 	}
 	else
 		fclose(fp);
 
-	char szText[260];
+	TCHAR szText[260];
 	//if (ReadFromFile("MAIN", "FFBDEVICE1")) strcpy(szText, ReadFromFile("MAIN", "FFBDEVICE1"));
 	//player_joys[0] = szText;
-	if (ReadFromFile("MAIN", "LOG", szText)) LOG = atoi(szText);
-	if (ReadFromFile("MAIN", "INVERTFORCES", szText)) INVERTFORCES = atoi(szText);
-	if (ReadFromFile("MAIN", "BYPASSCAL", szText)) BYPASSCAL = atoi(szText);
+	if (ReadFromFile(L"MAIN", L"LOG", szText)) LOG = wcstol(szText, NULL, 10);
+	if (ReadFromFile(L"MAIN", L"INVERTFORCES", szText)) INVERTFORCES = wcstol(szText, NULL, 10);
+	if (ReadFromFile(L"MAIN", L"BYPASSCAL", szText)) BYPASSCAL = wcstol(szText, NULL, 10);
 
 	for(int i=0; i<numc;i++){
-		sprintf_s(text, "AXISID%i", i); if (ReadFromFile("CONTROLS", text, szText)) AXISID[i] = atoi(szText);
-		sprintf_s(text, "INVERT%i", i); if (ReadFromFile("CONTROLS", text, szText)) INVERT[i] = atoi(szText);
-		sprintf_s(text, "HALF%i", i); if (ReadFromFile("CONTROLS", text, szText)) HALF[i] = atoi(szText);
-		sprintf_s(text, "BUTTON%i", i); if (ReadFromFile("CONTROLS", text, szText)) BUTTON[i] = atoi(szText);
-		sprintf_s(text, "LINEAR%i", i); if (ReadFromFile("CONTROLS", text, szText)) LINEAR[i] = atoi(szText);
-		sprintf_s(text, "OFFSET%i", i); if (ReadFromFile("CONTROLS", text, szText)) OFFSET[i] = atoi(szText);
-		sprintf_s(text, "DEADZONE%i", i); if (ReadFromFile("CONTROLS", text, szText)) DEADZONE[i] = atoi(szText);
+		swprintf_s(text, TEXT("AXISID%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) AXISID[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("INVERT%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) INVERT[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("HALF%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) HALF[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("BUTTON%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) BUTTON[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("LINEAR%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) LINEAR[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("OFFSET%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) OFFSET[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("DEADZONE%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) DEADZONE[i] = wcstol(szText, NULL, 10);
 	}
 
 }
