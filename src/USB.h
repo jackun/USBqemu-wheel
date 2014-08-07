@@ -31,6 +31,7 @@
 #endif
 #endif
 
+// Annoying defines
 #ifdef _WIN32
 
 #define usleep(x)	Sleep(x / 1000)
@@ -60,6 +61,7 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 }
 
 #define wfopen _wfopen
+#define STDSTR std::wstring
 #else
 
 //#include <gtk/gtk.h>
@@ -70,6 +72,7 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 #define TEXT(val) val
 #define TCHAR char
 #define wfopen fopen
+#define STDSTR std::string
 #endif
 
 #define USBdefs
@@ -84,6 +87,9 @@ typedef struct _Config {
   int DFPPass; //[2]; //TODO per player
   int WheelType[2];
   TCHAR usb_img[MAX_PATH+1];
+
+  STDSTR mics[2];
+
 } Config;
 
 extern Config conf;
@@ -386,7 +392,7 @@ void CreateDevices();
 USBDevice *pad_init(int port, int type);
 
 /* usb-mic-singstar.cpp */
-USBDevice *singstar_mic_init(int port);
+USBDevice *singstar_mic_init(int port, STDSTR *devs);
 
 /* usb-pad-raw.cpp */
 #if _WIN32

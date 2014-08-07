@@ -16,21 +16,14 @@
  *      Copyright (c) 2005-2006 Keil Software.
  *---------------------------------------------------------------------------*/
 
-#ifndef __USB_H__
-#define __USB_H__
+#ifndef __KUSB_H__
+#define __KUSB_H__
 
 
 #pragma pack(1)
 
-
-typedef union {
-  WORD W;
-  struct {
-    BYTE L;
-    BYTE H;
-  } WB;
-} WORD_BYTE;
-
+#define WBVAL(x) (x & 0xFF),((x >> 8) & 0xFF)
+#define B3VAL(x) (x & 0xFF),((x >> 8) & 0xFF),((x >> 16) & 0xFF)
 
 /* bmRequestType.Dir */
 #define REQUEST_HOST_TO_DEVICE     0
@@ -79,16 +72,6 @@ typedef union _REQUEST_TYPE {
 /* USB Standard Feature selectors */
 #define USB_FEATURE_ENDPOINT_STALL             0
 #define USB_FEATURE_REMOTE_WAKEUP              1
-
-/* USB Default Control Pipe Setup Packet */
-typedef struct _USB_SETUP_PACKET {
-  REQUEST_TYPE bmRequestType;
-  BYTE         bRequest;
-  WORD_BYTE    wValue;
-  WORD_BYTE    wIndex;
-  WORD         wLength;
-} USB_SETUP_PACKET;
-
 
 /* USB Descriptor Types */
 #define USB_DEVICE_DESCRIPTOR_TYPE             1
@@ -143,86 +126,6 @@ typedef struct _USB_SETUP_PACKET {
 #define USB_ENDPOINT_USAGE_FEEDBACK            0x10
 #define USB_ENDPOINT_USAGE_IMPLICIT_FEEDBACK   0x20
 #define USB_ENDPOINT_USAGE_RESERVED            0x30
-
-/* USB Standard Device Descriptor */
-typedef struct _USB_DEVICE_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-  WORD  bcdUSB;
-  BYTE  bDeviceClass;
-  BYTE  bDeviceSubClass;
-  BYTE  bDeviceProtocol;
-  BYTE  bMaxPacketSize0;
-  WORD  idVendor;
-  WORD  idProduct;
-  WORD  bcdDevice;
-  BYTE  iManufacturer;
-  BYTE  iProduct;
-  BYTE  iSerialNumber;
-  BYTE  bNumConfigurations;
-} USB_DEVICE_DESCRIPTOR;
-
-/* USB 2.0 Device Qualifier Descriptor */
-typedef struct _USB_DEVICE_QUALIFIER_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-  WORD  bcdUSB;
-  BYTE  bDeviceClass;
-  BYTE  bDeviceSubClass;
-  BYTE  bDeviceProtocol;
-  BYTE  bMaxPacketSize0;
-  BYTE  bNumConfigurations;
-  BYTE  bReserved;
-} USB_DEVICE_QUALIFIER_DESCRIPTOR;
-
-/* USB Standard Configuration Descriptor */
-typedef struct _USB_CONFIGURATION_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-  WORD  wTotalLength;
-  BYTE  bNumInterfaces;
-  BYTE  bConfigurationValue;
-  BYTE  iConfiguration;
-  BYTE  bmAttributes;
-  BYTE  MaxPower;
-} USB_CONFIGURATION_DESCRIPTOR;
-
-/* USB Standard Interface Descriptor */
-typedef struct _USB_INTERFACE_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-  BYTE  bInterfaceNumber;
-  BYTE  bAlternateSetting;
-  BYTE  bNumEndpoints;
-  BYTE  bInterfaceClass;
-  BYTE  bInterfaceSubClass;
-  BYTE  bInterfaceProtocol;
-  BYTE  iInterface;
-} USB_INTERFACE_DESCRIPTOR;
-
-/* USB Standard Endpoint Descriptor */
-typedef struct _USB_ENDPOINT_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-  BYTE  bEndpointAddress;
-  BYTE  bmAttributes;
-  WORD  wMaxPacketSize;
-  BYTE  bInterval;
-} USB_ENDPOINT_DESCRIPTOR;
-
-/* USB String Descriptor */
-typedef struct _USB_STRING_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-  WORD  bString/*[]*/;
-} USB_STRING_DESCRIPTOR;
-
-/* USB Common Descriptor */
-typedef struct _USB_COMMON_DESCRIPTOR {
-  BYTE  bLength;
-  BYTE  bDescriptorType;
-} USB_COMMON_DESCRIPTOR;
-
 
 #pragma pack()
 

@@ -38,12 +38,13 @@
 #define USB_MOUSE  1
 #define USB_TABLET 2
 
-#include "type.h"
+//#include "type.h"
 
 #include "usb.h"
 #include "audio.h"
-#include "usbcfg.h"
-#include "usbdesc.h"
+#include "mic-audiodefs.h"
+//#include "usbcfg.h"
+//#include "usbdesc.h"
 
 /*
  * A Basic Audio Device uses these specific values
@@ -94,6 +95,11 @@ enum usb_audio_altset {
 #define BASS_BOOST_CONTROL              0x09
 #define LOUDNESS_CONTROL                0x0a
 
+#define USB_DEVICE_DESC_SIZE        18
+#define USB_CONFIGUARTION_DESC_SIZE 9
+#define USB_INTERFACE_DESC_SIZE     9
+#define USB_ENDPOINT_DESC_SIZE      7
+
 /*
  * buffering
  */
@@ -108,6 +114,10 @@ struct streambuf {
 typedef struct SINGSTARMICState {
     USBDevice dev;
     int port;
+    AudioSource *audsrc[2];
+    // Use same source for both player or
+    // left channel for P1 and right for P2 if stereo.
+    bool isCombined;
 
     /* state */
     struct {
@@ -486,7 +496,7 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
         //if (s->debug) {
             fprintf(stderr, "singstar: mute %d, lvol %3d, rvol %3d\n",
                     s->out.mute, s->out.vol[0], s->out.vol[1]);
-			OSDebugOut("singstar: mute %d, lvol %3d, rvol %3d\n",
+			OSDebugOut(TEXT("singstar: mute %d, lvol %3d, rvol %3d\n"),
                     s->out.mute, s->out.vol[0], s->out.vol[1]);
         //}
         //AUD_set_volume_out(s->out.voice, s->out.mute,
@@ -507,7 +517,7 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
 
 	//cs 1 cn 0xFF, ep 0x81 attrib 1
 	fprintf(stderr, "singstar: ep control cs %x, cn %X, %X %X data:", cs, cn, attrib, ep);
-	OSDebugOut("singstar: ep control cs %x, cn %X, attr: %02X ep: %04X\n", cs, cn, attrib, ep);
+	OSDebugOut(TEXT("singstar: ep control cs %x, cn %X, attr: %02X ep: %04X\n"), cs, cn, attrib, ep);
 	for(int i=0; i<length; i++)
 		fprintf(stderr, "%02X ", data[i]);
 	fprintf(stderr, "\n");
@@ -517,10 +527,20 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
 		if( cn == 0xFF) {
 			s->srate[0] = data[0] | (data[1] << 8) | (data[2] << 16);
 			s->srate[1] = s->srate[0];
+
+			if(s->audsrc[0])
+				s->audsrc[0]->SetResampling(s->srate[0]);
+
+			if(s->audsrc[1])
+				s->audsrc[1]->SetResampling(s->srate[1]);
+
 			OSDebugOut(TEXT("singstar: set sampling to %d\n"), s->srate[0]);
 		} else if( cn < 2) {
+
 			s->srate[cn] = data[0] | (data[1] << 8) | (data[2] << 16);
 			OSDebugOut(TEXT("singstar: set cn %d sampling to %d\n"), cn, s->srate[cn]);
+			if(s->audsrc[cn])
+				s->audsrc[cn]->SetResampling(s->srate[cn]);
 		}
         ret = 0;
         break;
@@ -707,9 +727,100 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
         //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
 		OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
         if (devep == 1) {
-			len = (s->srate[0] / 1000) * 2 * 2;
-			memset(data, 0x33, len);
-			return len;
+
+			//TODO
+			uint16_t *buffer[2] = {0};
+			uint32_t bufSize, outlen[2] = {0};
+			uint16_t *src1, *src2;
+			uint16_t *dst = (uint16_t *)data;
+			uint32_t forLen = len / (2 * sizeof(uint16_t));
+
+			for(int i = 0; i<2; i++)
+			{
+				if(s->audsrc[i] && 
+					s->audsrc[i]->GetBufferSize(&bufSize))
+				{
+					buffer[i] = new uint16_t[bufSize];
+					outlen[i] = s->audsrc[i]->GetBuffer(buffer[i], bufSize);
+				}
+			}
+
+			//TODO cache coherence
+			//TODO well, it is 16bit interleaved, right?
+			if(s->isCombined && (buffer[0] || buffer[1]))
+			{
+				uint32_t ch = s->audsrc[0]->GetChannels();
+				if(buffer[0])
+					src1 = (uint16_t *)buffer[0];
+				else
+					src1 = (uint16_t *)buffer[1];
+
+				int i = 0;
+				for(; i < (outlen[0] / ch) && i < forLen; i++)
+				{
+					dst[i * 2] = src1[i * ch];
+					if(ch == 1)
+						dst[i * 2 + 1] = src2[i * ch];
+					else
+						dst[i * 2 + 1] = src2[i * ch + 1];
+				}
+
+				ret =i;
+			}
+			else if(buffer[0] && buffer[1])
+			{
+				uint32_t cn1 = s->audsrc[0]->GetChannels();
+				uint32_t cn2 = s->audsrc[1]->GetChannels();
+				uint32_t minLen = MIN(outlen[0] / cn1, outlen[1] / cn2);
+
+				src1 = (uint16_t *)buffer[0];
+				src2 = (uint16_t *)buffer[1];
+
+				int i = 0;
+				for(; i < minLen && i < forLen; i++)
+				{
+					dst[i * 2] = src1[i * cn1];
+					dst[i * 2 + 1] = src2[i * cn2];
+				}
+
+				ret = i;
+			}
+			else //Could ignore this and use isCombined case
+			{
+				int i = 0;
+				uint32_t cn = 1;
+				uint32_t minLen = -1;
+
+				for(int k=0; k < 2; k++)
+				{
+					if(s->audsrc[i])
+					{
+						cn = s->audsrc[i]->GetChannels();
+						minLen = outlen[i] / cn;
+						src1 = buffer[i];
+						break;
+					}
+				}
+
+				for(; i < minLen && i < forLen; i++)
+				{
+					if(s->audsrc[0])
+					{
+						dst[i * 2] = src1[i * cn];
+						dst[i * 2 + 1] = 0;
+					}
+					else
+					{
+						dst[i * 2] = 0;
+						dst[i * 2 + 1] = src1[i * cn];
+					}
+				}
+				ret = i;
+			}
+
+			delete[] buffer[0];
+			delete[] buffer[1];
+			return ret;
         }
         break;
     case USB_TOKEN_OUT:
@@ -728,6 +839,20 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 {
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
 
+	if(s->audsrc[0])
+	{
+		s->audsrc[0]->Stop();
+		delete s->audsrc[0];
+		s->audsrc[0] = NULL;
+	}
+
+	if(s->audsrc[1])
+	{
+		s->audsrc[1]->Stop();
+		delete s->audsrc[1];
+		s->audsrc[1] = NULL;
+	}
+
     free(s);
 }
 
@@ -739,13 +864,47 @@ int singstar_mic_handle_packet(USBDevice *s, int pid,
 	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
-USBDevice *singstar_mic_init(int port)
+USBDevice *singstar_mic_init(int port, STDSTR *devs)
 {
     SINGSTARMICState *s;
 
     s = (SINGSTARMICState *)qemu_mallocz(sizeof(SINGSTARMICState));
     if (!s)
         return NULL;
+
+	if(!devs[0].empty() && !devs[1].empty() 
+		&& (devs[0] == devs[1]))
+	{
+		s->isCombined = true;
+	}
+
+	AudioDeviceInfo info;
+
+	if(!devs[0].empty())
+	{
+		info.strID = devs[0];
+		s->audsrc[0] = CreateNewAudioSource(info);
+		if(s->audsrc[0])
+			s->audsrc[0]->Start();
+	}
+
+	if(!s->isCombined && !devs[1].empty())
+	{
+		info.strID = devs[1];
+		s->audsrc[1] = CreateNewAudioSource(info);
+		if(s->audsrc[1])
+			s->audsrc[1]->Start();
+	}
+
+	if(!s->audsrc[0] && !s->audsrc[1])
+	{
+		free(s);
+		return NULL;
+	}
+
+	//if(!s->audsrc[0] || !s->audsrc[1])
+	//	s->isCombined = true;
+
     s->dev.speed = USB_SPEED_FULL;
     s->dev.handle_packet  = singstar_mic_handle_packet;
     s->dev.handle_reset   = singstar_mic_handle_reset;

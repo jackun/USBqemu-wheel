@@ -23,6 +23,23 @@ ENDIF(WIN32)
 #    set(CMAKE_LIBRARY_ARCHITECTURE "i686-linux-gnu")
 #endif()
 
+set(HDRS_SAMPLERATE
+	./libsamplerate/common.h
+	./libsamplerate/config.h
+	./libsamplerate/fastest_coeffs.h
+	./libsamplerate/float_cast.h
+	./libsamplerate/high_qual_coeffs.h
+	./libsamplerate/mid_qual_coeffs.h
+	./libsamplerate/samplerate.h
+)
+
+set(SRCS_SAMPLERATE
+	./libsamplerate/samplerate.c
+	./libsamplerate/src_linear.c
+	./libsamplerate/src_sinc.c
+	./libsamplerate/src_zoh.c
+)
+
 # Some unneeded headers too
 set(HDRS_MIC
 	#./usb-mic/usbreg.h
@@ -93,7 +110,7 @@ IF(WIN32)
 	)
 	
 	LIST(APPEND SRCS_MIC
-		./usb-mic/audio-win32.cpp
+		./usb-mic/audiosrc-win32.cpp
 	)
 	
 	# These two eventually contain only code that manages raw/dx configurations
@@ -105,12 +122,14 @@ IF(WIN32)
 	SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
 	SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
+	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
 	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
 	SOURCE_GROUP("Source Files\\Win32" FILES ${SRCS_WIN32})
 	SOURCE_GROUP("Source Files\\qemu-usb" FILES ${SRCS_QEMU})
 	SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
+	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
 	
 	IF(NOT BUILD_DX)
 		SET(BUILD_RAW TRUE)
@@ -191,8 +210,8 @@ IF(UNIX)
 	include_directories(${GTK2_INCLUDE_DIRS})
 ENDIF()
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_SAMPLERATE})
 
 add_library(${TargetName} SHARED ${SRCS} ${HDRS} ${RAW_RCS} ${DX_RCS} ${RCS} ${DEF})
 target_link_libraries(${TargetName} ${LIBS})

@@ -60,14 +60,25 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
 			SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
 
+			SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
+			SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
+
 			if(AudioInit())
 			{
+				audioDevs.clear();
 				GetAudioDevices(audioDevs);
 				AudioDeviceInfoList::iterator it;
+				int i = 0;
 				for(it = audioDevs.begin(); it != audioDevs.end(); it++)
 				{
 					SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
 					SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+
+					i++;
+					if(it->strID == conf.mics[0])
+						SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, i, i);
+					if(it->strID == conf.mics[1])
+						SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, i, i);
 				}
 				AudioDeinit();
 			}
@@ -77,6 +88,15 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			if (HIWORD(wParam) == BN_CLICKED) {
 				switch(LOWORD(wParam)) {
 				case IDOK:
+					int p1, p2;
+					p1 = SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_GETCURSEL, 0, 0);
+					p2 = SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_GETCURSEL, 0, 0);
+
+					if(p1 > 0)
+						conf.mics[0] = (audioDevs.begin() + p1 - 1)->strID;
+					if(p2 > 0)
+						conf.mics[1] = (audioDevs.begin() + p2 - 1)->strID;
+
 					SaveConfig();
 				case IDCANCEL:
 					EndDialog(hW, FALSE);
