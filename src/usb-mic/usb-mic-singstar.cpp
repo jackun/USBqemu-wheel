@@ -854,6 +854,7 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 	}
 
     free(s);
+	AudioDeinit();
 }
 
 int singstar_mic_handle_packet(USBDevice *s, int pid, 
@@ -872,6 +873,7 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
     if (!s)
         return NULL;
 
+	AudioInit();
 	if(!devs[0].empty() && !devs[1].empty() 
 		&& (devs[0] == devs[1]))
 	{
@@ -899,6 +901,7 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
 	if(!s->audsrc[0] && !s->audsrc[1])
 	{
 		free(s);
+		AudioDeinit();
 		return NULL;
 	}
 
