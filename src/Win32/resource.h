@@ -23,6 +23,8 @@
 #define IDC_COMBO_WHEEL_TYPE2           1038
 #define IDC_COMBOMIC1                   1040
 #define IDC_COMBOMIC2                   1041
+#define IDC_MICSLIDER                   1042
+#define IDC_MICBUF                      1043
 
 // Next default values for new objects
 // 
@@ -30,7 +32,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        108
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1041
+#define _APS_NEXT_CONTROL_VALUE         1044
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

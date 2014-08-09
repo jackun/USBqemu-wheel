@@ -1,6 +1,7 @@
 #include "../USB.h"
 #include "../usb-mic/mic-audiodefs.h"
 #include "resource.h"
+#include <CommCtrl.h>
 
 extern HINSTANCE hInst;
 //TODO unicode
@@ -13,6 +14,20 @@ static AudioDeviceInfoList audioDevs;
 #if BUILD_DX
 	extern BOOL CALLBACK DxDialogProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 #endif
+
+#define CHECKED_SET_MAX_INT(var, hDlg, nIDDlgItem, bSigned, min, max)\
+do {\
+	/*CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);*/\
+	var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
+	if (var < min)\
+		var = min;\
+	else if (var > max)\
+	{\
+		var = max;\
+		SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
+		SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
+	}\
+} while (0)
 
 BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
@@ -55,8 +70,14 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 }
 
 BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	int tmp = 0;
 	switch(uMsg) {
 		case WM_INITDIALOG:
+			SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMIN, TRUE, 1);
+			SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMAX, TRUE, 1000);
+			SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, conf.MicBuffering);
+			SetDlgItemInt(hW, IDC_MICBUF, conf.MicBuffering, FALSE);
+
 			SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
 			SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
 
@@ -84,8 +105,32 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			}
 			return TRUE;
 
+		case WM_HSCROLL:
+		if ((HWND)lParam == GetDlgItem(hW, IDC_MICSLIDER))
+		{
+			int pos = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+			SetDlgItemInt(hW, IDC_MICBUF, pos, FALSE);
+			break;
+		}
+		break;
+
 		case WM_COMMAND:
-			if (HIWORD(wParam) == BN_CLICKED) {
+		switch(HIWORD(wParam))
+		{
+			case EN_CHANGE:
+			{
+				switch (LOWORD(wParam))
+				{
+				case IDC_MICBUF:
+					CHECKED_SET_MAX_INT(tmp, hW, IDC_MICBUF, FALSE, 5, 5000);
+					SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, tmp);
+					break;
+				}
+			}
+			break;
+
+			case BN_CLICKED:
+			{
 				switch(LOWORD(wParam)) {
 				case IDOK:
 					int p1, p2;
@@ -97,12 +142,16 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 					if(p2 > 0)
 						conf.mics[1] = (audioDevs.begin() + p2 - 1)->strID;
 
+					conf.MicBuffering = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+
 					SaveConfig();
 				case IDCANCEL:
 					EndDialog(hW, FALSE);
 					return TRUE;
 				}
 			}
+			break;
+		}
 	}
 	return FALSE;
 }

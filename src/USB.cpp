@@ -31,8 +31,8 @@
 
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
-const unsigned char build    = 4;    // increase that with each version
-const unsigned char fix      = 3;
+const unsigned char build    = 5;    // increase that with each version
+const unsigned char fix      = 0;
 
 static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
 #ifdef _DEBUG

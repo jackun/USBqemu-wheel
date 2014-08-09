@@ -77,6 +77,9 @@ void SaveConfig()
 	WritePrivateProfileString(TEXT("Devices"), TEXT("Mic 1"), Conf1->mics[0].c_str(), szIniFile.c_str());
 	WritePrivateProfileString(TEXT("Devices"), TEXT("Mic 2"), Conf1->mics[1].c_str(), szIniFile.c_str());
 
+	swprintf_s(szValue,L"%u",Conf1->MicBuffering);
+	WritePrivateProfileString(TEXT("Devices"), TEXT("Mic Buffering"),szValue,szIniFile.c_str());
+
 	//WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile);
 	//WritePrivateProfileString("Joystick", "Player2", player_joys[1].c_str(), szIniFile);
 
@@ -129,6 +132,11 @@ void LoadConfig() {
 
 	GetPrivateProfileString(TEXT("Devices"), TEXT("Mic 2"), NULL, tmp, sizeof(tmp)/sizeof(*tmp), szIniFile.c_str());
 	Conf1->mics[1] = tmp;
+
+	GetPrivateProfileString(TEXT("Devices"), TEXT("Mic Buffering"), NULL, szValue, 20, szIniFile.c_str());
+	Conf1->MicBuffering = wcstoul(szValue, NULL, 10);
+	if(Conf1->MicBuffering == 0)
+		Conf1->MicBuffering = 50;
 
 	//GetPrivateProfileString("Joystick", "Player1", NULL, szValue, MAX_PATH, szIniFile);
 	//player_joys[0] = szValue;

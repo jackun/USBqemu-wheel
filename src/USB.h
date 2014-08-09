@@ -39,8 +39,17 @@
 #include <windowsx.h>
 
 #include <vector>
+static int rateLimit = 0;
 static void OSDebugOut(const TCHAR *psz_fmt, ...)
 {
+	if(rateLimit > 0 && rateLimit < 10)
+	{
+		rateLimit++;
+		return;
+	}
+	else
+		rateLimit = 1;
+
 	va_list args;
 	va_start(args, psz_fmt);
 
@@ -89,6 +98,7 @@ typedef struct _Config {
   TCHAR usb_img[MAX_PATH+1];
 
   STDSTR mics[2];
+  int MicBuffering; //ms
 
 } Config;
 
