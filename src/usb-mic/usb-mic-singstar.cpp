@@ -716,6 +716,13 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
     return ret;
 }
 
+//naive, needs interpolation and stuff
+inline static int16_t SetVolume(int16_t sample, int vol)
+{
+	//return (int16_t)(((uint16_t)(0x7FFF + sample) * vol / 0xFF) - 0x7FFF );
+	return sample * vol / 0xFF;
+}
+
 static int singstar_mic_handle_data(USBDevice *dev, int pid, 
                                uint8_t devep, uint8_t *data, int len)
 {
@@ -727,6 +734,8 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
         //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
 		//OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
         if (devep == 1) {
+
+			memset(data, 0, len);
 
 			//TODO
 			int16_t *buffer[2] = {0};
@@ -754,20 +763,18 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			//TODO well, it is 16bit interleaved, right?
 			if(s->isCombined && (buffer[0] || buffer[1]))
 			{
-				uint32_t ch = s->audsrc[0]->GetChannels();
-				if(buffer[0])
-					src1 = (int16_t *)buffer[0];
-				else
-					src1 = (int16_t *)buffer[1];
+				int k = (buffer[0]) ? 0 : 1;
+				uint32_t ch = s->audsrc[k]->GetChannels();
+				src1 = (int16_t*)buffer[k];
 
 				int i = 0;
-				for(; i < (outlen[0] / ch) && i < maxPerChnFrames; i++)
+				for(; i < (outlen[k] / ch) && i < maxPerChnFrames; i++)
 				{
-					dst[i * 2] = src1[i * ch];
+					dst[i * 2] = SetVolume(src1[i * ch], s->out.vol[k]);
 					if(ch == 1)
-						dst[i * 2 + 1] = src1[i * ch];
+						dst[i * 2 + 1] = SetVolume(src1[i * ch], s->out.vol[k]);
 					else
-						dst[i * 2 + 1] = src1[i * ch + 1];
+						dst[i * 2 + 1] = SetVolume(src1[i * ch + 1], s->out.vol[k]);
 				}
 
 				ret =i;
@@ -784,8 +791,8 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				int i = 0;
 				for(; i < minLen && i < maxPerChnFrames; i++)
 				{
-					dst[i * 2] = src1[i * cn1];
-					dst[i * 2 + 1] = src2[i * cn2];
+					dst[i * 2] = SetVolume(src1[i * cn1], s->out.vol[0]);
+					dst[i * 2 + 1] = SetVolume(src2[i * cn2], s->out.vol[1]);
 				}
 
 				ret = i;
@@ -794,30 +801,22 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			{
 				int i = 0;
 				uint32_t cn = 1;
-				uint32_t minLen = -1;
+				
+				int k = s->audsrc[0] ? 0 : 1;
+				cn = s->audsrc[k]->GetChannels();
+				uint32_t frames = outlen[k] / cn;
 
-				for(int k=0; k < 2; k++)
-				{
-					if(s->audsrc[i])
-					{
-						cn = s->audsrc[i]->GetChannels();
-						minLen = outlen[i] / cn;
-						src1 = buffer[i];
-						break;
-					}
-				}
-
-				for(; i < minLen && i < maxPerChnFrames; i++)
+				for(; i < frames && i < maxPerChnFrames; i++)
 				{
 					if(s->audsrc[0])
 					{
-						dst[i * 2] = src1[i * cn];
-						dst[i * 2 + 1] = 0;
+						dst[i * 2] = buffer[k][i * cn];
+						//dst[i * 2 + 1] = 0;
 					}
 					else
 					{
-						dst[i * 2] = 0;
-						dst[i * 2 + 1] = src1[i * cn];
+						//dst[i * 2] = 0;
+						dst[i * 2 + 1] = buffer[k][i * cn];
 					}
 				}
 				ret = i;
@@ -844,18 +843,14 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 {
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
 
-	if(s->audsrc[0])
+	for(int i=0; i<2; i++)
 	{
-		s->audsrc[0]->Stop();
-		delete s->audsrc[0];
-		s->audsrc[0] = NULL;
-	}
-
-	if(s->audsrc[1])
-	{
-		s->audsrc[1]->Stop();
-		delete s->audsrc[1];
-		s->audsrc[1] = NULL;
+		if(s->audsrc[i])
+		{
+			s->audsrc[i]->Stop();
+			delete s->audsrc[i];
+			s->audsrc[i] = NULL;
+		}
 	}
 
     free(s);
