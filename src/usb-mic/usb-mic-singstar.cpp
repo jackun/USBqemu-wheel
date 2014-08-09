@@ -720,7 +720,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
 inline static int16_t SetVolume(int16_t sample, int vol)
 {
 	//return (int16_t)(((uint16_t)(0x7FFF + sample) * vol / 0xFF) - 0x7FFF );
-	return sample * vol / 0xFF;
+	return (int16_t)((int32_t)sample * vol / 0xFF);
 }
 
 static int singstar_mic_handle_data(USBDevice *dev, int pid, 
