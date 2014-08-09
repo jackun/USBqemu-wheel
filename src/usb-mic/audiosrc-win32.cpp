@@ -4,6 +4,7 @@
 #include "mic-audiodefs.h"
 #include "../libsamplerate/samplerate.h"
 
+#include <assert.h>
 #include <Mmdeviceapi.h>
 #include <Audioclient.h>
 #include <propsys.h>
@@ -103,6 +104,87 @@ void GetAudioDevices(std::vector<AudioDeviceInfo> &devices)
     SafeRelease(collection);
     SafeRelease(mmEnumerator);
 }
+
+template<typename T>
+class QueueBuffer
+{
+public:
+	QueueBuffer()
+	: mBuffer(NULL)
+	, mPos(0)
+	, mLen(1024)
+	{
+		mBuffer = (T*)malloc(sizeof(T) * mLen);
+	}
+
+	~QueueBuffer()
+	{
+		free(mBuffer);
+	}
+
+	void Add(T *ptr, uint32_t len)
+	{
+		assert(ptr);
+		assert(mPos < INT_MAX - len);
+
+		if(!len)
+			return;
+
+		if(mPos > INT_MAX - len)
+			throw new std::exception("Too much data");
+
+		if(mPos + len > mLen)
+		{
+			mLen = mPos + len;
+			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
+		}
+
+		memcpy(mBuffer + mPos, ptr, sizeof(T) * len);
+		mPos += len;
+	}
+
+	T* Ptr()
+	{
+		return mBuffer;
+	}
+
+	void Remove(uint32_t len)
+	{
+		// Keep old buffer size, should have less memory fragmentation,
+		// but resize if it is larger than 1MB.
+		bool bRealloc = false;
+		if(len >= mLen)
+		{
+			mPos = 0;
+			if(mLen * sizeof(T) > (1<<20))
+			{
+				mLen = 1024;
+				bRealloc = true;
+			}
+		}
+		else if(len > 0)
+		{
+			if(mLen * sizeof(T) > (1<<20))
+				bRealloc = true;
+			mPos -= len;
+			mLen -= len;
+			memmove(mBuffer, mBuffer + len, mLen * sizeof(T));
+		}
+
+		if(bRealloc)
+			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
+	}
+
+	uint32_t Capacity(){ return mLen; }
+	uint32_t Size(){ return mPos; }
+	void Reset(){ Remove(mLen); }
+
+
+private:
+	T *mBuffer;
+	uint32_t mPos;
+	uint32_t mLen;
+};
 
 class MMAudioSource : public AudioSource
 {
@@ -237,7 +319,13 @@ public:
 
 		DWORD flags = 0;//useInputDevice ? 0 : AUDCLNT_STREAMFLAGS_LOOPBACK;
 
-		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(50), 0, pwfx, NULL);
+		//Random limit of 1ms to 1 seconds
+		if(conf.MicBuffering == 0)
+			conf.MicBuffering = 50;
+		UINT buffering = MIN(MAX(conf.MicBuffering, 1), 1000);
+		OSDebugOut(TEXT("Mic buffering: %d\n"), buffering);
+
+		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(buffering), 0, pwfx, NULL);
 		//err = AUDCLNT_E_UNSUPPORTED_FORMAT;
 
 		if(FAILED(err))
@@ -295,7 +383,7 @@ public:
 			mmClient->Stop();
 	}
 
-	virtual bool GetBufferSize(uint32_t *size)
+	virtual bool GetFrames(uint32_t *size)
 	{
 		UINT32 pkSize = 0;
 		Reinitialize();
@@ -311,22 +399,63 @@ public:
 			return false;
 		}
 
+		pkSize = MAX(pkSize, mQBuffer.Size() / mInputChannels);
+
 		if(mResample)
 			pkSize = UINT32((double(pkSize) * mResampleRatio) + 1.0);
 		
-		*size = pkSize;// * mInputChannels;// * sizeof(uint16_t);
+		*size = pkSize * mInputChannels;// * sizeof(uint16_t);
 
 		return true;
 	}
 
-	//TODO Overall todo and how accurate the 'stream' continuation needs to be for singstar games?
-	virtual uint32_t GetBuffer(uint16_t *outBuf, uint32_t outLen)
+	//TODO 
+	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outLen)
+	{
+		GetMMBuffer();
+
+		if(mResample)
+		{
+			std::vector<float> rebuf(outLen + 1);
+
+			SRC_DATA data;
+			memset(&data, 0, sizeof(SRC_DATA));
+			data.data_in = mQBuffer.Ptr();
+			data.input_frames = mQBuffer.Size() / mInputChannels;
+			data.data_out = &rebuf[0];
+			data.output_frames = outLen / mInputChannels;
+			data.src_ratio = mResampleRatio;
+
+			src_process(mResampler, &data);
+
+			uint32_t len = data.output_frames_gen * mInputChannels;
+			src_float_to_short_array(&rebuf[0], (short*)outBuf, len);
+
+			OSDebugOut(TEXT("Resampler: in %d out %d used %d gen %d\n"),
+				data.input_frames, data.output_frames,
+				data.input_frames_used, data.output_frames_gen);
+
+			mQBuffer.Remove(data.input_frames_used * mInputChannels);
+			OSDebugOut(TEXT("Queue: %d  Outlen: %d\n"), mQBuffer.Size(), len);
+			return len;
+		}
+
+		uint32_t totalLen = MIN(outLen, mQBuffer.Size());
+		src_float_to_short_array(mQBuffer.Ptr(), (short*)outBuf, totalLen);
+		mQBuffer.Remove(totalLen);
+		OSDebugOut(TEXT("Queue: %d OutLen: %d\n"), mQBuffer.Size(), totalLen);
+		return totalLen;
+	}
+
+	/*
+		Returns read frame count.
+	*/
+	uint32_t GetMMBuffer()
 	{
 		UINT64 devPosition, qpcTimestamp;
 		LPBYTE captureBuffer;
 		UINT32 numFramesRead;
 		DWORD dwFlags = 0;
-		std::vector<float> buf;
 
 		if(mDeviceLost)
 		{
@@ -345,54 +474,20 @@ public:
 				FreeData();
 				mDeviceLost = true;
 				OSDebugOut(TEXT("Audio device has been lost, attempting to reinitialize\n"));
-				return false;
 			}
-			return false;
+			return 0;
 		}
 
 		if (!captureSize)
-			return false;
+			return 0;
 
 		hRes = mmCapture->GetBuffer(&captureBuffer, &numFramesRead, &dwFlags, &devPosition, &qpcTimestamp);
-		UINT totalLen = numFramesRead;// * mInputChannels;
+		UINT totalLen = numFramesRead * mInputChannels;
 
-		//TODO buffer management
-		if(mResample)
-		{
-			buf.resize(totalLen);
-			memcpy(&buf[0], captureBuffer, totalLen * sizeof(float));
-		}
-		else
-		{
-			totalLen = MIN(totalLen, outLen);
-			src_float_to_short_array(&buf[0], (short*)outBuf, totalLen);
-		}
+		mQBuffer.Add((float*)captureBuffer, totalLen);
 
 		mmCapture->ReleaseBuffer(numFramesRead);
-
-		if(mResample)
-		{
-			UINT newBufFrames = UINT((double(numFramesRead) * mResampleRatio) + 1.0);
-			std::vector<float> rebuf(newBufFrames/* * mInputChannels*/);
-
-			SRC_DATA data;
-			memset(&data, 0, sizeof(SRC_DATA));
-			data.data_in = &buf[0];
-			data.input_frames = numFramesRead;
-			data.data_out = &rebuf[0];
-			data.output_frames = newBufFrames;
-			data.src_ratio = mResampleRatio;
-
-			src_process(mResampler, &data);
-
-			int len = MIN(outLen / sizeof(uint16_t), data.output_frames_gen/* * mInputChannels*/);
-			src_float_to_short_array(&rebuf[0], (short*)outBuf, len);
-
-			return len;
-			//TODO: check data.input_frames_used and data.output_frames_gen
-		}
-
-		return totalLen;
+		return numFramesRead;
 	}
 
 	virtual void SetResampling(int samplerate)
@@ -435,7 +530,7 @@ private:
 	SRC_STATE *mResampler;
 	double mResampleRatio;
 
-	std::queue<float> mBuffer;
+	QueueBuffer<float> mQBuffer;
 };
 
 AudioSource *CreateNewAudioSource(AudioDeviceInfo &dev)

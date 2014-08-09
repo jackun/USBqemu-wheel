@@ -725,25 +725,30 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
     switch(pid) {
     case USB_TOKEN_IN:
         //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
-		OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
+		//OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
         if (devep == 1) {
 
 			//TODO
-			uint16_t *buffer[2] = {0};
-			uint32_t bufSize, outlen[2] = {0};
-			uint16_t *src1, *src2;
-			uint16_t *dst = (uint16_t *)data;
-			uint32_t forLen = len / (2 * sizeof(uint16_t));
+			int16_t *buffer[2] = {0};
+			uint32_t frames, outlen[2] = {0};
+			int16_t *src1, *src2;
+			int16_t *dst = (int16_t *)data;
+			//Divide 'len' bytes between 2 channels of 16 bits
+			uint32_t maxPerChnFrames = len / (2 * sizeof(uint16_t));
 
 			for(int i = 0; i<2; i++)
 			{
 				if(s->audsrc[i] && 
-					s->audsrc[i]->GetBufferSize(&bufSize))
+					s->audsrc[i]->GetFrames(&frames))
 				{
-					buffer[i] = new uint16_t[bufSize];
-					outlen[i] = s->audsrc[i]->GetBuffer(buffer[i], bufSize);
+					int cn = s->audsrc[i]->GetChannels();
+					frames = MIN(maxPerChnFrames, frames); //max 50 frames usually
+					buffer[i] = new int16_t[frames * cn];
+					outlen[i] = s->audsrc[i]->GetBuffer(buffer[i], frames * cn);
 				}
 			}
+
+			OSDebugOut(TEXT("Audio buf1: %d buf2: %d\n"), outlen[0], outlen[1]);
 
 			//TODO cache coherence
 			//TODO well, it is 16bit interleaved, right?
@@ -751,18 +756,18 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			{
 				uint32_t ch = s->audsrc[0]->GetChannels();
 				if(buffer[0])
-					src1 = (uint16_t *)buffer[0];
+					src1 = (int16_t *)buffer[0];
 				else
-					src1 = (uint16_t *)buffer[1];
+					src1 = (int16_t *)buffer[1];
 
 				int i = 0;
-				for(; i < (outlen[0] / ch) && i < forLen; i++)
+				for(; i < (outlen[0] / ch) && i < maxPerChnFrames; i++)
 				{
 					dst[i * 2] = src1[i * ch];
 					if(ch == 1)
-						dst[i * 2 + 1] = src2[i * ch];
+						dst[i * 2 + 1] = src1[i * ch];
 					else
-						dst[i * 2 + 1] = src2[i * ch + 1];
+						dst[i * 2 + 1] = src1[i * ch + 1];
 				}
 
 				ret =i;
@@ -773,11 +778,11 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				uint32_t cn2 = s->audsrc[1]->GetChannels();
 				uint32_t minLen = MIN(outlen[0] / cn1, outlen[1] / cn2);
 
-				src1 = (uint16_t *)buffer[0];
-				src2 = (uint16_t *)buffer[1];
+				src1 = (int16_t *)buffer[0];
+				src2 = (int16_t *)buffer[1];
 
 				int i = 0;
-				for(; i < minLen && i < forLen; i++)
+				for(; i < minLen && i < maxPerChnFrames; i++)
 				{
 					dst[i * 2] = src1[i * cn1];
 					dst[i * 2 + 1] = src2[i * cn2];
@@ -802,7 +807,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 					}
 				}
 
-				for(; i < minLen && i < forLen; i++)
+				for(; i < minLen && i < maxPerChnFrames; i++)
 				{
 					if(s->audsrc[0])
 					{
@@ -820,7 +825,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
 			delete[] buffer[0];
 			delete[] buffer[1];
-			return ret;
+			return ret * 2 * sizeof(int16_t);
         }
         break;
     case USB_TOKEN_OUT:
