@@ -11,7 +11,7 @@ SET(TargetName "USBqemu-wheel")
 project(${TargetName})
 
 set (PLUGIN_VERSION_MAJOR "0")
-set (PLUGIN_VERSION_MINOR "1")
+set (PLUGIN_VERSION_MINOR "5")
 set (PLUGIN_VERSION_PATCH "1")
 set (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
 IF(WIN32)
@@ -96,6 +96,8 @@ set(SRCS_MIC
 	#./usb-mic/usb-mic.cpp
 	#./usb-eyetoy/usb-eyetoy.cpp
 )
+
+add_definitions(-DLIBSRC_ONLY_FAST)
 
 IF(WIN32)
 	add_definitions(-DUNICODE)
