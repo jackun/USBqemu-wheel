@@ -122,7 +122,7 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				switch (LOWORD(wParam))
 				{
 				case IDC_MICBUF:
-					CHECKED_SET_MAX_INT(tmp, hW, IDC_MICBUF, FALSE, 5, 5000);
+					CHECKED_SET_MAX_INT(tmp, hW, IDC_MICBUF, FALSE, 1, 1000);
 					SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, tmp);
 					break;
 				}
