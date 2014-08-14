@@ -75,6 +75,7 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 
 //#include <gtk/gtk.h>
 #include <limits.h>
+#include <string>
 #define MAX_PATH PATH_MAX
 #define __inline inline
 #define OSDebugOut(...) 

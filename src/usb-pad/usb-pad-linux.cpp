@@ -11,6 +11,7 @@
 
 extern bool file_exists(std::string filename);
 extern bool dir_exists(std::string filename);
+static struct wheel_data_t	wheel_data;
 
 int fd[2] = {-1};
 int axis_count = 0, button_count = 0;
@@ -27,7 +28,7 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int buflen)
 	if(idx > 1) return 0; //invalid port
 
 	// Events are raised if state changes, so keep old generic_data intact
-	//memset(&generic_data[idx], 0, sizeof(generic_data_t));
+	//memset(&wheel_data, 0, sizeof(wheel_data_t));
 
 	struct js_event event;
 
@@ -42,29 +43,29 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int buflen)
 				//fprintf(stderr, "Axis: %d, %d\n", event.number, event.value);
 				switch(axismap[idx][event.number])
 				{
-					case ABS_X: generic_data[idx].axis_x = NORM(event.value, 0x3FF); break;
-					case ABS_Y: generic_data[idx].axis_y = NORM(event.value, 0xFF); break;
-					case ABS_Z: generic_data[idx].axis_z = NORM(event.value, 0xFF); break;
-					//case ABS_RX: generic_data[idx].axis_rx = NORM(event.value, 0xFF); break;
-					//case ABS_RY: generic_data[idx].axis_ry = NORM(event.value, 0xFF); break;
-					case ABS_RZ: generic_data[idx].axis_rz = NORM(event.value, 0xFF); break;
+					case ABS_X: wheel_data.axis_x = NORM(event.value, 0x3FF); break;
+					case ABS_Y: wheel_data.axis_y = NORM(event.value, 0xFF); break;
+					case ABS_Z: wheel_data.axis_z = NORM(event.value, 0xFF); break;
+					//case ABS_RX: wheel_data.axis_rx = NORM(event.value, 0xFF); break;
+					//case ABS_RY: wheel_data.axis_ry = NORM(event.value, 0xFF); break;
+					case ABS_RZ: wheel_data.axis_rz = NORM(event.value, 0xFF); break;
 
 					//FIXME hatswitch mapping
 					case ABS_HAT0X:
 					case ABS_HAT1X:
-						generic_data[idx].hatswitch &= ~0x03;
+						wheel_data.hatswitch &= ~0x03;
 						if(event.value < 0 ) //left usually
-							generic_data[idx].hatswitch |= 1 << 0;
+							wheel_data.hatswitch |= 1 << 0;
 						else if(event.value > 0 ) //right
-							generic_data[idx].hatswitch |= 1 << 1;
+							wheel_data.hatswitch |= 1 << 1;
 					break;
 					case ABS_HAT0Y:
 					case ABS_HAT1Y:
-						generic_data[idx].hatswitch &= ~0x0C;
+						wheel_data.hatswitch &= ~0x0C;
 						if(event.value < 0 ) //up usually
-							generic_data[idx].hatswitch |= 1 << 2;
+							wheel_data.hatswitch |= 1 << 2;
 						else if(event.value > 0 ) //down
-							generic_data[idx].hatswitch |= 1 << 3;
+							wheel_data.hatswitch |= 1 << 3;
 					break;
 					default: break;
 				}
@@ -77,9 +78,9 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int buflen)
 				{
 					//FIXME bit juggling
 					if(event.value)
-						generic_data[idx].buttons |= 1 << event.number; //on
+						wheel_data.buttons |= 1 << event.number; //on
 					else
-						generic_data[idx].buttons &= ~(1 << event.number); //off
+						wheel_data.buttons &= ~(1 << event.number); //off
 				}
 			}
 		}
@@ -89,7 +90,7 @@ int usb_pad_poll(PADState *s, uint8_t *buf, int buflen)
 		}
 	}
 
-	memcpy(buf, &generic_data[idx], sizeof(generic_data_t));
+	pad_copy_data(idx, buf, wheel_data);
 	return buflen;
 }
 
@@ -103,13 +104,13 @@ bool find_pad(PADState *s)
 	uint8_t idx = 1 - s->port;
 	if(idx > 1) return false;
 
-	memset(&generic_data[idx], 0, sizeof(generic_data_t));
+	memset(&wheel_data, 0, sizeof(wheel_data_t));
 
 	// Setting to unpressed
-	generic_data[idx].axis_x = 0x3FF >> 1;
-	generic_data[idx].axis_y = 0xFF;
-	generic_data[idx].axis_z = 0xFF;
-	generic_data[idx].axis_rz = 0xFF;
+	wheel_data.axis_x = 0x3FF >> 1;
+	wheel_data.axis_y = 0xFF;
+	wheel_data.axis_z = 0xFF;
+	wheel_data.axis_rz = 0xFF;
 
 	if(!player_joys[idx].empty() && file_exists(player_joys[idx]))
 	{

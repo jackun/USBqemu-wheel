@@ -2,12 +2,7 @@
 #define USBPAD_H
 
 #include "../qemu-usb/vl.h"
-
-//#include "../usb-mic/type.h"
 #include "../usb-mic/usb.h"
-//#include "../usb-mic/usbcfg.h"
-//#include "../usb-mic/usbdesc.h"
-
 #include "config.h"
 
 void 
@@ -517,12 +512,6 @@ struct ff_data
 	uint32_t pad4 : 8; //
 	//32
 };
-
-#if _WIN32
-//extern struct generic_data_t	generic_data;
-#else
-extern struct generic_data_t	generic_data[2];
-#endif
 
 void ResetData(generic_data_t *d);
 void ResetData(dfp_data_t *d);

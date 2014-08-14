@@ -1,14 +1,9 @@
 #include "../USB.h"
 #include "usb-pad.h"
 
-#if _WIN32
 static generic_data_t generic_data;
 static dfp_data_t dfp_data;
 static gtforce_data_t gtf_data;
-#else
-static generic_data_t	generic_data[2] = {0};
-static dfp_data_t		dfp_data[2] = {0};
-#endif
 
 //TODO move to Config?
 #ifdef UNICODE

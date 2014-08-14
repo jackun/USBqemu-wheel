@@ -257,4 +257,10 @@ IF(WIN32)
     install(TARGETS ${TargetName}
         RUNTIME DESTINATION .
         CONFIGURATIONS Release RelWithDebInfo MinSizeRel Debug) #All
+ELSE(WIN32)
+    INSTALL(
+        TARGETS ${TargetName}
+        LIBRARY DESTINATION .
+        COMPONENT library
+    )
 ENDIF(WIN32)
