@@ -162,31 +162,23 @@ IF(WIN32)
 
 	IF(BUILD_RAW)
 		add_definitions(-DBUILD_RAW=1)
-		LIST(APPEND HDRS_DDK
-			./ddk/hidpi.h
-			./ddk/setupapi.h
-			./ddk/hidsdi.h
-			./ddk/hidusage.h
-		)
 		LIST(APPEND HDRS_RAW
+			./usb-pad/raw/hid.h
 			./usb-pad/raw/raw-config.h
 			./usb-pad/raw/raw-config-res.h
 		)
 		LIST(APPEND SRCS_RAW
 			./usb-pad/raw/usb-pad-raw.cpp
 			./usb-pad/raw/raw-config.cpp
+			./usb-pad/raw/hid.cpp
 		)
-		SOURCE_GROUP("Header Files\\Ddk" FILES ${HDRS_DDK})
 		SOURCE_GROUP("Header Files\\Raw" FILES ${HDRS_RAW})
 		SOURCE_GROUP("Source Files\\Raw" FILES ${SRCS_RAW})
 		
-		LIST(APPEND HDRS ${HDRS_DDK} ${HDRS_RAW})
+		LIST(APPEND HDRS ${HDRS_RAW})
 		LIST(APPEND SRCS ${SRCS_RAW})
-		LIST(APPEND LIBS hid setupapi)
+		LIST(APPEND LIBS setupapi)
 		file(GLOB RAW_RCS ./usb-pad/raw/*.rc)
-		
-		#Less fcking around with platform sdks
-		link_directories(${PROJECT_SOURCE_DIR}/ddk)
 	ENDIF(BUILD_RAW)
 	
 	file(GLOB RCS ./Win32/*.rc)

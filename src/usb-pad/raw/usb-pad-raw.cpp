@@ -449,6 +449,9 @@ static void destroy_pad(USBDevice *dev)
 
 PADState* get_new_raw_padstate()
 {
+	if (!InitHid())
+		return NULL;
+
 	Win32PADState *s = (Win32PADState*)qemu_mallocz(sizeof(Win32PADState));
 	
 	s->padState.dev.open = open;
@@ -545,6 +548,9 @@ LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
 int InitWindow(HWND hWnd)
 {
 #if 1
+	if (!InitHid())
+		return 0;
+
 	RegisterRaw(hWnd, 0);
 	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
 	//hHookKB = SetWindowsHookEx(WH_KEYBOARD_LL, KBHookProc, hInst, 0);

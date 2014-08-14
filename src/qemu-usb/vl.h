@@ -37,7 +37,9 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#if !defined(_MSC_VER)
 #define inline __inline
+#endif
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0

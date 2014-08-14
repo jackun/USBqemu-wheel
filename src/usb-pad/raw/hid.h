@@ -1,33 +1,7 @@
-/*++
+#ifndef HID_H
+#define HID_H
 
-Copyright (c) 1996, 1997      Microsoft Corporation
-
-Module Name:
-
-        HIDUSAGE.H
-
-Abstract:
-
-   Public Definitions of HID USAGES.
-
-Environment:
-
-    Kernel & user mode
-
-Revision History:
-
-    Aug-1996 : created by Kenneth D. Ray
-    Jun-1997 : updated by Robert Ingman to reflect final HID 1.0 spec
-               and HID Usages Table 0.9 spec.
-
---*/
-
-#ifndef   __HIDUSAGE_H__
-#define   __HIDUSAGE_H__
-
-//
-// Usage Pages
-//
+#include <pshpack4.h>
 
 typedef USHORT USAGE, *PUSAGE;
 
@@ -119,19 +93,19 @@ typedef USHORT USAGE, *PUSAGE;
 // Keyboard/Keypad Page (0x07)
 //
 
-        // Error "keys"
+// Error "keys"
 #define HID_USAGE_KEYBOARD_NOEVENT     ((USAGE) 0x00)
 #define HID_USAGE_KEYBOARD_ROLLOVER    ((USAGE) 0x01)
 #define HID_USAGE_KEYBOARD_POSTFAIL    ((USAGE) 0x02)
 #define HID_USAGE_KEYBOARD_UNDEFINED   ((USAGE) 0x03)
 
-        // Letters
+// Letters
 #define HID_USAGE_KEYBOARD_aA          ((USAGE) 0x04)
 #define HID_USAGE_KEYBOARD_zZ          ((USAGE) 0x1D)
-        // Numbers
+// Numbers
 #define HID_USAGE_KEYBOARD_ONE         ((USAGE) 0x1E)
 #define HID_USAGE_KEYBOARD_ZERO        ((USAGE) 0x27)
-        // Modifier Keys
+// Modifier Keys
 #define HID_USAGE_KEYBOARD_LCTRL       ((USAGE) 0xE0)
 #define HID_USAGE_KEYBOARD_LSHFT       ((USAGE) 0xE1)
 #define HID_USAGE_KEYBOARD_LALT        ((USAGE) 0xE2)
@@ -143,7 +117,7 @@ typedef USHORT USAGE, *PUSAGE;
 #define HID_USAGE_KEYBOARD_SCROLL_LOCK ((USAGE) 0x47)
 #define HID_USAGE_KEYBOARD_NUM_LOCK    ((USAGE) 0x53)
 #define HID_USAGE_KEYBOARD_CAPS_LOCK   ((USAGE) 0x39)
-        // Funtion keys
+// Funtion keys
 #define HID_USAGE_KEYBOARD_F1          ((USAGE) 0x3A)
 #define HID_USAGE_KEYBOARD_F12         ((USAGE) 0x45)
 
@@ -261,10 +235,217 @@ typedef USHORT USAGE, *PUSAGE;
 #define HID_USAGE_TELEPHONY_KEYPAD                 ((USAGE) 0x06)
 #define HID_USAGE_TELEPHONY_PROGRAMMABLE_BUTTON    ((USAGE) 0x07)
 
-//
-// and others...
-//
-
-
+// BUGBUG defined in ntstatus.h
+#ifndef FACILITY_HID_ERROR_CODE
+#define FACILITY_HID_ERROR_CODE 0x11
 #endif
 
+#define HIDP_ERROR_CODES(SEV, CODE) \
+    ((NTSTATUS)(((SEV) << 28) | (FACILITY_HID_ERROR_CODE << 16) | (CODE)))
+
+#define HIDP_STATUS_SUCCESS                  (HIDP_ERROR_CODES(0x0,0))
+#define HIDP_STATUS_NULL                     (HIDP_ERROR_CODES(0x8,1))
+#define HIDP_STATUS_INVALID_PREPARSED_DATA   (HIDP_ERROR_CODES(0xC,1))
+#define HIDP_STATUS_INVALID_REPORT_TYPE      (HIDP_ERROR_CODES(0xC,2))
+#define HIDP_STATUS_INVALID_REPORT_LENGTH    (HIDP_ERROR_CODES(0xC,3))
+#define HIDP_STATUS_USAGE_NOT_FOUND          (HIDP_ERROR_CODES(0xC,4))
+#define HIDP_STATUS_VALUE_OUT_OF_RANGE       (HIDP_ERROR_CODES(0xC,5))
+#define HIDP_STATUS_BAD_LOG_PHY_VALUES       (HIDP_ERROR_CODES(0xC,6))
+#define HIDP_STATUS_BUFFER_TOO_SMALL         (HIDP_ERROR_CODES(0xC,7))
+#define HIDP_STATUS_INTERNAL_ERROR           (HIDP_ERROR_CODES(0xC,8))
+#define HIDP_STATUS_I8242_TRANS_UNKNOWN      (HIDP_ERROR_CODES(0xC,9))
+#define HIDP_STATUS_INCOMPATIBLE_REPORT_ID   (HIDP_ERROR_CODES(0xC,0xA))
+#define HIDP_STATUS_NOT_VALUE_ARRAY          (HIDP_ERROR_CODES(0xC,0xB))
+#define HIDP_STATUS_IS_VALUE_ARRAY           (HIDP_ERROR_CODES(0xC,0xC))
+#define HIDP_STATUS_DATA_INDEX_NOT_FOUND     (HIDP_ERROR_CODES(0xC,0xD))
+#define HIDP_STATUS_DATA_INDEX_OUT_OF_RANGE  (HIDP_ERROR_CODES(0xC,0xE))
+#define HIDP_STATUS_BUTTON_NOT_PRESSED       (HIDP_ERROR_CODES(0xC,0xF))
+#define HIDP_STATUS_REPORT_DOES_NOT_EXIST    (HIDP_ERROR_CODES(0xC,0x10))
+#define HIDP_STATUS_NOT_IMPLEMENTED          (HIDP_ERROR_CODES(0xC,0x20))
+
+typedef enum _HIDP_REPORT_TYPE
+{
+    HidP_Input,
+    HidP_Output,
+    HidP_Feature
+} HIDP_REPORT_TYPE;
+
+typedef struct _USAGE_AND_PAGE
+{
+    USAGE Usage;
+    USAGE UsagePage;
+} USAGE_AND_PAGE, *PUSAGE_AND_PAGE;
+
+typedef struct _HIDP_BUTTON_CAPS
+{
+    USAGE    UsagePage;
+    UCHAR    ReportID;
+    BOOLEAN  IsAlias;
+
+    USHORT   BitField;
+    USHORT   LinkCollection;   // A unique internal index pointer
+
+    USAGE    LinkUsage;
+    USAGE    LinkUsagePage;
+
+    BOOLEAN  IsRange;
+    BOOLEAN  IsStringRange;
+    BOOLEAN  IsDesignatorRange;
+    BOOLEAN  IsAbsolute;
+
+    ULONG    Reserved[10];
+    union {
+        struct {
+            USAGE    UsageMin, UsageMax;
+            USHORT   StringMin, StringMax;
+            USHORT   DesignatorMin, DesignatorMax;
+            USHORT   DataIndexMin, DataIndexMax;
+        } Range;
+        struct  {
+            USAGE    Usage, Reserved1;
+            USHORT   StringIndex, Reserved2;
+            USHORT   DesignatorIndex, Reserved3;
+            USHORT   DataIndex, Reserved4;
+        } NotRange;
+    };
+
+} HIDP_BUTTON_CAPS, *PHIDP_BUTTON_CAPS;
+
+
+typedef struct _HIDP_VALUE_CAPS
+{
+    USAGE    UsagePage;
+    UCHAR    ReportID;
+    BOOLEAN  IsAlias;
+
+    USHORT   BitField;
+    USHORT   LinkCollection;   // A unique internal index pointer
+
+    USAGE    LinkUsage;
+    USAGE    LinkUsagePage;
+
+    BOOLEAN  IsRange;
+    BOOLEAN  IsStringRange;
+    BOOLEAN  IsDesignatorRange;
+    BOOLEAN  IsAbsolute;
+
+    BOOLEAN  HasNull;        // Does this channel have a null report   union
+    UCHAR    Reserved;
+    USHORT   BitSize;        // How many bits are devoted to this value?
+
+    USHORT   ReportCount;    // See Note below.  Usually set to 1.
+    USHORT   Reserved2[5];
+
+    ULONG    UnitsExp;
+    ULONG    Units;
+
+    LONG     LogicalMin, LogicalMax;
+    LONG     PhysicalMin, PhysicalMax;
+
+    union {
+        struct {
+            USAGE    UsageMin, UsageMax;
+            USHORT   StringMin, StringMax;
+            USHORT   DesignatorMin, DesignatorMax;
+            USHORT   DataIndexMin, DataIndexMax;
+        } Range;
+
+        struct {
+            USAGE    Usage, Reserved1;
+            USHORT   StringIndex, Reserved2;
+            USHORT   DesignatorIndex, Reserved3;
+            USHORT   DataIndex, Reserved4;
+        } NotRange;
+    };
+} HIDP_VALUE_CAPS, *PHIDP_VALUE_CAPS;
+
+typedef struct _HIDD_ATTRIBUTES {
+    ULONG   Size; // = sizeof (struct _HIDD_ATTRIBUTES)
+
+    //
+    // Vendor ids of this hid device
+    //
+    USHORT  VendorID;
+    USHORT  ProductID;
+    USHORT  VersionNumber;
+
+    //
+    // Additional fields will be added to the end of this structure.
+    //
+} HIDD_ATTRIBUTES, *PHIDD_ATTRIBUTES;
+
+typedef PUCHAR  PHIDP_REPORT_DESCRIPTOR;
+typedef struct _HIDP_PREPARSED_DATA * PHIDP_PREPARSED_DATA;
+
+
+typedef struct _HIDP_CAPS
+{
+    USAGE    Usage;
+    USAGE    UsagePage;
+    USHORT   InputReportByteLength;
+    USHORT   OutputReportByteLength;
+    USHORT   FeatureReportByteLength;
+    USHORT   Reserved[17];
+
+    USHORT   NumberLinkCollectionNodes;
+
+    USHORT   NumberInputButtonCaps;
+    USHORT   NumberInputValueCaps;
+    USHORT   NumberInputDataIndices;
+
+    USHORT   NumberOutputButtonCaps;
+    USHORT   NumberOutputValueCaps;
+    USHORT   NumberOutputDataIndices;
+
+    USHORT   NumberFeatureButtonCaps;
+    USHORT   NumberFeatureValueCaps;
+    USHORT   NumberFeatureDataIndices;
+} HIDP_CAPS, *PHIDP_CAPS;
+
+typedef struct _HIDP_DATA
+{
+    USHORT  DataIndex;
+    USHORT  Reserved;
+    union {
+        ULONG   RawValue; // for values
+        BOOLEAN On; // for buttons MUST BE TRUE for buttons.
+    };
+} HIDP_DATA, *PHIDP_DATA;
+
+typedef BOOLEAN(__stdcall *_HidD_GetAttributes) (HANDLE HidDeviceObject, HIDD_ATTRIBUTES *Attributes);
+typedef void(__stdcall *_HidD_GetHidGuid) (GUID* HidGuid);
+typedef BOOLEAN(__stdcall *_HidD_GetPreparsedData) (HANDLE HidDeviceObject, PHIDP_PREPARSED_DATA *PreparsedData);
+typedef NTSTATUS(__stdcall *_HidP_GetCaps) (PHIDP_PREPARSED_DATA PreparsedData, HIDP_CAPS *caps);
+typedef BOOLEAN(__stdcall *_HidD_FreePreparsedData) (PHIDP_PREPARSED_DATA PreparsedData);
+typedef BOOLEAN(__stdcall *_HidD_GetFeature) (HANDLE  HidDeviceObject, PVOID  ReportBuffer, ULONG  ReportBufferLength);
+typedef BOOLEAN(__stdcall *_HidD_SetFeature) (HANDLE  HidDeviceObject, PVOID  ReportBuffer, ULONG  ReportBufferLength);
+typedef NTSTATUS(__stdcall *_HidP_GetSpecificButtonCaps) (HIDP_REPORT_TYPE  ReportType, USAGE UsagePage, USHORT LinkCollection, USAGE Usage, PHIDP_BUTTON_CAPS ButtonCaps, PUSHORT ButtonCapsLength, PHIDP_PREPARSED_DATA PreparsedData);
+typedef NTSTATUS(__stdcall *_HidP_GetButtonCaps)(HIDP_REPORT_TYPE ReportType, PHIDP_BUTTON_CAPS ButtonCaps, PUSHORT ButtonCapsLength, PHIDP_PREPARSED_DATA PreparsedData);
+typedef NTSTATUS(__stdcall *_HidP_GetUsages)(HIDP_REPORT_TYPE ReportType, USAGE UsagePage, USHORT LinkCollection, USAGE *UsageList, ULONG *UsageLength, PHIDP_PREPARSED_DATA PreparsedData, PCHAR Report, ULONG ReportLength);
+typedef NTSTATUS(__stdcall *_HidP_GetValueCaps)(HIDP_REPORT_TYPE ReportType, PHIDP_VALUE_CAPS ValueCaps, PUSHORT ValueCapsLength, PHIDP_PREPARSED_DATA PreparsedData);
+typedef NTSTATUS(__stdcall *_HidP_GetUsageValue)(HIDP_REPORT_TYPE ReportType, USAGE UsagePage, USHORT LinkCollection, USAGE Usage, PULONG UsageValue, PHIDP_PREPARSED_DATA PreparsedData, PCHAR Report, ULONG ReportLength);
+typedef BOOLEAN (__stdcall *_HidD_GetProductString)(HANDLE HidDeviceObject, PVOID Buffer, ULONG BufferLength);
+
+//#define HidP_GetButtonCaps(_Type_, _Caps_, _Len_, _Data_) \
+//    HidP_GetSpecificButtonCaps(_Type_, 0, 0, 0, _Caps_, _Len_, _Data_)
+
+extern _HidD_GetHidGuid HidD_GetHidGuid;
+extern _HidD_GetAttributes HidD_GetAttributes;
+extern _HidD_GetPreparsedData HidD_GetPreparsedData;
+extern _HidP_GetCaps HidP_GetCaps;
+extern _HidD_FreePreparsedData HidD_FreePreparsedData;
+extern _HidD_GetFeature HidD_GetFeature;
+extern _HidD_SetFeature HidD_SetFeature;
+extern _HidP_GetSpecificButtonCaps HidP_GetSpecificButtonCaps;
+extern _HidP_GetButtonCaps HidP_GetButtonCaps;
+extern _HidP_GetUsages HidP_GetUsages;
+extern _HidP_GetValueCaps HidP_GetValueCaps;
+extern _HidP_GetUsageValue HidP_GetUsageValue;
+extern _HidD_GetProductString HidD_GetProductString;
+
+void UninitHid();
+int InitHid();
+
+#include <poppack.h>
+
+#endif
