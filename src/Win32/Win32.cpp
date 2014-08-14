@@ -139,8 +139,12 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 					if(p1 > 0)
 						conf.mics[0] = (audioDevs.begin() + p1 - 1)->strID;
+					else
+						conf.mics[0] = L"";
 					if(p2 > 0)
 						conf.mics[1] = (audioDevs.begin() + p2 - 1)->strID;
+					else
+						conf.mics[1] = L"";
 
 					conf.MicBuffering = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
 
@@ -163,7 +167,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			LoadConfig();
 			CheckDlgButton(hW, IDC_LOGGING, conf.Log);
 			CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
-			//Selected emulated devices. Maybe add virtual USB stick, keyboard and mouse
+			//Selected emulated devices.
 			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"None");
 			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"None");
 #if BUILD_RAW
