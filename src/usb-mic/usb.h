@@ -41,16 +41,6 @@
 #define REQUEST_TO_ENDPOINT        2
 #define REQUEST_TO_OTHER           3
 
-/* bmRequestType Definition */
-typedef union _REQUEST_TYPE {
-  struct _BM {
-    BYTE Recipient : 5;
-    BYTE Type      : 2;
-    BYTE Dir       : 1;
-  } BM;
-  BYTE B;
-} REQUEST_TYPE;
-
 /* USB Standard Request Codes */
 #define USB_REQUEST_GET_STATUS                 0
 #define USB_REQUEST_CLEAR_FEATURE              1
