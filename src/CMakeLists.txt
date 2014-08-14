@@ -258,6 +258,7 @@ IF(WIN32)
         RUNTIME DESTINATION .
         CONFIGURATIONS Release RelWithDebInfo MinSizeRel Debug) #All
 ELSE(WIN32)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     INSTALL(
         TARGETS ${TargetName}
         LIBRARY DESTINATION .
