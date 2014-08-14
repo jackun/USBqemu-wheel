@@ -472,15 +472,15 @@ void InitDialog()
 	SetTimer(hWnd, 22, 40, (TIMERPROC) NULL);
 
 	//StartTest();
-	char * string[] = {"STEER LEFT", "STEER RIGHT", "THROTTLE", "BRAKE"};
+	wchar_t * string[] = {L"STEER LEFT", L"STEER RIGHT", L"THROTTLE", L"BRAKE"};
 
 	for(int i=0;i<4;i++)
-		SendMessageA(GetDlgItem(hWnd, IDC_COMBO1),CB_ADDSTRING,0, (LPARAM)string[i]);
+		SendMessageW(GetDlgItem(hWnd, IDC_COMBO1),CB_ADDSTRING,0, (LPARAM)string[i]);
 
-	char * stringp[] = {"200°", "360°", "540°", "720°", "900°"};
+	wchar_t * stringp[] = {L"200°", L"360°", L"540°", L"720°", L"900°"};
 
 	for(int i=0;i<6;i++)
-		SendMessageA(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
+		SendMessageW(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
 
 	//slider
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, 50);
