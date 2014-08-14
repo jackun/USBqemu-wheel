@@ -687,6 +687,8 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	switch(uMsg) {
 		case WM_INITDIALOG:
+			if(!InitHid())
+				return FALSE;
 			dgHwnd = hW;
 			//SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			
