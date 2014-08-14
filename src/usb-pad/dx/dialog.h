@@ -479,7 +479,7 @@ void InitDialog()
 
 	wchar_t * stringp[] = {L"200°", L"360°", L"540°", L"720°", L"900°"};
 
-	for(int i=0;i<6;i++)
+	for(int i=0;i<5;i++)
 		SendMessageW(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
 
 	//slider
