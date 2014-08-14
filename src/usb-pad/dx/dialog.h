@@ -477,7 +477,7 @@ void InitDialog()
 	for(int i=0;i<4;i++)
 		SendMessageW(GetDlgItem(hWnd, IDC_COMBO1),CB_ADDSTRING,0, (LPARAM)string[i]);
 
-	wchar_t * stringp[] = {L"200°", L"360°", L"540°", L"720°", L"900°"};
+	wchar_t * stringp[] = {L"200 deg" , L"360 deg", L"540 deg", L"720 deg", L"900 deg"};
 
 	for(int i=0;i<5;i++)
 		SendMessageW(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
