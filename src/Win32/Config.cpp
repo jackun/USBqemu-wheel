@@ -33,7 +33,9 @@ void GetIniFile(std::wstring &iniFile)
 		std::wstring path(tmp);
 		unsigned last = path.find_last_of(L"\\");
 		iniFile = path.substr(0, last);
-		iniFile.append(L"\\inis\\USBqemu-wheel.ini");
+		iniFile.append(L"\\inis");
+		CreateDirectory(iniFile.c_str(), NULL);
+		iniFile.append(L"\\USBqemu-wheel.ini");
 	} else {
 		iniFile.append(IniDir);
 		iniFile.append(L"USBqemu-wheel.ini");
@@ -48,8 +50,9 @@ void SaveConfig()
 
 	GetIniFile(szIniFile);
 
-	FILE *f = _wfopen(szIniFile.c_str(), L"a+");
-	if(!f) {
+	FILE *f = nullptr;
+	auto err = _wfopen_s(&f, szIniFile.c_str(), L"a+");
+	if (!f) {
 		MessageBoxW(NULL, L"Cannot save to ini!", L"USBqemu", MB_ICONERROR);
 	} else
 		fclose(f);
@@ -86,7 +89,6 @@ void SaveConfig()
 }
 
 void LoadConfig() {
-	FILE *fp;
 
 	Config *Conf1 = &conf;
 	std::wstring szIniFile;
@@ -94,10 +96,10 @@ void LoadConfig() {
 
 	GetIniFile(szIniFile);
 
-	fp=_wfopen(szIniFile.c_str(), L"rt");//check if ini really exists
-	if (!fp)
+	FILE *fp = nullptr;
+	auto err = _wfopen_s(&fp, szIniFile.c_str(), L"rt");//check if ini really exists
+	if (fp)
 	{
-		CreateDirectory(L"inis",NULL);
 		memset(&conf, 0, sizeof(conf));
 		conf.Log = 0;//default value
 		SaveConfig();//save and return
