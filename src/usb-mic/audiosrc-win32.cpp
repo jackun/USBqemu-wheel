@@ -229,7 +229,7 @@ public:
 		FreeData();
 		SafeRelease(mmEnumerator);
 		mResampler = src_delete(mResampler);
-		if (!file)
+		if (file)
 			fclose(file);
 		file = nullptr;
 	}
