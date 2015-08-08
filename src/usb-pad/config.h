@@ -71,7 +71,7 @@ enum PS2HatSwitch {
 static int hats7to4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 
 enum PS2WheelTypes {
-	WT_GENERIC, // DF or any other LG wheel in non-native mode
+	WT_GENERIC, // DF or any other LT wheel in non-native mode
 	WT_DRIVING_FORCE_PRO, //LPRC-11000? DF GT can be downgraded to Pro (?)
 	WT_GT_FORCE, //formula gp
 };
@@ -111,7 +111,7 @@ struct wheel_data_t
 {
 	int32_t axis_x;
 	uint32_t buttons;
-	uint32_t  hatswitch;
+	uint32_t hatswitch;
 
 	int32_t axis_y;
 	int32_t axis_z;
