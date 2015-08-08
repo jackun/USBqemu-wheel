@@ -42,6 +42,10 @@
 static int rateLimit = 0;
 static void OSDebugOut(const TCHAR *psz_fmt, ...)
 {
+#ifndef _DEBUG
+	return;
+#endif
+
 	if(rateLimit > 0 && rateLimit < 100)
 	{
 		rateLimit++;
