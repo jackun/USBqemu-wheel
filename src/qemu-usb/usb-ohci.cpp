@@ -621,7 +621,7 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
     int dir;
     size_t len = 0;
     uint8_t buf[8192];
-    char *str = NULL;
+    const char *str = NULL;
     int pid;
     int ret;
     int i;

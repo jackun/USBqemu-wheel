@@ -77,7 +77,7 @@ void USBirq(int cycles)
 	_USBirq(cycles);
 }
 
-void __Log(char *fmt, ...) {
+void __Log(const char *fmt, ...) {
 	va_list list;
 
 	if (!conf.Log ||!usbLog) return;

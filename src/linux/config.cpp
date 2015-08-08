@@ -29,10 +29,11 @@ typedef vector< pair<string,string> > vstring;
 vstring jsdata;
 GtkWidget *mDialog;
 GtkWidget *mOKButton;
-int id1 = 0, id2 = 1;
 static char usb_path[PATH_MAX];
+std::string IniDir;
+std::string LogDir;
 
-void SysMessage(char *fmt, ...)
+void SysMessage(const char *fmt, ...)
 {
 	va_list arglist;
 
@@ -41,31 +42,52 @@ void SysMessage(char *fmt, ...)
 	va_end(arglist);
 }
 
+void CALLBACK USBsetSettingsDir( const char* dir )
+{
+	fprintf(stderr, "USBsetSettingsDir: %s\n", dir);
+	IniDir = dir;
+}
+
+void CALLBACK USBsetLogDir( const char* dir )
+{
+	printf("USBsetLogDir: %s\n", dir);
+	LogDir = dir;
+}
+
 void SaveConfig() {
 	fprintf(stderr, "USB save config\n");
-	char* envptr = getenv("HOME");
-	if(envptr == NULL)
-		return;
-	char path[1024];
-	snprintf(path, sizeof(path), "%s/.config/pcsx2/inis/USBqemu-wheel.ini", envptr);
+	//char* envptr = getenv("HOME");
+	//if(envptr == NULL)
+	//	return;
+	//char path[1024];
+	//snprintf(path, sizeof(path), "%s/.config/PCSX2/inis/USBqemu-wheel.ini", envptr);
+	std::string iniPath(IniDir);
+	iniPath.append("USBqemu-wheel.ini");
+	const char *path = iniPath.c_str();
+
 	//fprintf(stderr, "%s\n", path);
 	snprintf(conf.usb_img, sizeof(conf.usb_img), "%s", usb_path);
 
 	INISaveUInt(path, "Devices", "Port 0", conf.Port0);
 	INISaveUInt(path, "Devices", "Port 1", conf.Port1);
+	INISaveUInt(path, "Devices", "Wheel type 0", conf.WheelType[PLAYER_ONE_PORT]);
+	INISaveUInt(path, "Devices", "Wheel type 1", conf.WheelType[PLAYER_TWO_PORT]);
 	INISaveString(path, "Devices", "USB Image", conf.usb_img);
 	INISaveString(path, "Joystick", "Player1", player_joys[0].c_str());
 	INISaveString(path, "Joystick", "Player2", player_joys[1].c_str());
 }
 
 void LoadConfig() {
-	fprintf(stderr, "USB load config\n");
-	char* envptr = getenv("HOME");
-	if(envptr == NULL)
-		return;
-	char path[1024];
 	char joy[1024] = {0};
-	sprintf(path, "%s/.config/pcsx2/inis/USBqemu-wheel.ini", envptr);
+	fprintf(stderr, "USB load config\n");
+	//char* envptr = getenv("HOME");
+	//if(envptr == NULL)
+	//	return;
+	//char path[1024];
+	//sprintf(path, "%s/.config/PCSX2/inis/USBqemu-wheel.ini", envptr);
+	std::string iniPath(IniDir);
+	iniPath.append("USBqemu-wheel.ini");
+	const char *path = iniPath.c_str();
 
 	INILoadString(path, "Joystick", "Player1", joy);
 	player_joys[0] = string(joy);
@@ -74,18 +96,29 @@ void LoadConfig() {
 
 	INILoadUInt(path, "Devices", "Port 0", (u32*)&conf.Port0);
 	INILoadUInt(path, "Devices", "Port 1", (u32*)&conf.Port1);
+	INILoadUInt(path, "Devices", "Wheel type 0", (u32*)&conf.WheelType[PLAYER_ONE_PORT]);
+	INILoadUInt(path, "Devices", "Wheel type 1", (u32*)&conf.WheelType[PLAYER_TWO_PORT]);
 	INILoadString(path, "Devices", "USB Image", conf.usb_img);
 }
 
 static void joystickChanged (GtkComboBox *widget, gpointer data)
 {
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-	if(data)
+	int ply = (int)data;
+	string devPath = (jsdata.begin() + idx)->second;
+	player_joys[ply] = devPath;
+	fprintf(stderr, "Selected player %d idx: %d dev: '%s'\n", ply, idx, devPath.c_str());
+}
+
+static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
+{
+	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+	//if(data)
 	{
-		int ply = *((int*)data);
-		string devPath = (jsdata.begin() + idx)->second;
-		player_joys[ply] = devPath;
-		fprintf(stderr, "Selected player %d idx: %d dev: '%s'\n", ply, idx, devPath.c_str());
+		uint8_t ply = MIN((unsigned)data, 1);
+
+		conf.WheelType[1 - ply] = idx;
+		fprintf(stderr, "Selected wheel type, player %d idx: %d\n", ply, idx);
 	}
 }
 
@@ -130,7 +163,7 @@ static int DevToIdx(int dev)
 			return dev;
 		case 3:
 			return 2;
-		default: 
+		default:
 		break;
 	}
 	return 0;
@@ -141,23 +174,21 @@ static int DevToIdx(int dev)
 static void deviceChanged (GtkComboBox *widget, gpointer data)
 {
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-	if(data)
-	{
-		int ply = *((int*)data);
-		switch(idx){
-			case 0:
-			case 1:
-				PORT_DEVICE(ply,idx);
-				break;
-			case 2: //skip wheel type
-				PORT_DEVICE(ply,idx+1);
-				break;
-			default:
-				fprintf(stderr, "Invalid device, player %d idx: %d\n", ply, idx);
-				break;
-		}
-		fprintf(stderr, "Selected player %d idx: %d\n", ply, idx);
+
+	int ply = (int)data;
+	switch(idx){
+		case 0:
+		case 1:
+			PORT_DEVICE(ply,idx);
+			break;
+		case 2: //skip wheel type
+			PORT_DEVICE(ply,idx+1);
+			break;
+		default:
+			fprintf(stderr, "Invalid device, player %d idx: %d\n", ply, idx);
+			break;
 	}
+	fprintf(stderr, "Selected player %d idx: %d\n", ply, idx);
 }
 
 bool file_exists(string filename)
@@ -216,7 +247,7 @@ void CALLBACK USBconfigure() {
 
 {
 	int count=0, j=0, fd=0;
-	stringstream str, event;
+	stringstream str;
 	for (count = 0; count < MAX_JOYS; count++)
 	{
 		str.clear();
@@ -224,15 +255,6 @@ void CALLBACK USBconfigure() {
 		/* Check if joystick device exists */
 		if (file_exists(str.str())){
 
-			for (j = 0; j <= 99; j++)
-			{
-				event.clear(); event.str(string());
-				/* Try to discover the corresponding event number */
-				event << "/sys/class/input/js" << count << "/device/event" << j;
-				if (dir_exists(event.str())){
-
-					event.clear(); event.str(string());
-					event << "/dev/input/event" << j;
 
 					char name_c_str[1024];
 					if ((fd = open(str.str().c_str(), O_RDONLY)) < 0)
@@ -258,8 +280,6 @@ void CALLBACK USBconfigure() {
 						fprintf(stderr, str.str());
 						fprintf(stderr, "\n");
 					#endif
-				}
-			}
 		}
 	}
 }
@@ -298,7 +318,7 @@ void CALLBACK USBconfigure() {
 	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Wheel");
 	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "USB Mass storage");
 	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(conf.Port1));
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), &id1);
+	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)0);
 
 	/*** PLAYER 2 ***/
 	rs_cb = new_combobox("Port 2:", ro_frame, vbox);
@@ -306,7 +326,7 @@ void CALLBACK USBconfigure() {
 	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Wheel");
 	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "USB Mass storage");
 	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(conf.Port0));
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), &id2);
+	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)1);
 	rs_cb = NULL;
 
 
@@ -340,7 +360,7 @@ void CALLBACK USBconfigure() {
 			sel_idx = idx;
 	}
 	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), &id1);
+	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)0);
 
 	/*** PLAYER 2 ***/
 	rs_cb = new_combobox ("Port 2:", ro_frame, vbox);
@@ -356,7 +376,7 @@ void CALLBACK USBconfigure() {
 			sel_idx = idx;
 	}
 	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), &id2);
+	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)1);
 
 	/*** Mass storage ***/
 	ro_frame = gtk_frame_new (NULL);
@@ -389,6 +409,42 @@ void CALLBACK USBconfigure() {
 	gtk_box_pack_start (GTK_BOX (rs_hbox), entry, TRUE, TRUE, 5);
 	gtk_box_pack_start (GTK_BOX (rs_hbox), button, TRUE, TRUE, 5);
 	gtk_widget_show (rs_hbox);
+
+	/** Wheel type **/
+	ro_frame = gtk_frame_new (NULL);
+	gtk_widget_show (ro_frame);
+	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, TRUE, 0);
+
+	ro_label = gtk_label_new ("Wheel types:");
+	gtk_widget_show (ro_label);
+	gtk_frame_set_label_widget (GTK_FRAME (ro_frame), ro_label);
+	gtk_label_set_use_markup (GTK_LABEL (ro_label), TRUE);
+
+	vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
+	gtk_widget_show (vbox);
+
+	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
+	const char *ports[] = {"Port 1:", "Port 2:"};
+
+
+	for(int port = 0; port < 2; port++)
+	{
+
+		rs_cb = new_combobox (ports[port], ro_frame, vbox);
+
+		sel_idx = 0;
+
+		for (int i = 0; i < ARRAYSIZE(wt); i++)
+		{
+			gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), wt[i]);
+			if(conf.WheelType[1 - port] == i)
+				sel_idx = i;
+		}
+		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (ptrdiff_t*)(port));
+	}
 
 
 	// Modal loop

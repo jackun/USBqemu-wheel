@@ -49,7 +49,7 @@ void PrintLog(const char *fmt, ...) {
 #endif
 
 // Returns: position where new extensions should be added.
-int INIRemoveExt(char *argname, char *tempname) {
+int INIRemoveExt(const char *argname, char *tempname) {
   int i;
   int j;
   int k;
@@ -161,7 +161,7 @@ int INIReadLine(ACTUALHANDLE infile, char *buffer) {
 
 
 // Returns: number of bytes to get to start of section (or -1)
-int INIFindSection(ACTUALHANDLE infile, char *section) {
+int INIFindSection(ACTUALHANDLE infile, const char *section) {
   int charcount;
   int i;
   int retflag;
@@ -198,7 +198,7 @@ int INIFindSection(ACTUALHANDLE infile, char *section) {
 } // END INIFindSection()
 
 // Returns: number of bytes to get to start of keyword (or -1)
-int INIFindKeyword(ACTUALHANDLE infile, char *keyword, char *buffer) {
+int INIFindKeyword(ACTUALHANDLE infile, const char *keyword, char *buffer) {
   int charcount;
   int i;
   int j;
@@ -281,7 +281,7 @@ int INICopy(ACTUALHANDLE infile, ACTUALHANDLE outfile, int charcount) {
 } // END INICopyToPos()
 
 
-int INISaveString(char *file, char *section, char *keyword, const char *value) {
+int INISaveString(const char *file, const char *section, const char *keyword, const char *value) {
   char inname[INIMAXLEN+1];
   char outname[INIMAXLEN+1];
   int filepos;
@@ -488,7 +488,7 @@ int INISaveString(char *file, char *section, char *keyword, const char *value) {
 } // END INISaveString()
 
 
-int INILoadString(char *file, char *section, char *keyword, char *buffer) {
+int INILoadString(const char *file, const char *section, const char *keyword, char *buffer) {
   char inname[INIMAXLEN+1];
   int filepos;
   ACTUALHANDLE infile;
@@ -531,7 +531,7 @@ int INILoadString(char *file, char *section, char *keyword, char *buffer) {
 } // END INILoadString()
 
 
-int INIRemove(char *file, char *section, char *keyword) {
+int INIRemove(const char *file, const char *section, const char *keyword) {
   char inname[INIMAXLEN+1];
   char outname[INIMAXLEN+1];
   int filepos;
@@ -655,7 +655,7 @@ int INIRemove(char *file, char *section, char *keyword) {
 } // END INIRemove()
 
 
-int INISaveUInt(char *file, char *section, char *keyword, unsigned int value) {
+int INISaveUInt(const char *file, const char *section, const char *keyword, unsigned int value) {
   char numvalue[INIMAXLEN+1];
 
   sprintf(numvalue, "%u", value);
@@ -663,7 +663,7 @@ int INISaveUInt(char *file, char *section, char *keyword, unsigned int value) {
 } // END INISaveUInt()
 
 
-int INILoadUInt(char *file, char *section, char *keyword, unsigned int *buffer) {
+int INILoadUInt(const char *file, const char *section, const char *keyword, unsigned int *buffer) {
   char numvalue[INIMAXLEN+1];
   int retval;
   unsigned int value;
