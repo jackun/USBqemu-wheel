@@ -364,7 +364,8 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		dfp_data.buttons = data.buttons;
 		dfp_data.hatswitch = data.hatswitch;
 		dfp_data.axis_x = data.axis_x;
-		dfp_data.axis_z = 0x8 + (data.axis_z * 0x3F) / 0xFF;
+		//dfp_data.axis_z = 0x8 + (data.axis_z * 0x3F) / 0xFF; //Works but wtf?
+		dfp_data.axis_z = ((data.axis_z * 0x3F) / 0xFF) << 1;
 		dfp_data.axis_rz = (0xFF) - (data.axis_rz * 0x3F) / 0xFF;
 
 		dfp_data.magic1 = 0;
@@ -380,7 +381,7 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 
 		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
 
-		key = 1 - key;
+		//key = 1 - key;
 
 		break;
 
