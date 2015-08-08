@@ -11,10 +11,9 @@
 #include <Functiondiscoverykeys_devpkey.h>
 
 #define SafeRelease(x) if(x){x->Release(); x = NULL;}
-inline UINT ConvertMSTo100NanoSec(UINT ms)
-{
-	return ms*1000*10; //1000 microseconds, then 10 "100nanosecond" segments
-}
+#define ConvertMSTo100NanoSec(ms) (ms*1000*10) //1000 microseconds, then 10 "100nanosecond" segments
+
+static FILE* file = nullptr;
 
 bool AudioInit()
 {
@@ -122,6 +121,28 @@ public:
 		free(mBuffer);
 	}
 
+	// Add silence
+	void Add(uint32_t len)
+	{
+		assert(mPos < INT_MAX - len);
+
+		if (!len)
+			return;
+
+		if (mPos > INT_MAX - len)
+			throw new std::exception("Too much data");
+
+		if (mPos + len > mLen)
+		{
+			mLen = mPos + len;
+			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
+		}
+
+		memset(mBuffer + mPos, 0, sizeof(T) * len);
+		mPos += len;
+	}
+
+	// Add actual data
 	void Add(T *ptr, uint32_t len)
 	{
 		assert(ptr);
@@ -199,6 +220,7 @@ public:
 	, mResampler(NULL)
 	, mDeviceLost(true)
 	, mResample(false)
+	, mFirstSamples(true)
 	{
 	}
 
@@ -207,6 +229,9 @@ public:
 		FreeData();
 		SafeRelease(mmEnumerator);
 		mResampler = src_delete(mResampler);
+		if (!file)
+			fclose(file);
+		file = nullptr;
 	}
 
 	void FreeData()
@@ -373,6 +398,7 @@ public:
 
 	void Start()
 	{
+		mQBuffer.Reset();
 		if(mmClient)
 			mmClient->Start();
 	}
@@ -381,6 +407,7 @@ public:
 	{
 		if(mmClient)
 			mmClient->Stop();
+		mQBuffer.Reset();
 	}
 
 	virtual bool GetFrames(uint32_t *size)
@@ -409,14 +436,21 @@ public:
 		return true;
 	}
 
-	//TODO 
+	//TODO @param outLen : bytes to read (samples * channels), turn into samples to read?
 	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outLen)
 	{
-		GetMMBuffer();
+		if (mFirstSamples) //TODO clean out initially buffered samples, unnecessery?
+		{
+			while (GetMMBuffer()); //TODO Is MSVC gonna 'optimize' this?
+			mQBuffer.Remove(mQBuffer.Size() - outLen);
+			mFirstSamples = false;
+		}
+		else if (mQBuffer.Size() < outLen) // because forever increasing buffer otherwise
+			GetMMBuffer();
 
 		if(mResample)
 		{
-			std::vector<float> rebuf(outLen + 1);
+			std::vector<float> rebuf(outLen + 1); //TODO check std::vector elements' alignment
 
 			SRC_DATA data;
 			memset(&data, 0, sizeof(SRC_DATA));
@@ -435,15 +469,23 @@ public:
 				data.input_frames, data.output_frames,
 				data.input_frames_used, data.output_frames_gen);
 
+			
+			if (!file)
+			{
+				file = fopen("output.raw", "wb");
+			}
+			else
+				fwrite(outBuf, sizeof(short), len, file);
+
 			mQBuffer.Remove(data.input_frames_used * mInputChannels);
-			OSDebugOut(TEXT("Queue: %d  Outlen: %d\n"), mQBuffer.Size(), len);
+			OSDebugOut(TEXT("Queue resampled: %d  Outlen: %d\n"), mQBuffer.Size(), len);
 			return len;
 		}
 
 		uint32_t totalLen = MIN(outLen, mQBuffer.Size());
 		src_float_to_short_array(mQBuffer.Ptr(), (short*)outBuf, totalLen);
 		mQBuffer.Remove(totalLen);
-		OSDebugOut(TEXT("Queue: %d OutLen: %d\n"), mQBuffer.Size(), totalLen);
+		OSDebugOut(TEXT("Queue plain: %d OutLen: %d\n"), mQBuffer.Size(), totalLen);
 		return totalLen;
 	}
 
@@ -481,12 +523,17 @@ public:
 		if (!captureSize)
 			return 0;
 
-		hRes = mmCapture->GetBuffer(&captureBuffer, &numFramesRead, &dwFlags, &devPosition, &qpcTimestamp);
-		UINT totalLen = numFramesRead * mInputChannels;
+		if (SUCCEEDED(mmCapture->GetBuffer(&captureBuffer, &numFramesRead, &dwFlags, &devPosition, &qpcTimestamp)))
+		{
+			UINT totalLen = numFramesRead * mInputChannels;
+			if (dwFlags == AUDCLNT_BUFFERFLAGS_SILENT)
+				mQBuffer.Add(totalLen);
+			else
+				mQBuffer.Add((float*)captureBuffer, totalLen);
 
-		mQBuffer.Add((float*)captureBuffer, totalLen);
+			mmCapture->ReleaseBuffer(numFramesRead);
+		}
 
-		mmCapture->ReleaseBuffer(numFramesRead);
 		return numFramesRead;
 	}
 
@@ -517,6 +564,7 @@ private:
 
 	bool  mResample;
 	bool  mFloat;
+	bool  mFirstSamples; //On the first call, empty the buffer to lower latency
 	UINT  mInputChannels;
 	UINT  mInputSamplesPerSec;
 	UINT  mInputBitsPerSample;

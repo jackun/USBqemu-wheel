@@ -637,7 +637,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         break;
     case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
 
-		//TODO qemu has internal buffer of 8KB, but PS2 games' usb driver
+		//XXX qemu has internal buffer of 8KB, but PS2 games' usb driver
 		//first calls with buffer size like 4 or 8 bytes
 		//and then re-requests with 'ret'-urned size buffer.
         switch(value >> 8) {
@@ -739,7 +739,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
 			//TODO
 			int16_t *buffer[2] = {0};
-			uint32_t frames, outlen[2] = {0};
+			uint32_t frames, outlen[2] = {0}, chn;
 			int16_t *src1, *src2;
 			int16_t *dst = (int16_t *)data;
 			//Divide 'len' bytes between 2 channels of 16 bits
@@ -750,34 +750,34 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				if(s->audsrc[i] && 
 					s->audsrc[i]->GetFrames(&frames))
 				{
-					int cn = s->audsrc[i]->GetChannels();
+					chn = s->audsrc[i]->GetChannels();
 					frames = MIN(maxPerChnFrames, frames); //max 50 frames usually
-					buffer[i] = new int16_t[frames * cn];
-					outlen[i] = s->audsrc[i]->GetBuffer(buffer[i], frames * cn);
+					buffer[i] = new int16_t[frames * chn];
+					outlen[i] = s->audsrc[i]->GetBuffer(buffer[i], frames * chn);
 				}
 			}
 
 			OSDebugOut(TEXT("Audio buf1: %d buf2: %d\n"), outlen[0], outlen[1]);
 
-			//TODO cache coherence
 			//TODO well, it is 16bit interleaved, right?
 			if(s->isCombined && (buffer[0] || buffer[1]))
 			{
 				int k = (buffer[0]) ? 0 : 1;
-				uint32_t ch = s->audsrc[k]->GetChannels();
+				chn = s->audsrc[k]->GetChannels();
+				frames = outlen[k] / chn;
 				src1 = (int16_t*)buffer[k];
 
-				int i = 0;
-				for(; i < (outlen[k] / ch) && i < maxPerChnFrames; i++)
+				uint32_t i = 0;
+				for(; i < frames && i < maxPerChnFrames; i++)
 				{
-					dst[i * 2] = SetVolume(src1[i * ch], s->out.vol[k]);
-					if(ch == 1)
-						dst[i * 2 + 1] = SetVolume(src1[i * ch], s->out.vol[k]);
+					dst[i * 2] = SetVolume(src1[i * chn], s->out.vol[k]);
+					if(chn == 1)
+						dst[i * 2 + 1] = SetVolume(src1[i * chn], s->out.vol[k]);
 					else
-						dst[i * 2 + 1] = SetVolume(src1[i * ch + 1], s->out.vol[k]);
+						dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->out.vol[k]);
 				}
 
-				ret =i;
+				ret = i;
 			}
 			else if(buffer[0] && buffer[1])
 			{
@@ -788,7 +788,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				src1 = (int16_t *)buffer[0];
 				src2 = (int16_t *)buffer[1];
 
-				int i = 0;
+				uint32_t i = 0;
 				for(; i < minLen && i < maxPerChnFrames; i++)
 				{
 					dst[i * 2] = SetVolume(src1[i * cn1], s->out.vol[0]);
@@ -799,24 +799,22 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			}
 			else //Could ignore this and use isCombined case
 			{
-				int i = 0;
-				uint32_t cn = 1;
-				
 				int k = s->audsrc[0] ? 0 : 1;
-				cn = s->audsrc[k]->GetChannels();
-				uint32_t frames = outlen[k] / cn;
+				chn = s->audsrc[k]->GetChannels();
+				frames = outlen[k] / chn;
 
+				uint32_t i = 0;
 				for(; i < frames && i < maxPerChnFrames; i++)
 				{
 					if(s->audsrc[0])
 					{
-						dst[i * 2] = buffer[k][i * cn];
+						dst[i * 2] = buffer[k][i * chn];
 						//dst[i * 2 + 1] = 0;
 					}
 					else
 					{
 						//dst[i * 2] = 0;
-						dst[i * 2 + 1] = buffer[k][i * cn];
+						dst[i * 2 + 1] = buffer[k][i * chn];
 					}
 				}
 				ret = i;
