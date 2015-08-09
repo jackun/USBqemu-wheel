@@ -46,6 +46,8 @@ May need to tweak it for Windows 8+ platform SDK
 
 http://www.microsoft.com/en-us/download/details.aspx?id=6812
 
+On linux, configuration dialog uses GTK+ as PCSX2 (still) uses wxGTK.
+
 Forum
 =========
 http://forums.pcsx2.net/Thread-Qemu-USB-Wheel-mod
