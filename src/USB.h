@@ -82,7 +82,7 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 #include <string>
 #define MAX_PATH PATH_MAX
 #define __inline inline
-#define OSDebugOut(...) 
+#define OSDebugOut(...)
 #define TEXT(val) val
 #define TCHAR char
 #define wfopen fopen
@@ -134,9 +134,9 @@ void SaveConfig();
 void LoadConfig();
 
 extern FILE *usbLog;
-void __Log(char *fmt, ...);
+void __Log(const char *fmt, ...);
 
-void SysMessage(char *fmt, ...);
+void SysMessage(const char *fmt, ...);
 
 #include "qemu-usb/vl.h"
 
