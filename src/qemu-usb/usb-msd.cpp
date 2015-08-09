@@ -40,9 +40,9 @@ struct usb_msd_csw {
 #endif
 
 #ifdef DEBUG_MSD
-#define DPRINTF(fmt, ...) { fprintf(stderr, "usb-msd: " fmt , __VA_ARGS__); }
+#define DPRINTF(fmt, ...) fprintf(stderr, "usb-msd: " fmt , ##__VA_ARGS__)
 #else
-#define DPRINTF(fmt, ...) do {} while(0)
+#define DPRINTF(fmt, ...)
 #endif
 
 /* USB requests.  */
