@@ -10,6 +10,13 @@
 #include <unistd.h>
 #include <iostream>
 #include <sstream>
+#include <math.h>
+
+#if _DEBUG
+#define Dbg(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define Dbg(...)
+#endif
 
 struct LinuxPADState
 {
@@ -28,6 +35,11 @@ extern bool dir_exists(std::string filename);
 static struct wheel_data_t wheel_data;
 static struct ff_data ffdata;
 static bool sendCrap = false;
+
+static void SetConstantForce(LinuxPADState *s, int force);
+static void SetSpringForce(LinuxPADState *s, int force);
+static void SetAutoCenter(LinuxPADState *s, int value);
+static void SetGain(LinuxPADState *s, int gain);
 
 //int axis_count = 0, button_count = 0;
 
@@ -77,12 +89,12 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 	//TODO what happens when emulator is paused?
 	while((len = read(s->fd, &event, sizeof(event))) > -1)
 	{
-		//fprintf(stderr, "Read js len: %d %d\n", len, errno);
+		//Dbg("Read js len: %d %d\n", len, errno);
 		if (len == sizeof(event))
 		{ // ok
 			if (event.type & JS_EVENT_AXIS)
 			{
-				//fprintf(stderr, "Axis: %d, %d\n", event.number, event.value);
+				//Dbg("Axis: %d, %d\n", event.number, event.value);
 				switch(s->axismap[event.number])
 				{
 					case ABS_X: wheel_data.axis_x = NORM(event.value, range); break;
@@ -117,7 +129,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 			}
 			else if (event.type & JS_EVENT_BUTTON)
 			{
-				//fprintf(stderr, "Button: %d, %d\n", event.number, event.value);
+				//Dbg("Button: %d, %d\n", event.number, event.value);
 				//TODO can have 12 bits for buttons?
 				if(event.number < 10)
 				{
@@ -131,12 +143,12 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 		}
 		else
 		{
-			fprintf(stderr, "usb_pad_poll: unknown read error\n");
+			Dbg("usb_pad_poll: unknown read error\n");
 			break;
 		}
 	}
 
-	//fprintf(stderr, "call pad_copy_data\n");
+	//Dbg("call pad_copy_data\n");
 	pad_copy_data(idx, buf, wheel_data);
 	return buflen;
 }
@@ -160,12 +172,13 @@ static bool find_pad(LinuxPADState *s)
 	s->button_count = 0;
 	s->fd = -1;
 	s->fdFF = -1;
+	s->effect.id = -1;
 
 	if(!player_joys[idx].empty() && file_exists(player_joys[idx]))
 	{
 		if ((s->fd = open(player_joys[idx].c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
-			fprintf(stderr, "Cannot open player %d's controller: %s\n", idx+1, player_joys[idx].c_str());
+			Dbg("Cannot open player %d's controller: %s\n", idx+1, player_joys[idx].c_str());
 		}
 		else
 		{
@@ -175,32 +188,37 @@ static bool find_pad(LinuxPADState *s)
 			// Axis Mapping
 			if (ioctl(s->fd, JSIOCGAXMAP, s->axismap) < 0)
 			{
-				fprintf(stderr, "Axis mapping: %s\n", strerror(errno));
+				Dbg("Axis mapping: %s\n", strerror(errno));
 			}
 			else
 			{
 				ioctl(s->fd, JSIOCGAXES, &s->axis_count);
 				for(int i = 0; i < s->axis_count; ++i)
-					fprintf(stderr, "Axis: %d -> %d\n", i, s->axismap[i] );
+					Dbg("Axis: %d -> %d\n", i, s->axismap[i] );
 			}
 
 			// Button Mapping
 			if (ioctl(s->fd, JSIOCGBTNMAP, s->btnmap) < 0)
 			{
-				fprintf(stderr, "Button mapping: %s\n", strerror(errno));
+				Dbg("Button mapping: %s\n", strerror(errno));
 			}
 			else
 			{
 
 				ioctl(s->fd, JSIOCGBUTTONS, &s->button_count);
 				for(int i = 0; i < s->button_count; ++i)
-					fprintf(stderr, "Button: %d -> %d \n", i, s->btnmap[i] );
+					Dbg("Button: %d -> %d \n", i, s->btnmap[i] );
 			}
 
 			std::stringstream event;
 			int index = 0;
-			sscanf(player_joys[idx].c_str(), "%d", &index);
-			fprintf(stderr, "input index: %d\n", index);
+			const char *tmp = player_joys[idx].c_str();
+			while(*tmp && !isdigit(*tmp))
+				tmp++;
+
+			sscanf(tmp, "%d", &index);
+			Dbg("input index: %d of '%s'\n", index, player_joys[idx].c_str());
+
 			for (int j = 0; j <= 99; j++)
 			{
 				event.clear(); event.str(std::string());
@@ -215,29 +233,30 @@ static bool find_pad(LinuxPADState *s)
 			}
 			if ((s->fdFF = open(event.str().c_str(), O_WRONLY)) < 0)
 			{
-				fprintf(stderr, "Cannot open '%s'\n", event.str().c_str());
+				Dbg("Cannot open '%s'\n", event.str().c_str());
 			}
 			else
 			{
 				s->effect.type = FF_CONSTANT;
 				s->effect.id = -1;
-				s->effect.u.constant.level = 0x2000;	/* Strength : 25 % */
-				s->effect.direction = 0x8000;
-				s->effect.u.constant.envelope.attack_length = 0x100;
+				s->effect.u.constant.level = 0;	/* Strength : 25 % */
+				s->effect.direction = 0x4000;
+				s->effect.u.constant.envelope.attack_length = 0;//0x100;
 				s->effect.u.constant.envelope.attack_level = 0;
-				s->effect.u.constant.envelope.fade_length = 0x100;
+				s->effect.u.constant.envelope.fade_length = 0;//0x100;
 				s->effect.u.constant.envelope.fade_level = 0;
 				s->effect.trigger.button = 0;
 				s->effect.trigger.interval = 0;
-				s->effect.replay.length = 1000;  /* mseconds */
+				s->effect.replay.length = 0X7FFFUL;  /* mseconds */
 				s->effect.replay.delay = 0;
 
 				if (ioctl(s->fdFF, EVIOCSFF, &(s->effect)) < 0) {
-					fprintf(stderr, "Upload effect");
+					Dbg("Failed to upload effect to '%s'\n", event.str().c_str());
 				}
-			}
 
-			//user could have a wheel with no buttons
+				SetGain(s, 75);
+				SetAutoCenter(s, 0);
+			}
 			return true;
 		}
 	}
@@ -252,29 +271,31 @@ static void SetConstantForce(LinuxPADState *s, int force)
 	play.code = s->effect.id;
 	play.value = 0;
 	//if (write(s->fdFF, (const void*) &play, sizeof(play)) == -1) {
-	//    fprintf(stderr, "stop effect failed\n");
+	//    Dbg("stop effect failed\n");
 	//}
 
-	fprintf(stderr, "Force: %d\n", force);
+	Dbg("Force: %d\n", force);
 	//s->effect.type = FF_CONSTANT;
 	//s->effect.id = -1;
-	s->effect.u.constant.level = 0x8000;	/* Strength : 0x2000 == 25 % */
-	s->effect.direction = (0xFFFF * (force)) / 255;
+	//s->effect.u.constant.level = 0x8000;	/* Strength : 0x2000 == 25 % */
+	//s->effect.direction = (0xFFFF * (force)) / 255;
+	int y = 0, x = 0;
+	float magnitude = -(127-force) * 78.4803149606299;
+	s->effect.u.constant.level = (MAX(MIN(magnitude, 10000), -10000) / 10) * 32;
+	s->effect.direction = 0x4000; //(int)((3 * M_PI / 2 - atan2(y, x)) * -0x7FFF / M_PI);
+	Dbg("dir: %d lvl: %d\n", s->effect.direction, s->effect.u.constant.level);
 
-	//s->effect.u.constant.level = 0xFFFF * force / 255;
-	//s->effect.direction =  force < 127 ? 0 : force > 127 ? 0xFFFF : 0x8000;
-
-	s->effect.u.constant.envelope.attack_length = 0x10;
-	s->effect.u.constant.envelope.attack_level = 0;
-	s->effect.u.constant.envelope.fade_length = 0x100;
-	s->effect.u.constant.envelope.fade_level = 0;
-	s->effect.trigger.button = 0;
-	s->effect.trigger.interval = 0;
-	s->effect.replay.length = 1000;  /* mseconds */
-	s->effect.replay.delay = 0;
+//	s->effect.u.constant.envelope.attack_length = 0;
+//	s->effect.u.constant.envelope.attack_level = 0;
+//	s->effect.u.constant.envelope.fade_length = 0;
+//	s->effect.u.constant.envelope.fade_level = 0;
+//	s->effect.trigger.button = 0;
+//	s->effect.trigger.interval = 0;
+//	s->effect.replay.length = 0xFFFF;  /* INFINITE mseconds */
+//	s->effect.replay.delay = 0;
 
 	if (ioctl(s->fdFF, EVIOCSFF, &(s->effect)) < 0) {
-		fprintf(stderr, "Upload effect");
+		Dbg("Failed to upload effect\n");
 	}
 
 
@@ -282,14 +303,38 @@ static void SetConstantForce(LinuxPADState *s, int force)
 	play.code = s->effect.id;
 	play.value = 1;
 	if (write(s->fdFF, (const void*) &play, sizeof(play)) == -1) {
-		fprintf(stderr, "play effect failed\n");
+		Dbg("play effect failed\n");
 	}
 
 }
 
-static void SetSpringForce(int force)
+static void SetSpringForce(LinuxPADState *s, int force)
 {
 
+}
+
+static void SetAutoCenter(LinuxPADState *s, int value)
+{
+	struct input_event ie;
+
+	ie.type = EV_FF;
+	ie.code = FF_AUTOCENTER;
+	ie.value = value * 0xFFFFUL / 100;
+
+	if (write(s->fdFF, &ie, sizeof(ie)) == -1)
+		Dbg("Failed to set autocenter\n");
+}
+
+static void SetGain(LinuxPADState *s, int gain /* between 0 and 100 */)
+{
+	struct input_event ie;	/* structure used to communicate with the driver */
+
+	ie.type = EV_FF;
+	ie.code = FF_GAIN;
+	ie.value = 0xFFFFUL * gain / 100;
+
+	if (write(s->fdFF, &ie, sizeof(ie)) == -1)
+		Dbg("Failed to set gain\n");
 }
 
 static int token_out(PADState *ps, uint8_t *data, int len)
@@ -300,7 +345,7 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 
 	memcpy(&ffdata,data, sizeof(ffdata));
 	//if(idx!=0)return 0;
-	fprintf(stderr, "FFB 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X\n", ffdata.reportid, ffdata.index, ffdata.data1, ffdata.data2, ffdata.pad1);
+	Dbg("FFB 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x0%4X\n", ffdata.reportid, ffdata.index, ffdata.data1, ffdata.data2, *(int*)((char*)&ffdata + 4) );
 
 	switch(ffdata.reportid)
 	{
@@ -308,29 +353,33 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 			//TODO needed?
 			if(ffdata.index == 5)
 				sendCrap = true;
+			//TODO guess-work
+			//if(ffdata.index == 3)
+			//	SetAutoCenter(s, 100);
 		break;
 		case 9:
 			{
 				//not handled
 			}
 			break;
-		case 19:
+		case 0x13:
 			//some games issue this command on pause
 			//if(ffdata.reportid == 19 && ffdata.data2 == 0)break;
 			if(ffdata.index == 0x8)
 				SetConstantForce(s, 127); //data1 looks like previous force sent with reportid 0x11
 			//TODO unset spring
 			else if(ffdata.index == 3)
-				SetSpringForce(127);
+				SetSpringForce(s, 127);
 
-			//fprintf(stderr, "FFB 0x%X, 0x%X, 0x%X\n", ffdata.reportid, ffdata.index, ffdata.data1);
+			//Dbg("FFB 0x%X, 0x%X, 0x%X\n", ffdata.reportid, ffdata.index, ffdata.data1);
 			break;
-		case 17://constant force
+		case 0x11://constant force
 			{
 				//handle calibration commands
-				//if(!calibrating){
-						SetConstantForce(s, ffdata.data1);
-				//}
+				//if(!calibrating)
+				{
+					SetConstantForce(s, ffdata.data1);
+				}
 			}
 			break;
 		case 0x21:
@@ -338,36 +387,42 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 			{
 				//if(!calibrating)
 				{
-					//SetConstantForce(ffdata.data1);
-					SetSpringForce(ffdata.data1); //spring is broken?
+					//TODO guess-work
+					SetAutoCenter(s, 100);
+					//SetSpringForce(s, ffdata.data1); //spring is broken?
 				}
 				break;
 			}
 			//drop through
-		case 254://autocenter?
-		case 255://autocenter?
-		case 244://autocenter?
-		case 245://autocenter?
+		case 0xFE://autocenter?
+		case 0xFF://autocenter?
+		case 0xF4://autocenter?
+			//{
+			//	SetAutoCenter(s, 0);
+			//}
+			//break;
+		case 0xF5://autocenter?
 			{
-					//just release force
-					SetConstantForce(s, 127);
+				SetAutoCenter(s, 0);
+				//just release force
+				SetConstantForce(s, 127);
 			}
 			break;
-		case 241:
+		case 0xF1:
 			//DF/GTF and GT3
 			//if(!calibrating)
 			{
-					SetConstantForce(s, ffdata.pad1);
+				SetConstantForce(s, ffdata.pad1);
 			}
 			break;
-		case 243://initialize
+		case 0xF3://initialize
 			{
-
+				//SetAutoCenter(s, 0xFFFFUL);
 			}
 			break;
 	}
+
 	return len;
-	return USB_RET_STALL;
 }
 
 static int open(USBDevice *dev)
@@ -386,8 +441,16 @@ static void close(USBDevice *dev)
 
 	if(s->fd != -1)
 		close(s->fd);
+
 	if(s->fdFF != -1)
+	{
+		if (s->effect.id != -1 && ioctl(s->fdFF, EVIOCRMFF, s->effect.id) == -1)
+		{
+			Dbg("Failed to unload FF effect.\n");
+		}
 		close(s->fdFF);
+	}
+
 
 	s->fd = -1;
 	s->fdFF = -1;

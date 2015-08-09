@@ -70,8 +70,8 @@ void SaveConfig() {
 
 	INISaveUInt(path, "Devices", "Port 0", conf.Port0);
 	INISaveUInt(path, "Devices", "Port 1", conf.Port1);
-	INISaveUInt(path, "Devices", "Wheel type 0", conf.WheelType[PLAYER_ONE_PORT]);
-	INISaveUInt(path, "Devices", "Wheel type 1", conf.WheelType[PLAYER_TWO_PORT]);
+	INISaveUInt(path, "Devices", "Wheel type 0", conf.WheelType[0]);
+	INISaveUInt(path, "Devices", "Wheel type 1", conf.WheelType[1]);
 	INISaveString(path, "Devices", "USB Image", conf.usb_img);
 	INISaveString(path, "Joystick", "Player1", player_joys[0].c_str());
 	INISaveString(path, "Joystick", "Player2", player_joys[1].c_str());
@@ -96,8 +96,8 @@ void LoadConfig() {
 
 	INILoadUInt(path, "Devices", "Port 0", (u32*)&conf.Port0);
 	INILoadUInt(path, "Devices", "Port 1", (u32*)&conf.Port1);
-	INILoadUInt(path, "Devices", "Wheel type 0", (u32*)&conf.WheelType[PLAYER_ONE_PORT]);
-	INILoadUInt(path, "Devices", "Wheel type 1", (u32*)&conf.WheelType[PLAYER_TWO_PORT]);
+	INILoadUInt(path, "Devices", "Wheel type 0", (u32*)&conf.WheelType[0]);
+	INILoadUInt(path, "Devices", "Wheel type 1", (u32*)&conf.WheelType[1]);
 	INILoadString(path, "Devices", "USB Image", conf.usb_img);
 }
 
@@ -115,10 +115,10 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	//if(data)
 	{
-		uint8_t ply = MIN((unsigned)data, 1);
+		uint8_t port = MIN((unsigned)data, 1);
 
-		conf.WheelType[1 - ply] = idx;
-		fprintf(stderr, "Selected wheel type, player %d idx: %d\n", ply, idx);
+		conf.WheelType[port] = idx;
+		fprintf(stderr, "Selected wheel type, player %d idx: %d\n", port, idx);
 	}
 }
 
@@ -222,7 +222,7 @@ static GtkWidget *new_combobox(const char* label, GtkWidget *ro_frame, GtkWidget
 
 	rs_label = gtk_label_new (label);
 	gtk_widget_show (rs_label);
-	gtk_box_pack_start (GTK_BOX (rs_hbox), rs_label, TRUE, TRUE, 5);
+	gtk_box_pack_start (GTK_BOX (rs_hbox), rs_label, FALSE, TRUE, 5);
 	gtk_label_set_justify (GTK_LABEL (rs_label), GTK_JUSTIFY_RIGHT);
 	gtk_misc_set_alignment (GTK_MISC (rs_label), 1, 0.5);
 
@@ -244,6 +244,9 @@ void CALLBACK USBconfigure() {
 	jsdata.clear();
 	jsdata.push_back(make_pair("None", ""));
 	//jsdata.push_back(make_pair("Fake Vendor FakePad", "Fake"));
+
+	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
+	const char *ports[] = {"Port 1:", "Port 2:"};
 
 {
 	int count=0, j=0, fd=0;
@@ -277,8 +280,7 @@ void CALLBACK USBconfigure() {
 					}
 
 					#ifdef _DEBUG
-						fprintf(stderr, str.str());
-						fprintf(stderr, "\n");
+						fprintf(stderr, "%s\n", str.str());
 					#endif
 		}
 	}
@@ -294,16 +296,16 @@ void CALLBACK USBconfigure() {
 		NULL);
 	mOKButton = gtk_dialog_add_button (GTK_DIALOG (mDialog), GTK_STOCK_OK, GTK_RESPONSE_OK);
 	gtk_window_set_position (GTK_WINDOW (mDialog), GTK_WIN_POS_CENTER);
-	gtk_window_set_resizable (GTK_WINDOW (mDialog), FALSE);
+	gtk_window_set_resizable (GTK_WINDOW (mDialog), TRUE);
 	gtk_widget_show (GTK_DIALOG (mDialog)->vbox);
 
 	/*** Device type ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
 	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 0);
 
-	ro_label = gtk_label_new ("Select device:");
+	ro_label = gtk_label_new ("Select device type:");
 	gtk_widget_show (ro_label);
 	gtk_frame_set_label_widget (GTK_FRAME (ro_frame), ro_label);
 	gtk_label_set_use_markup (GTK_LABEL (ro_label), TRUE);
@@ -312,29 +314,25 @@ void CALLBACK USBconfigure() {
 	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
 	gtk_widget_show (vbox);
 
-	/*** PLAYER 1 ***/
-	rs_cb = new_combobox("Port 1:", ro_frame, vbox);
-	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "None");
-	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Wheel");
-	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "USB Mass storage");
-	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(conf.Port1));
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)0);
+	/*** Devices' Comboboxes ***/
+	for(int ply = 0; ply < 2; ply++)
+	{
+		rs_cb = new_combobox(ports[ply], ro_frame, vbox);
+		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "None");
+		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Wheel");
+		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "USB Mass storage");
+		//gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Singstar");
+		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(ply == 0 ? conf.Port1 : conf.Port0));
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)ply);
+	}
 
-	/*** PLAYER 2 ***/
-	rs_cb = new_combobox("Port 2:", ro_frame, vbox);
-	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "None");
-	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Wheel");
-	gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "USB Mass storage");
-	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(conf.Port0));
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)1);
 	rs_cb = NULL;
-
 
 	/*** Joysticks ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
 	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 0);
 
 	ro_label = gtk_label_new ("Select joysticks:");
 	gtk_widget_show (ro_label);
@@ -345,44 +343,63 @@ void CALLBACK USBconfigure() {
 	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
 	gtk_widget_show (vbox);
 
-	/*** PLAYER 1 ***/
-	rs_cb = new_combobox ("Port 1:", ro_frame, vbox);
-	//g_object_set_data (G_OBJECT (ro_cb), "joystick-option", ro_label);
-
-	idx = 0; sel_idx = 0;
-
-	for (vstring::const_iterator r = jsdata.begin(); r != jsdata.end (); r++, idx++)
+	/*** Joysticks' Comboboxes ***/
+	for(int ply = 0; ply < 2; ply++)
 	{
-		stringstream str;
-		str << r->first <<  " [" << r->second << "]";
-		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), str.str().c_str ());
-		if(r->second == player_joys[0])
-			sel_idx = idx;
+		rs_cb = new_combobox (ports[ply], ro_frame, vbox);
+		//g_object_set_data (G_OBJECT (ro_cb), "joystick-option", ro_label);
+
+		idx = 0; sel_idx = 0;
+
+		for (vstring::const_iterator r = jsdata.begin(); r != jsdata.end (); r++, idx++)
+		{
+			stringstream str;
+			str << r->first <<  " [" << r->second << "]";
+			gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), str.str().c_str ());
+			if(r->second == player_joys[ply])
+				sel_idx = idx;
+		}
+		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)ply);
 	}
-	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)0);
 
-	/*** PLAYER 2 ***/
-	rs_cb = new_combobox ("Port 2:", ro_frame, vbox);
+	/** Wheel type **/
+	ro_frame = gtk_frame_new (NULL);
+	gtk_widget_show (ro_frame);
+	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 0);
 
-	idx = 0; sel_idx = 0;
+	ro_label = gtk_label_new ("Wheel types:");
+	gtk_widget_show (ro_label);
+	gtk_frame_set_label_widget (GTK_FRAME (ro_frame), ro_label);
+	gtk_label_set_use_markup (GTK_LABEL (ro_label), TRUE);
 
-	for (vstring::const_iterator r = jsdata.begin(); r != jsdata.end (); r++, idx++)
+	vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
+	gtk_widget_show (vbox);
+
+	for(int ply = 0; ply < 2; ply++)
 	{
-		stringstream str;
-		str << r->first <<  " [" << r->second << "]";
-		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), str.str().c_str ());
-		if(r->second == player_joys[1])
-			sel_idx = idx;
+
+		rs_cb = new_combobox (ports[ply], ro_frame, vbox);
+
+		sel_idx = 0;
+
+		for (int i = 0; i < ARRAYSIZE(wt); i++)
+		{
+			gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), wt[i]);
+			if(conf.WheelType[ply] == i)
+				sel_idx = i;
+		}
+		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (ptrdiff_t*)(ply));
 	}
-	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)1);
 
 	/*** Mass storage ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
 	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, TRUE, 5);
+	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 5);
 
 	ro_label = gtk_label_new ("Select USB image:");
 	gtk_widget_show (ro_label);
@@ -402,50 +419,14 @@ void CALLBACK USBconfigure() {
 	gtk_entry_set_text(GTK_ENTRY(entry), conf.usb_img);
 	g_signal_connect (entry, "changed", G_CALLBACK (entryChanged), NULL);
 
-	GtkWidget *button = gtk_button_new_with_label ("...");
+	GtkWidget *button = gtk_button_new_with_label ("Browse");
+	gtk_button_set_image(GTK_BUTTON (button), gtk_image_new_from_icon_name ("gtk-open", GTK_ICON_SIZE_BUTTON));
 	gtk_widget_show(button);
 	g_signal_connect (button, "clicked", G_CALLBACK (fileChooser), entry);
 
 	gtk_box_pack_start (GTK_BOX (rs_hbox), entry, TRUE, TRUE, 5);
-	gtk_box_pack_start (GTK_BOX (rs_hbox), button, TRUE, TRUE, 5);
+	gtk_box_pack_start (GTK_BOX (rs_hbox), button, FALSE, FALSE, 5);
 	gtk_widget_show (rs_hbox);
-
-	/** Wheel type **/
-	ro_frame = gtk_frame_new (NULL);
-	gtk_widget_show (ro_frame);
-	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, TRUE, 0);
-
-	ro_label = gtk_label_new ("Wheel types:");
-	gtk_widget_show (ro_label);
-	gtk_frame_set_label_widget (GTK_FRAME (ro_frame), ro_label);
-	gtk_label_set_use_markup (GTK_LABEL (ro_label), TRUE);
-
-	vbox = gtk_vbox_new (FALSE, 5);
-	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
-	gtk_widget_show (vbox);
-
-	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
-	const char *ports[] = {"Port 1:", "Port 2:"};
-
-
-	for(int port = 0; port < 2; port++)
-	{
-
-		rs_cb = new_combobox (ports[port], ro_frame, vbox);
-
-		sel_idx = 0;
-
-		for (int i = 0; i < ARRAYSIZE(wt); i++)
-		{
-			gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), wt[i]);
-			if(conf.WheelType[1 - port] == i)
-				sel_idx = i;
-		}
-		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (ptrdiff_t*)(port));
-	}
-
 
 	// Modal loop
 	gint result = gtk_dialog_run (GTK_DIALOG (mDialog));
