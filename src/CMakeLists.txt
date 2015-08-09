@@ -17,6 +17,13 @@ set (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VE
 IF(WIN32)
 OPTION (BUILD_RAW "Build with raw input api" TRUE)
 OPTION (BUILD_DX "Build with DX input" TRUE)
+ELSE(WIN32)
+IF(_DEBUG)
+add_definitions(-D_DEBUG=1)
+ELSE(_DEBUG)
+MESSAGE("Define _DEBUG for debug print.")
+ENDIF(_DEBUG)
+
 ENDIF(WIN32)
 
 #if(EXISTS "/usr/lib/i386-linux-gnu")
