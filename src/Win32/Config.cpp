@@ -98,7 +98,7 @@ void LoadConfig() {
 
 	FILE *fp = nullptr;
 	auto err = _wfopen_s(&fp, szIniFile.c_str(), L"rt");//check if ini really exists
-	if (fp)
+	if (!fp)
 	{
 		memset(&conf, 0, sizeof(conf));
 		conf.Log = 0;//default value
