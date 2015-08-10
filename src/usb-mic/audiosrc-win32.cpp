@@ -469,13 +469,16 @@ public:
 				data.input_frames, data.output_frames,
 				data.input_frames_used, data.output_frames_gen);
 
-			
+#if _DEBUG
 			if (!file)
 			{
-				file = fopen("output.raw", "wb");
+				char name[1024] = { 0 };
+				sprintf_s(name, "output-%dch-%dHz.raw", mInputChannels, mOutputSamplesPerSec);
+				file = fopen(name, "wb");
 			}
 			else
 				fwrite(outBuf, sizeof(short), len, file);
+#endif
 
 			mQBuffer.Remove(data.input_frames_used * mInputChannels);
 			OSDebugOut(TEXT("Queue resampled: %d  Outlen: %d\n"), mQBuffer.Size(), len);
@@ -544,7 +547,7 @@ public:
 			mResample = false;
 			return;
 		}
-
+		mOutputSamplesPerSec = samplerate;
 		mResampleRatio = double(samplerate) / double(mInputSamplesPerSec);
 		mResample = true;
 	}
@@ -567,6 +570,7 @@ private:
 	bool  mFirstSamples; //On the first call, empty the buffer to lower latency
 	UINT  mInputChannels;
 	UINT  mInputSamplesPerSec;
+	UINT  mOutputSamplesPerSec;
 	UINT  mInputBitsPerSample;
 	UINT  mInputBlockSize;
 	DWORD mInputChannelMask;
