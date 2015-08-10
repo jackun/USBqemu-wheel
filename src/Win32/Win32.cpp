@@ -29,6 +29,16 @@ do {\
 	}\
 } while (0)
 
+void SysMessage(const char *fmt, ...) {
+	va_list list;
+	char tmp[512];
+
+	va_start(list, fmt);
+	vsprintf_s(tmp, 512, fmt, list);
+	va_end(list);
+	MessageBoxA(0, tmp, "Qemu USB Msg", 0);
+}
+
 BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch(uMsg) {
 		case WM_INITDIALOG:

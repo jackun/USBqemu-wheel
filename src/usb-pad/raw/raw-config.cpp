@@ -206,16 +206,6 @@ PS2Buttons btnCapturing  = PAD_BUTTON_COUNT;
 PS2Axis    axisCapturing = PAD_AXIS_COUNT;
 PS2HatSwitch hatCapturing = PAD_HAT_COUNT;
 
-void SysMessage(char *fmt, ...) {
-	va_list list;
-	char tmp[512];
-
-	va_start(list,fmt);
-	vsprintf_s(tmp,512,fmt,list);
-	va_end(list);
-	MessageBoxA(0, tmp, "Qemu USB Msg", 0);
-}
-
 void populate(HWND hW)
 {
 	//mappings.clear();
