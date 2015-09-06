@@ -226,7 +226,7 @@ static GtkWidget *new_combobox(const char* label, GtkWidget *ro_frame, GtkWidget
 	gtk_label_set_justify (GTK_LABEL (rs_label), GTK_JUSTIFY_RIGHT);
 	gtk_misc_set_alignment (GTK_MISC (rs_label), 1, 0.5);
 
-	rs_cb = gtk_combo_box_new_text ();
+	rs_cb = gtk_combo_box_text_new ();
 	gtk_widget_show (rs_cb);
 	gtk_box_pack_start (GTK_BOX (rs_hbox), rs_cb, TRUE, TRUE, 5);
 	gtk_widget_show (rs_hbox);
@@ -297,13 +297,13 @@ void CALLBACK USBconfigure() {
 	mOKButton = gtk_dialog_add_button (GTK_DIALOG (mDialog), GTK_STOCK_OK, GTK_RESPONSE_OK);
 	gtk_window_set_position (GTK_WINDOW (mDialog), GTK_WIN_POS_CENTER);
 	gtk_window_set_resizable (GTK_WINDOW (mDialog), TRUE);
-	gtk_widget_show (GTK_DIALOG (mDialog)->vbox);
+	//gtk_widget_show (mDialog);
+	GtkWidget *dlg_area_box = gtk_dialog_get_content_area (GTK_DIALOG (mDialog));
 
 	/*** Device type ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
-	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 0);
 
 	ro_label = gtk_label_new ("Select device type:");
 	gtk_widget_show (ro_label);
@@ -318,10 +318,10 @@ void CALLBACK USBconfigure() {
 	for(int ply = 0; ply < 2; ply++)
 	{
 		rs_cb = new_combobox(ports[ply], ro_frame, vbox);
-		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "None");
-		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Wheel");
-		gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "USB Mass storage");
-		//gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), "Singstar");
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "None");
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "Wheel");
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "USB Mass storage");
+		//gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "Singstar");
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(ply == 0 ? conf.Port1 : conf.Port0));
 		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)ply);
 	}
@@ -331,8 +331,7 @@ void CALLBACK USBconfigure() {
 	/*** Joysticks ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
-	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 0);
 
 	ro_label = gtk_label_new ("Select joysticks:");
 	gtk_widget_show (ro_label);
@@ -355,7 +354,7 @@ void CALLBACK USBconfigure() {
 		{
 			stringstream str;
 			str << r->first <<  " [" << r->second << "]";
-			gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), str.str().c_str ());
+			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), str.str().c_str ());
 			if(r->second == player_joys[ply])
 				sel_idx = idx;
 		}
@@ -366,8 +365,7 @@ void CALLBACK USBconfigure() {
 	/** Wheel type **/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
-	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 0);
 
 	ro_label = gtk_label_new ("Wheel types:");
 	gtk_widget_show (ro_label);
@@ -387,7 +385,7 @@ void CALLBACK USBconfigure() {
 
 		for (int i = 0; i < ARRAYSIZE(wt); i++)
 		{
-			gtk_combo_box_append_text (GTK_COMBO_BOX (rs_cb), wt[i]);
+			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), wt[i]);
 			if(conf.WheelType[ply] == i)
 				sel_idx = i;
 		}
@@ -398,8 +396,7 @@ void CALLBACK USBconfigure() {
 	/*** Mass storage ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);
-	//gtk_box_pack_start (GTK_BOX (vbox), ro_frame, TRUE, TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (mDialog)->vbox), ro_frame, TRUE, FALSE, 5);
+	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 5);
 
 	ro_label = gtk_label_new ("Select USB image:");
 	gtk_widget_show (ro_label);
