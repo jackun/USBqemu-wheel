@@ -1,6 +1,32 @@
 #include "../USB.h"
 #include "usb-pad.h"
 
+#ifdef _DEBUG
+void PrintBits(void * data, int size)
+{
+	char *bits = (char*)malloc(size * 8 + 1);
+	char *ptrD = (char*)data;
+	char *ptrB = bits;
+	for (int i = 0; i < size * 8; i++)
+	{
+		*(ptrB++) = '0' + (*(ptrD + i / 8) & (1 << (i % 8)) ? 1 : 0);
+	}
+	*ptrB = '\0';
+
+#ifdef UNICODE
+	OSDebugOut(TEXT("%S\n"), bits);
+#else
+	OSDebugOut("%s\n", bits);
+#endif
+
+	free(bits);
+}
+
+#else
+#define PrintBits(...)
+#define DbgPrint(...)
+#endif //_DEBUG
+
 static generic_data_t generic_data;
 static dfp_data_t dfp_data;
 static gtforce_data_t gtf_data;
@@ -341,7 +367,6 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 	int type = conf.WheelType[idx];
 
 	//fprintf(stderr,"usb-pad: axis x %d\n", data.axis_x);
-
 	switch(type){
 	case WT_GENERIC:
 		memset(&generic_data, 0xff, sizeof(generic_data_t));
@@ -364,24 +389,25 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		dfp_data.buttons = data.buttons;
 		dfp_data.hatswitch = data.hatswitch;
 		dfp_data.axis_x = data.axis_x;
-		dfp_data.axis_z = 0x8 + (data.axis_z * 0x3F) / 0xFF; //Works but wtf?
-		//dfp_data.axis_z = ((data.axis_z * 0x3F) / 0xFF) << 1;
-		dfp_data.axis_rz = (0xFF) - (data.axis_rz * 0x3F) / 0xFF;
+		dfp_data.axis_z = 1 | (data.axis_z * 0x3F) / 0xFF; //TODO Always > 0 or everything stops working, wut.
+		dfp_data.axis_rz = 0x3F - (data.axis_rz * 0x3F) / 0xFF;
+		OSDebugOut(TEXT("dfp: axis_z=0x%02x, axis_rz=0x%02x\n"), dfp_data.axis_z, dfp_data.axis_rz);
 
-		dfp_data.magic1 = 0;
-		dfp_data.magic2 = //key * 0x9c; //(1<<0) /* enable axes? */
-			1 << 0 |//pedals?
+		dfp_data.magic1 = 1;
+		dfp_data.magic2 = 1;
+		dfp_data.magic3 = 3;
+		dfp_data.magic4 =
+			1 << 0 | //enable pedals?
 			0 << 1 |
 			0 << 2 |
 			0 << 3 |
-			1 << 4 | //wheel?
+			1 << 4 | //enable wheel?
 			0 << 5 |
 			0 << 6 |
 			0 << 7 ;
 
 		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
-
-		//key = 1 - key;
+		PrintBits(&dfp_data, sizeof(dfp_data_t));
 
 		break;
 

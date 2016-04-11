@@ -435,13 +435,16 @@ struct dfp_data_t
 	uint32_t axis_x : 14;
 	uint32_t buttons : 14;
 	uint32_t hatswitch : 4;
+	uint32_t pad0 : 8;
+	uint32_t magic1 : 2; //constant?
+	uint32_t axis_z : 6;
 
-	uint32_t magic1 : 8; //constant
-	
-	uint32_t axis_z : 8; //or y
-	uint32_t axis_rz : 8;
-	uint32_t magic2 : 8; //constant
-	//uint32_t pad3 : 2;
+	uint32_t magic2 : 1; //constant?
+	uint32_t axis_rz : 6;
+
+	uint32_t magic3 : 1;
+
+	uint32_t magic4 : 8; //constant
 };
 
 struct momo2_data_t
