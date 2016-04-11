@@ -11,7 +11,8 @@ void CALLBACK USBsetSettingsDir( const char* dir )
 {
 	fprintf(stderr, "USBsetSettingsDir: %s\n", dir);
 	wchar_t dst[4096] = {0};
-	mbstowcs(dst, dir, ARRAYSIZE(dst));
+	size_t num = 0;
+	mbstowcs_s(&num, dst, dir, ARRAYSIZE(dst));
 	IniDir = dst;
 }
 
@@ -19,7 +20,8 @@ void CALLBACK USBsetLogDir( const char* dir )
 {
 	printf("USBsetLogDir: %s\n", dir);
 	wchar_t dst[4096] = {0};
-	mbstowcs(dst, dir, ARRAYSIZE(dst));
+	size_t num = 0;
+	mbstowcs_s(&num, dst, dir, ARRAYSIZE(dst));
 	LogDir = dst;
 }
 
@@ -27,7 +29,7 @@ void GetIniFile(std::wstring &iniFile)
 {
 	iniFile.clear();
 	if(!IniDir.length()) {
-		TCHAR tmp[MAX_PATH] = {0};
+		WCHAR tmp[MAX_PATH] = {0};
 		GetModuleFileName(GetModuleHandle((LPWSTR)hInst), tmp, MAX_PATH);
 
 		std::wstring path(tmp);
