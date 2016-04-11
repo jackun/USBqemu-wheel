@@ -1,36 +1,53 @@
-cmake_minimum_required(VERSION 2.8.5)
-macro(getenv_path VAR)
-   set(ENV_${VAR} $ENV{${VAR}})
-   # replace won't work if var is blank
-   if (ENV_${VAR})
-     string( REGEX REPLACE "\\\\" "/" ENV_${VAR} ${ENV_${VAR}} )
-   endif ()
-endmacro(getenv_path)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
+
+MACRO(getenv_path VAR)
+	SET(ENV_${VAR} $ENV{${VAR}})
+	# replace won't work if var is blank
+	IF (ENV_${VAR})
+		STRING( REGEX REPLACE "\\\\" "/" ENV_${VAR} ${ENV_${VAR}} )
+	ENDIF ()
+ENDMACRO(getenv_path)
 
 SET(TargetName "USBqemu-wheel")
-project(${TargetName})
+PROJECT(${TargetName})
 
-set (PLUGIN_VERSION_MAJOR "0")
-set (PLUGIN_VERSION_MINOR "5")
-set (PLUGIN_VERSION_PATCH "1")
-set (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
+SET (PLUGIN_VERSION_MAJOR "0")
+SET (PLUGIN_VERSION_MINOR "5")
+SET (PLUGIN_VERSION_PATCH "1")
+SET (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
+
 IF(WIN32)
-OPTION (BUILD_RAW "Build with raw input api" TRUE)
-OPTION (BUILD_DX "Build with DX input" TRUE)
+	OPTION (BUILD_RAW "Build with raw input api" TRUE)
+	OPTION (BUILD_DX "Build with DX input" TRUE)
 ELSE(WIN32)
-IF(_DEBUG)
-add_definitions(-D_DEBUG=1)
-ELSE(_DEBUG)
-MESSAGE("Define _DEBUG for debug print.")
-ENDIF(_DEBUG)
-
+	IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
+		MESSAGE("debug mode")
+	ENDIF()
+	IF(_DEBUG)
+		ADD_DEFINITIONS(-D_DEBUG=1)
+	ELSE(_DEBUG)
+		MESSAGE("Define _DEBUG for debug print.")
+	ENDIF(_DEBUG)
 ENDIF(WIN32)
 
-#if(EXISTS "/usr/lib/i386-linux-gnu")
-#    set(CMAKE_LIBRARY_ARCHITECTURE "i686-linux-gnu")
-#endif()
+# 64 bits specific configuration
+IF(CMAKE_SIZEOF_VOID_P MATCHES "8")
+	MESSAGE("Building as x86 on x86_64.")
+	# Do not search library in /usr/lib64
+	SET_PROPERTY(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS OFF)
+	# Probably useless but it will not harm
+	SET_PROPERTY(GLOBAL PROPERTY COMPILE_DEFINITIONS "-m32")
+	# Force the search on 32-bits path.
+	IF(EXISTS "/usr/lib32")
+		SET(CMAKE_LIBRARY_ARCHITECTURE "../lib32")
+	ENDIF()
+ENDIF(CMAKE_SIZEOF_VOID_P MATCHES "8")
 
-set(HDRS_SAMPLERATE
+#IF(EXISTS "/usr/lib/i386-linux-gnu")
+#	SET(CMAKE_LIBRARY_ARCHITECTURE "i686-linux-gnu")
+#ENDIF()
+
+SET(HDRS_SAMPLERATE
 	./libsamplerate/common.h
 	./libsamplerate/config.h
 	./libsamplerate/fastest_coeffs.h
@@ -40,7 +57,7 @@ set(HDRS_SAMPLERATE
 	./libsamplerate/samplerate.h
 )
 
-set(SRCS_SAMPLERATE
+SET(SRCS_SAMPLERATE
 	./libsamplerate/samplerate.c
 	./libsamplerate/src_linear.c
 	./libsamplerate/src_sinc.c
@@ -48,7 +65,7 @@ set(SRCS_SAMPLERATE
 )
 
 # Some unneeded headers too
-set(HDRS_MIC
+SET(HDRS_MIC
 	#./usb-mic/usbreg.h
 	#./usb-mic/usbcore.h
 	#./usb-mic/usbcfg.h
@@ -63,51 +80,52 @@ set(HDRS_MIC
 	./usb-mic/mic-audiodefs.h
 )
 
-set(HDRS_QEMU
+SET(HDRS_QEMU
 	./qemu-usb/vl.h
 	./qemu-usb/usb.h
 )
 
-set(HDRS_PAD
+SET(HDRS_PAD
 	./usb-pad/usb-pad.h
 	./usb-pad/config.h
 )
 
-set(HDRS_PLG
+SET(HDRS_PLG
 	./USB.h
 	./PS2Etypes.h
 	./PS2Edefs.h
 )
 
-set(SRCS_PLG
+SET(SRCS_PLG
 	./USB.cpp
 )
 
-set(SRCS_QEMU
+SET(SRCS_QEMU
 	./qemu-usb/usb-hid.cpp
-	./qemu-usb/usb-hub.cpp
+	#./qemu-usb/usb-hub.cpp
 	./qemu-usb/vl.cpp
 	./qemu-usb/usb-base.cpp
 	./qemu-usb/usb-msd.cpp
 	./qemu-usb/usb-ohci.cpp
 )
 
-set(SRCS_PAD
+SET(SRCS_PAD
 	./usb-pad/bitjuggling.cpp
 	./usb-pad/usb-pad.cpp
 )
 
-set(SRCS_MIC
+SET(SRCS_MIC
 	./usb-mic/usb-mic-singstar.cpp
 	#./usb-mic/usb-mic-dummy.cpp
 	#./usb-mic/usb-mic.cpp
 	#./usb-eyetoy/usb-eyetoy.cpp
 )
 
-add_definitions(-DLIBSRC_ONLY_FAST)
+ADD_DEFINITIONS(-DLIBSRC_ONLY_FAST)
 
 IF(WIN32)
-	add_definitions(-DUNICODE)
+	ADD_DEFINITIONS(-DUNICODE)
+	ADD_DEFINITIONS(-D_UNICODE)
 	LIST(APPEND HDRS_WIN32
 		./Win32/resource.h
 		./Win32/Config.h
@@ -142,13 +160,13 @@ IF(WIN32)
 	
 	IF(NOT BUILD_DX)
 		SET(BUILD_RAW TRUE)
-	ELSE()
-		add_definitions(-DBUILD_DX=1)
+	ELSE(NOT BUILD_DX)
+		ADD_DEFINITIONS(-DBUILD_DX=1)
 		getenv_path(DXSDK_DIR)
 		SET (BUILD_DX_INCLUDE "${ENV_DXSDK_DIR}/Include" CACHE PATH "DirectX include dir")
 		SET (BUILD_DX_LIB "${ENV_DXSDK_DIR}/Lib/x86" CACHE PATH "DirectX library dir")
-		include_directories(${BUILD_DX_INCLUDE})
-		link_directories(${BUILD_DX_LIB})
+		INCLUDE_DIRECTORIES(${BUILD_DX_INCLUDE})
+		LINK_DIRECTORIES(${BUILD_DX_LIB})
 		LIST(APPEND HDRS_DX
 			./usb-pad/dx/di.h
 			./usb-pad/dx/dialog.h
@@ -164,11 +182,11 @@ IF(WIN32)
 		LIST(APPEND HDRS ${HDRS_DX})
 		LIST(APPEND SRCS ${SRCS_DX})
 		LIST(APPEND LIBS d3dx9 d3d9 dxguid dinput8 Comctl32)
-		file(GLOB DX_RCS ./usb-pad/dx/*.rc)
-	ENDIF()
+		FILE(GLOB DX_RCS ./usb-pad/dx/*.rc)
+	ENDIF(NOT BUILD_DX)
 
 	IF(BUILD_RAW)
-		add_definitions(-DBUILD_RAW=1)
+		ADD_DEFINITIONS(-DBUILD_RAW=1)
 		LIST(APPEND HDRS_RAW
 			./usb-pad/raw/hid.h
 			./usb-pad/raw/raw-config.h
@@ -185,11 +203,11 @@ IF(WIN32)
 		LIST(APPEND HDRS ${HDRS_RAW})
 		LIST(APPEND SRCS ${SRCS_RAW})
 		LIST(APPEND LIBS setupapi)
-		file(GLOB RAW_RCS ./usb-pad/raw/*.rc)
+		FILE(GLOB RAW_RCS ./usb-pad/raw/*.rc)
 	ENDIF(BUILD_RAW)
 	
-	file(GLOB RCS ./Win32/*.rc)
-	file(GLOB DEF ./Win32/*.def)
+	FILE(GLOB RCS ./Win32/*.rc)
+	FILE(GLOB DEF ./Win32/*.def)
 ENDIF(WIN32)
 
 IF(UNIX)
@@ -205,62 +223,54 @@ IF(UNIX)
 		./linux/actualfile.c
 	)
 	
-	add_definitions(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
-	find_package(GTK2 REQUIRED)
+	ADD_DEFINITIONS(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
+	FIND_PACKAGE(GTK2 REQUIRED)
 	LIST(APPEND LIBS ${GTK2_LIBRARIES})
-	include_directories(${GTK2_INCLUDE_DIRS})
+	INCLUDE_DIRECTORIES(${GTK2_INCLUDE_DIRS})
+
+	#INCLUDE(FindPkgConfig)
+	#PKG_CHECK_MODULES(GTK3 gtk+-3.0)
+	#LIST(APPEND LIBS ${GTK3_LIBRARIES})
+	#INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 ENDIF()
 
 LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
 LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_SAMPLERATE})
 
-add_library(${TargetName} SHARED ${SRCS} ${HDRS} ${RAW_RCS} ${DX_RCS} ${RCS} ${DEF})
-target_link_libraries(${TargetName} ${LIBS})
-set_target_properties(${TargetName} PROPERTIES DEBUG_POSTFIX _d)
-set_target_properties(${TargetName} PROPERTIES VERSION ${PLUGIN_VERSION} SOVERSION ${PLUGIN_VERSION_MAJOR})
+ADD_LIBRARY(${TargetName} SHARED ${SRCS} ${HDRS} ${RAW_RCS} ${DX_RCS} ${RCS} ${DEF})
+TARGET_LINK_LIBRARIES(${TargetName} ${LIBS})
+SET_TARGET_PROPERTIES(${TargetName} PROPERTIES DEBUG_POSTFIX _d)
+SET_TARGET_PROPERTIES(${TargetName} PROPERTIES VERSION ${PLUGIN_VERSION} SOVERSION ${PLUGIN_VERSION_MAJOR})
 
 # 64 bits specific configuration
-if(CMAKE_SIZEOF_VOID_P MATCHES "8")
-    # Do not search library in /usr/lib64
-    SET_PROPERTY(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS OFF)
-    # Probably useless but it will not harm
-    SET_PROPERTY(GLOBAL PROPERTY COMPILE_DEFINITIONS "-m32")
-    #add_definitions(-m32)
-    set_target_properties(${TargetName} PROPERTIES COMPILE_FLAGS -m32 LINK_FLAGS -m32 )
-
-    # Force the search on 32-bits path.
-    #if(EXISTS "/usr/lib32")
-    #    set(CMAKE_LIBRARY_ARCHITECTURE "../lib32")
-    #endif()
-endif(CMAKE_SIZEOF_VOID_P MATCHES "8")
-
-#set_target_properties(PROPERTIES
-#        INSTALL_RPATH ${CMAKE_INSTALL_PREFIX} )
-#target_link_libraries(${TargetName} ${LIBS})
+IF(CMAKE_SIZEOF_VOID_P MATCHES "8")
+	#ADD_DEFINITIONS(-m32)
+	SET_TARGET_PROPERTIES(${TargetName} PROPERTIES COMPILE_FLAGS -m32 LINK_FLAGS -m32 )
+ENDIF(CMAKE_SIZEOF_VOID_P MATCHES "8")
 
 # post-build copy for win32
 IF(WIN32 AND NOT MINGW)
-    add_custom_command( TARGET ${TargetName} PRE_BUILD
-        COMMAND if not exist \"${PROJECT_SOURCE_DIR}\"\\..\\Release mkdir \"${PROJECT_SOURCE_DIR}\"\\..\\Release )
-    add_custom_command( TARGET ${TargetName} POST_BUILD
-        COMMAND copy \"$(TargetPath)\" \"${PROJECT_SOURCE_DIR}\"\\..\\Release )
+	ADD_CUSTOM_COMMAND( TARGET ${TargetName} PRE_BUILD
+		COMMAND if not exist \"${PROJECT_SOURCE_DIR}\"\\..\\Release mkdir \"${PROJECT_SOURCE_DIR}\"\\..\\Release )
+	ADD_CUSTOM_COMMAND( TARGET ${TargetName} POST_BUILD
+		COMMAND copy \"$(TargetPath)\" \"${PROJECT_SOURCE_DIR}\"\\..\\Release )
 ENDIF(WIN32 AND NOT MINGW)
 
 # set the executable output path for UNIX and MinGW instead of post-build copy
 IF(MINGW OR UNIX)
-    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/dist)
+	SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/dist)
 ENDIF(MINGW OR UNIX)
 
 # if win32, add INSTALL project  -DCMAKE_INSTALL_PREFIX=...\pcsx2\plugins
 IF(WIN32)
-    install(TARGETS ${TargetName}
-        RUNTIME DESTINATION .
-        CONFIGURATIONS Release RelWithDebInfo MinSizeRel Debug) #All
+	INSTALL(TARGETS ${TargetName}
+		RUNTIME DESTINATION .
+		CONFIGURATIONS Release RelWithDebInfo MinSizeRel Debug) #All
 ELSE(WIN32)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-    INSTALL(
-        TARGETS ${TargetName}
-        LIBRARY DESTINATION .
-        COMPONENT library
-    )
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+	INSTALL(
+		TARGETS ${TargetName}
+		LIBRARY DESTINATION .
+		COMPONENT library
+	)
 ENDIF(WIN32)
