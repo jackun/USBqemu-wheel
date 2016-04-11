@@ -82,7 +82,7 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 #include <string>
 #define MAX_PATH PATH_MAX
 #define __inline inline
-#define OSDebugOut(...)
+#define OSDebugOut(psz_fmt, ...) fprintf(stderr, psz_fmt, ##__VA_ARGS__)
 #define TEXT(val) val
 #define TCHAR char
 #define wfopen fopen
