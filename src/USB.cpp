@@ -283,6 +283,29 @@ EXPORT_C_(int) _USBirqHandler(void)
 {
 	//fprintf(stderr," * USB: IRQ Acknowledged.\n");
 	//qemu_ohci->intr_status&=~bits;
+	//TODO Instead of USBasync(), do like nuuvem plugin and
+	// do ohci_frame_boundary() here?
+#if 0
+	// load state - restart interrupts
+	if( freeze_load == 1 ) {
+		USB_LOG( "_USBirqHandler: Freeze - restart IRQ\n" );
+
+
+		USBirq(PSXCLK / 1000);
+
+
+		freeze_load = 0;
+		return 0;
+	}
+
+	// generate SF packet every 1ms ticks
+	if( (qemu_ohci->ctl & OHCI_CTL_HCFS) == OHCI_USB_OPERATIONAL ) {
+		USBirq(PSXCLK / 1000);
+		qemu_ohci->intr_status |= OHCI_INTR_SF;
+	}
+	ohci_frame_boundary(qemu_ohci);
+#endif
+
 	return 1;
 }
 
