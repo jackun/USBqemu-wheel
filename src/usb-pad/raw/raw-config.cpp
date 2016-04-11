@@ -4,6 +4,7 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <stdlib.h>
+#include <strsafe.h>
 
 #include <algorithm>
 #include <map>
@@ -38,8 +39,8 @@ void LoadMappings(MapVector *maps)
 	int j = 0, v = 0;
 	while(j < 25)
 	{
-		swprintf_s(sec, L"DEVICE %d", j++);
-		if(GetPrivateProfileString(sec, L"HID", NULL, hid, MAX_PATH, szIniFile.c_str())
+		StringCbPrintf(sec, sizeof(sec), TEXT("DEVICE %d"), j++);
+		if(GetPrivateProfileString(sec, TEXT("HID"), NULL, hid, MAX_PATH, szIniFile.c_str())
 			&& hid && !MapExists(maps, hid))
 		{
 			Mappings m;// = new Mappings;
@@ -304,16 +305,19 @@ void populate(HWND hW)
 		if(caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
 			caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
 		{
-			fprintf(stderr, "Joystick found %04X:%04X\n", attr.VendorID, attr.ProductID);
+			OSDebugOut(TEXT("Joystick found %04X:%04X\n"), attr.VendorID, attr.ProductID);
 			std::wstring strPath(didData->DevicePath);
 			std::transform(strPath.begin(), strPath.end(), strPath.begin(), ::toupper);
 			joysDev.push_back(strPath);
 
 			wchar_t str[MAX_PATH+1];
-			HidD_GetProductString(usbHandle, str, sizeof(str));//TODO HidD_GetProductString returns unicode always?
-			SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
-			//joysName.push_back(str);
-			//SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)str);
+			if(HidD_GetProductString(usbHandle, str, sizeof(str)))
+				SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
+			else
+			{
+				StringCbPrintfW(str, MAX_PATH, L"%04X:%04X", attr.VendorID, attr.ProductID);
+				SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
+			}
 
 			if(player_joys[0] == strPath)
 			{
@@ -442,9 +446,9 @@ void populateMappings(HWND hW)
 		if((uint32_t)abs((int)(axisDiff[(int)x] - value)) > (logical >> 2)){\
 			mapping->axisMap[x] = PLY_SET_MAPPED(plyCapturing, axisCapturing);\
 			axisPass2 = false;\
-			fprintf(stderr, "Selected axis %d\n", x);\
-			swprintf_s(buf, L"Captured wheel axis %d", x); \
-			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf); \
+			OSDebugOut(TEXT("Selected axis %d\n"), x);\
+			StringCbPrintf(buf, sizeof(buf), TEXT("Captured wheel axis %d"), x); \
+			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf); \
 			axisCapturing = PAD_AXIS_COUNT;\
 			goto Error;\
 		}\
@@ -460,7 +464,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 	UINT                 bufferSize;
 	USAGE                usage[MAX_BUTTONS];
 	ULONG                i, usageLength, value;
-	TCHAR                 name[1024] = {0};
+	TCHAR                name[1024] = {0};
 	UINT                 nameSize = 1024;
 	UINT                 pSize;
 	RID_DEVICE_INFO      devInfo;
@@ -526,8 +530,8 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 		if(btnCapturing < PAD_BUTTON_COUNT)
 		{
 			mapping->btnMap[btnCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
-			swprintf_s(buf, L"Captured KB button %d", pRawInput->data.keyboard.VKey);
-			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+			StringCbPrintf(buf, sizeof(buf), TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
+			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			btnCapturing = PAD_BUTTON_COUNT;
 		}
 		else if(hatCapturing < PAD_HAT_COUNT)
@@ -537,15 +541,15 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 				if(hats7to4[h] == hatCapturing)
 					mapping->hatMap[h] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
 			}
-			swprintf_s(buf, L"Captured KB button %d", pRawInput->data.keyboard.VKey);
-			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+			StringCbPrintf(buf, sizeof(buf), TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
+			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			hatCapturing = PAD_HAT_COUNT;
 		}
 		else if(axisCapturing < PAD_AXIS_COUNT)
 		{
 			mapping->axisMap[axisCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
-			swprintf_s(buf, L"Captured KB button %d", pRawInput->data.keyboard.VKey);
-			SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+			StringCbPrintf(buf, sizeof(buf), TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
+			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			axisCapturing = PAD_AXIS_COUNT;
 		}
 	}
@@ -635,9 +639,9 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 					if(value < 0x8) {
 						mapping->axisMap[6] = PLY_SET_MAPPED(plyCapturing, axisCapturing);
 						axisPass2 = false;
-						fprintf(stderr, "Selected hat switch\n");
-						swprintf_s(buf, L"Captured wheel hat switch"); 
-						SendDlgItemMessageA(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+						OSDebugOut(TEXT("Selected hat switch\n"));
+						StringCbPrintf(buf, sizeof(buf), TEXT("Captured wheel hat switch"));
+						SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 						axisCapturing = PAD_AXIS_COUNT;
 						goto Error;
 					}
@@ -659,7 +663,7 @@ Error:
 void resetState(HWND hW)
 {
 	SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
-	SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"");
+	SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)TEXT(""));
 
 	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType[plyCapturing], 0);
 
@@ -699,7 +703,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			rid[2].hwndTarget = hW;
 
 			if (!RegisterRawInputDevices(rid, 3, sizeof(rid[0]))) {
-				SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)"Could not register raw input devices.");
+				SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)TEXT("Could not register raw input devices."));
 			}
 
 			//LoadConfig();
@@ -769,7 +773,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 						resetState(hW);
 						SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
 						//But would you want to?
-						SendDlgItemMessageW(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Both players can't have the same controller."); //Actually, whatever, but config logics are limited ;P
+						SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)"Both players can't have the same controller."); //Actually, whatever, but config logics are limited ;P
 					}*/
 					break;
 				case IDC_COMBO1:
@@ -818,8 +822,8 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON20://rz
 				case IDC_BUTTON21://hat
 					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
-					swprintf_s(buf, L"Capturing for axis %d, press ESC to cancel", axisCapturing);
-					SendDlgItemMessageA(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+					StringCbPrintf(buf, sizeof(buf), TEXT("Capturing for axis %d, press ESC to cancel"), axisCapturing);
+					SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
 				case IDC_BUTTON13:
 					hatCapturing = PAD_HAT_N;
