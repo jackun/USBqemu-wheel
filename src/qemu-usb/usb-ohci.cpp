@@ -243,7 +243,7 @@ static inline int get_words(uint32_t addr, uint16_t *buf, int num)
         *buf = le16_to_cpu(*buf);
     }
 
-    return 0; //mind the reverse logic
+    return 1;
 }
 
 /* Put an array of dwords in to main memory */
@@ -269,7 +269,7 @@ static inline int put_words(uint32_t addr, uint16_t *buf, int num)
         cpu_physical_memory_rw(addr, (uint8_t *)&tmp, sizeof(tmp), 1);
     }
 
-    return 0; //mind the reverse logic
+    return 1;
 }
 
 static inline int ohci_read_ed(uint32_t addr, struct ohci_ed *ed)
@@ -284,11 +284,8 @@ static inline int ohci_read_td(uint32_t addr, struct ohci_td *td)
 
 static inline int ohci_read_iso_td(uint32_t addr, struct ohci_iso_td *td)
 {
-    // Don't use the OR logic of original qemu.
-    // It only leads to missing reads.
-    get_dwords(addr, (uint32_t *)td, 4);
-    get_words(addr + 16, td->offset, 8);
-    return 1;
+    return get_dwords(addr, (uint32_t *)td, 4) &&
+        get_words(addr + 16, td->offset, 8);
 }
 
 static inline int ohci_put_ed(uint32_t addr, struct ohci_ed *ed)
@@ -303,9 +300,8 @@ static inline int ohci_put_td(uint32_t addr, struct ohci_td *td)
 
 static inline int ohci_put_iso_td(uint32_t addr, struct ohci_iso_td *td)
 {
-    put_dwords(addr, (uint32_t *)td, 4);
-    put_words(addr + 16, td->offset, 8);
-    return 1;
+    return put_dwords(addr, (uint32_t *)td, 4) &&
+        put_words(addr + 16, td->offset, 8);
 }
 
 /* Read/Write the contents of a TD from/to main memory.  */
