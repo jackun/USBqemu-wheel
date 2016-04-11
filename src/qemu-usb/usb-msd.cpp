@@ -712,8 +712,8 @@ USBDevice *usb_msd_init(const TCHAR *filename)
     s->dev.handle_data = usb_msd_handle_data;
     s->dev.handle_destroy = usb_msd_handle_destroy;
 
-	sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
-             filename);
+    sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
+             ""/*filename*/);
 
     usb_msd_handle_reset((USBDevice *)s);
     return (USBDevice *)s;
