@@ -474,7 +474,7 @@ public:
 			{
 				char name[1024] = { 0 };
 				sprintf_s(name, "output-%dch-%dHz.raw", mInputChannels, mOutputSamplesPerSec);
-				file = fopen(name, "wb");
+				fopen_s(&file, name, "wb");
 			}
 			else
 				fwrite(outBuf, sizeof(short), len, file);

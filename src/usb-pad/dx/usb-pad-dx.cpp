@@ -30,7 +30,7 @@ typedef struct Win32PADState {
 
 } Win32PADState;
 
-typedef enum CONTROLID
+enum CONTROLID
 {
 	STEERING,
 	THROTTLE,

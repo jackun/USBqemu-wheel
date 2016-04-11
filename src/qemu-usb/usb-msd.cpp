@@ -59,7 +59,7 @@ enum USBMSDMode {
 typedef struct {
     USBDevice dev;
     enum USBMSDMode mode;
-    uint32_t data_len;
+    int32_t data_len;
     uint32_t tag;
     FILE *hfile;
     //char fn[MAX_PATH+1]; //TODO Could use with open/close, 

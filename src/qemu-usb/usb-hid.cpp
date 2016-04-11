@@ -526,7 +526,7 @@ USBDevice *usb_tablet_init(void)
     s->dev.handle_destroy = usb_mouse_handle_destroy;
     s->kind = USB_TABLET;
 
-    strncpy(s->dev.devname, "QEMU USB Tablet", sizeof(s->dev.devname));
+    strncpy(s->dev.devname, "QEMU USB Tablet", MIN(16, sizeof(s->dev.devname)));
 
     return (USBDevice *)s;
 }
@@ -547,7 +547,7 @@ USBDevice *usb_mouse_init(void)
     s->dev.handle_destroy = usb_mouse_handle_destroy;
     s->kind = USB_MOUSE;
 
-    strncpy(s->dev.devname, "QEMU USB Mouse", sizeof(s->dev.devname));
+    strncpy(s->dev.devname, "QEMU USB Mouse", MIN(15, sizeof(s->dev.devname)));
 
     return (USBDevice *)s;
 }

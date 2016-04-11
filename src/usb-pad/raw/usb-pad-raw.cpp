@@ -420,7 +420,7 @@ static int open(USBDevice *dev)
 		HidD_FreePreparsedData(pPreparsedData);
 	}
 	else
-		fprintf(stderr, "Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[idx].c_str());
+		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[idx].c_str());
 
 	return 0;
 }
