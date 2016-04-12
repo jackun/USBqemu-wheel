@@ -13,11 +13,7 @@ void PrintBits(void * data, int size)
 	}
 	*ptrB = '\0';
 
-#ifdef UNICODE
-	OSDebugOut(TEXT("%S\n"), bits);
-#else
-	OSDebugOut("%s\n", bits);
-#endif
+	OSDebugOut(TEXT("%" SFMTs "\n"), bits);
 
 	free(bits);
 }

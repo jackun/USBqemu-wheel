@@ -40,12 +40,8 @@
 
 #include <vector>
 static int rateLimit = 0;
-static void OSDebugOut(const TCHAR *psz_fmt, ...)
+static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 {
-#ifndef _DEBUG
-	return;
-#endif
-
 	if(rateLimit > 0 && rateLimit < 100)
 	{
 		rateLimit++;
@@ -73,21 +69,47 @@ static void OSDebugOut(const TCHAR *psz_fmt, ...)
 	OutputDebugString(&msg[0]);
 }
 
+#ifdef _DEBUG
+#define OSDebugOut(psz_fmt, ...) _OSDebugOut(psz_fmt, ##__VA_ARGS__)
+#else
+#define OSDebugOut(...)
+#endif
+
 #define wfopen _wfopen
 #define STDSTR std::wstring
+
+//FIXME narrow string fmt
+#ifdef UNICODE
+#define SFMTs "S"
 #else
+#define SFMTs "s"
+#endif
+
+#else //_WIN32
 
 //#include <gtk/gtk.h>
 #include <limits.h>
 #include <string>
 #define MAX_PATH PATH_MAX
 #define __inline inline
+
+#ifdef _DEBUG
 #define OSDebugOut(psz_fmt, ...) fprintf(stderr, psz_fmt, ##__VA_ARGS__)
+#else
+#define OSDebugOut(psz_fmt, ...)
+#endif
+
+//#ifndef TEXT
+//#define TEXT(x) L##x
+//#endif
+//FIXME narrow string fmt
+#define SFMTs "s"
 #define TEXT(val) val
 #define TCHAR char
 #define wfopen fopen
 #define STDSTR std::string
-#endif
+
+#endif //_WIN32
 
 #define USBdefs
 #include "PS2Edefs.h"
