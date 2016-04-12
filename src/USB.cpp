@@ -54,9 +54,7 @@ typedef struct {
 	int extraData; // for future expansion with the device state
 } USBfreezeData;
 
-u8 *usbR = 0;
 u8 *ram = 0;
-usbStruct usb;
 USBcallback _USBirq;
 FILE *usbLog;
 int64_t usb_frame_time;

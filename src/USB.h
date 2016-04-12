@@ -32,6 +32,7 @@
 #endif
 
 // Annoying defines
+// ---------------------------------------------------------------------
 #ifdef _WIN32
 
 #define usleep(x)	Sleep(x / 1000)
@@ -111,6 +112,7 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 
 #endif //_WIN32
 
+// ---------------------------------------------------------------------
 #define USBdefs
 #include "PS2Edefs.h"
 
@@ -130,36 +132,9 @@ typedef struct _Config {
 } Config;
 
 extern Config conf;
-
-extern u8 *usbR;
 extern u8 *ram;
 
-typedef struct {
-	int unused;
-} usbStruct;
-
-extern usbStruct usb;
-
-#define usbRs8(mem)		usbR[(mem) & 0xffff]
-#define usbRs16(mem)	(*(s16*)&usbR[(mem) & 0xffff])
-#define usbRs32(mem)	(*(s32*)&usbR[(mem) & 0xffff])
-#define usbRu8(mem)		(*(u8*) &usbR[(mem) & 0xffff])
-#define usbRu16(mem)	(*(u16*)&usbR[(mem) & 0xffff])
-#define usbRu32(mem)	(*(u32*)&usbR[(mem) & 0xffff])
-
-#define PSXCLK	36864000	/* 36.864 Mhz */
-
-extern USBcallback _USBirq;
-void USBirq(int);
-
-void SaveConfig();
-void LoadConfig();
-
-extern FILE *usbLog;
-void __Log(const char *fmt, ...);
-
-void SysMessage(const char *fmt, ...);
-
+// ---------------------------------------------------------------------
 #include "qemu-usb/vl.h"
 
 #define DEBUG_OHCI
@@ -320,10 +295,10 @@ struct ohci_iso_td {
 #define OHCI_CTL_CLE          (1<<4)
 #define OHCI_CTL_BLE          (1<<5)
 #define OHCI_CTL_HCFS         ((1<<6)|(1<<7))
-#define  OHCI_USB_RESET       0x00
-#define  OHCI_USB_RESUME      0x40
-#define  OHCI_USB_OPERATIONAL 0x80
-#define  OHCI_USB_SUSPEND     0xc0
+#define OHCI_USB_RESET        0x00
+#define OHCI_USB_RESUME       0x40
+#define OHCI_USB_OPERATIONAL  0x80
+#define OHCI_USB_SUSPEND      0xc0
 #define OHCI_CTL_IR           (1<<8)
 #define OHCI_CTL_RWC          (1<<9)
 #define OHCI_CTL_RWE          (1<<10)
@@ -405,6 +380,19 @@ struct ohci_iso_td {
 #define OHCI_CC_BUFFEROVERRUN       0xc
 #define OHCI_CC_BUFFERUNDERRUN      0xd
 
+// ---------------------------------------------------------------------
+#define PSXCLK	36864000	/* 36.864 Mhz */
+
+extern USBcallback _USBirq;
+void USBirq(int);
+
+void SaveConfig();
+void LoadConfig();
+
+extern FILE *usbLog;
+void __Log(const char *fmt, ...);
+
+void SysMessage(const char *fmt, ...);
 s64 get_clock();
 
 OHCIState *ohci_create(uint32_t base, int ports);
