@@ -15,8 +15,46 @@
 
 static FILE* file = nullptr;
 
+LARGE_INTEGER clockFreq = { 0 };
+__declspec(thread) LONGLONG lastQPCTime = 0;
+LONGLONG lastTimeMS = 0;
+LONGLONG GetQPCTimeMS()
+{
+	LARGE_INTEGER currentTime;
+	QueryPerformanceCounter(&currentTime);
+
+	if (currentTime.QuadPart < lastQPCTime)
+		OSDebugOut(TEXT("GetQPCTimeMS: WTF, clock went backwards! %I64d < %I64d"), currentTime.QuadPart, lastQPCTime);
+
+	lastQPCTime = currentTime.QuadPart;
+
+	LONGLONG timeVal = currentTime.QuadPart;
+	timeVal *= 1000;
+	timeVal /= clockFreq.QuadPart;
+
+	return timeVal;
+}
+
+LONGLONG GetQPCTime100NS()
+{
+	LARGE_INTEGER currentTime;
+	QueryPerformanceCounter(&currentTime);
+
+	if (currentTime.QuadPart < lastQPCTime)
+		OSDebugOut(TEXT("GetQPCTime100NS: WTF, clock went backwards! %I64d < %I64d"), currentTime.QuadPart, lastQPCTime);
+
+	lastQPCTime = currentTime.QuadPart;
+
+	double timeVal = double(currentTime.QuadPart);
+	timeVal *= 10000000.0;
+	timeVal /= double(clockFreq.QuadPart);
+
+	return LONGLONG(timeVal);
+}
+
 bool AudioInit()
 {
+	QueryPerformanceFrequency(&clockFreq);
 	HRESULT hr = CoInitialize(0);// Ex(nullptr, COINIT_APARTMENTTHREADED);
 	if (S_OK != hr && S_FALSE != hr /* already inited */)
 	{
@@ -111,7 +149,8 @@ public:
 	QueueBuffer()
 	: mBuffer(NULL)
 	, mPos(0)
-	, mLen(1024)
+	, mLen(1<<20)
+	, mPosPtr(0)
 	{
 		mBuffer = (T*)malloc(sizeof(T) * mLen);
 	}
@@ -122,7 +161,7 @@ public:
 	}
 
 	// Add silence
-	void Add(uint32_t len)
+	void Add(int32_t len)
 	{
 		assert(mPos < INT_MAX - len);
 
@@ -134,7 +173,7 @@ public:
 
 		if (mPos + len > mLen)
 		{
-			mLen = mPos + len;
+			mLen = mPos + (1<<20);
 			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
 		}
 
@@ -143,7 +182,7 @@ public:
 	}
 
 	// Add actual data
-	void Add(T *ptr, uint32_t len)
+	void Add(T *ptr, int32_t len)
 	{
 		assert(ptr);
 		assert(mPos < INT_MAX - len);
@@ -156,7 +195,7 @@ public:
 
 		if(mPos + len > mLen)
 		{
-			mLen = mPos + len;
+			mLen = mPos + (1<<20);
 			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
 		}
 
@@ -166,11 +205,13 @@ public:
 
 	T* Ptr()
 	{
-		return mBuffer;
+		return mBuffer;// +mPosPtr;
 	}
 
-	void Remove(uint32_t len)
+	void Remove(int32_t len)
 	{
+		//mPosPtr += len;
+		//return;
 		// Keep old buffer size, should have less memory fragmentation,
 		// but resize if it is larger than 1MB.
 		bool bRealloc = false;
@@ -179,7 +220,7 @@ public:
 			mPos = 0;
 			if(mLen * sizeof(T) > (1<<20))
 			{
-				mLen = 1024;
+				mLen = (1 << 20) / sizeof(T);
 				bRealloc = true;
 			}
 		}
@@ -187,24 +228,34 @@ public:
 		{
 			if(mLen * sizeof(T) > (1<<20))
 				bRealloc = true;
-			mPos -= len;
+			mPos = MAX(mPos - len, 0);
 			mLen -= len;
+			//mLen = MAX(mLen - len, 1<<20);
+			if (mLen * sizeof(T) < (1 << 20) && bRealloc)
+				bRealloc = true;
+			else
+				bRealloc = false;
 			memmove(mBuffer, mBuffer + len, mLen * sizeof(T));
 		}
 
-		if(bRealloc)
+		if (bRealloc)
+		{
+			mLen = 1 << 20;
 			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
+		}
 	}
 
 	uint32_t Capacity(){ return mLen; }
-	uint32_t Size(){ return mPos; }
+	uint32_t Size(){ return mPos - mPosPtr; }
 	void Reset(){ Remove(mLen); }
 
 
 private:
 	T *mBuffer;
-	uint32_t mPos;
-	uint32_t mLen;
+	int32_t mPos;
+	int32_t mLen;
+	int32_t mPosPtr;
+
 };
 
 class MMAudioSource : public AudioSource
@@ -221,6 +272,7 @@ public:
 	, mDeviceLost(true)
 	, mResample(false)
 	, mFirstSamples(true)
+	, mOutputSamplesPerSec(48000)
 	{
 	}
 
@@ -251,7 +303,7 @@ public:
 		HRESULT err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
 		if(FAILED(err))
 		{
-			OSDebugOut(TEXT("MMDeviceAudioSource::Init(): Could not create IMMDeviceEnumerator = %08lX\n"), err);
+			SysMessage(TEXT("MMAudioSource::Init(): Could not create IMMDeviceEnumerator = %08lX\n"), err);
 			return false;
 		}
 
@@ -266,13 +318,19 @@ public:
 
 		if(!mDeviceLost && mmClock)
 			return true;
+		else
+		{
+			if (GetQPCTimeMS() - lastTimeMS < 1000)
+				return false;
+			lastTimeMS = GetQPCTimeMS();
+		}
 
 		err = mmEnumerator->GetDevice(mDevInfo.strID.c_str(), &mmDevice);
 
 		if(FAILED(err))
 		{
 			if (!mDeviceLost) 
-				OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Could not create IMMDevice = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not create IMMDevice = %08lX\n"), err);
 			return false;
 		}
 
@@ -280,7 +338,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost) 
-				OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Could not create IAudioClient = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not create IAudioClient = %08lX\n"), err);
 			return false;
 		}
 
@@ -308,7 +366,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Could not get mix format from audio client = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not get mix format from audio client = %08lX\n"), err);
 			return false;
 		}
 
@@ -322,7 +380,7 @@ public:
 			if(wfext->SubFormat != KSDATAFORMAT_SUBTYPE_IEEE_FLOAT)
 			{
 				if (!mDeviceLost)
-					OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Unsupported wave format\n"));
+					SysMessage(TEXT("MMAudioSource::Reinitialize(): Unsupported wave format\n"));
 				CoTaskMemFree(pwfx);
 				return false;
 			}
@@ -330,7 +388,7 @@ public:
 		else if(pwfx->wFormatTag != WAVE_FORMAT_IEEE_FLOAT)
 		{
 			if (!mDeviceLost)
-				OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Unsupported wave format\n"));
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Unsupported wave format\n"));
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -347,16 +405,16 @@ public:
 		//Random limit of 1ms to 1 seconds
 		if(conf.MicBuffering == 0)
 			conf.MicBuffering = 50;
-		UINT buffering = MIN(MAX(conf.MicBuffering, 1), 1000);
-		OSDebugOut(TEXT("Mic buffering: %d\n"), buffering);
+		conf.MicBuffering = MIN(MAX(conf.MicBuffering, 1), 1000);
+		OSDebugOut(TEXT("Mic buffering: %d\n"), conf.MicBuffering);
 
-		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(buffering), 0, pwfx, NULL);
+		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(conf.MicBuffering), 0, pwfx, NULL);
 		//err = AUDCLNT_E_UNSUPPORTED_FORMAT;
 
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Could not initialize audio client, result = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not initialize audio client, result = %08lX\n"), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -366,7 +424,8 @@ public:
 		err = mmClient->GetService(IID_IAudioCaptureClient, (void**)&mmCapture);
 		if(FAILED(err))
 		{
-			if (!mDeviceLost) OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Could not get audio capture client, result = %08lX\n"), err);
+			if (!mDeviceLost)
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not get audio capture client, result = %08lX\n"), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -374,7 +433,8 @@ public:
 		err = mmClient->GetService(__uuidof(IAudioClock), (void**)&mmClock);
 		if(FAILED(err))
 		{
-			if (!mDeviceLost) OSDebugOut(TEXT("MMDeviceAudioSource::Reinitialize(): Could not get audio capture clock, result = %08lX\n"), err);
+			if (!mDeviceLost)
+				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not get audio capture clock, result = %08lX\n"), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -384,12 +444,22 @@ public:
 		// Setup resampler
 		int converterType = SRC_SINC_FASTEST;
 		int errVal = 0;
+
+		if (mResampler)
+			mResampler = src_delete(mResampler);
+
 		mResampler = src_new(converterType, mInputChannels, &errVal);
 		if(!mResampler)
 		{
 			OSDebugOut(TEXT("Failed to create resampler: error %08lX\n"), errVal);
+#ifndef _DEBUG
+			SysMessage(TEXT("USBqemu: Failed to create resampler: error %08lX"), errVal);
+#endif
 			return false;
 		}
+
+		if (mDeviceLost && !mFirstSamples) //TODO really lost and just first run. Call Start() from ctor always anyway?
+			this->Start();
 
 		mDeviceLost = false;
 
@@ -413,7 +483,9 @@ public:
 	virtual bool GetFrames(uint32_t *size)
 	{
 		UINT32 pkSize = 0;
-		Reinitialize();
+		if (!Reinitialize())
+			return false;
+
 		HRESULT hRes = mmCapture->GetNextPacketSize(&pkSize);
 
 		if (FAILED(hRes)) {
@@ -426,39 +498,68 @@ public:
 			return false;
 		}
 
-		pkSize = MAX(pkSize, mQBuffer.Size() / mInputChannels);
+		pkSize += mQBuffer.Size() / mInputChannels;
 
 		if(mResample)
-			pkSize = UINT32((double(pkSize) * mResampleRatio) + 1.0);
+			pkSize = UINT32(double(pkSize) * mResampleRatio);
 		
-		*size = pkSize * mInputChannels;// * sizeof(uint16_t);
+		*size = pkSize * mInputChannels;
 
 		return true;
 	}
 
-	//TODO @param outLen : bytes to read (samples * channels), turn into samples to read?
-	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outLen)
+	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outFrames)
 	{
 		if (mFirstSamples) //TODO clean out initially buffered samples, unnecessery?
 		{
 			while (GetMMBuffer()); //TODO Is MSVC gonna 'optimize' this?
-			mQBuffer.Remove(mQBuffer.Size() - outLen);
+			mQBuffer.Remove(mQBuffer.Size() - uint32_t(outFrames / mResampleRatio));
 			mFirstSamples = false;
 		}
-		else if (mQBuffer.Size() < outLen) // because forever increasing buffer otherwise
+		//Argh, makes shit play fast, because missing samples duh
+		//else if (mQBuffer.Size() < (conf.MicBuffering * (mInputSamplesPerSec/1000.0) * mInputChannels)) //outLen) // because forever increasing buffer otherwise
 			GetMMBuffer();
 
+		if (!mQBuffer.Size())
+			return 0;
+
+#if _DEBUG
+		if (!file)
+		{
+			char name[1024] = { 0 };
+			sprintf_s(name, "audiosrc_output_%dch_%dHz.raw", mInputChannels, mOutputSamplesPerSec);
+			fopen_s(&file, name, "wb");
+		}
+#endif
+		static LONGLONG time = 0;
+		static int samples = 0;
+		static double timeAdjust = 1.0;
+
+		samples += outFrames;
+		time = GetQPCTime100NS();
+		if (lastTimeMS == 0) lastTimeMS = time;
+		if (time - lastTimeMS >= 1e7)
+		{
+			LONGLONG diff = time - lastTimeMS;
+			OSDebugOut(TEXT("timespan: %" PRId64 " sampling: %f\n"), diff, float(samples) / diff * 1e7);
+			//timeAdjust = diff / 1e7;
+			timeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
+			lastTimeMS = time;
+			samples = 0;
+		}
+
+		//TODO separate thread
 		if(mResample)
 		{
-			std::vector<float> rebuf(outLen + 1); //TODO check std::vector elements' alignment
+			std::vector<float> rebuf(outFrames + 1); //TODO check std::vector elements' alignment
 
 			SRC_DATA data;
 			memset(&data, 0, sizeof(SRC_DATA));
 			data.data_in = mQBuffer.Ptr();
 			data.input_frames = mQBuffer.Size() / mInputChannels;
 			data.data_out = &rebuf[0];
-			data.output_frames = outLen / mInputChannels;
-			data.src_ratio = mResampleRatio;
+			data.output_frames = outFrames / mInputChannels;
+			data.src_ratio = mResampleRatio * timeAdjust;
 
 			src_process(mResampler, &data);
 
@@ -470,23 +571,23 @@ public:
 				data.input_frames_used, data.output_frames_gen);
 
 #if _DEBUG
-			if (!file)
-			{
-				char name[1024] = { 0 };
-				sprintf_s(name, "output-%dch-%dHz.raw", mInputChannels, mOutputSamplesPerSec);
-				fopen_s(&file, name, "wb");
-			}
-			else
+			if (file)
 				fwrite(outBuf, sizeof(short), len, file);
 #endif
 
 			mQBuffer.Remove(data.input_frames_used * mInputChannels);
-			OSDebugOut(TEXT("Queue resampled: %d  Outlen: %d\n"), mQBuffer.Size(), len);
+			OSDebugOut(TEXT("Resampled Queue size: %d  Outlen: %d\n"), mQBuffer.Size(), len);
 			return len;
 		}
 
-		uint32_t totalLen = MIN(outLen, mQBuffer.Size());
+		uint32_t totalLen = MIN(outFrames, mQBuffer.Size());
 		src_float_to_short_array(mQBuffer.Ptr(), (short*)outBuf, totalLen);
+
+#if _DEBUG
+		if (file)
+			fwrite(outBuf, sizeof(short), totalLen, file);
+#endif
+
 		mQBuffer.Remove(totalLen);
 		OSDebugOut(TEXT("Queue plain: %d OutLen: %d\n"), mQBuffer.Size(), totalLen);
 		return totalLen;

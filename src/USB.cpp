@@ -324,7 +324,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 	{
 		if(data->size < sizeof(USBfreezeData))
 		{
-			SysMessage("ERROR: Unable to load freeze data! Got %d bytes, expected >= %d.", data->size, sizeof(USBfreezeData));
+			SysMessage(TEXT("ERROR: Unable to load freeze data! Got %d bytes, expected >= %d."), data->size, sizeof(USBfreezeData));
 			return -1;
 		}
 
@@ -333,7 +333,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 		if( strcmp(usbd.freezeID, USBfreezeID) != 0)
 		{
-			SysMessage("ERROR: Unable to load freeze data! Found ID '%s', expected ID '%s'.", usbd.freezeID, USBfreezeID);
+			SysMessage(TEXT("ERROR: Unable to load freeze data! Found ID '%s', expected ID '%s'."), usbd.freezeID, USBfreezeID);
 			return -1;
 		}
 

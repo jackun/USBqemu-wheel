@@ -28,6 +28,8 @@
 #include "../qemu-usb/vl.h"
 #include <assert.h>
 
+static FILE *file = NULL;
+
 /* HID interface requests */
 #define GET_REPORT   0xa101
 #define GET_IDLE     0xa102
@@ -518,9 +520,9 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
 	//cs 1 cn 0xFF, ep 0x81 attrib 1
 	fprintf(stderr, "singstar: ep control cs %x, cn %X, %X %X data:", cs, cn, attrib, ep);
 	OSDebugOut(TEXT("singstar: ep control cs %x, cn %X, attr: %02X ep: %04X\n"), cs, cn, attrib, ep);
-	for(int i=0; i<length; i++)
+	/*for(int i=0; i<length; i++)
 		fprintf(stderr, "%02X ", data[i]);
-	fprintf(stderr, "\n");
+	fprintf(stderr, "\n");*/
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, CR_SET_CUR, 0x81):
@@ -561,7 +563,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
     int ret = 0;
 
-	//OSDebugOut("singstar: req %04X val: %04X idx: %04X len: %d\n", request, value, index, length);
+	OSDebugOut(TEXT("singstar: req %04X val: %04X idx: %04X len: %d\n"), request, value, index, length);
 
     switch(request) {
     /*
@@ -757,7 +759,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				}
 			}
 
-			OSDebugOut(TEXT("Audio buf1: %d buf2: %d\n"), outlen[0], outlen[1]);
+			OSDebugOut(TEXT("data len: %d, Audio buf1: %d buf2: %d\n"), len, outlen[0], outlen[1]);
 
 			//TODO well, it is 16bit interleaved, right?
 			if(s->isCombined && (buffer[0] || buffer[1]))
@@ -772,7 +774,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				{
 					dst[i * 2] = SetVolume(src1[i * chn], s->out.vol[k]);
 					if(chn == 1)
-						dst[i * 2 + 1] = SetVolume(src1[i * chn], s->out.vol[k]);
+						dst[i * 2 + 1] = dst[i * 2];
 					else
 						dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->out.vol[k]);
 				}
@@ -808,18 +810,29 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				{
 					if(s->audsrc[0])
 					{
-						dst[i * 2] = buffer[k][i * chn];
+						dst[i * 2] = SetVolume(buffer[k][i * chn], s->out.vol[0]);
 						//dst[i * 2 + 1] = 0;
 					}
 					else
 					{
 						//dst[i * 2] = 0;
-						dst[i * 2 + 1] = buffer[k][i * chn];
+						dst[i * 2 + 1] = SetVolume(buffer[k][i * chn], s->out.vol[1]);
 					}
 				}
 				ret = i;
 			}
 
+#if _DEBUG
+			if (!file)
+			{
+				char name[1024] = { 0 };
+				sprintf_s(name, "singstar_2ch_%dHz.raw", s->srate[0]);
+				file = fopen(name, "wb");
+			}
+
+			if (file)
+				fwrite(data, sizeof(short), ret * 2, file);
+#endif
 			delete[] buffer[0];
 			delete[] buffer[1];
 			return ret * 2 * sizeof(int16_t);
@@ -853,6 +866,9 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 
     free(s);
 	AudioDeinit();
+	if (file)
+		fclose(file);
+	file = NULL;
 }
 
 int singstar_mic_handle_packet(USBDevice *s, int pid, 
@@ -913,6 +929,13 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
     s->dev.handle_data    = singstar_mic_handle_data;
     s->dev.handle_destroy = singstar_mic_handle_destroy;
     s->port = port;
+
+    // set defaults
+    s->out.vol[0] = 0xFF;
+    s->out.vol[1] = 0xFF;
+    s->srate[0] = 48000;
+    s->srate[1] = 48000;
+
 
     strncpy(s->dev.devname, "USBMIC", sizeof(s->dev.devname));
 

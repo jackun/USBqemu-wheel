@@ -29,7 +29,7 @@ do {\
 	}\
 } while (0)
 
-void SysMessage(const char *fmt, ...) {
+void SysMessageA(const char *fmt, ...) {
 	va_list list;
 	char tmp[512];
 
@@ -37,6 +37,16 @@ void SysMessage(const char *fmt, ...) {
 	vsprintf_s(tmp, 512, fmt, list);
 	va_end(list);
 	MessageBoxA(0, tmp, "Qemu USB Msg", 0);
+}
+
+void SysMessageW(const wchar_t *fmt, ...) {
+	va_list list;
+	wchar_t tmp[512];
+
+	va_start(list, fmt);
+	vswprintf_s(tmp, 512, fmt, list);
+	va_end(list);
+	MessageBoxW(0, tmp, L"Qemu USB Msg", 0);
 }
 
 BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {

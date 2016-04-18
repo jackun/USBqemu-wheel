@@ -589,19 +589,19 @@ HRESULT InitDirectInput( HWND hWindow, int joyindex )
     HRESULT hr; 
 
 	//release any previous resources
-	swprintf_s(logstring, L"DINPUT: FreeDirectInput", hWin);WriteLogFile(logstring);
+	swprintf_s(logstring, L"DINPUT: FreeDirectInput %p", hWin);WriteLogFile(logstring);
     FreeDirectInput();
 
 
 
     // Create a DInput object
-	swprintf_s(logstring, L"DINPUT: DirectInput8Create", hWin);WriteLogFile(logstring);
+	swprintf_s(logstring, L"DINPUT: DirectInput8Create %p", hWin);WriteLogFile(logstring);
     if( FAILED( hr = DirectInput8Create( GetModuleHandle(NULL), DIRECTINPUT_VERSION, 
                                          IID_IDirectInput8, (VOID**)&g_pDI, NULL ) ) )
         return hr;
 
 
-	swprintf_s(logstring, L"DINPUT: CreateDevice Keyboard", hWin);WriteLogFile(logstring);
+	swprintf_s(logstring, L"DINPUT: CreateDevice Keyboard %p", hWin);WriteLogFile(logstring);
 	//Create Keyboard
     g_pDI->CreateDevice( GUID_SysKeyboard, &g_pKeyboard, NULL );
 	if( g_pKeyboard )
@@ -610,7 +610,7 @@ HRESULT InitDirectInput( HWND hWindow, int joyindex )
 		g_pKeyboard->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
 		g_pKeyboard->Acquire();
 	}
-	swprintf_s(logstring, L"DINPUT: CreateDevice Mouse", hWin);WriteLogFile(logstring);
+	swprintf_s(logstring, L"DINPUT: CreateDevice Mouse %p", hWin);WriteLogFile(logstring);
 	//Create Mouse
     g_pDI->CreateDevice( GUID_SysMouse, &g_pMouse, NULL );
 	if( g_pMouse )
@@ -625,7 +625,7 @@ HRESULT InitDirectInput( HWND hWindow, int joyindex )
 	FFB = false;  //no FFB device selected
 
 	//enumerate attached only
-	swprintf_s(logstring, L"DINPUT: EnumDevices Joystick", hWin);WriteLogFile(logstring);
+	swprintf_s(logstring, L"DINPUT: EnumDevices Joystick %p", hWin);WriteLogFile(logstring);
 	g_pDI->EnumDevices( DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY );
 
 	//loop through all attached joysticks

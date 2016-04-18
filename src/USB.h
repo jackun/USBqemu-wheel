@@ -49,7 +49,9 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 		return;
 	}
 	else
-		rateLimit = 1;
+	{
+		//rateLimit = 1;
+	}
 
 	va_list args;
 	va_start(args, psz_fmt);
@@ -73,7 +75,7 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 #ifdef _DEBUG
 #define OSDebugOut(psz_fmt, ...) _OSDebugOut(psz_fmt, ##__VA_ARGS__)
 #else
-#define OSDebugOut(...)
+#define OSDebugOut(...) do{}while(0)
 #endif
 
 #define wfopen _wfopen
@@ -149,7 +151,18 @@ void CreateDevices();
 
 extern FILE *usbLog;
 void __Log(const char *fmt, ...);
+// Hah, for l10n that will not happen anyway probably
+#ifndef _WIN32
 void SysMessage(const char *fmt, ...);
+#else
+#if _UNICODE
+void SysMessageW(const wchar_t *fmt, ...);
+#define SysMessage SysMessageW
+#else
+void SysMessageA(const char *fmt, ...);
+#define SysMessage SysMessageA
+#endif
+#endif
 s64 get_clock();
 
 USBDevice *usb_hub_init(int nb_ports);
