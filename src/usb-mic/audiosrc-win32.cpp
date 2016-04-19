@@ -503,7 +503,7 @@ public:
 		if(mResample)
 			pkSize = UINT32(double(pkSize) * mResampleRatio);
 		
-		*size = pkSize * mInputChannels;
+		*size = pkSize;
 
 		return true;
 	}
@@ -513,7 +513,7 @@ public:
 		if (mFirstSamples) //TODO clean out initially buffered samples, unnecessery?
 		{
 			while (GetMMBuffer()); //TODO Is MSVC gonna 'optimize' this?
-			mQBuffer.Remove(mQBuffer.Size() - uint32_t(outFrames / mResampleRatio));
+			mQBuffer.Remove(mQBuffer.Size() - uint32_t((outFrames * mInputChannels) / mResampleRatio));
 			mFirstSamples = false;
 		}
 		//Argh, makes shit play fast, because missing samples duh
@@ -551,14 +551,14 @@ public:
 		//TODO separate thread
 		if(mResample)
 		{
-			std::vector<float> rebuf(outFrames + 1); //TODO check std::vector elements' alignment
+			std::vector<float> rebuf((outFrames + 1) * mInputChannels); //TODO check std::vector elements' alignment
 
 			SRC_DATA data;
 			memset(&data, 0, sizeof(SRC_DATA));
 			data.data_in = mQBuffer.Ptr();
 			data.input_frames = mQBuffer.Size() / mInputChannels;
 			data.data_out = &rebuf[0];
-			data.output_frames = outFrames / mInputChannels;
+			data.output_frames = outFrames;
 			data.src_ratio = mResampleRatio * timeAdjust;
 
 			src_process(mResampler, &data);
@@ -577,10 +577,10 @@ public:
 
 			mQBuffer.Remove(data.input_frames_used * mInputChannels);
 			OSDebugOut(TEXT("Resampled Queue size: %d  Outlen: %d\n"), mQBuffer.Size(), len);
-			return len;
+			return len / mInputChannels;
 		}
 
-		uint32_t totalLen = MIN(outFrames, mQBuffer.Size());
+		uint32_t totalLen = MIN(outFrames * mInputChannels, mQBuffer.Size());
 		src_float_to_short_array(mQBuffer.Ptr(), (short*)outBuf, totalLen);
 
 #if _DEBUG
@@ -590,7 +590,7 @@ public:
 
 		mQBuffer.Remove(totalLen);
 		OSDebugOut(TEXT("Queue plain: %d OutLen: %d\n"), mQBuffer.Size(), totalLen);
-		return totalLen;
+		return totalLen / mInputChannels;
 	}
 
 	/*
