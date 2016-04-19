@@ -770,7 +770,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
 			//TODO well, it is 16bit interleaved, right?
 			//Merge with MIC_MODE_SHARED case?
-			switch (s->mode) {
+			switch(s->mode) {
 			case MIC_MODE_SINGLE:
 			{
 				int k = s->audsrc[0] ? 0 : 1;
