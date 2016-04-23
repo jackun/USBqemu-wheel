@@ -126,6 +126,7 @@ struct streambuf {
 typedef struct SINGSTARMICState {
     USBDevice dev;
     int port;
+    int intf;
     AudioSource *audsrc[2];
     MicMode mode;
 
@@ -706,6 +707,8 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         break;
 	case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
     case DeviceOutRequest | USB_REQ_SET_INTERFACE:
+		OSDebugOut(TEXT("Set interface: %d\n"), value);
+		s->intf = value;
         ret = 0;
         break;
         /* hid specific requests */
@@ -749,12 +752,12 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			memset(data, 0, len);
 
 			//TODO
-			//int16_t *buffer[2] = {0};
+			int outChns = s->intf == 1 ? 1 : 2;
 			uint32_t frames, outlen[2] = {0}, chn;
 			int16_t *src1, *src2;
 			int16_t *dst = (int16_t *)data;
 			//Divide 'len' bytes between 2 channels of 16 bits
-			uint32_t maxPerChnFrames = len / (2 * sizeof(uint16_t));
+			uint32_t maxPerChnFrames = len / (outChns * sizeof(uint16_t));
 
 			for(int i = 0; i<2; i++)
 			{
@@ -766,7 +769,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				}
 			}
 
-			OSDebugOut(TEXT("data len: %d, Audio buf1: %d buf2: %d\n"), len, outlen[0], outlen[1]);
+			OSDebugOut(TEXT("data len: %d bytes, src[0]: %d frames, src[1]: %d frames\n"), len, outlen[0], outlen[1]);
 
 			//TODO well, it is 16bit interleaved, right?
 			//Merge with MIC_MODE_SHARED case?
@@ -774,22 +777,15 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			case MIC_MODE_SINGLE:
 			{
 				int k = s->audsrc[0] ? 0 : 1;
+				int off = s->intf == 1 ? 0 : k;
 				chn = s->audsrc[k]->GetChannels();
 				frames = outlen[k];
 
 				uint32_t i = 0;
 				for(; i < frames && i < maxPerChnFrames; i++)
 				{
-					if(s->audsrc[0])
-					{
-						dst[i * 2] = SetVolume(s->buffer[k][i * chn], s->out.vol[0]);
-						//dst[i * 2 + 1] = 0;
-					}
-					else
-					{
-						//dst[i * 2] = 0;
-						dst[i * 2 + 1] = SetVolume(s->buffer[k][i * chn], s->out.vol[1]);
-					}
+					dst[i * outChns + off] = SetVolume(s->buffer[k][i * chn], s->out.vol[0]);
+					//dst[i * 2 + 1] = 0;
 				}
 
 				ret = i;
@@ -806,11 +802,14 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				uint32_t i = 0;
 				for(; i < frames && i < maxPerChnFrames; i++)
 				{
-					dst[i * 2] = SetVolume(src1[i * chn], s->out.vol[k]);
-					if(chn == 1)
-						dst[i * 2 + 1] = dst[i * 2];
-					else
-						dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->out.vol[k]);
+					dst[i * outChns] = SetVolume(src1[i * chn], s->out.vol[k]);
+					if (outChns > 1)
+					{
+						if (chn == 1)
+							dst[i * 2 + 1] = dst[i * 2];
+						else
+							dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->out.vol[k]);
+					}
 				}
 
 				ret = i;
@@ -829,8 +828,9 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				uint32_t i = 0;
 				for(; i < minLen && i < maxPerChnFrames; i++)
 				{
-					dst[i * 2] = SetVolume(src1[i * cn1], s->out.vol[0]);
-					dst[i * 2 + 1] = SetVolume(src2[i * cn2], s->out.vol[1]);
+					dst[i * outChns] = SetVolume(src1[i * cn1], s->out.vol[0]);
+					if(outChns > 1)
+						dst[i * 2 + 1] = SetVolume(src2[i * cn2], s->out.vol[1]);
 				}
 
 				ret = i;
@@ -844,16 +844,16 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			if (!file)
 			{
 				char name[1024] = { 0 };
-				snprintf(name, sizeof(name), "singstar_2ch_%dHz.raw", s->srate[0]);
+				snprintf(name, sizeof(name), "singstar_%dch_%dHz.raw", outChns, s->srate[0]);
 				file = fopen(name, "wb");
 			}
 
 			if (file)
-				fwrite(data, sizeof(short), ret * 2, file);
+				fwrite(data, sizeof(short), ret * outChns, file);
 #endif
 			//delete[] buffer[0];
 			//delete[] buffer[1];
-			return ret * 2 * sizeof(int16_t);
+			return ret * outChns * sizeof(int16_t);
         }
         break;
     case USB_TOKEN_OUT:
@@ -889,6 +889,27 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 	if (file)
 		fclose(file);
 	file = NULL;
+}
+
+static int singstar_mic_handle_open(USBDevice *dev)
+{
+	SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	if (s)
+	{
+		for (int i = 0; i < 2; i++)
+			if (s->audsrc[i]) s->audsrc[i]->Start();
+	}
+	return 0;
+}
+
+static void singstar_mic_handle_close(USBDevice *dev)
+{
+	SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	if (s)
+	{
+		for (int i = 0; i < 2; i++)
+			if (s->audsrc[i]) s->audsrc[i]->Stop();
+	}
 }
 
 int singstar_mic_handle_packet(USBDevice *s, int pid,
@@ -954,6 +975,8 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
     s->dev.handle_control = singstar_mic_handle_control;
     s->dev.handle_data    = singstar_mic_handle_data;
     s->dev.handle_destroy = singstar_mic_handle_destroy;
+	s->dev.open = singstar_mic_handle_open;
+	s->dev.close = singstar_mic_handle_close;
     s->port = port;
 
     // set defaults

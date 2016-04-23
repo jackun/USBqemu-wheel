@@ -32,7 +32,7 @@
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
 const unsigned char build    = 5;    // increase that with each version
-const unsigned char fix      = 1;
+const unsigned char fix      = 2;
 
 static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
 #ifdef _DEBUG
@@ -206,6 +206,7 @@ EXPORT_C_(void) USBshutdown() {
 
 EXPORT_C_(s32) USBopen(void *pDsp) {
 	USB_LOG("USBopen\n");
+	OSDebugOut(TEXT("USBopen\n"));
 
 #if _WIN32
 
@@ -231,6 +232,7 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 }
 
 EXPORT_C_(void) USBclose() {
+	OSDebugOut(TEXT("USBclose\n"));
 	if(usb_device1 && usb_device1->close) usb_device1->close(usb_device1);
 	if(usb_device2 && usb_device2->close) usb_device2->close(usb_device2);
 #if _WIN32

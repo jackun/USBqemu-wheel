@@ -18,6 +18,7 @@ static FILE* file = nullptr;
 LARGE_INTEGER clockFreq = { 0 };
 __declspec(thread) LONGLONG lastQPCTime = 0;
 LONGLONG lastTimeMS = 0;
+LONGLONG lastTimeNS = 0;
 LONGLONG GetQPCTimeMS()
 {
 	LARGE_INTEGER currentTime;
@@ -228,6 +229,7 @@ public:
 		{
 			if(mLen * sizeof(T) > (1<<20))
 				bRealloc = true;
+			assert(mPos - len >= 0);
 			mPos = MAX(mPos - len, 0);
 			mLen -= len;
 			//mLen = MAX(mLen - len, 1<<20);
@@ -273,17 +275,39 @@ public:
 	, mResample(false)
 	, mFirstSamples(true)
 	, mOutputSamplesPerSec(48000)
+	, mResampleRatio(1.0)
+	, mTimeAdjust(1.0)
+	, mThread(NULL)
+	, mEvent(NULL)
+	, mQuit(false)
+	, mPaused(true)
 	{
+		mEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("ResamplerThread"));
+		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
 	}
 
 	~MMAudioSource()
 	{
+		mQuit = true;
+		if (mThread)
+		{
+			if (WaitForSingleObject(mThread, 30000) != WAIT_OBJECT_0)
+			{
+				if (TerminateThread(mThread, 0))
+					mThread = NULL;
+			}
+			else
+				mThread = NULL;
+		}
+
 		FreeData();
 		SafeRelease(mmEnumerator);
 		mResampler = src_delete(mResampler);
 		if (file)
 			fclose(file);
 		file = nullptr;
+		
+		CloseHandle(mMutex);
 	}
 
 	void FreeData()
@@ -306,7 +330,7 @@ public:
 			SysMessage(TEXT("MMAudioSource::Init(): Could not create IMMDeviceEnumerator = %08lX\n"), err);
 			return false;
 		}
-
+		mThread = CreateThread(NULL, 0, MMAudioSource::Run, this, CREATE_SUSPENDED, 0);
 		return Reinitialize();
 	}
 
@@ -462,6 +486,7 @@ public:
 			this->Start();
 
 		mDeviceLost = false;
+		ResumeThread(mThread);
 
 		return true;
 	}
@@ -471,16 +496,18 @@ public:
 		mQBuffer.Reset();
 		if(mmClient)
 			mmClient->Start();
+		mPaused = false;
 	}
 
 	void Stop()
 	{
+		mPaused = true;
 		if(mmClient)
 			mmClient->Stop();
 		mQBuffer.Reset();
 	}
 
-	virtual bool GetFrames(uint32_t *size)
+	virtual bool GetFrames_old(uint32_t *size)
 	{
 		UINT32 pkSize = 0;
 		if (!Reinitialize())
@@ -508,7 +535,174 @@ public:
 		return true;
 	}
 
+	//TODO or just return samples count in mResampledBuffer?
+	virtual bool GetFrames(uint32_t *size)
+	{
+
+		UINT32 pkSize = 0;
+		if (!Reinitialize())
+			return false;
+
+		HRESULT hRes = mmCapture->GetNextPacketSize(&pkSize);
+
+		if (FAILED(hRes)) {
+			if (hRes == AUDCLNT_E_DEVICE_INVALIDATED) {
+				FreeData();
+				mDeviceLost = true;
+				OSDebugOut(TEXT("Audio device has been lost, attempting to reinitialize\n"));
+				return false;
+			}
+			return false;
+		}
+
+		if (mResample)
+			pkSize = UINT32(double(pkSize) * mResampleRatio);
+
+		//TODO
+		WaitForSingleObject(mMutex, INFINITE);
+		pkSize += mResampledBuffer.size() / mInputChannels;
+		ReleaseMutex(mMutex);
+
+		*size = pkSize;
+		return true;
+	}
+
+	static DWORD WINAPI Run(LPVOID ptr)
+	{
+		MMAudioSource *src = (MMAudioSource*)ptr;
+		if (WaitForSingleObject(src->mEvent, INFINITE) != WAIT_OBJECT_0)
+		{
+			OSDebugOut(TEXT("Failed to for event: %08X\n"), GetLastError());
+			return 1;
+		}
+
+#if _DEBUG
+		if (!file)
+		{
+			char name[1024] = { 0 };
+			sprintf_s(name, "audiosrc_output_%dch_%dHz.raw", src->mInputChannels, src->mOutputSamplesPerSec);
+			fopen_s(&file, name, "wb");
+		}
+#endif
+
+		while (!src->mQuit)
+		{
+
+			while (src->mDeviceLost || src->mPaused)
+			{
+				//SuspendThread(GetCurrentThread());
+				if (src->mQuit)
+					return 0;
+				Sleep(100);
+			}
+
+			src->GetMMBuffer();
+			if (src->mQBuffer.Size())
+			{
+				size_t resampled = static_cast<size_t>((src->mQBuffer.Size() + 1) * src->mInputChannels * src->mResampleRatio * src->mTimeAdjust);
+				OSDebugOut(TEXT("--------------------------\n"));
+				OSDebugOut(TEXT("Resampled size: %zd\n"), resampled);
+				if (resampled == 0)
+				{
+					continue;
+				}
+				std::vector<float> rebuf(resampled);
+
+				SRC_DATA data;
+				memset(&data, 0, sizeof(SRC_DATA));
+				data.data_in = src->mQBuffer.Ptr();
+				data.input_frames = src->mQBuffer.Size() / src->mInputChannels;
+				data.data_out = &rebuf[0];
+				data.output_frames = resampled;
+				data.src_ratio = src->mResampleRatio * src->mTimeAdjust;
+
+				src_process(src->mResampler, &data);
+
+				DWORD resMutex = WaitForSingleObject(src->mMutex, INFINITE);
+				if (resMutex != WAIT_OBJECT_0)
+				{
+					OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
+					return 1;
+				}
+
+				uint32_t len = data.output_frames_gen * src->mInputChannels;
+				size_t size = src->mResampledBuffer.size();
+				if (len > 0)
+				{
+					src->mResampledBuffer.resize(size + len);
+					src_float_to_short_array(&rebuf[0], &(src->mResampledBuffer[size]), len);
+				}
+
+				OSDebugOut(TEXT("Resampler: in %d out %d used %d gen %d, rb: %zd\n"),
+					data.input_frames, data.output_frames,
+					data.input_frames_used, data.output_frames_gen, src->mResampledBuffer.size());
+
+#if _DEBUG
+				if (file && len)
+					fwrite(&(src->mResampledBuffer[size]), sizeof(short), len, file);
+#endif
+
+				uint32_t sizeBefore = src->mQBuffer.Size();
+				src->mQBuffer.Remove(data.input_frames_used * src->mInputChannels);
+				OSDebugOut(TEXT("Resampled Queue %p size: %zd - %d -> %zd,  Outlen: %d\n"),
+					&(src->mResampledBuffer[0]), sizeBefore,
+					data.input_frames_used * src->mInputChannels, src->mQBuffer.Size(), len);
+				//return len / mInputChannels;
+
+				if (!ReleaseMutex(src->mMutex))
+				{
+					OSDebugOut(TEXT("Mutex release failed\n"));
+					return 1;
+				}
+			}
+		}
+		return 0;
+	}
+
 	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outFrames)
+	{
+		static LONGLONG time = 0;
+		static int samples = 0;
+
+		SetEvent(mEvent);
+
+		DWORD resMutex = WaitForSingleObject(mMutex, INFINITE);
+		if (resMutex != WAIT_OBJECT_0)
+		{
+			OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
+			return 0;
+		}
+
+		samples += outFrames;
+		time = GetQPCTime100NS();
+		if (lastTimeNS == 0) lastTimeNS = time;
+		if (time - lastTimeNS >= 1e7)
+		{
+			LONGLONG diff = time - lastTimeNS;
+			//timeAdjust = diff / 1e7;
+			mTimeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
+			OSDebugOut(TEXT("timespan: %" PRId64 " sampling: %f adjust: %f\n"), diff, float(samples) / diff * 1e7, mTimeAdjust);
+			lastTimeNS = time;
+			samples = 0;
+		}
+
+		uint32_t totalLen = MIN(outFrames * mInputChannels, mResampledBuffer.size());
+		OSDebugOut(TEXT("mResampledBuffer size: %zd, copy: %zd\n"), mResampledBuffer.size(), totalLen);
+		if (totalLen > 0)
+		{
+			memcpy(outBuf, &mResampledBuffer[0], sizeof(short) * totalLen);
+			mResampledBuffer.erase(mResampledBuffer.begin(), mResampledBuffer.begin() + totalLen);
+		}
+
+		if (!ReleaseMutex(mMutex))
+		{
+			OSDebugOut(TEXT("Mutex release failed\n"));
+		}
+
+		return totalLen / mInputChannels;
+	}
+
+	virtual uint32_t GetBuffer_old(int16_t *outBuf, uint32_t outFrames)
 	{
 		if (mFirstSamples) //TODO clean out initially buffered samples, unnecessery?
 		{
@@ -533,7 +727,6 @@ public:
 #endif
 		static LONGLONG time = 0;
 		static int samples = 0;
-		static double timeAdjust = 1.0;
 
 		samples += outFrames;
 		time = GetQPCTime100NS();
@@ -543,7 +736,7 @@ public:
 			LONGLONG diff = time - lastTimeMS;
 			OSDebugOut(TEXT("timespan: %" PRId64 " sampling: %f\n"), diff, float(samples) / diff * 1e7);
 			//timeAdjust = diff / 1e7;
-			timeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
+			mTimeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
 			lastTimeMS = time;
 			samples = 0;
 		}
@@ -559,7 +752,7 @@ public:
 			data.input_frames = mQBuffer.Size() / mInputChannels;
 			data.data_out = &rebuf[0];
 			data.output_frames = outFrames;
-			data.src_ratio = mResampleRatio * timeAdjust;
+			data.src_ratio = mResampleRatio * mTimeAdjust;
 
 			src_process(mResampler, &data);
 
@@ -682,6 +875,14 @@ private:
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
+	// Speed up or slow down audio
+	double mTimeAdjust;
+	std::vector<short> mResampledBuffer;
+	HANDLE mThread;
+	HANDLE mEvent;
+	HANDLE mMutex;
+	bool mQuit;
+	bool mPaused;
 
 	QueueBuffer<float> mQBuffer;
 };
