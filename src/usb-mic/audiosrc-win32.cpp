@@ -507,10 +507,6 @@ public:
 		mPaused = true;
 		if(mmClient)
 			mmClient->Stop();
-
-		WaitForSingleObject(mMutex, INFINITE);
-		mQBuffer.resize(0);
-		ReleaseMutex(mMutex);
 	}
 
 	//TODO or just return samples count in mResampledBuffer?
