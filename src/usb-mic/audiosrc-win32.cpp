@@ -492,7 +492,10 @@ public:
 
 	void Start()
 	{
+		WaitForSingleObject(mMutex, INFINITE);
 		mQBuffer.resize(0);
+		ReleaseMutex(mMutex);
+
 		src_reset(mResampler);
 		if(mmClient)
 			mmClient->Start();
@@ -504,7 +507,10 @@ public:
 		mPaused = true;
 		if(mmClient)
 			mmClient->Stop();
+
+		WaitForSingleObject(mMutex, INFINITE);
 		mQBuffer.resize(0);
+		ReleaseMutex(mMutex);
 	}
 
 	//TODO or just return samples count in mResampledBuffer?
@@ -583,6 +589,7 @@ public:
 				rebuf.resize(resampled);
 
 				SRC_DATA data;
+
 				memset(&data, 0, sizeof(SRC_DATA));
 				data.data_in = &src->mQBuffer[0];
 				data.input_frames = src->mQBuffer.size() / src->mInputChannels;
@@ -639,6 +646,9 @@ public:
 		static LONGLONG time = 0;
 		static int samples = 0;
 
+		if(!mQuit && WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0) //Thread got killed prematurely
+			mThread = CreateThread(NULL, 0, MMAudioSource::Thread, this, 0, 0);
+
 		SetEvent(mEvent);
 
 		DWORD resMutex = WaitForSingleObject(mMutex, INFINITE);
@@ -651,10 +661,9 @@ public:
 		samples += outFrames;
 		time = GetQPCTime100NS();
 		if (lastTimeNS == 0) lastTimeNS = time;
-		if (time - lastTimeNS >= LONGLONG(1e7))
+		LONGLONG diff = time - lastTimeNS;
+		if (diff >= LONGLONG(1e7))
 		{
-			LONGLONG diff = time - lastTimeNS;
-			//timeAdjust = diff / 1e7;
 			mTimeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
 			OSDebugOut(TEXT("timespan: %" PRId64 " sampling: %f adjust: %f\n"), diff, float(samples) / diff * 1e7, mTimeAdjust);
 			lastTimeNS = time;
