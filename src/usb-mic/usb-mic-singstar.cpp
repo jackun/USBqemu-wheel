@@ -980,8 +980,8 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
     s->port = port;
 
     // set defaults
-    s->out.vol[0] = 0xFF;
-    s->out.vol[1] = 0xFF;
+    s->out.vol[0] = 240; /* 0 dB */
+    s->out.vol[1] = 240; /* 0 dB */
     s->srate[0] = 48000;
     s->srate[1] = 48000;
 
