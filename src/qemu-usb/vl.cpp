@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <memory.h>
-#include <malloc.h>
 #include "vl.h"
 
 void cpu_physical_memory_rw(uint32_t addr, uint8_t *buf,
