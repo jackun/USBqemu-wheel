@@ -739,7 +739,9 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
         } else {
             switch (ret) {
             case USB_RET_NODEV:
+                dprintf("usb-ohci: got DEV ERROR\n");
                 OHCI_SET_BM(td.flags, TD_CC, OHCI_CC_DEVICENOTRESPONDING);
+                break;
             case USB_RET_NAK:
                 dprintf("usb-ohci: got NAK\n");
                 return 1;
