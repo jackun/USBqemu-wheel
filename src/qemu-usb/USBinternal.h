@@ -75,6 +75,12 @@ struct ohci_hcca {
     uint32_t done;
 };
 
+#define HCCA_WRITEBACK_OFFSET   offsetof(struct ohci_hcca, frame)
+#define HCCA_WRITEBACK_SIZE     8 /* frame, pad, done */
+
+#define ED_WBACK_OFFSET offsetof(struct ohci_ed, head)
+#define ED_WBACK_SIZE   4
+
 /* Bitfields for the first word of an Endpoint Descriptor.  */
 #define OHCI_ED_FA_SHIFT  0  //device address
 #define OHCI_ED_FA_MASK   (0x7f<<OHCI_ED_FA_SHIFT)

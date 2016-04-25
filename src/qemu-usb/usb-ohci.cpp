@@ -310,7 +310,12 @@ static inline int ohci_read_iso_td(uint32_t addr, struct ohci_iso_td *td)
 
 static inline int ohci_put_ed(uint32_t addr, struct ohci_ed *ed)
 {
-    return put_dwords(addr, (uint32_t *)ed, sizeof(*ed) >> 2);
+    /* ed->tail is under control of the HCD.
+     * Since just ed->head is changed by HC, just write back this
+     */
+    return put_dwords(addr + ED_WBACK_OFFSET,
+                      (uint32_t *)((char *)ed + ED_WBACK_OFFSET),
+                      ED_WBACK_SIZE >> 2);
 }
 
 static inline int ohci_put_td(uint32_t addr, struct ohci_td *td)
@@ -937,7 +942,9 @@ void ohci_frame_boundary(void *opaque)
     ohci_sof(ohci);
 
     /* Writeback HCCA */
-    cpu_physical_memory_write(ohci->hcca, (uint8_t *)&hcca, sizeof(hcca));
+    cpu_physical_memory_write(ohci->hcca + HCCA_WRITEBACK_OFFSET,
+                              (uint8_t *)&hcca + HCCA_WRITEBACK_OFFSET,
+                              HCCA_WRITEBACK_SIZE);
 }
 
 /* Start sending SOF tokens across the USB bus, lists are processed in
