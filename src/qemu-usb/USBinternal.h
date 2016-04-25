@@ -61,6 +61,11 @@ typedef struct OHCIState {
     uint32_t rhdesc_a, rhdesc_b;
     uint32_t rhstatus;
     OHCIPort rhport[OHCI_MAX_PORTS];
+    
+    /* Active packets.  */
+    uint32_t old_ctl;
+    uint8_t usb_buf[8192];
+    
 } OHCIState;
 
 /* Host Controller Communications Area */
