@@ -6,12 +6,12 @@
 void cpu_physical_memory_rw(uint32_t addr, uint8_t *buf,
                             int len, int is_write);
 
-static inline void cpu_physical_memory_read(uint32_t addr, 
+inline void cpu_physical_memory_read(uint32_t addr, 
                                             uint8_t *buf, int len)
 {
     cpu_physical_memory_rw(addr, buf, len, 0);
 }
-static inline void cpu_physical_memory_write(uint32_t addr, 
+inline void cpu_physical_memory_write(uint32_t addr, 
                                              const uint8_t *buf, int len)
 {
     cpu_physical_memory_rw(addr, (uint8_t *)buf, len, 1);
