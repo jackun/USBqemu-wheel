@@ -423,10 +423,3 @@ s64 get_clock()
 {
 	return clocks;
 }
-
-void *qemu_mallocz(uint32_t size){
-	void *m=malloc(size);
-	if(!m) return NULL;
-	memset(m,0,size);
-	return m;
-}
