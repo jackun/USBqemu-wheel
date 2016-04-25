@@ -75,10 +75,16 @@ struct ohci_hcca {
     uint32_t done;
 };
 
-#define HCCA_WRITEBACK_OFFSET   offsetof(struct ohci_hcca, frame)
+// No offsetof in C++.
+#ifndef offsetof
+#define offsetof_(x,z) (intptr_t(&((x)->z)) - intptr_t(x))
+#define offsetof(x,z) offsetof_((x*)0,z)
+#endif
+
+#define HCCA_WRITEBACK_OFFSET   128 //offsetof(struct ohci_hcca, frame)
 #define HCCA_WRITEBACK_SIZE     8 /* frame, pad, done */
 
-#define ED_WBACK_OFFSET offsetof(struct ohci_ed, head)
+#define ED_WBACK_OFFSET 8 //offsetof(struct ohci_ed, head)
 #define ED_WBACK_SIZE   4
 
 /* Bitfields for the first word of an Endpoint Descriptor.  */
