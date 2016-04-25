@@ -565,6 +565,12 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
     struct usb_msd_cbw cbw;
     struct usb_msd_csw csw;
 
+    //XXX Note for self if using async td: see qemu dev-storage.c
+    // 1.) USB_MSDM_CBW: set requested mode USB_MSDM_DATAOUT/IN and enqueue command,
+    // 2.) USB_MSDM_DATAOUT: return USB_RET_ASYNC status if command is in progress,
+    // 3.) USB_MSDM_CSW: return USB_RET_ASYNC status if command is still in progress
+    //     or complete and set mode to USB_MSDM_CBW.
+
     switch (pid) {
     case USB_TOKEN_OUT:
         if (devep != 2)
