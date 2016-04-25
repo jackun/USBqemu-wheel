@@ -576,21 +576,19 @@ public:
 			if (src->mQBuffer.size())
 			{
 				size_t resampled = static_cast<size_t>(src->mQBuffer.size() * src->mResampleRatio * src->mTimeAdjust) * src->mInputChannels;
-				OSDebugOut(TEXT("--------------------------\n"));
-				OSDebugOut(TEXT("Resampled size: %zd\n"), resampled);
 				if (resampled == 0)
-				{
-					continue;
-				}
+					resampled = src->mQBuffer.size();
 				rebuf.resize(resampled);
 
-				SRC_DATA data;
+				OSDebugOut(TEXT("--------------------------\n"));
+				OSDebugOut(TEXT("Resampled size: %zd\n"), resampled);
 
+				SRC_DATA data;
 				memset(&data, 0, sizeof(SRC_DATA));
 				data.data_in = &src->mQBuffer[0];
 				data.input_frames = src->mQBuffer.size() / src->mInputChannels;
 				data.data_out = &rebuf[0];
-				data.output_frames = resampled;
+				data.output_frames = resampled / src->mInputChannels;
 				data.src_ratio = src->mResampleRatio * src->mTimeAdjust;
 
 				src_process(src->mResampler, &data);
