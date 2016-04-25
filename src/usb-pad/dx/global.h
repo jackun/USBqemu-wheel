@@ -14,8 +14,6 @@
 #include <map>
 
 #include "stdio.h"
-#include "d3dx9.h"
-#include "d3dx9math.h"
 //local code
 #include "versionproxy.h"
 #include "ini.h"
