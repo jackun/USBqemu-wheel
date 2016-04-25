@@ -88,6 +88,7 @@ SET(HDRS_MIC
 SET(HDRS_QEMU
 	./src/qemu-usb/vl.h
 	./src/qemu-usb/usb.h
+	./src/qemu-usb/USBinternal.h
 )
 
 SET(HDRS_PAD
