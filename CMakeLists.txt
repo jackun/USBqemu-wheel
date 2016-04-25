@@ -174,11 +174,8 @@ IF(WIN32)
 			SET (BUILD_DX_LIB "${ENV_DXSDK_DIR}/Lib/x86" CACHE PATH "DirectX library dir")
 		ELSE(BUILD_WITH_DXSDK)
 			include(FindWindowsSDK)
-			MESSAGE(${WINDOWSSDK_LATEST_DIR} ${WINDOWSSDK_PREFERRED_DIR})
 			get_windowssdk_include_dirs(${WINDOWSSDK_PREFERRED_DIR} BUILD_DX_INCLUDE)
 			get_windowssdk_library_dirs(${WINDOWSSDK_PREFERRED_DIR} BUILD_DX_LIB)
-			MESSAGE("DX inc: ${BUILD_DX_INCLUDE}")
-			MESSAGE("DX lib: ${BUILD_DX_LIB}")
 		ENDIF(BUILD_WITH_DXSDK)
 		
 		INCLUDE_DIRECTORIES(${BUILD_DX_INCLUDE})
@@ -267,9 +264,9 @@ ENDIF(CMAKE_SIZEOF_VOID_P MATCHES "8")
 # post-build copy for win32
 IF(WIN32 AND NOT MINGW)
 	ADD_CUSTOM_COMMAND( TARGET ${TargetName} PRE_BUILD
-		COMMAND if not exist \"${PROJECT_SOURCE_DIR}\"\\..\\Release mkdir \"${PROJECT_SOURCE_DIR}\"\\..\\Release )
+		COMMAND if not exist \"${PROJECT_SOURCE_DIR}\"\\Release mkdir \"${PROJECT_SOURCE_DIR}\"\\Release )
 	ADD_CUSTOM_COMMAND( TARGET ${TargetName} POST_BUILD
-		COMMAND copy \"$(TargetPath)\" \"${PROJECT_SOURCE_DIR}\"\\..\\Release )
+		COMMAND copy \"$(TargetPath)\" \"${PROJECT_SOURCE_DIR}\"\\Release )
 ENDIF(WIN32 AND NOT MINGW)
 
 # set the executable output path for UNIX and MinGW instead of post-build copy
