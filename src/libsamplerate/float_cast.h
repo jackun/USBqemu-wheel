@@ -264,16 +264,16 @@
 	} /* lrint */
 
 #else
+	#include	<math.h>
+#if !defined(__GNUC__) && !defined(__llvm__)
 	#ifndef __sgi
 	#warning "Don't have the functions lrint() and lrintf()."
 	#warning "Replacing these functions with a standard C cast."
 	#endif
 
-	#include	<math.h>
-
 	#define	lrint(dbl)		((long) (dbl))
 	#define	lrintf(flt)		((long) (flt))
-
+#endif
 #endif
 
 
