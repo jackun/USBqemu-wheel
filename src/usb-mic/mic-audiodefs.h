@@ -33,6 +33,7 @@ struct AudioDeviceInfoW
 class AudioSource
 {
 public:
+	virtual ~AudioSource();
 	//get buffer, converted to 16bit int format
 	virtual uint32_t GetBuffer(int16_t *buff, uint32_t len) = 0;
 	/*
