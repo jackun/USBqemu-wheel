@@ -34,11 +34,7 @@ const unsigned char revision = 0;
 const unsigned char build    = 5;    // increase that with each version
 const unsigned char fix      = 2;
 
-static char *libraryName     = "Qemu USB Driver (Wheel Mod)"
-#ifdef _DEBUG
-" (debug)"
-#endif
-;
+static char libraryName[256];
 
 OHCIState *qemu_ohci = NULL;
 USBDevice *usb_device1 = NULL;
@@ -165,6 +161,18 @@ EXPORT_C_(u32) PS2EgetLibType() {
 }
 
 EXPORT_C_(char*) PS2EgetLibName() {
+
+#ifdef _MSC_VER
+	sprintf_s
+#else
+	sprintf
+#endif
+	( libraryName, "Qemu USB Driver (Wheel) (" __DATE__ ")" 
+#ifdef _DEBUG
+		" (debug)"
+#endif
+	);
+
 	return libraryName;
 }
 
