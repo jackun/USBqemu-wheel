@@ -303,7 +303,9 @@ static int usb_tablet_poll(USBMouseState *s, uint8_t *buf, int len)
     dz = int_clamp(s->dz, -128, 127);
     s->dz -= dz;
 
-    /* Appears we have to invert the wheel direction *//*
+*/
+    /* Appears we have to invert the wheel direction */
+/*
     dz = 0 - dz;
     b = 0;
     if (s->buttons_state & MOUSE_EVENT_LBUTTON)
