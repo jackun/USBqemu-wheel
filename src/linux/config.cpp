@@ -280,7 +280,7 @@ void CALLBACK USBconfigure() {
 					}
 
 					#ifdef _DEBUG
-						fprintf(stderr, "%s\n", str.str());
+						fprintf(stderr, "%s\n", str.str().c_str());
 					#endif
 		}
 	}
