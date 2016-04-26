@@ -391,7 +391,7 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 
 		dfp_data.magic1 = 1;
 		dfp_data.magic2 = 1;
-		dfp_data.magic3 = 3;
+		dfp_data.magic3 = 1;
 		dfp_data.magic4 =
 			1 << 0 | //enable pedals?
 			0 << 1 |
