@@ -16,15 +16,24 @@ Mass storage device
 Now includes preliminary support for usb mass storage devices. Create a image file and format it.
 http://www.fysnet.net/mtools.htm or http://www.ltr-data.se/opencode.html/ might be of some help to windows users.
 
-A 256 MB image file is included in `Release` folder. 
+A 256MB and 4GB image file is included in `Release` folder. 
 You should be able to access files in image file with 7-zip ( http://7-zip.org/ ).
 
 On linux:
 
 	truncate -s 256M usb.img
+	mkfs.vfat -F 32 usb.img
+	
+Optionally mount image for file transfer:
+
 	losetup -f usb.img
-	mkfs.vfat -F 32 /dev/loopX
-	mount /dev/loopX /mnt #or something
+	mount /dev/loopX /mnt #or somewhere else
+
+or let `mount` automagically set up a loopback device:
+
+	mount usb.img /mnt
+	
+Of course, if a PS2 game/program itself can format a drive then you can just use some random file, heh.
 
 Singstar
 ========
@@ -51,7 +60,7 @@ CMake defines:
 
 * `BUILD_RAW=[FALSE|TRUE]` for raw api
 * `BUILD_DX=[FALSE|TRUE]` for dinput
-* `BUILD_WITH_DXSDK=[FALSE|TRUE]` built with DX2010 SDK
+* `BUILD_WITH_DXSDK=[FALSE|TRUE]` build with DX2010 SDK
 * `BUILD_FIND_WINSDK=[FALSE|TRUE]` to find newest installed windows platform toolset/sdk. Probably unnecessery when building with Visual Studio.
 	
 DInput should be using Windows platform toolset/sdk now.
