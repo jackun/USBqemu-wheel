@@ -1,19 +1,14 @@
 USBqemu-wheel
 =============
 
-PCSX2 usb plugin based on gigaherz et al. usb plugin.
+PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using usb host emulation code from qemu.
 
-Started as a way to use Logitech MOMO wheel with Gran Turismo 3/4.
-Probably works properly with Logitech wheels only currently.
+USB packets with FFB commands are passed staight to the wheel when using raw input API mode.
+As they are pretty much vendor specific, force feedback probably works with Logitech wheels only.
 
-GT Force buttons (as seen in GT4) (currently)
-CROSS     - menu up
-SQUARE    - menu down
-CIRCLE    - backview/home / X
-TRIANGLE  - cancel / Y
-R1        - start / A?
-L1        - reverse/select / B
-Maybe 2 more buttons.
+As such, DInput (DirectX) mode is recommended.
+
+Linux: no built-in button/axis remapping yet.
 
 Mass storage device
 =======
@@ -31,6 +26,16 @@ On linux:
 	mkfs.vfat -F 32 /dev/loopX
 	mount /dev/loopX /mnt #or something
 
+Singstar
+========
+
+You can use 2 mono/stereo mics or one stereo mic with separate per-channel input (select same microphone for both players; left channel = P1, right channel = P2).
+
+Windows: Uses Core Audio API. As such, it needs Vista or newer.
+
+Linux: not supported yet, but one backend will be pulseaudio, atleast.
+
+
 Building
 ==========
 
@@ -39,14 +44,23 @@ Basically:
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
-	cmake ../src
+	cmake ..
 	
-CMake configures for 2010 DirectX SDK. It looks for %DXSDK_DIR% environment variable.
-May need to tweak it for Windows 8+ platform SDK
+
+CMake defines:
+
+* `BUILD_RAW=[FALSE|TRUE]` for raw api
+* `BUILD_DX=[FALSE|TRUE]` for dinput
+* `BUILD_WITH_DXSDK=[FALSE|TRUE]` built with DX2010 SDK
+* `BUILD_FIND_WINSDK=[FALSE|TRUE]` to find newest installed windows platform toolset/sdk. Probably unnecessery when building with Visual Studio.
+	
+DInput should be using Windows platform toolset/sdk now.
+
+Optionally, you can still use 2010 DirectX SDK. CMake looks for %DXSDK_DIR% environment variable.
 
 http://www.microsoft.com/en-us/download/details.aspx?id=6812
 
-On linux, configuration dialog uses GTK+ as PCSX2 (still) uses wxGTK.
+On linux, (limited) configuration dialog uses GTK+ as PCSX2 (still) uses wxGTK.
 
 Forum
 =========
