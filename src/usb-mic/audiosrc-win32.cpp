@@ -56,12 +56,12 @@ LONGLONG GetQPCTime100NS()
 bool AudioInit()
 {
 	QueryPerformanceFrequency(&clockFreq);
-	HRESULT hr = CoInitialize(0);// Ex(nullptr, COINIT_APARTMENTTHREADED);
-	if (S_OK != hr && S_FALSE != hr /* already inited */)
-	{
-		OSDebugOut(TEXT("Com initialization failed with %d\n"), hr);
-		return false;
-	}
+	//HRESULT hr = CoInitialize(0);// Ex(nullptr, COINIT_APARTMENTTHREADED);
+	//if (S_OK != hr && S_FALSE != hr /* already inited */)
+	//{
+	//	OSDebugOut(TEXT("Com initialization failed with %d\n"), hr);
+	//	return false;
+	//}
 	//mComDealloc = new FunctionDeallocator< void(__stdcall*)(void) >(CoUninitialize);
 
 	//CoInitialize(0);
@@ -70,7 +70,7 @@ bool AudioInit()
 
 void AudioDeinit()
 {
-	CoUninitialize();
+	//CoUninitialize();
 }
 
 void GetAudioDevices(std::vector<AudioDeviceInfo> &devices)
@@ -545,11 +545,24 @@ public:
 	{
 		MMAudioSource *src = (MMAudioSource*)ptr;
 		std::vector<float> rebuf;
+		int ret = 1;
+		bool bThreadComInitialized = false;
+
+		//TODO APARTMENTTHREADED instead?
+		HRESULT hr = CoInitializeEx( NULL, COINIT_MULTITHREADED );
+		if ((S_OK != hr) && (S_FALSE != hr) /* already inited */ && (hr != RPC_E_CHANGED_MODE))
+		{
+			OSDebugOut(TEXT("Com initialization failed with %d\n"), hr);
+			return 1;
+		}
+
+		if (hr != RPC_E_CHANGED_MODE)
+			bThreadComInitialized = true;
 
 		if (WaitForSingleObject(src->mEvent, INFINITE) != WAIT_OBJECT_0)
 		{
 			OSDebugOut(TEXT("Failed to for event: %08X\n"), GetLastError());
-			return 1;
+			goto error;
 		}
 
 #if _DEBUG
@@ -561,14 +574,16 @@ public:
 		}
 #endif
 
+		//random, reserve enough memory for 5 seconds
+		src->mQBuffer.reserve(src->mInputChannels * src->mInputSamplesPerSec * 5);
+
 		while (!src->mQuit)
 		{
 
 			while (src->mDeviceLost || src->mPaused)
 			{
-				//SuspendThread(GetCurrentThread());
 				if (src->mQuit)
-					return 0;
+					goto quit;
 				Sleep(100);
 			}
 
@@ -597,7 +612,7 @@ public:
 				if (resMutex != WAIT_OBJECT_0)
 				{
 					OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
-					return 1;
+					goto error;
 				}
 
 				uint32_t len = data.output_frames_gen * src->mInputChannels;
@@ -627,12 +642,19 @@ public:
 				if (!ReleaseMutex(src->mMutex))
 				{
 					OSDebugOut(TEXT("Mutex release failed\n"));
-					return 1;
+					goto error;
 				}
 			}
 			Sleep(1);
 		}
-		return 0;
+
+quit:
+		ret = 0;
+error:
+		if (bThreadComInitialized == true)
+			CoUninitialize();
+
+		return ret;
 	}
 
 	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outFrames)
@@ -659,6 +681,7 @@ public:
 		if (diff >= LONGLONG(1e7))
 		{
 			mTimeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
+			//if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
 			OSDebugOut(TEXT("timespan: %" PRId64 " sampling: %f adjust: %f\n"), diff, float(samples) / diff * 1e7, mTimeAdjust);
 			lastTimeNS = time;
 			samples = 0;
