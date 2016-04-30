@@ -482,6 +482,10 @@ public:
 			return false;
 		}
 
+		//random, reserve enough memory for 5 seconds
+		mQBuffer.reserve(mInputChannels * mInputSamplesPerSec * 5);
+		mResampledBuffer.reserve(mInputChannels * mOutputSamplesPerSec * 5);
+
 		if (mDeviceLost && !mFirstSamples) //TODO really lost and just first run. Call Start() from ctor always anyway?
 			this->Start();
 
@@ -492,10 +496,7 @@ public:
 
 	void Start()
 	{
-		WaitForSingleObject(mMutex, INFINITE);
-		mQBuffer.resize(0);
-		ReleaseMutex(mMutex);
-
+		ResetBuffers();
 		src_reset(mResampler);
 		if(mmClient)
 			mmClient->Start();
@@ -507,6 +508,14 @@ public:
 		mPaused = true;
 		if(mmClient)
 			mmClient->Stop();
+	}
+
+	void ResetBuffers()
+	{
+		WaitForSingleObject(mMutex, INFINITE);
+		mQBuffer.resize(0);
+		mResampledBuffer.resize(0);
+		ReleaseMutex(mMutex);
 	}
 
 	//TODO or just return samples count in mResampledBuffer?
@@ -574,9 +583,6 @@ public:
 		}
 #endif
 
-		//random, reserve enough memory for 5 seconds
-		src->mQBuffer.reserve(src->mInputChannels * src->mInputSamplesPerSec * 5);
-
 		while (!src->mQuit)
 		{
 
@@ -619,7 +625,16 @@ public:
 				size_t size = src->mResampledBuffer.size();
 				if (len > 0)
 				{
-					src->mResampledBuffer.resize(size + len);
+					//too long, drop samples, caused by saving/loading savestates and random stutters
+					int sizeInMS = (((src->mResampledBuffer.size() + len) * 1000 / src->mInputChannels) / src->mOutputSamplesPerSec);
+					int threshold = conf.MicBuffering > 25 ? conf.MicBuffering : 25;
+					if (sizeInMS > threshold)
+					{
+						size = 0;
+						src->mResampledBuffer.resize(len);
+					}
+					else
+						src->mResampledBuffer.resize(size + len);
 					src_float_to_short_array(&rebuf[0], &(src->mResampledBuffer[size]), len);
 				}
 
@@ -682,7 +697,7 @@ error:
 		{
 			mTimeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
 			//if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
-			OSDebugOut(TEXT("timespan: %" PRId64 " sampling: %f adjust: %f\n"), diff, float(samples) / diff * 1e7, mTimeAdjust);
+			OSDebugOut(TEXT("timespan: %") TEXT(PRId64) TEXT(" sampling: %f adjust: %f\n"), diff, float(samples) / diff * 1e7, mTimeAdjust);
 			lastTimeNS = time;
 			samples = 0;
 		}
