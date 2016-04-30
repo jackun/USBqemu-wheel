@@ -281,6 +281,7 @@ public:
 	, mEvent(NULL)
 	, mQuit(false)
 	, mPaused(true)
+	, mLastGetBufferMS(0)
 	{
 		mEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("ResamplerThread"));
 		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
@@ -582,9 +583,18 @@ public:
 			fopen_s(&file, name, "wb");
 		}
 #endif
+		//Call mmClient->Start() here instead?
+		src->ResetBuffers(); //reset, maybe thread died previously
+		src->mLastGetBufferMS = GetQPCTimeMS(); //fall through first time check
 
 		while (!src->mQuit)
 		{
+			//Too long since last GetBuffer(), USB subsystem is not initialized properly probably
+			if (GetQPCTimeMS() - src->mLastGetBufferMS > 5000)
+			{
+				ret = 2;
+				goto quit;
+			}
 
 			while (src->mDeviceLost || src->mPaused)
 			{
@@ -674,6 +684,7 @@ error:
 
 	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outFrames)
 	{
+		mLastGetBufferMS = GetQPCTimeMS();
 		static LONGLONG time = 0;
 		static int samples = 0;
 
@@ -816,6 +827,7 @@ private:
 	HANDLE mMutex;
 	bool mQuit;
 	bool mPaused;
+	LONGLONG mLastGetBufferMS;
 
 	//QueueBuffer<float> mQBuffer;
 };
