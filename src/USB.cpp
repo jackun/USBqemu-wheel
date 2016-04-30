@@ -421,6 +421,7 @@ EXPORT_C_(s32) USBtest() {
 
 void cpu_physical_memory_rw(u32 addr, u8 *buf, int len, int is_write)
 {
+	//OSDebugOut(TEXT("%s addr %08X, len %d\n"), is_write ? TEXT("write") : TEXT("read "), addr, len);
 	if(is_write)
 		memcpy(&(ram[addr]),buf,len);
 	else

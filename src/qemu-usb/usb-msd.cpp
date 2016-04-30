@@ -40,7 +40,7 @@ struct usb_msd_csw {
 #endif
 
 #ifdef DEBUG_MSD
-#define DPRINTF(fmt, ...) fprintf(stderr, "usb-msd: " fmt , ##__VA_ARGS__)
+#define DPRINTF(fmt, ...) OSDebugOut(TEXT(fmt), ##__VA_ARGS__)
 #else
 #define DPRINTF(fmt, ...)
 #endif
@@ -436,6 +436,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//Actual write comes with next command in USB_MSDM_DATAOUT
 		break;
 	default:
+		OSDebugOut(TEXT("usb-msd: invalid command %d\n"), cbw->cmd[0]);
 		s->result = 0x1; //COMMAND_FAILED
 		set_sense(s, ILLEGAL_REQUEST, INVALID_COMMAND_OPERATION);
 		break;
