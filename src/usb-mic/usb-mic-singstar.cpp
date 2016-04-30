@@ -840,7 +840,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				break;
 			}
 
-#if _DEBUG
+#if defined(_DEBUG) && _MSC_VER > 1800
 			if (!file)
 			{
 				char name[1024] = { 0 };
