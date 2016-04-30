@@ -292,6 +292,7 @@ public:
 		mQuit = true;
 		if (mThread)
 		{
+			SetEvent(mEvent);
 			if (WaitForSingleObject(mThread, 30000) != WAIT_OBJECT_0)
 			{
 				if (TerminateThread(mThread, 0))
@@ -308,7 +309,10 @@ public:
 			fclose(file);
 		file = nullptr;
 		
+		CloseHandle(mEvent);
+		mEvent = INVALID_HANDLE_VALUE;
 		CloseHandle(mMutex);
+		mMutex = INVALID_HANDLE_VALUE;
 	}
 
 	void FreeData()
