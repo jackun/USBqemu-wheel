@@ -39,6 +39,7 @@ static char libraryName[256];
 OHCIState *qemu_ohci = NULL;
 USBDevice *usb_device1 = NULL;
 USBDevice *usb_device2 = NULL;
+bool configChanged = false;
 
 Config conf;
 char USBfreezeID[] = "USBqemuW01";
@@ -181,6 +182,7 @@ EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
 }
 
 EXPORT_C_(s32) USBinit() {
+	OSDebugOut(TEXT("USBinit\n"));
 	LoadConfig();
 
 	if (conf.Log)
@@ -194,13 +196,12 @@ EXPORT_C_(s32) USBinit() {
 	qemu_ohci = ohci_create(0x1f801600,2);
 	if(!qemu_ohci) return 1;
 
-	CreateDevices();
-
 	return 0;
 }
 
 EXPORT_C_(void) USBshutdown() {
 
+	OSDebugOut(TEXT("USBshutdown\n"));
 	DestroyDevices();
 
 	free(qemu_ohci);
@@ -234,6 +235,14 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 		InitWindow(hWnd);
 #endif
 
+	if ((configChanged && (usb_device1 || usb_device2)) ||
+		(!usb_device1 && !usb_device2))
+	{
+		configChanged = false;
+		CreateDevices(); //TODO Pass pDsp to init?
+	}
+
+	//TODO Pass pDsp to open probably so dinput can bind to this HWND
 	if(usb_device1 && usb_device1->open) usb_device1->open(usb_device1);
 	if(usb_device2 && usb_device2->open) usb_device2->open(usb_device2);
 	return 0;

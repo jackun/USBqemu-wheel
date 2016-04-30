@@ -7,6 +7,7 @@ extern HINSTANCE hInst;
 //TODO unicode
 static OPENFILENAME ofn;
 static AudioDeviceInfoList audioDevs;
+extern bool configChanged;
 
 #if BUILD_RAW
 	extern BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -294,6 +295,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					SaveConfig();
 					CreateDevices();
 					EndDialog(hW, FALSE);
+					configChanged = true;
 					return TRUE;
 				}
 			}
