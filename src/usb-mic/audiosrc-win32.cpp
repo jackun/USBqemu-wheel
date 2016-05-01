@@ -743,6 +743,7 @@ error:
 
 		if(mDeviceLost)
 		{
+			FreeData();
 			if(Reinitialize())
 			{
 				OSDebugOut(TEXT("Device reacquired.\n"));
