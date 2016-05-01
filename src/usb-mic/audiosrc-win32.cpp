@@ -530,7 +530,7 @@ public:
 		HRESULT hRes = mmCapture->GetNextPacketSize(&pkSize);
 
 		if (FAILED(hRes)) {
-			//TODO Threading; can't release mmClient cause thread calls GetMMBuffer()
+			//TODO Threading; can't release mmCapture cause thread calls GetMMBuffer()
 			if (hRes == AUDCLNT_E_DEVICE_INVALIDATED) {
 				mDeviceLost = true;
 				//FreeData();
