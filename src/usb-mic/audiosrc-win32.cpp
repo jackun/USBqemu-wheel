@@ -523,9 +523,8 @@ public:
 	//TODO or just return samples count in mResampledBuffer?
 	virtual bool GetFrames(uint32_t *size)
 	{
-
 		UINT32 pkSize = 0;
-		if (!Reinitialize())
+		if (mDeviceLost)
 			return false;
 
 		HRESULT hRes = mmCapture->GetNextPacketSize(&pkSize);
