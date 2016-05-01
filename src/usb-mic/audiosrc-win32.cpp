@@ -277,8 +277,8 @@ public:
 	, mOutputSamplesPerSec(48000)
 	, mResampleRatio(1.0)
 	, mTimeAdjust(1.0)
-	, mThread(NULL)
-	, mEvent(NULL)
+	, mThread(INVALID_HANDLE_VALUE)
+	, mEvent(INVALID_HANDLE_VALUE)
 	, mQuit(false)
 	, mPaused(true)
 	, mLastGetBufferMS(0)
@@ -290,16 +290,11 @@ public:
 	~MMAudioSource()
 	{
 		mQuit = true;
-		if (mThread)
+		if (mThread != INVALID_HANDLE_VALUE)
 		{
 			SetEvent(mEvent);
 			if (WaitForSingleObject(mThread, 30000) != WAIT_OBJECT_0)
-			{
-				if (TerminateThread(mThread, 0))
-					mThread = NULL;
-			}
-			else
-				mThread = NULL;
+				TerminateThread(mThread, 0);
 		}
 
 		FreeData();
@@ -308,7 +303,9 @@ public:
 		if (file)
 			fclose(file);
 		file = nullptr;
-		
+
+		CloseHandle(mThread);
+		mThread = INVALID_HANDLE_VALUE;
 		CloseHandle(mEvent);
 		mEvent = INVALID_HANDLE_VALUE;
 		CloseHandle(mMutex);
@@ -534,9 +531,10 @@ public:
 		HRESULT hRes = mmCapture->GetNextPacketSize(&pkSize);
 
 		if (FAILED(hRes)) {
+			//TODO Threading; can't release mmClient cause thread calls GetMMBuffer()
 			if (hRes == AUDCLNT_E_DEVICE_INVALIDATED) {
-				FreeData();
 				mDeviceLost = true;
+				//FreeData();
 				OSDebugOut(TEXT("Audio device has been lost, attempting to reinitialize\n"));
 				return false;
 			}
@@ -594,17 +592,17 @@ public:
 		while (!src->mQuit)
 		{
 			//Too long since last GetBuffer(), USB subsystem is not initialized properly probably
-			if (GetQPCTimeMS() - src->mLastGetBufferMS > 5000)
+			if (!src->mDeviceLost && (GetQPCTimeMS() - src->mLastGetBufferMS > 5000))
 			{
 				ret = 2;
 				goto quit;
 			}
 
-			while (src->mDeviceLost || src->mPaused)
+			while (src->mPaused)
 			{
+				Sleep(100);
 				if (src->mQuit)
 					goto quit;
-				Sleep(100);
 			}
 
 			src->GetMMBuffer();
@@ -674,7 +672,7 @@ public:
 					goto error;
 				}
 			}
-			Sleep(1);
+			Sleep(src->mDeviceLost ? 1000 : 1);
 		}
 
 quit:
@@ -750,6 +748,10 @@ error:
 				OSDebugOut(TEXT("Device reacquired.\n"));
 				Start();
 			}
+			else
+			{
+				return 0;
+			}
 		}
 
 		UINT32 captureSize = 0;
@@ -757,8 +759,8 @@ error:
 
 		if (FAILED(hRes)) {
 			if (hRes == AUDCLNT_E_DEVICE_INVALIDATED) {
-				FreeData();
 				mDeviceLost = true;
+				FreeData();
 				OSDebugOut(TEXT("Audio device has been lost, attempting to reinitialize\n"));
 			}
 			return 0;
