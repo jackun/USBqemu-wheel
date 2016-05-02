@@ -82,6 +82,9 @@ void SaveConfig()
 	WritePrivateProfileString(TEXT("Devices"), TEXT("Mic 1"), Conf1->mics[0].c_str(), szIniFile.c_str());
 	WritePrivateProfileString(TEXT("Devices"), TEXT("Mic 2"), Conf1->mics[1].c_str(), szIniFile.c_str());
 
+	swprintf_s(szValue, L"%" TEXT(SFMTs), Conf1->micApi.c_str());
+	WritePrivateProfileString(TEXT("Devices"), TEXT("MicAPI"), szValue, szIniFile.c_str());
+
 	swprintf_s(szValue,L"%u",Conf1->MicBuffering);
 	WritePrivateProfileString(TEXT("Devices"), TEXT("Mic Buffering"),szValue,szIniFile.c_str());
 
@@ -136,6 +139,17 @@ void LoadConfig() {
 
 	GetPrivateProfileString(TEXT("Devices"), TEXT("Mic 2"), NULL, tmp, sizeof(tmp)/sizeof(*tmp), szIniFile.c_str());
 	Conf1->mics[1] = tmp;
+
+	GetPrivateProfileString(TEXT("Devices"), TEXT("MicAPI"), NULL, tmp, sizeof(tmp) / sizeof(*tmp), szIniFile.c_str());
+
+#if UNICODE
+	char tmpA[64] = { 0 };
+	size_t num = 0;
+	wcstombs_s(&num, tmpA, tmp, sizeof(tmpA));
+	Conf1->micApi = tmpA;
+#else
+	Conf1->micApi = tmp;
+#endif
 
 	GetPrivateProfileString(TEXT("Devices"), TEXT("Mic Buffering"), NULL, szValue, 20, szIniFile.c_str());
 	Conf1->MicBuffering = wcstoul(szValue, NULL, 10);

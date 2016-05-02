@@ -1,29 +1,10 @@
 #include <cstdint>
-//#include "audiosrc.h"
 #include "audiosourceproxy.h"
-
-void GetAudioDevices(std::vector<AudioDeviceInfo> &devices)
-{
-
-}
-
-bool AudioInit()
-{
-	return false;
-}
-
-void AudioDeinit()
-{
-}
-
-AudioSource *CreateNewAudioSource(AudioDeviceInfo &dev)
-{
-	return NULL;
-}
 
 class PulseAudioSource : public AudioSource
 {
 public:
+	PulseAudioSource(AudioDeviceInfo& dev) {}
 	~PulseAudioSource() {}
 	//get buffer, converted to 16bit int format
 	uint32_t GetBuffer(int16_t *buff, uint32_t len)
@@ -51,10 +32,14 @@ public:
 	void Start(){}
 	void Stop(){}
 
-	static const wchar_t* GetName()
+	static const wchar_t* Name()
 	{
 		return L"PulseAudio";
 	}
+	
+	static void AudioDevices(std::vector<AudioDeviceInfo> &devices) {}
+	static bool AudioInit() { return false; }
+	static void AudioDeinit() {}
 };
 
 REGISTER_AUDIOSRC(pulse, PulseAudioSource);

@@ -54,96 +54,6 @@ LONGLONG GetQPCTime100NS()
 	return LONGLONG(timeVal);
 }
 
-bool AudioInit()
-{
-	QueryPerformanceFrequency(&clockFreq);
-	//HRESULT hr = CoInitialize(0);// Ex(nullptr, COINIT_APARTMENTTHREADED);
-	//if (S_OK != hr && S_FALSE != hr /* already inited */)
-	//{
-	//	OSDebugOut(TEXT("Com initialization failed with %d\n"), hr);
-	//	return false;
-	//}
-	//mComDealloc = new FunctionDeallocator< void(__stdcall*)(void) >(CoUninitialize);
-
-	//CoInitialize(0);
-	return true;
-}
-
-void AudioDeinit()
-{
-	//CoUninitialize();
-}
-
-void GetAudioDevices(std::vector<AudioDeviceInfo> &devices)
-{
-    const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
-    const IID IID_IMMDeviceEnumerator    = __uuidof(IMMDeviceEnumerator);
-    IMMDeviceEnumerator *mmEnumerator;
-    HRESULT err;
-
-    err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
-    if(FAILED(err))
-    {
-        OSDebugOut(TEXT("GetAudioDevices: Could not create IMMDeviceEnumerator\n"));
-        return;
-    }
-
-    IMMDeviceCollection *collection;
-    EDataFlow audioDeviceType = eCapture;
-    DWORD flags = DEVICE_STATE_ACTIVE;
-    //if (!bConnectedOnly)
-        flags |= DEVICE_STATE_UNPLUGGED;
-
-    err = mmEnumerator->EnumAudioEndpoints(audioDeviceType, flags, &collection);
-    if(FAILED(err))
-    {
-        OSDebugOut(TEXT("GetAudioDevices: Could not enumerate audio endpoints\n"));
-        SafeRelease(mmEnumerator);
-        return;
-    }
-
-    UINT count;
-    if(SUCCEEDED(collection->GetCount(&count)))
-    {
-        for(UINT i=0; i<count; i++)
-        {
-            IMMDevice *device;
-            if(SUCCEEDED(collection->Item(i, &device)))
-            {
-                const WCHAR *wstrID;
-                if(SUCCEEDED(device->GetId((LPWSTR*)&wstrID)))
-                {
-                    IPropertyStore *store;
-                    if(SUCCEEDED(device->OpenPropertyStore(STGM_READ, &store)))
-                    {
-                        PROPVARIANT varName;
-
-                        PropVariantInit(&varName);
-                        if(SUCCEEDED(store->GetValue(PKEY_Device_FriendlyName, &varName)))
-                        {
-                            const WCHAR *wstrName = varName.pwszVal;
-
-                            AudioDeviceInfo info;
-                            info.strID = wstrID;
-                            info.strName = wstrName;
-							devices.push_back(info);
-                        }
-                    }
-
-                    CoTaskMemFree((LPVOID)wstrID);
-                }
-
-                SafeRelease(device);
-            }
-        }
-    }
-
-    //-------------------------------------------------------
-
-    SafeRelease(collection);
-    SafeRelease(mmEnumerator);
-}
-
 template<typename T>
 class QueueBuffer
 {
@@ -272,7 +182,7 @@ public:
 	, mmClock(NULL)
 	, mmEnumerator(NULL)
 	, mResampler(NULL)
-	, mDeviceLost(true)
+	, mDeviceLost(false)
 	, mResample(false)
 	, mFirstSamples(true)
 	, mOutputSamplesPerSec(48000)
@@ -371,7 +281,7 @@ public:
 
 		// get name
 
-		IPropertyStore *store;
+		/*IPropertyStore *store;
 		if(SUCCEEDED(mmDevice->OpenPropertyStore(STGM_READ, &store)))
 		{
 			PROPVARIANT varName;
@@ -384,7 +294,7 @@ public:
 			}
 
 			store->Release();
-		}
+		}*/
 
 		// get format
 
@@ -801,11 +711,90 @@ error:
 		return mInputChannels;
 	}
 
-	static const wchar_t* GetName()
+	static const wchar_t* Name()
 	{
 		return L"WASAPI";
 	}
 
+	static bool AudioInit()
+	{
+		QueryPerformanceFrequency(&clockFreq);
+		return true;
+	}
+
+	static void AudioDeinit()
+	{
+	}
+
+	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
+	{
+		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
+		const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
+		IMMDeviceEnumerator *mmEnumerator;
+		HRESULT err;
+
+		err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
+		if (FAILED(err))
+		{
+			OSDebugOut(TEXT("GetAudioDevices: Could not create IMMDeviceEnumerator\n"));
+			return;
+		}
+
+		IMMDeviceCollection *collection;
+		EDataFlow audioDeviceType = eCapture;
+		DWORD flags = DEVICE_STATE_ACTIVE;
+		//if (!bConnectedOnly)
+		flags |= DEVICE_STATE_UNPLUGGED;
+
+		err = mmEnumerator->EnumAudioEndpoints(audioDeviceType, flags, &collection);
+		if (FAILED(err))
+		{
+			OSDebugOut(TEXT("AudioDevices: Could not enumerate audio endpoints\n"));
+			SafeRelease(mmEnumerator);
+			return;
+		}
+
+		UINT count;
+		if (SUCCEEDED(collection->GetCount(&count)))
+		{
+			for (UINT i = 0; i<count; i++)
+			{
+				IMMDevice *device;
+				if (SUCCEEDED(collection->Item(i, &device)))
+				{
+					const WCHAR *wstrID;
+					if (SUCCEEDED(device->GetId((LPWSTR*)&wstrID)))
+					{
+						IPropertyStore *store;
+						if (SUCCEEDED(device->OpenPropertyStore(STGM_READ, &store)))
+						{
+							PROPVARIANT varName;
+
+							PropVariantInit(&varName);
+							if (SUCCEEDED(store->GetValue(PKEY_Device_FriendlyName, &varName)))
+							{
+								const WCHAR *wstrName = varName.pwszVal;
+
+								AudioDeviceInfo info;
+								info.strID = wstrID;
+								info.strName = wstrName;
+								devices.push_back(info);
+							}
+						}
+
+						CoTaskMemFree((LPVOID)wstrID);
+					}
+
+					SafeRelease(device);
+				}
+			}
+		}
+
+		//-------------------------------------------------------
+
+		SafeRelease(collection);
+		SafeRelease(mmEnumerator);
+	}
 private:
 	IMMDeviceEnumerator *mmEnumerator;
 
@@ -843,15 +832,5 @@ private:
 
 	//QueueBuffer<float> mQBuffer;
 };
-
-AudioSource *CreateNewAudioSource(AudioDeviceInfo &dev)
-{
-	MMAudioSource *src = new MMAudioSource(dev);
-	if(src->Init())
-		return src;
-
-	delete src;
-	return NULL;
-}
 
 REGISTER_AUDIOSRC(wasapi, MMAudioSource);

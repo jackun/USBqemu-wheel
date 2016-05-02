@@ -129,6 +129,7 @@ typedef struct _Config {
   TCHAR usb_img[MAX_PATH+1];
 
   STDSTR mics[2];
+  std::string micApi;// [2];
   int MicBuffering; //ms
 
 } Config;

@@ -4,5 +4,5 @@
 AudioSourceProxyBase::AudioSourceProxyBase(std::string name)
 {
 	std::cout << "AudioSourceProxyBase ctor: " << name << std::endl;
-	RegisterAudioSource::instance().Register(name, this);
+	RegisterAudioSource::instance().Add(name, this);
 }

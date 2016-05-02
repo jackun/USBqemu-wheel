@@ -26,7 +26,7 @@
 
 #include "../USB.h"
 #include "../qemu-usb/vl.h"
-#include "audiosrc.h"
+#include "audiosourceproxy.h"
 #include <assert.h>
 
 static FILE *file = NULL;
@@ -128,6 +128,7 @@ typedef struct SINGSTARMICState {
     int port;
     int intf;
     AudioSource *audsrc[2];
+    AudioSourceProxyBase *audsrcproxy;
     MicMode mode;
 
     /* state */
@@ -884,8 +885,8 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 		}
 	}
 
+	s->audsrcproxy->AudioDeinit();
     free(s);
-	AudioDeinit();
 	if (file)
 		fclose(file);
 	file = NULL;
@@ -929,7 +930,20 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
     if (!s)
         return NULL;
 
-	AudioInit();
+	s->audsrcproxy = RegisterAudioSource::instance().AudioSource(conf.micApi);
+	if (!s->audsrcproxy)
+	{
+		auto map = RegisterAudioSource::instance().Map();
+		if(!map.empty())
+			s->audsrcproxy = map.begin()->second;
+		else
+		{
+			SysMessage(TEXT("No AudioSource classes where registered!"));
+			return nullptr;
+		}
+	}
+
+	s->audsrcproxy->AudioInit();
 
 	if(!devs[0].empty() && !devs[1].empty()
 		&& (devs[0] == devs[1]))
@@ -940,10 +954,9 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
 	if(!devs[0].empty())
 	{
 		info.strID = devs[0];
-		s->audsrc[0] = CreateNewAudioSource(info);
+		s->audsrc[0] = s->audsrcproxy->CreateObject(info);
 		if(s->audsrc[0])
 		{
-			s->audsrc[0]->Start();
 			s->buffer[0] = new int16_t[BUFFER_FRAMES * s->audsrc[0]->GetChannels()];
 			if(s->mode != MIC_MODE_SHARED)
 				s->mode = MIC_MODE_SINGLE;
@@ -953,10 +966,9 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
 	if(s->mode != MIC_MODE_SHARED && !devs[1].empty())
 	{
 		info.strID = devs[1];
-		s->audsrc[1] = CreateNewAudioSource(info);
+		s->audsrc[1] = s->audsrcproxy->CreateObject(info);
 		if(s->audsrc[1])
 		{
-			s->audsrc[1]->Start();
 			s->buffer[1] = new int16_t[BUFFER_FRAMES * s->audsrc[1]->GetChannels()];
 			s->mode = MIC_MODE_SEPARATE;
 		}
@@ -964,8 +976,8 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
 
 	if(!s->audsrc[0] && !s->audsrc[1])
 	{
+		s->audsrcproxy->AudioDeinit();
 		free(s);
-		AudioDeinit();
 		return NULL;
 	}
 

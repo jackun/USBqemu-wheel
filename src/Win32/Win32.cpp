@@ -1,5 +1,5 @@
 #include "../USB.h"
-#include "../usb-mic/mic-audiodefs.h"
+#include "../usb-mic/audiosourceproxy.h"
 #include "resource.h"
 #include <CommCtrl.h>
 
@@ -90,8 +90,66 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return FALSE;
 }
 
+void RefreshAudioList(HWND hW, LRESULT idx)
+{
+	auto audioProxyMap = RegisterAudioSource::instance().Map();
+	if (audioProxyMap.empty())
+	{
+		SysMessage(TEXT("Something broke. No AudioSource class got registered!"));
+		return;
+	}
+
+	RegisterAudioSource::RegisterAudioSourceMap::iterator apIt;
+	AudioSourceProxyBase *audProxy = nullptr;
+	audioDevs.clear();
+
+	if (idx < 0)
+	{
+		apIt = audioProxyMap.find(conf.micApi);
+		if (apIt == audioProxyMap.end())
+			apIt = audioProxyMap.begin();
+		audProxy = apIt->second;
+	}
+	else
+	{
+		apIt = audioProxyMap.begin();
+		std::advance(apIt, idx);
+		if(apIt != audioProxyMap.end())
+			audProxy = apIt->second;
+	}
+
+	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_RESETCONTENT, 0, 0);
+
+	SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
+	SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
+
+	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
+	SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
+
+	if (audProxy && audProxy->AudioInit())
+	{
+		audProxy->AudioDevices(audioDevs);
+		AudioDeviceInfoList::iterator it;
+		int i = 0;
+		for (it = audioDevs.begin(); it != audioDevs.end(); it++)
+		{
+			SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+			SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+
+			i++;
+			if (it->strID == conf.mics[0])
+				SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, i, i);
+			if (it->strID == conf.mics[1])
+				SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, i, i);
+		}
+		audProxy->AudioDeinit();
+	}
+}
+
 BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	int tmp = 0;
+	auto audioProxyMap = RegisterAudioSource::instance().Map();
+
 	switch(uMsg) {
 		case WM_INITDIALOG:
 			SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMIN, TRUE, 1);
@@ -99,30 +157,21 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, conf.MicBuffering);
 			SetDlgItemInt(hW, IDC_MICBUF, conf.MicBuffering, FALSE);
 
-			SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
-			SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
-
-			SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
-			SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
-
-			if(AudioInit())
+			RefreshAudioList(hW, -1);
 			{
-				audioDevs.clear();
-				GetAudioDevices(audioDevs);
-				AudioDeviceInfoList::iterator it;
-				int i = 0;
-				for(it = audioDevs.begin(); it != audioDevs.end(); it++)
+				int i = -1;
+				for (auto& pair : audioProxyMap)
 				{
-					SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
-					SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
-
+					SendDlgItemMessageW(hW, IDC_COMBOMICAPI, CB_ADDSTRING, 0, (LPARAM)pair.second->Name());
 					i++;
-					if(it->strID == conf.mics[0])
-						SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, i, i);
-					if(it->strID == conf.mics[1])
-						SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, i, i);
+					if (conf.micApi == pair.first)
+					{
+						SendDlgItemMessage(hW, IDC_COMBOMICAPI, CB_SETCURSEL, i, i);
+					}
 				}
-				AudioDeinit();
+
+				if(SendDlgItemMessage(hW, IDC_COMBOMICAPI, CB_GETCURSEL, 0, 0) < 0)
+					SendDlgItemMessage(hW, IDC_COMBOMICAPI, CB_SETCURSEL, 0, 0);
 			}
 			return TRUE;
 
@@ -149,7 +198,16 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				}
 			}
 			break;
-
+			case CBN_SELENDOK:
+			{
+				switch (LOWORD(wParam))
+				{
+				case IDC_COMBOMICAPI:
+					RefreshAudioList(hW, SendDlgItemMessage(hW, IDC_COMBOMICAPI, CB_GETCURSEL, 0, 0));
+					break;
+				}
+			}
+			break;
 			case BN_CLICKED:
 			{
 				switch(LOWORD(wParam)) {
@@ -168,6 +226,18 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						conf.mics[1] = L"";
 
 					conf.MicBuffering = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+
+					{
+						auto audioProxyMap = RegisterAudioSource::instance().Map();
+						auto it = audioProxyMap.begin();
+						int i = SendDlgItemMessage(hW, IDC_COMBOMICAPI, CB_GETCURSEL, 0, 0);
+						std::advance(it, i);
+						if (it != audioProxyMap.end())
+						{
+							OSDebugOut(TEXT("%" TEXT(SFMTs) "\n"), it->first.c_str());
+							conf.micApi = it->first;
+						}
+					}
 
 					SaveConfig();
 				case IDCANCEL:

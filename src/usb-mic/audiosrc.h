@@ -52,9 +52,4 @@ public:
 };
 
 typedef std::vector<AudioDeviceInfo> AudioDeviceInfoList;
-
-bool AudioInit();
-void AudioDeinit();
-AudioSource *CreateNewAudioSource(AudioDeviceInfo &dev);
-void GetAudioDevices(std::vector<AudioDeviceInfo> &devices);
 #endif

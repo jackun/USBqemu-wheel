@@ -5,13 +5,17 @@
 #include <map>
 #include <list>
 #include <algorithm>
+#include <iterator>
 
 class AudioSourceProxyBase
 {
 	public:
 	AudioSourceProxyBase(std::string name);
-	virtual AudioSource* CreateObject() const = 0; //Can be generalized? Probably not
-	virtual const wchar_t* GetName() const = 0;
+	virtual AudioSource* CreateObject(AudioDeviceInfo& dev) const = 0; //Can be generalized? Probably not
+	virtual const wchar_t* Name() const = 0;
+	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const = 0;
+	virtual bool AudioInit() = 0;
+	virtual void AudioDeinit() = 0;
 };
 
 template <class T>
@@ -19,10 +23,22 @@ class AudioSourceProxy : public AudioSourceProxyBase
 {
 	public:
 	AudioSourceProxy(std::string name): AudioSourceProxyBase(name) {} //Why can't it automagically, ugh
-	AudioSource* CreateObject() const { return new T; }
-	virtual const wchar_t* GetName() const
+	AudioSource* CreateObject(AudioDeviceInfo& dev) const { return new T(dev); }
+	virtual const wchar_t* Name() const
 	{
-		return T::GetName();
+		return T::Name();
+	}
+	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const
+	{
+		T::AudioDevices(devices);
+	}
+	virtual bool AudioInit()
+	{
+		return T::AudioInit();
+	}
+	virtual void AudioDeinit()
+	{
+		T::AudioDeinit();
 	}
 };
 
@@ -33,32 +49,36 @@ struct SelectKey {
 
 class RegisterAudioSource
 {
-	typedef std::map<std::string, AudioSourceProxyBase* > RegisterAudioSourceMap;
-
 	public:
+	typedef std::map<std::string, AudioSourceProxyBase* > RegisterAudioSourceMap;
 	static RegisterAudioSource& instance() {
 		static RegisterAudioSource registerAudioSource;
 		return registerAudioSource;
 	}
 
-	void Register(const std::string name, AudioSourceProxyBase* creator)
+	void Add(const std::string name, AudioSourceProxyBase* creator)
 	{
 		registerAudioSourceMap[name] = creator;
 	}
 
-	AudioSourceProxyBase* GetAudioSource(std::string name)
+	AudioSourceProxyBase* AudioSource(std::string name)
 	{
 		return registerAudioSourceMap[name];
 	}
 	
-	std::list<std::string> names() const
+	std::list<std::string> Names() const
 	{
-		std::list<std::string> nameList;  
+		std::list<std::string> nameList;
 		std::transform(
-			registerAudioSourceMap.begin(), registerAudioSourceMap.end(), 
-			back_inserter(nameList),
+			registerAudioSourceMap.begin(), registerAudioSourceMap.end(),
+			std::back_inserter(nameList),
 			SelectKey());
 		return nameList;
+	}
+
+	const RegisterAudioSourceMap& Map() const
+	{
+		return registerAudioSourceMap;
 	}
 	
 private:
