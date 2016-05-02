@@ -348,9 +348,9 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		s->buf[1] = 1 << 7; //removable
 		s->buf[3] = 1; //UFI response data format
 		//inq data len can be zero
-		memcpy(&s->buf[8], "QEMU", 4); //8 bytes vendor
-		memcpy(&s->buf[16], "USB Drive", 9); //16 bytes product
-		memcpy(&s->buf[32], "1", 1); //4 bytes product revision
+		strncpy((char*)&s->buf[8], "QEMU", 8); //8 bytes vendor
+		strncpy((char*)&s->buf[16], "USB Drive", 16); //16 bytes product
+		strncpy((char*)&s->buf[32], "1", 4); //4 bytes product revision
 		s->result = 0;
 		break;
 
