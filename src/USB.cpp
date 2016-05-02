@@ -235,8 +235,7 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 		InitWindow(hWnd);
 #endif
 
-	if ((configChanged && (usb_device1 || usb_device2)) ||
-		(!usb_device1 && !usb_device2))
+	if (configChanged || (!usb_device1 && !usb_device2))
 	{
 		configChanged = false;
 		CreateDevices(); //TODO Pass pDsp to init?
