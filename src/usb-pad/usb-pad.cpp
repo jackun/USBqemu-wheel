@@ -352,8 +352,8 @@ void ResetData(dfp_data_t *d)
 	memset(d, 0, sizeof(dfp_data_t));
 	d->axis_x = 0x3FFF >> 1;
 	//d->axis_y = 0xFF;
-	d->axis_z = 0xFF;
-	d->axis_rz = 0xFF;
+	d->axis_z = 0x3F;
+	d->axis_rz = 0x3F;
 }
 
 int key = 1;
