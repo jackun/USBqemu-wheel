@@ -1,7 +1,7 @@
 // Used OBS as example
 
 #include "../USB.h"
-#include "mic-audiodefs.h"
+#include "audiosrc.h"
 #include "../libsamplerate/samplerate.h"
 
 #include <assert.h>

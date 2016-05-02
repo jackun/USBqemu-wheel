@@ -26,6 +26,7 @@
 
 #include "../USB.h"
 #include "../qemu-usb/vl.h"
+#include "audiosrc.h"
 #include <assert.h>
 
 static FILE *file = NULL;
@@ -44,7 +45,6 @@ static FILE *file = NULL;
 
 #include "usb.h"
 #include "audio.h"
-#include "mic-audiodefs.h"
 //#include "usbcfg.h"
 //#include "usbdesc.h"
 

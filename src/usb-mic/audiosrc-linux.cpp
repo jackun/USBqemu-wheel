@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "mic-audiodefs.h"
+#include "audiosrc.h"
 
 void GetAudioDevices(std::vector<AudioDeviceInfo> &devices)
 {

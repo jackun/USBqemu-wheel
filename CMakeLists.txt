@@ -83,7 +83,7 @@ SET(HDRS_MIC
 	#./src/usb-mic/adcuser.h
 	./src/usb-mic/audio.h
 	./src/usb-mic/usb.h
-	./src/usb-mic/mic-audiodefs.h
+	./src/usb-mic/audiosrc.h
 )
 
 SET(HDRS_QEMU
@@ -234,7 +234,7 @@ IF(UNIX)
 	)
 	LIST(APPEND SRCS 
 		./src/usb-pad/usb-pad-linux.cpp
-		./src/usb-mic/audio-linux.cpp
+		./src/usb-mic/audiosrc-linux.cpp
 		./src/linux/config.cpp
 		./src/linux/ini.c
 		./src/linux/actualfile.c

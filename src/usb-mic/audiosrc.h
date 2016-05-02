@@ -2,8 +2,8 @@
 // Types to shared by platforms and config. dialog.
 //
 
-#ifndef AUDIODEFS_H
-#define AUDIODEFS_H
+#ifndef AUDIOSRC_H
+#define AUDIOSRC_H
 
 #include <string>
 #include <vector>
