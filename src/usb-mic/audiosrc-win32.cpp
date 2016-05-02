@@ -1,7 +1,8 @@
 // Used OBS as example
 
 #include "../USB.h"
-#include "audiosrc.h"
+//#include "audiosrc.h"
+#include "audiosourceproxy.h"
 #include "../libsamplerate/samplerate.h"
 
 #include <assert.h>
@@ -800,6 +801,11 @@ error:
 		return mInputChannels;
 	}
 
+	static const wchar_t* GetName()
+	{
+		return L"WASAPI";
+	}
+
 private:
 	IMMDeviceEnumerator *mmEnumerator;
 
@@ -847,3 +853,5 @@ AudioSource *CreateNewAudioSource(AudioDeviceInfo &dev)
 	delete src;
 	return NULL;
 }
+
+REGISTER_AUDIOSRC(wasapi, MMAudioSource);

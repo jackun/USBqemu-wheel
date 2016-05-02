@@ -46,6 +46,9 @@ public:
 
 	virtual void Start(){}
 	virtual void Stop(){}
+
+	//Remember to add to your class
+	//static const wchar_t* GetName();
 };
 
 typedef std::vector<AudioDeviceInfo> AudioDeviceInfoList;

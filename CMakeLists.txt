@@ -84,6 +84,7 @@ SET(HDRS_MIC
 	./src/usb-mic/audio.h
 	./src/usb-mic/usb.h
 	./src/usb-mic/audiosrc.h
+	./src/usb-mic/audiosourceproxy.h
 )
 
 SET(HDRS_QEMU
@@ -122,6 +123,7 @@ SET(SRCS_PAD
 )
 
 SET(SRCS_MIC
+	./src/usb-mic/audiosourceproxy.cpp
 	./src/usb-mic/usb-mic-singstar.cpp
 	#./src/usb-mic/usb-mic-dummy.cpp
 	#./src/usb-mic/usb-mic.cpp
