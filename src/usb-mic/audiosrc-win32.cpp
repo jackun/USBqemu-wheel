@@ -683,7 +683,7 @@ error:
 		if (SUCCEEDED(mmCapture->GetBuffer(&captureBuffer, &numFramesRead, &dwFlags, &devPosition, &qpcTimestamp)))
 		{
 			UINT totalLen = numFramesRead * mInputChannels;
-			if (dwFlags == AUDCLNT_BUFFERFLAGS_SILENT)
+			if (dwFlags & AUDCLNT_BUFFERFLAGS_SILENT)
 				mQBuffer.resize(mQBuffer.size() + totalLen);
 			else
 				mQBuffer.assign((float*)captureBuffer, (float*)captureBuffer + totalLen);
@@ -736,7 +736,7 @@ error:
 		err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
 		if (FAILED(err))
 		{
-			OSDebugOut(TEXT("GetAudioDevices: Could not create IMMDeviceEnumerator\n"));
+			SysMessage(TEXT("AudioDevices: Could not create IMMDeviceEnumerator\n"));
 			return;
 		}
 
@@ -749,7 +749,7 @@ error:
 		err = mmEnumerator->EnumAudioEndpoints(audioDeviceType, flags, &collection);
 		if (FAILED(err))
 		{
-			OSDebugOut(TEXT("AudioDevices: Could not enumerate audio endpoints\n"));
+			SysMessage(TEXT("AudioDevices: Could not enumerate audio endpoints\n"));
 			SafeRelease(mmEnumerator);
 			return;
 		}
@@ -789,8 +789,6 @@ error:
 				}
 			}
 		}
-
-		//-------------------------------------------------------
 
 		SafeRelease(collection);
 		SafeRelease(mmEnumerator);
