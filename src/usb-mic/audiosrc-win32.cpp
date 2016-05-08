@@ -835,13 +835,13 @@ error:
 		SafeRelease(mmEnumerator);
 	}
 
-	static bool Configure(int port, void *data)
+	static int Configure(int port, void *data)
 	{
 		Win32Handles h = *(Win32Handles*)data;
 		return DialogBoxParam(h.hInst,
 			MAKEINTRESOURCE(IDD_DLGMIC),
 			h.hWnd,
-			(DLGPROC)MicDlgProc, port) == TRUE;
+			(DLGPROC)MicDlgProc, port);
 	}
 
 	static std::vector<CONFIGVARIANT> GetSettings()

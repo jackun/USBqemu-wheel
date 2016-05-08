@@ -106,6 +106,7 @@ SET(HDRS_PLG
 	./src/USB.h
 	./src/PS2Etypes.h
 	./src/PS2Edefs.h
+	./src/proxybase.h
 	./src/deviceproxy.h
 	./src/configuration.h
 	./src/platcompat.h

@@ -8,6 +8,7 @@
 #include <iterator>
 #include "../helpers.h"
 #include "../configuration.h"
+#include "../proxybase.h"
 
 class AudioSourceError : public std::runtime_error
 {
@@ -16,17 +17,14 @@ public:
 	virtual ~AudioSourceError() throw () {}
 };
 
-class AudioSourceProxyBase
+class AudioSourceProxyBase : public ProxyBase
 {
 	public:
 	AudioSourceProxyBase(std::string name);
 	virtual AudioSource* CreateObject(int port, int mic) const = 0; //Can be generalized? Probably not
-	virtual const wchar_t* Name() const = 0;
-	virtual bool Configure(int port, void *data) = 0;
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
-	virtual std::vector<CONFIGVARIANT> GetSettings() = 0;
 };
 
 template <class T>
@@ -50,7 +48,7 @@ class AudioSourceProxy : public AudioSourceProxyBase
 	{
 		return T::Name();
 	}
-	virtual bool Configure(int port, void *data)
+	virtual int Configure(int port, void *data)
 	{
 		return T::Configure(port, data);
 	}

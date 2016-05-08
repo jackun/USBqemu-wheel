@@ -37,9 +37,10 @@ void SelChangedAPI(HWND hW, int port)
 	devtype--;
 	auto rd = RegisterDevice::instance();
 	auto devName = rd.Name(devtype);
-	auto it = rd.Device(devtype)->APIs().begin();
+	auto apis = rd.Device(devtype)->APIs();
+	auto it = apis.begin();
 	std::advance(it, sel);
-	changedAPIs[devName] = SelectedDeviceAPI(port, *it);
+	changedAPIs[std::make_pair(port, devName)] = *it;
 }
 
 void PopulateAPIs(HWND hW, int port)
@@ -54,12 +55,7 @@ void PopulateAPIs(HWND hW, int port)
 	auto devName = rd.Name(devtype);
 	auto apis = dev->APIs();
 
-	std::string selApi;
-	auto changedApi = changedAPIs.find(devName);
-	if (changedApi != changedAPIs.end())
-	{
-		selApi = changedApi->second.api;
-	}
+	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
 	CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
 	LoadSetting(port, rd.Name(devtype), var);
@@ -191,10 +187,12 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					conf.WheelType[0] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_GETCURSEL, 0, 0);
 					conf.WheelType[1] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_GETCURSEL, 0, 0);
 					//TODO remove DInput limitation
-					if(conf.Port1 == "pad" && conf.Port0 == "pad" && GetSelectedAPI(conf.Port1) == "dinput" &&
-						(GetSelectedAPI(conf.Port1) == GetSelectedAPI(conf.Port0))) {
-							MessageBoxExA(hW, "Currently only one DX wheel\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
-							return FALSE;
+					if(conf.Port1 == "pad" && conf.Port0 == "pad" && 
+						GetSelectedAPI(std::make_pair(1, conf.Port1)) == "dinput" &&
+						(GetSelectedAPI(std::make_pair(1, conf.Port1)) == GetSelectedAPI(std::make_pair(0, conf.Port0)))
+					) {
+						MessageBoxExA(hW, "Currently only one DX wheel\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
+						return FALSE;
 					}
 					SaveConfig();
 					CreateDevices();

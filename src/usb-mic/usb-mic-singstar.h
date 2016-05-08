@@ -22,7 +22,7 @@ public:
 	{
 		return RegisterAudioSource::instance().Proxy(name)->Name();
 	}
-	static bool Configure(int port, std::string api, void *data);
+	static int Configure(int port, std::string api, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
 

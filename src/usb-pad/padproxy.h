@@ -7,6 +7,7 @@
 #include <iterator>
 #include "usb-pad.h"
 #include "../helpers.h"
+#include "../proxybase.h"
 
 class PadError : public std::runtime_error
 {
@@ -15,14 +16,11 @@ public:
 	virtual ~PadError() throw () {}
 };
 
-class PadProxyBase
+class PadProxyBase : public ProxyBase
 {
 	public:
 	PadProxyBase(std::string name);
-	virtual Pad* CreateObject() const = 0;
-	virtual const wchar_t* Name() const = 0;
-	virtual bool Configure(int port, void *data) = 0;
-	virtual std::vector<CONFIGVARIANT> GetSettings() = 0;
+	virtual Pad* CreateObject(int port) const = 0;
 };
 
 template <class T>
@@ -30,11 +28,11 @@ class PadProxy : public PadProxyBase
 {
 	public:
 	PadProxy(std::string name): PadProxyBase(name) {}
-	Pad* CreateObject(/*std::string device*/) const
+	Pad* CreateObject(int port) const
 	{
 		try
 		{
-			return new T;
+			return new T(port);
 		}
 		catch(PadError& err)
 		{
@@ -46,7 +44,7 @@ class PadProxy : public PadProxyBase
 	{
 		return T::Name();
 	}
-	virtual bool Configure(int port, void *data)
+	virtual int Configure(int port, void *data)
 	{
 		return T::Configure(port, data);
 	}
@@ -103,5 +101,5 @@ private:
 	RegisterPadMap registerPadMap;
 };
 
-#define REGISTER_PAD(name,cls) PadProxy<cls> g##cls##Proxy(#name)
+#define REGISTER_PAD(name,cls) PadProxy<cls> g##cls##Proxy(name)
 #endif

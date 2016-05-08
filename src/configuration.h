@@ -22,19 +22,12 @@
 #define N_WHEEL_TYPE0	TEXT("wheel_type_0")
 #define N_WHEEL_TYPE1	TEXT("wheel_type_1")
 
-struct SelectedDeviceAPI
+static std::map<std::pair<int, std::string>, std::string> changedAPIs;
+static std::string GetSelectedAPI(const std::pair<int, std::string>& pair)
 {
-	int port;
-	std::string api;
-	SelectedDeviceAPI() : port(-1) {}
-	SelectedDeviceAPI(int p, std::string a) : port(p), api(a) {}
-};
-static std::map<std::string, SelectedDeviceAPI> changedAPIs;
-static std::string GetSelectedAPI(const std::string& device)
-{
-	auto it = changedAPIs.find(device);
+	auto it = changedAPIs.find(pair);
 	if (it != changedAPIs.end())
-		return it->second.api;
+		return it->second;
 	return std::string();
 }
 

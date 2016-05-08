@@ -1027,11 +1027,11 @@ std::vector<CONFIGVARIANT> SingstarDevice::GetSettings(const std::string &api)
 	return std::vector<CONFIGVARIANT>();
 }
 
-bool SingstarDevice::Configure(int port, std::string api, void *data)
+int SingstarDevice::Configure(int port, std::string api, void *data)
 {
 	auto proxy = RegisterAudioSource::instance().Proxy(api);
 	if (proxy)
 		return proxy->Configure(port, data);
-	return false;
+	return RESULT_CANCELED;
 }
 REGISTER_DEVICE(2, DEVICENAME, SingstarDevice);

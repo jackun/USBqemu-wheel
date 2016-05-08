@@ -53,7 +53,7 @@ enum CONTROLID
 class DInputPad : public Pad
 {
 public:
-	DInputPad() {}
+	DInputPad(int port): mPort(port) {}
 	~DInputPad() { FreeDirectInput(); }
 	int Open();
 	int Close();
@@ -66,12 +66,14 @@ public:
 		return L"DInput";
 	}
 
-	static bool Configure(int port, void *data);
+	static int Configure(int port, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings()
 	{
 		//TODO GetSettings()
 		return std::vector<CONFIGVARIANT>();
 	}
+protected:
+	int mPort;
 };
 
 static inline int range_max(PS2WheelTypes type)
@@ -255,9 +257,9 @@ int DInputPad::Close()
 	return 0;
 }
 
-bool DInputPad::Configure(int port, void *data)
+int DInputPad::Configure(int port, void *data)
 {
-	return false;
+	return RESULT_CANCELED;
 }
 
 REGISTER_PAD(APINAME, DInputPad);

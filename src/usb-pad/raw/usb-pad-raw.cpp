@@ -10,8 +10,9 @@ static bool sendCrap = false;
 class RawInputPad : public Pad
 {
 public:
-	RawInputPad() : doPassthrough(false)
-		, usbHandle(INVALID_HANDLE_VALUE)
+	RawInputPad(int port) : mPort(port)
+	, doPassthrough(false)
+	, usbHandle(INVALID_HANDLE_VALUE)
 	{
 		if (!InitHid())
 			throw PadError("InitHid() failed!");
@@ -35,6 +36,7 @@ public:
 		return std::vector<CONFIGVARIANT>();
 	}
 protected:
+	int mPort;
 	HIDP_CAPS caps;
 	HIDD_ATTRIBUTES attr;
 	//PHIDP_PREPARSED_DATA pPreparsedData;
@@ -580,4 +582,5 @@ bool RawInputPad::Configure(int port, void *data)
 {
 	return false;
 }
+
 REGISTER_PAD(APINAME, RawInputPad);

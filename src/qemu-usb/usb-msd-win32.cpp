@@ -65,13 +65,13 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return FALSE;
 }
 
-bool MsdDevice::Configure(int port, std::string api, void *data)
+int MsdDevice::Configure(int port, std::string api, void *data)
 {
 	Win32Handles handles = *(Win32Handles*)data;
 	return DialogBoxParam(handles.hInst,
 		MAKEINTRESOURCE(IDD_DLGMSD),
 		handles.hWnd,
-		(DLGPROC)MsdDlgProc, port) == TRUE;
+		(DLGPROC)MsdDlgProc, port);
 }
 
 /*

@@ -27,7 +27,7 @@ public:
 //	static bool LoadSettings(int port, std::vector<CONFIGVARIANT>& params);
 //	static bool SaveSettings(int port, std::vector<CONFIGVARIANT>& params);
 
-	static bool Configure(int port, std::string api, void *data);
+	static int Configure(int port, std::string api, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api)
 	{
 		(void)api;
