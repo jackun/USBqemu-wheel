@@ -57,10 +57,10 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	//if(data)
 	{
-		uint8_t port = 1 - MIN((unsigned)data, 1);
+		uint8_t ply = MIN((unsigned)data, 1);
 
-		conf.WheelType[port] = idx;
-		fprintf(stderr, "Selected wheel type, player %d idx: %d\n", port, idx);
+		conf.WheelType[ply] = idx;
+		fprintf(stderr, "Selected wheel type, player %d idx: %d\n", ply, idx);
 	}
 }
 

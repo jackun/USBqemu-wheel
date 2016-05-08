@@ -352,6 +352,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (!pad)
 		return NULL;
 
+	pad->Type((PS2WheelTypes)conf.WheelType[1 - port]);
 	PADState *s = (PADState *)qemu_mallocz(sizeof(PADState));
 
 	if (!s)
