@@ -1,0 +1,29 @@
+#ifndef USBMICSINGSTAR_H
+#define USBMICSINGSTAR_H
+#include "../deviceproxy.h"
+#include "audiosourceproxy.h"
+
+struct USBDevice;
+
+class SingstarDevice : public Device
+{
+public:
+	virtual ~SingstarDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const wchar_t* Name()
+	{
+		return L"Singstar";
+	}
+	static std::list<std::string> APIs()
+	{
+		return RegisterAudioSource::instance().Names();
+	}
+	static const wchar_t* APIName(const std::string& name)
+	{
+		return RegisterAudioSource::instance().Proxy(name)->Name();
+	}
+	static bool Configure(int port, std::string api, void *data);
+	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
+};
+
+#endif

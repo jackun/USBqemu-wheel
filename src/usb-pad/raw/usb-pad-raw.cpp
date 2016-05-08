@@ -1,13 +1,40 @@
 #include <algorithm>
-#include "../usb-pad.h"
+#include "../padproxy.h"
 #include "../../USB.h"
 #include "raw-config.h"
 
+#define APINAME "rawinput"
+
 static bool sendCrap = false;
 
-typedef struct Win32PADState {
-	PADState padState;
+class RawInputPad : public Pad
+{
+public:
+	RawInputPad() : doPassthrough(false)
+		, usbHandle(INVALID_HANDLE_VALUE)
+	{
+		if (!InitHid())
+			throw PadError("InitHid() failed!");
+	}
+	~RawInputPad() { Close(); }
+	int Open();
+	int Close();
+	int TokenIn(uint8_t *buf, int len);
+	int TokenOut(const uint8_t *data, int len);
+	int Reset() { return 0; }
 
+	static const wchar_t* Name()
+	{
+		return L"Raw Input";
+	}
+
+	static bool Configure(int port, void *data);
+	static std::vector<CONFIGVARIANT> GetSettings()
+	{
+		//TODO GetSettings()
+		return std::vector<CONFIGVARIANT>();
+	}
+protected:
 	HIDP_CAPS caps;
 	HIDD_ATTRIBUTES attr;
 	//PHIDP_PREPARSED_DATA pPreparsedData;
@@ -23,26 +50,23 @@ typedef struct Win32PADState {
 	
 	uint32_t reportInSize;// = 0;
 	uint32_t reportOutSize;// = 0;
-} Win32PADState;
+	bool doPassthrough;
+};
 
-static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
+int RawInputPad::TokenIn(uint8_t *buf, int len)
 {
-	Win32PADState *s = (Win32PADState*) ps;
-	uint8_t idx = 1 - s->padState.port;
-	if(idx>1) return 0;
-
 	uint8_t data[64];
 	DWORD waitRes;
 	ULONG value = 0;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
-	if(s->padState.doPassthrough && s->usbHandle != INVALID_HANDLE_VALUE)
+	if(this->doPassthrough && this->usbHandle != INVALID_HANDLE_VALUE)
 	{
 		//ZeroMemory(buf, len);
-		ReadFile(s->usbHandle, data, MIN(s->caps.InputReportByteLength, sizeof(data)), 0, &s->ovl);
-		waitRes = WaitForSingleObject(s->ovl.hEvent, 50);
+		ReadFile(this->usbHandle, data, MIN(this->caps.InputReportByteLength, sizeof(data)), 0, &this->ovl);
+		waitRes = WaitForSingleObject(this->ovl.hEvent, 50);
 		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
-			CancelIo(s->usbHandle);
+			CancelIo(this->usbHandle);
 			return 0;
 		}
 		memcpy(buf, data, len);
@@ -59,7 +83,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	if(sendCrap)
 	{
 		sendCrap = false;
-		pad_copy_data(idx, buf, data_summed);
+		pad_copy_data(mType, buf, data_summed);
 		return len;
 	}
 
@@ -71,51 +95,50 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		//Yeah, but what if first is not a wheel with mapped axes...
 		if(false && it == mapVector.begin())
 		{
-			if((*it)->data[idx].axis_x != 0xFFFFFFFF)
-				data_summed.axis_x = (*it)->data[idx].axis_x;
+			if((*it)->data[mPort].axis_x != 0xFFFFFFFF)
+				data_summed.axis_x = (*it)->data[mPort].axis_x;
 
-			if((*it)->data[idx].axis_y != 0xFFFFFFFF)
-				data_summed.axis_y = (*it)->data[idx].axis_y;
+			if((*it)->data[mPort].axis_y != 0xFFFFFFFF)
+				data_summed.axis_y = (*it)->data[mPort].axis_y;
 
-			if((*it)->data[idx].axis_z != 0xFFFFFFFF)
-				data_summed.axis_z = (*it)->data[idx].axis_z;
+			if((*it)->data[mPort].axis_z != 0xFFFFFFFF)
+				data_summed.axis_z = (*it)->data[mPort].axis_z;
 
-			if((*it)->data[idx].axis_rz != 0xFFFFFFFF)
-				data_summed.axis_rz = (*it)->data[idx].axis_rz;
+			if((*it)->data[mPort].axis_rz != 0xFFFFFFFF)
+				data_summed.axis_rz = (*it)->data[mPort].axis_rz;
 		}
 		else
 #endif
 		{
-			if(data_summed.axis_x < (*it).data[idx].axis_x)
-				data_summed.axis_x = (*it).data[idx].axis_x;
+			if(data_summed.axis_x < (*it).data[mPort].axis_x)
+				data_summed.axis_x = (*it).data[mPort].axis_x;
 
-			if(data_summed.axis_y < (*it).data[idx].axis_y)
-				data_summed.axis_y = (*it).data[idx].axis_y;
+			if(data_summed.axis_y < (*it).data[mPort].axis_y)
+				data_summed.axis_y = (*it).data[mPort].axis_y;
 
-			if(data_summed.axis_z < (*it).data[idx].axis_z)
-				data_summed.axis_z = (*it).data[idx].axis_z;
+			if(data_summed.axis_z < (*it).data[mPort].axis_z)
+				data_summed.axis_z = (*it).data[mPort].axis_z;
 
-			if(data_summed.axis_rz < (*it).data[idx].axis_rz)
-				data_summed.axis_rz = (*it).data[idx].axis_rz;
+			if(data_summed.axis_rz < (*it).data[mPort].axis_rz)
+				data_summed.axis_rz = (*it).data[mPort].axis_rz;
 		}
 
-		data_summed.buttons |= (*it).data[idx].buttons;
-		if(data_summed.hatswitch > (*it).data[idx].hatswitch)
-			data_summed.hatswitch = (*it).data[idx].hatswitch;
+		data_summed.buttons |= (*it).data[mPort].buttons;
+		if(data_summed.hatswitch > (*it).data[mPort].hatswitch)
+			data_summed.hatswitch = (*it).data[mPort].hatswitch;
 	}
 
-	pad_copy_data(idx, buf, data_summed);
+	pad_copy_data(mType, buf, data_summed);
 	return len;
 }
 
 
-static int token_out(PADState *ps, uint8_t *data, int len)
+int RawInputPad::TokenOut(const uint8_t *data, int len)
 {
-	Win32PADState *s = (Win32PADState*) ps;
 	DWORD out = 0, err = 0, waitRes = 0;
 	BOOL res;
 	uint8_t outbuf[65];
-	if(s->usbHandle == INVALID_HANDLE_VALUE) return 0;
+	if(this->usbHandle == INVALID_HANDLE_VALUE) return 0;
 
 	if(data[0] == 0x8 || data[0] == 0xB) return len;
 	if(data[0] == 0xF8 && data[1] == 0x5) 
@@ -125,12 +148,12 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	memcpy(outbuf + 1, data, len - 1);
 	outbuf[0] = 0;
 
-	waitRes = WaitForSingleObject(s->ovlW.hEvent, 30);
+	waitRes = WaitForSingleObject(this->ovlW.hEvent, 30);
 	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
-		CancelIo(s->usbHandle);
+		CancelIo(this->usbHandle);
 
 	//CancelIo(s->usbHandle); //Mind the ERROR_IO_PENDING, may break FFB
-	res = WriteFile(s->usbHandle, outbuf, s->caps.OutputReportByteLength, &out, &s->ovlW);
+	res = WriteFile(this->usbHandle, outbuf, this->caps.OutputReportByteLength, &out, &this->ovlW);
 
 	//err = GetLastError();
 	//fprintf(stderr,"usb-pad: wrote %d, res: %d, err: %d\n", out, res, err);
@@ -282,7 +305,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				case PAD_AXIS_X: // X-axis
 					//fprintf(stderr, "X: %d\n", value);
 					// Need for logical min too?
-					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / pValueCaps[i].LogicalMax;
+					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / (pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin);
 					if(type == WT_DRIVING_FORCE_PRO)
 						mapping->data[j].axis_x = (value * 0x3FFF) / pValueCaps[i].LogicalMax;
 					else
@@ -389,78 +412,50 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 		ParseRawInputHID(pRawInput);
 }
 
-static int open(USBDevice *dev)
+int RawInputPad::Open()
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
-	Win32PADState *s = (Win32PADState*) dev;
-	uint8_t idx = 1 - s->padState.port;
-	if(idx > 1) return 1;
 
 	//TODO Better place?
 	LoadMappings(&mapVector);
 
-	memset(&s->ovl, 0, sizeof(OVERLAPPED));
-	memset(&s->ovlW, 0, sizeof(OVERLAPPED));
+	memset(&this->ovl, 0, sizeof(OVERLAPPED));
+	memset(&this->ovlW, 0, sizeof(OVERLAPPED));
 
-	s->padState.initStage = 0;
-	s->padState.doPassthrough = !!conf.DFPPass;//TODO per player
-	s->usbHandle = INVALID_HANDLE_VALUE;
+	//this->padState.initStage = 0;
+	this->doPassthrough = !!conf.DFPPass;//TODO per player
+	this->usbHandle = INVALID_HANDLE_VALUE;
 
-	s->usbHandle = CreateFile(player_joys[idx].c_str(), GENERIC_READ|GENERIC_WRITE,
+	this->usbHandle = CreateFile(player_joys[mPort].c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
 
-	if(s->usbHandle != INVALID_HANDLE_VALUE)
+	if(this->usbHandle != INVALID_HANDLE_VALUE)
 	{
-		s->ovl.hEvent = CreateEvent(0, 0, 0, 0);
-		s->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
+		this->ovl.hEvent = CreateEvent(0, 0, 0, 0);
+		this->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
 
-		HidD_GetAttributes(s->usbHandle, &(s->attr));
-		HidD_GetPreparsedData(s->usbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(s->caps));
+		HidD_GetAttributes(this->usbHandle, &(this->attr));
+		HidD_GetPreparsedData(this->usbHandle, &pPreparsedData);
+		HidP_GetCaps(pPreparsedData, &(this->caps));
 		HidD_FreePreparsedData(pPreparsedData);
 	}
 	else
-		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[idx].c_str());
+		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[mPort].c_str());
 
 	return 0;
 }
 
-static void close(USBDevice *dev)
+int RawInputPad::Close()
 {
-	if(!dev) return;
-	Win32PADState *s = (Win32PADState*) dev;
-
-	if(s->usbHandle != INVALID_HANDLE_VALUE)
+	if(this->usbHandle != INVALID_HANDLE_VALUE)
 	{
-		CloseHandle(s->usbHandle);
-		CloseHandle(s->ovl.hEvent);
-		CloseHandle(s->ovlW.hEvent);
+		CloseHandle(this->usbHandle);
+		CloseHandle(this->ovl.hEvent);
+		CloseHandle(this->ovlW.hEvent);
 	}
 
-	s->usbHandle = INVALID_HANDLE_VALUE;
-}
-
-static void destroy_pad(USBDevice *dev)
-{
-	if(!dev) return;
-	close(dev);
-	free(dev);
-}
-
-PADState* get_new_raw_padstate()
-{
-	if (!InitHid())
-		return NULL;
-
-	Win32PADState *s = (Win32PADState*)qemu_mallocz(sizeof(Win32PADState));
-	
-	s->padState.dev.open = open;
-	s->padState.dev.close = close;
-
-	s->padState.destroy_pad = destroy_pad;
-	s->padState.token_out = token_out;
-	s->padState.usb_pad_poll = usb_pad_poll;
-	return (PADState*)s;
+	this->usbHandle = INVALID_HANDLE_VALUE;
+	return 0;
 }
 
 HWND msgWindow = NULL;
@@ -579,3 +574,10 @@ void UninitWindow()
 		eatenWnd = NULL;
 	}
 }
+
+// ---------
+bool RawInputPad::Configure(int port, void *data)
+{
+	return false;
+}
+REGISTER_PAD(APINAME, RawInputPad);

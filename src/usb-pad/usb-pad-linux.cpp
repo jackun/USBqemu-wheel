@@ -1,4 +1,4 @@
-#include "usb-pad.h"
+#include "padproxy.h"
 #include "../USB.h"
 
 #include <linux/joystick.h>
@@ -18,52 +18,63 @@
 #define Dbg(...)
 #endif
 
-struct LinuxPADState
+#define S_CONFIG_JOY "Joystick"
+#define N_CONFIG_JOY "joystick"
+
+//TODO what to call this?
+class JoyDevPad : public Pad
 {
-	PADState padState;
-	int fd;
-	int fdFF;
-	struct ff_effect effect;
-	uint8_t  axismap[ABS_MAX + 1];
-	uint16_t btnmap[KEY_MAX + 1];
-	int axis_count;
-	int button_count;
+public:
+	JoyDevPad() {}
+	~JoyDevPad() { Close(); }
+	int Open();
+	int Close();
+	int TokenIn(uint8_t *buf, int len);
+	int TokenOut(const uint8_t *data, int len);
+	int Reset() { return 0; }
+	bool FindPad();
+
+	static const wchar_t* Name()
+	{
+		return L"Input (joydev)";
+	}
+
+	static bool Configure(int port, void *data);
+	static std::vector<CONFIGVARIANT> GetSettings();
+protected:
+	void SetConstantForce(int force);
+	void SetSpringForce(int force);
+	void SetAutoCenter(int value);
+	void SetGain(int gain);
+
+	int mFd;
+	int mFdFF;
+	struct ff_effect mEffect;
+	uint8_t  mAxisMap[ABS_MAX + 1];
+	uint16_t mBtnMap[KEY_MAX + 1];
+	int mAxisCount;
+	int mButtonCount;
+	struct wheel_data_t wheel_data;
 };
 
-extern bool file_exists(std::string filename);
-extern bool dir_exists(std::string filename);
-static struct wheel_data_t wheel_data;
-static struct ff_data ffdata;
+extern bool file_exists(std::string path);
+extern bool dir_exists(std::string path);
 static bool sendCrap = false;
-
-static void SetConstantForce(LinuxPADState *s, int force);
-static void SetSpringForce(LinuxPADState *s, int force);
-static void SetAutoCenter(LinuxPADState *s, int value);
-static void SetGain(LinuxPADState *s, int gain);
-
-//int axis_count = 0, button_count = 0;
-
-//uint8_t  axismap[2][ABS_MAX + 1] = {{(uint8_t)-1}};
-//uint16_t btnmap[2][KEY_MAX + 1] = {{(uint16_t)-1}}; // - BTN_MISC + 1];
 
 #define NORM(x, n) (((uint32_t)(32767 + x) * n)/0xFFFE)
 
-static inline int range_max(uint32_t idx)
+static inline int range_max(PS2WheelTypes type)
 {
-	int type = conf.WheelType[idx];
 	if(type == WT_DRIVING_FORCE_PRO)
 		return 0x3FFF;
 	return 0x3FF;
 }
 
-static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
+int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 {
-	LinuxPADState *s = (LinuxPADState*)ps;
-	uint8_t idx = 1 - s->padState.port;
 	ssize_t len;
-	if(idx > 1) return 0; //invalid port
 
-	int range = range_max(idx);
+	int range = range_max(mType);
 
 	if(sendCrap)
 	{
@@ -74,7 +85,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 		wheel_data.axis_z = 0xFF;
 		wheel_data.axis_rz = 0xFF;
 		wheel_data.hatswitch = 0x8;
-		pad_copy_data(idx, buf, wheel_data);
+		pad_copy_data(mType, buf, wheel_data);
 		sendCrap = false;
 		return len;
 	}
@@ -83,11 +94,10 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 	//memset(&wheel_data, 0, sizeof(wheel_data_t));
 
 	struct js_event event;
-	int wtype = conf.WheelType[idx];
 
 	//Non-blocking read sets len to -1 and errno to EAGAIN if no new data
 	//TODO what happens when emulator is paused?
-	while((len = read(s->fd, &event, sizeof(event))) > -1)
+	while((len = read(mFd, &event, sizeof(event))) > -1)
 	{
 		//Dbg("Read js len: %d %d\n", len, errno);
 		if (len == sizeof(event))
@@ -95,7 +105,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 			if (event.type & JS_EVENT_AXIS)
 			{
 				//Dbg("Axis: %d, %d\n", event.number, event.value);
-				switch(s->axismap[event.number])
+				switch(mAxisMap[event.number])
 				{
 					case ABS_X: wheel_data.axis_x = NORM(event.value, range); break;
 					case ABS_Y: wheel_data.axis_y = NORM(event.value, 0xFF); break;
@@ -149,13 +159,14 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int buflen)
 	}
 
 	//Dbg("call pad_copy_data\n");
-	pad_copy_data(idx, buf, wheel_data);
+	pad_copy_data(mType, buf, wheel_data);
 	return buflen;
 }
 
-static bool find_pad(LinuxPADState *s)
+//TODO Get rid of player_joys
+bool JoyDevPad::FindPad()
 {
-	uint8_t idx = 1 - s->padState.port;
+	uint8_t idx = 1 - mPort;
 	if(idx > 1) return false;
 
 	memset(&wheel_data, 0, sizeof(wheel_data_t));
@@ -165,49 +176,49 @@ static bool find_pad(LinuxPADState *s)
 	wheel_data.axis_y = 0xFF;
 	wheel_data.axis_z = 0xFF;
 	wheel_data.axis_rz = 0xFF;
-	memset(s->axismap, -1, sizeof(s->axismap));
-	memset(s->btnmap, -1, sizeof(s->btnmap));
+	memset(mAxisMap, -1, sizeof(mAxisMap));
+	memset(mBtnMap, -1, sizeof(mBtnMap));
 
-	s->axis_count = 0;
-	s->button_count = 0;
-	s->fd = -1;
-	s->fdFF = -1;
-	s->effect.id = -1;
+	mAxisCount = 0;
+	mButtonCount = 0;
+	mFd = -1;
+	mFdFF = -1;
+	mEffect.id = -1;
 
 	if(!player_joys[idx].empty() && file_exists(player_joys[idx]))
 	{
-		if ((s->fd = open(player_joys[idx].c_str(), O_RDONLY | O_NONBLOCK)) < 0)
+		if ((mFd = open(player_joys[idx].c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
 			Dbg("Cannot open player %d's controller: %s\n", idx+1, player_joys[idx].c_str());
 		}
 		else
 		{
-			//int flags = fcntl(s->fd, F_GETFL, 0);
-			//fcntl(s->fd, F_SETFL, flags | O_NONBLOCK);
+			//int flags = fcntl(mFd, F_GETFL, 0);
+			//fcntl(mFd, F_SETFL, flags | O_NONBLOCK);
 
 			// Axis Mapping
-			if (ioctl(s->fd, JSIOCGAXMAP, s->axismap) < 0)
+			if (ioctl(mFd, JSIOCGAXMAP, mAxisMap) < 0)
 			{
 				Dbg("Axis mapping: %s\n", strerror(errno));
 			}
 			else
 			{
-				ioctl(s->fd, JSIOCGAXES, &s->axis_count);
-				for(int i = 0; i < s->axis_count; ++i)
-					Dbg("Axis: %d -> %d\n", i, s->axismap[i] );
+				ioctl(mFd, JSIOCGAXES, &mAxisCount);
+				for(int i = 0; i < mAxisCount; ++i)
+					Dbg("Axis: %d -> %d\n", i, mAxisMap[i] );
 			}
 
 			// Button Mapping
-			if (ioctl(s->fd, JSIOCGBTNMAP, s->btnmap) < 0)
+			if (ioctl(mFd, JSIOCGBTNMAP, mBtnMap) < 0)
 			{
 				Dbg("Button mapping: %s\n", strerror(errno));
 			}
 			else
 			{
 
-				ioctl(s->fd, JSIOCGBUTTONS, &s->button_count);
-				for(int i = 0; i < s->button_count; ++i)
-					Dbg("Button: %d -> %d \n", i, s->btnmap[i] );
+				ioctl(mFd, JSIOCGBUTTONS, &mButtonCount);
+				for(int i = 0; i < mButtonCount; ++i)
+					Dbg("Button: %d -> %d \n", i, mBtnMap[i] );
 			}
 
 			std::stringstream event;
@@ -231,31 +242,31 @@ static bool find_pad(LinuxPADState *s)
 					break;
 				}
 			}
-			if ((s->fdFF = open(event.str().c_str(), O_WRONLY)) < 0)
+			if ((mFdFF = open(event.str().c_str(), O_WRONLY)) < 0)
 			{
 				Dbg("Cannot open '%s'\n", event.str().c_str());
 			}
 			else
 			{
-				s->effect.type = FF_CONSTANT;
-				s->effect.id = -1;
-				s->effect.u.constant.level = 0;	/* Strength : 25 % */
-				s->effect.direction = 0x4000;
-				s->effect.u.constant.envelope.attack_length = 0;//0x100;
-				s->effect.u.constant.envelope.attack_level = 0;
-				s->effect.u.constant.envelope.fade_length = 0;//0x100;
-				s->effect.u.constant.envelope.fade_level = 0;
-				s->effect.trigger.button = 0;
-				s->effect.trigger.interval = 0;
-				s->effect.replay.length = 0X7FFFUL;  /* mseconds */
-				s->effect.replay.delay = 0;
+				mEffect.type = FF_CONSTANT;
+				mEffect.id = -1;
+				mEffect.u.constant.level = 0;	/* Strength : 25 % */
+				mEffect.direction = 0x4000;
+				mEffect.u.constant.envelope.attack_length = 0;//0x100;
+				mEffect.u.constant.envelope.attack_level = 0;
+				mEffect.u.constant.envelope.fade_length = 0;//0x100;
+				mEffect.u.constant.envelope.fade_level = 0;
+				mEffect.trigger.button = 0;
+				mEffect.trigger.interval = 0;
+				mEffect.replay.length = 0X7FFFUL;  /* mseconds */
+				mEffect.replay.delay = 0;
 
-				if (ioctl(s->fdFF, EVIOCSFF, &(s->effect)) < 0) {
+				if (ioctl(mFdFF, EVIOCSFF, &(mEffect)) < 0) {
 					Dbg("Failed to upload effect to '%s'\n", event.str().c_str());
 				}
 
-				SetGain(s, 75);
-				SetAutoCenter(s, 0);
+				SetGain(75);
+				SetAutoCenter(0);
 			}
 			return true;
 		}
@@ -264,56 +275,56 @@ static bool find_pad(LinuxPADState *s)
 	return false;
 }
 
-static void SetConstantForce(LinuxPADState *s, int force)
+void JoyDevPad::SetConstantForce(int force)
 {
 	struct input_event play;
 	play.type = EV_FF;
-	play.code = s->effect.id;
+	play.code = mEffect.id;
 	play.value = 0;
-	//if (write(s->fdFF, (const void*) &play, sizeof(play)) == -1) {
+	//if (write(mFdFF, (const void*) &play, sizeof(play)) == -1) {
 	//    Dbg("stop effect failed\n");
 	//}
 
 	Dbg("Force: %d\n", force);
-	//s->effect.type = FF_CONSTANT;
-	//s->effect.id = -1;
-	//s->effect.u.constant.level = 0x8000;	/* Strength : 0x2000 == 25 % */
-	//s->effect.direction = (0xFFFF * (force)) / 255;
+	//mEffect.type = FF_CONSTANT;
+	//mEffect.id = -1;
+	//mEffect.u.constant.level = 0x8000;	/* Strength : 0x2000 == 25 % */
+	//mEffect.direction = (0xFFFF * (force)) / 255;
 	int y = 0, x = 0;
 	float magnitude = -(127-force) * 78.4803149606299;
-	s->effect.u.constant.level = (MAX(MIN(magnitude, 10000), -10000) / 10) * 32;
-	s->effect.direction = 0x4000; //(int)((3 * M_PI / 2 - atan2(y, x)) * -0x7FFF / M_PI);
-	Dbg("dir: %d lvl: %d\n", s->effect.direction, s->effect.u.constant.level);
+	mEffect.u.constant.level = (MAX(MIN(magnitude, 10000), -10000) / 10) * 32;
+	mEffect.direction = 0x4000; //(int)((3 * M_PI / 2 - atan2(y, x)) * -0x7FFF / M_PI);
+	Dbg("dir: %d lvl: %d\n", mEffect.direction, mEffect.u.constant.level);
 
-//	s->effect.u.constant.envelope.attack_length = 0;
-//	s->effect.u.constant.envelope.attack_level = 0;
-//	s->effect.u.constant.envelope.fade_length = 0;
-//	s->effect.u.constant.envelope.fade_level = 0;
-//	s->effect.trigger.button = 0;
-//	s->effect.trigger.interval = 0;
-//	s->effect.replay.length = 0xFFFF;  /* INFINITE mseconds */
-//	s->effect.replay.delay = 0;
+//	mEffect.u.constant.envelope.attack_length = 0;
+//	mEffect.u.constant.envelope.attack_level = 0;
+//	mEffect.u.constant.envelope.fade_length = 0;
+//	mEffect.u.constant.envelope.fade_level = 0;
+//	mEffect.trigger.button = 0;
+//	mEffect.trigger.interval = 0;
+//	mEffect.replay.length = 0xFFFF;  /* INFINITE mseconds */
+//	mEffect.replay.delay = 0;
 
-	if (ioctl(s->fdFF, EVIOCSFF, &(s->effect)) < 0) {
+	if (ioctl(mFdFF, EVIOCSFF, &(mEffect)) < 0) {
 		Dbg("Failed to upload effect\n");
 	}
 
 
 	//play.type = EV_FF;
-	play.code = s->effect.id;
+	play.code = mEffect.id;
 	play.value = 1;
-	if (write(s->fdFF, (const void*) &play, sizeof(play)) == -1) {
+	if (write(mFdFF, (const void*) &play, sizeof(play)) == -1) {
 		Dbg("play effect failed\n");
 	}
 
 }
 
-static void SetSpringForce(LinuxPADState *s, int force)
+void JoyDevPad::SetSpringForce(int force)
 {
 
 }
 
-static void SetAutoCenter(LinuxPADState *s, int value)
+void JoyDevPad::SetAutoCenter(int value)
 {
 	struct input_event ie;
 
@@ -321,11 +332,11 @@ static void SetAutoCenter(LinuxPADState *s, int value)
 	ie.code = FF_AUTOCENTER;
 	ie.value = value * 0xFFFFUL / 100;
 
-	if (write(s->fdFF, &ie, sizeof(ie)) == -1)
+	if (write(mFdFF, &ie, sizeof(ie)) == -1)
 		Dbg("Failed to set autocenter\n");
 }
 
-static void SetGain(LinuxPADState *s, int gain /* between 0 and 100 */)
+void JoyDevPad::SetGain(int gain /* between 0 and 100 */)
 {
 	struct input_event ie;	/* structure used to communicate with the driver */
 
@@ -333,29 +344,25 @@ static void SetGain(LinuxPADState *s, int gain /* between 0 and 100 */)
 	ie.code = FF_GAIN;
 	ie.value = 0xFFFFUL * gain / 100;
 
-	if (write(s->fdFF, &ie, sizeof(ie)) == -1)
+	if (write(mFdFF, &ie, sizeof(ie)) == -1)
 		Dbg("Failed to set gain\n");
 }
 
-static int token_out(PADState *ps, uint8_t *data, int len)
+int JoyDevPad::TokenOut(const uint8_t *data, int len)
 {
-	LinuxPADState *s = (LinuxPADState*)ps;
-	uint8_t idx = 1 - s->padState.port;
-	if(idx>1) return 0;
+	struct ff_data* ffdata = (struct ff_data*) data;
+	Dbg("FFB 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x0%4X\n", 
+		ffdata->reportid, ffdata->index, ffdata->data1, ffdata->data2, *(int*)((char*)ffdata + 4) );
 
-	memcpy(&ffdata,data, sizeof(ffdata));
-	//if(idx!=0)return 0;
-	Dbg("FFB 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x0%4X\n", ffdata.reportid, ffdata.index, ffdata.data1, ffdata.data2, *(int*)((char*)&ffdata + 4) );
-
-	switch(ffdata.reportid)
+	switch(ffdata->reportid)
 	{
 		case 0xF8:
 			//TODO needed?
-			if(ffdata.index == 5)
+			if(ffdata->index == 5)
 				sendCrap = true;
 			//TODO guess-work
 			//if(ffdata.index == 3)
-			//	SetAutoCenter(s, 100);
+			//	SetAutoCenter(100);
 		break;
 		case 9:
 			{
@@ -365,11 +372,11 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 		case 0x13:
 			//some games issue this command on pause
 			//if(ffdata.reportid == 19 && ffdata.data2 == 0)break;
-			if(ffdata.index == 0x8)
-				SetConstantForce(s, 127); //data1 looks like previous force sent with reportid 0x11
+			if(ffdata->index == 0x8)
+				SetConstantForce(127); //data1 looks like previous force sent with reportid 0x11
 			//TODO unset spring
-			else if(ffdata.index == 3)
-				SetSpringForce(s, 127);
+			else if(ffdata->index == 3)
+				SetSpringForce(127);
 
 			//Dbg("FFB 0x%X, 0x%X, 0x%X\n", ffdata.reportid, ffdata.index, ffdata.data1);
 			break;
@@ -378,18 +385,18 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 				//handle calibration commands
 				//if(!calibrating)
 				{
-					SetConstantForce(s, ffdata.data1);
+					SetConstantForce(ffdata->data1);
 				}
 			}
 			break;
 		case 0x21:
-			if(ffdata.index == 0xB)
+			if(ffdata->index == 0xB)
 			{
 				//if(!calibrating)
 				{
 					//TODO guess-work
-					SetAutoCenter(s, 100);
-					//SetSpringForce(s, ffdata.data1); //spring is broken?
+					SetAutoCenter(100);
+					//SetSpringForce(ffdata.data1);
 				}
 				break;
 			}
@@ -398,26 +405,26 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 		case 0xFF://autocenter?
 		case 0xF4://autocenter?
 			//{
-			//	SetAutoCenter(s, 0);
+			//	SetAutoCenter(0);
 			//}
 			//break;
 		case 0xF5://autocenter?
 			{
-				SetAutoCenter(s, 0);
+				SetAutoCenter(0);
 				//just release force
-				SetConstantForce(s, 127);
+				SetConstantForce(127);
 			}
 			break;
 		case 0xF1:
 			//DF/GTF and GT3
 			//if(!calibrating)
 			{
-				SetConstantForce(s, ffdata.pad1);
+				SetConstantForce(ffdata->pad1);
 			}
 			break;
 		case 0xF3://initialize
 			{
-				//SetAutoCenter(s, 0xFFFFUL);
+				//SetAutoCenter(0xFFFFUL);
 			}
 			break;
 	}
@@ -425,54 +432,41 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	return len;
 }
 
-static int open(USBDevice *dev)
+int JoyDevPad::Open()
 {
-	bool ret = find_pad((LinuxPADState*)dev);
-	return 0;
+	if (FindPad())
+		return 0;
+	return 1;
 }
 
-static void close(USBDevice *dev)
+int JoyDevPad::Close()
 {
-	if(!dev) return;
+	if(mFd != -1)
+		close(mFd);
 
-	LinuxPADState *s = (LinuxPADState*)dev;
-	uint8_t idx = 1 - s->padState.port;
-	if(idx>1) return;
-
-	if(s->fd != -1)
-		close(s->fd);
-
-	if(s->fdFF != -1)
+	if(mFdFF != -1)
 	{
-		if (s->effect.id != -1 && ioctl(s->fdFF, EVIOCRMFF, s->effect.id) == -1)
+		if (mEffect.id != -1 && ioctl(mFdFF, EVIOCRMFF, mEffect.id) == -1)
 		{
 			Dbg("Failed to unload FF effect.\n");
 		}
-		close(s->fdFF);
+		close(mFdFF);
 	}
 
-
-	s->fd = -1;
-	s->fdFF = -1;
+	mFd = -1;
+	mFdFF = -1;
 }
 
-static void destroy_pad(USBDevice *dev)
+std::vector<CONFIGVARIANT> JoyDevPad::GetSettings()
 {
-	if(!dev) return;
-	close(dev);
-	free(dev);
+	std::vector<CONFIGVARIANT> params;
+	params.push_back(CONFIGVARIANT(S_CONFIG_JOY, N_CONFIG_JOY, CONFIG_TYPE_CHAR));
+	return params;
 }
 
-PADState* get_new_padstate()
+bool JoyDevPad::Configure(int port, void *data)
 {
-	auto s = (LinuxPADState*)qemu_mallocz(sizeof(LinuxPADState));
-
-
-	s->padState.dev.open = open;
-	s->padState.dev.close = close;
-
-	s->padState.destroy_pad = destroy_pad;
-	s->padState.token_out = token_out;
-	s->padState.usb_pad_poll = usb_pad_poll;
-	return (PADState*)s;
+	return false;
 }
+
+REGISTER_PAD(joydev, JoyDevPad);

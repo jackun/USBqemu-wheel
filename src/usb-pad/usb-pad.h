@@ -4,26 +4,29 @@
 #include "../qemu-usb/vl.h"
 #include "../usb-mic/usb.h"
 #include "config.h"
+#include "../configuration.h"
 
-void 
-bitarray_copy(const uint8_t*src_org, int src_offset, int src_len,
-                    uint8_t*dst_org, int dst_offset);
+class Pad
+{
+public:
+	virtual ~Pad() {}
+	virtual int Open() = 0;
+	virtual int Close() = 0;
+	virtual int TokenIn(uint8_t *buf, int len) = 0;
+	virtual int TokenOut(const uint8_t *data, int len) = 0;
+	virtual int Reset() = 0;
 
-#ifdef _WIN32
+	virtual PS2WheelTypes Type() { return mType; }
+	virtual void Type(PS2WheelTypes type) { mType = type; }
+	virtual int Port() { return mPort; }
+	virtual void Port(int port) { mPort = port; }
 
-	#if BUILD_RAW
-	PADState* get_new_raw_padstate();
-	#endif
+	static std::vector<CONFIGVARIANT> GetSettings();
 
-	#if BUILD_DX
-	PADState* get_new_dx_padstate();
-	#endif
-
-#else
-
-PADState* get_new_padstate();
-
-#endif
+protected:
+	PS2WheelTypes mType;
+	int mPort;
+};
 
 /**
   linux hid-lg4ff.c
@@ -518,7 +521,7 @@ struct ff_data
 
 void ResetData(generic_data_t *d);
 void ResetData(dfp_data_t *d);
-void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data);
+void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data);
 //Convert DF Pro buttons to selected wheel type
 uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn);
 #endif

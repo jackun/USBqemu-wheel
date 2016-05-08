@@ -93,19 +93,6 @@ enum PS2WheelTypes {
 #define PLAYER_ONE_PORT 1
 #define USB_PORT PLAYER_ONE_PORT
 
-typedef struct PADState {
-	USBDevice	dev;
-
-	int (*usb_pad_poll)(PADState *ps, uint8_t *buf, int len);
-	int (*token_out)(PADState *ps, uint8_t *data, int len);
-	void (*destroy_pad)(USBDevice *dev);
-
-	uint8_t		port;
-	int			initStage;
-	//Config instead?
-	bool		doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
-} PADState;
-
 // hold intermediate wheel data
 struct wheel_data_t
 {

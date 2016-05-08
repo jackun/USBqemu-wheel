@@ -28,6 +28,7 @@
 #include "qemu-usb/vl.h"
 #include "USB.h"
 #include "usb-pad/config.h"
+#include "deviceproxy.h"
 
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
@@ -112,44 +113,26 @@ void DestroyDevices()
 
 void CreateDevices()
 {
+	DeviceProxyBase *devProxy;
 	if(!qemu_ohci) return; //No USBinit yet ie. called from config. dialog
 	DestroyDevices();
-	switch(conf.Port1)
+
+	if (!conf.Port1.empty())
 	{
-	case 1:
-		usb_device1 = pad_init(PLAYER_ONE_PORT, 0);
-		break;
-	case 2:
-		usb_device1 = pad_init(PLAYER_ONE_PORT, 1);
-		break;
-	case 3:
-		usb_device1 = usb_msd_init(conf.usb_img);
-		break;
-	case 4:
-		//TODO only one at a time?
-		usb_device1 = singstar_mic_init(PLAYER_ONE_PORT, conf.mics);
-		break;
-	default:
-		break;
+		devProxy = RegisterDevice::instance().Device(conf.Port1);
+		if (devProxy)
+			usb_device1 = devProxy->CreateDevice(PLAYER_ONE_PORT);
+		else
+			SysMessage(TEXT("Device 1: Unknown device type"));
 	}
-	
-	switch(conf.Port0)
+
+	if (!conf.Port0.empty())
 	{
-	case 1:
-		usb_device2 = pad_init(PLAYER_TWO_PORT, 0);
-		break;
-	case 2:
-		usb_device2 = pad_init(PLAYER_TWO_PORT, 1);
-		break;
-	case 3:
-		usb_device2 = usb_msd_init(conf.usb_img);
-		break;
-	case 4:
-		//TODO only one at a time?
-		usb_device2 = singstar_mic_init(PLAYER_TWO_PORT, conf.mics);
-		break;
-	default:
-		break;
+		devProxy = RegisterDevice::instance().Device(conf.Port0);
+		if (devProxy)
+			usb_device2 = devProxy->CreateDevice(PLAYER_TWO_PORT);
+		else
+			SysMessage(TEXT("Device 2: Unknown device type"));
 	}
 
 	//No need for NULL check. NULL device means detach port.

@@ -4,17 +4,27 @@
 //#include "audiosrc.h"
 #include "audiosourceproxy.h"
 #include "../libsamplerate/samplerate.h"
+#include "../Win32/Config-win32.h"
 
 #include <assert.h>
 #include <Mmdeviceapi.h>
 #include <Audioclient.h>
 #include <propsys.h>
 #include <Functiondiscoverykeys_devpkey.h>
+#include <typeinfo>
+
+#define APINAME "wasapi"
+#define APINAMEW TEXT(APINAME)
 
 #define SafeRelease(x) if(x){x->Release(); x = NULL;}
 #define ConvertMSTo100NanoSec(ms) (ms*1000*10) //1000 microseconds, then 10 "100nanosecond" segments
 
 static FILE* file = nullptr;
+static AudioDeviceInfoList audioDevs;
+//Config dlg temporaries
+static std::wstring micDev[2];
+static std::string micApi[2];
+static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 LARGE_INTEGER clockFreq = { 0 };
 __declspec(thread) LONGLONG lastQPCTime = 0;
@@ -174,8 +184,9 @@ private:
 class MMAudioSource : public AudioSource
 {
 public:
-	MMAudioSource(AudioDeviceInfo &dev)
-	: mDevInfo(dev)
+	MMAudioSource(int port, int mic)
+	: mPort(port)
+	, mMic(mic)
 	, mmCapture(NULL)
 	, mmClient(NULL)
 	, mmDevice(NULL)
@@ -196,6 +207,8 @@ public:
 	{
 		mEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("ResamplerThread"));
 		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
+		if(!Init())
+			throw AudioSourceError("MMAudioSource:: WASAPI init failed!");
 	}
 
 	~MMAudioSource()
@@ -237,13 +250,21 @@ public:
 		const IID IID_IMMDeviceEnumerator    = __uuidof(IMMDeviceEnumerator);
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 
+		CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
+		if (!LoadSetting(mPort, APINAME, var))
+		{
+			return false;
+		}
+		mDevID = var.wstrValue;
+
 		HRESULT err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
 		if(FAILED(err))
 		{
 			SysMessage(TEXT("MMAudioSource::Init(): Could not create IMMDeviceEnumerator = %08lX\n"), err);
 			return false;
 		}
-		mThread = CreateThread(NULL, 0, MMAudioSource::Thread, this, 0, 0);
+		//TODO Not starting thread here unnecesserily
+		//mThread = CreateThread(NULL, 0, MMAudioSource::Thread, this, 0, 0);
 		return Reinitialize();
 	}
 
@@ -262,7 +283,7 @@ public:
 			lastTimeMS = GetQPCTimeMS();
 		}
 
-		err = mmEnumerator->GetDevice(mDevInfo.strID.c_str(), &mmDevice);
+		err = mmEnumerator->GetDevice(mDevID.c_str(), &mmDevice);
 
 		if(FAILED(err))
 		{
@@ -600,7 +621,8 @@ error:
 		static LONGLONG time = 0;
 		static int samples = 0;
 
-		if(!mQuit && WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0) //Thread got killed prematurely
+		if(!mQuit && (mThread == INVALID_HANDLE_VALUE ||
+				WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0)) //Thread got killed prematurely
 			mThread = CreateThread(NULL, 0, MMAudioSource::Thread, this, 0, 0);
 
 		SetEvent(mEvent);
@@ -711,6 +733,25 @@ error:
 		return mInputChannels;
 	}
 
+	virtual MicMode GetMicMode(AudioSource* compare)
+	{
+		if (compare && typeid(compare) != typeid(this))
+			return MIC_MODE_SEPARATE; //atleast, if not single altogether
+
+		if (compare)
+		{
+			MMAudioSource *src = dynamic_cast<MMAudioSource *>(compare);
+			if (mDevID == src->mDevID)
+				return MIC_MODE_SHARED;
+		}
+
+		CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE0 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
+		if (LoadSetting(mPort, APINAME, var) && var.wstrValue == mDevID)
+			return MIC_MODE_SHARED;
+
+		return MIC_MODE_SEPARATE;
+	}
+
 	static const wchar_t* Name()
 	{
 		return L"WASAPI";
@@ -793,6 +834,21 @@ error:
 		SafeRelease(collection);
 		SafeRelease(mmEnumerator);
 	}
+
+	static bool Configure(int port, void *data)
+	{
+		Win32Handles h = *(Win32Handles*)data;
+		return DialogBoxParam(h.hInst,
+			MAKEINTRESOURCE(IDD_DLGMIC),
+			h.hWnd,
+			(DLGPROC)MicDlgProc, port) == TRUE;
+	}
+
+	static std::vector<CONFIGVARIANT> GetSettings()
+	{
+		//TODO GetSettings()
+		return std::vector<CONFIGVARIANT>();
+	}
 private:
 	IMMDeviceEnumerator *mmEnumerator;
 
@@ -811,9 +867,11 @@ private:
 	UINT  mInputBlockSize;
 	DWORD mInputChannelMask;
 
-	AudioDeviceInfo mDevInfo;
+	std::wstring mDevID;
 	bool mDeviceLost;
 	std::wstring mDeviceName;
+	int mMic;
+	int mPort;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
@@ -831,4 +889,138 @@ private:
 	//QueueBuffer<float> mQBuffer;
 };
 
-REGISTER_AUDIOSRC(wasapi, MMAudioSource);
+static void RefreshAudioList(HWND hW, LRESULT idx)
+{
+	audioDevs.clear();
+
+	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_RESETCONTENT, 0, 0);
+
+	SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
+	SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
+
+	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
+	SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
+
+	MMAudioSource::AudioDevices(audioDevs);
+	AudioDeviceInfoList::iterator it;
+	int i = 0;
+	for (it = audioDevs.begin(); it != audioDevs.end(); it++)
+	{
+		SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+		SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+
+		i++;
+		if (it->strID == micDev[0])
+			SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, i, i);
+		if (it->strID == micDev[1])
+			SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, i, i);
+	}
+}
+
+static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	int tmp = 0, port = 0;
+	static auto audioProxyMap = RegisterAudioSource::instance().Map();
+
+	switch (uMsg) {
+	case WM_CREATE:
+		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
+		break;
+		break;
+	case WM_INITDIALOG:
+	{
+		port = (int)GetWindowLong(hW, GWL_USERDATA);
+		int buffering = 20;
+		{
+			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
+			if (LoadSetting(port, APINAME, var))
+				buffering = var.intValue;
+		}
+		SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMIN, TRUE, 1);
+		SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMAX, TRUE, 1000);
+		SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, buffering);
+		SetDlgItemInt(hW, IDC_MICBUF, buffering, FALSE);
+		{
+			for (int i = 0; i < 2; i++)
+			{
+				CONFIGVARIANT var0(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_WCHAR);
+				if (LoadSetting(port, APINAME, var0))
+					micDev[i] = var0.wstrValue;
+			}
+		}
+		RefreshAudioList(hW, -1);
+		return TRUE;
+	}
+	case WM_HSCROLL:
+		if ((HWND)lParam == GetDlgItem(hW, IDC_MICSLIDER))
+		{
+			int pos = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+			SetDlgItemInt(hW, IDC_MICBUF, pos, FALSE);
+			break;
+		}
+		break;
+
+	case WM_COMMAND:
+		switch (HIWORD(wParam))
+		{
+		case EN_CHANGE:
+		{
+			switch (LOWORD(wParam))
+			{
+			case IDC_MICBUF:
+				CHECKED_SET_MAX_INT(tmp, hW, IDC_MICBUF, FALSE, 1, 1000);
+				SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, tmp);
+				break;
+			}
+		}
+		break;
+		case BN_CLICKED:
+		{
+			switch (LOWORD(wParam)) {
+			case IDOK:
+			{
+				int p1, p2;
+				INT_PTR res = RESULT_OK;
+				p1 = SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_GETCURSEL, 0, 0);
+				p2 = SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_GETCURSEL, 0, 0);
+
+				if (p1 > 0)
+					micDev[0] = (audioDevs.begin() + p1 - 1)->strID;
+				else
+					micDev[0] = L"";
+				if (p2 > 0)
+					micDev[1] = (audioDevs.begin() + p2 - 1)->strID;
+				else
+					micDev[1] = L"";
+
+				port = (int)GetWindowLong(hW, GWL_USERDATA);
+
+				for (int i = 0; i < 2; i++)
+				{
+					CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_WCHAR);
+					var.wstrValue = micDev[i];
+					if (!SaveSetting(port, APINAME, var))
+						res = RESULT_FAILED;
+				}
+
+				{
+					CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
+					var.intValue = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+					if (!SaveSetting(port, APINAME, var))
+						res = RESULT_FAILED;
+				}
+
+				EndDialog(hW, res);
+				return TRUE;
+			}
+			case IDCANCEL:
+				EndDialog(hW, RESULT_CANCELED);
+				return TRUE;
+			}
+		}
+		break;
+		}
+	}
+	return FALSE;
+}
+
+REGISTER_AUDIOSRC(APINAME, MMAudioSource);

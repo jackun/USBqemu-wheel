@@ -31,8 +31,8 @@
 #endif
 #endif
 
-// Annoying defines
-// ---------------------------------------------------------------------
+#include "platcompat.h"
+
 #ifdef _WIN32
 
 #define usleep(x)	Sleep(x / 1000)
@@ -73,19 +73,11 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 }
 
 #ifdef _DEBUG
-#define OSDebugOut(psz_fmt, ...) _OSDebugOut( TEXT("[") TEXT(__FUNCTION__) TEXT("] ") psz_fmt, ##__VA_ARGS__)
+//Too many gibberish intellisense errors
+//#define OSDebugOut(psz_fmt, ...) _OSDebugOut( TEXT("[") TEXT(__FUNCTION__) TEXT("] ") psz_fmt, ##__VA_ARGS__)
+#define OSDebugOut(psz_fmt, ...) _OSDebugOut(psz_fmt, ##__VA_ARGS__)
 #else
 #define OSDebugOut(...) do{}while(0)
-#endif
-
-#define wfopen _wfopen
-#define STDSTR std::wstring
-
-//FIXME narrow string fmt
-#ifdef UNICODE
-#define SFMTs "S"
-#else
-#define SFMTs "s"
 #endif
 
 #else //_WIN32
@@ -93,24 +85,12 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 //#include <gtk/gtk.h>
 #include <limits.h>
 #include <string>
-#define MAX_PATH PATH_MAX
-#define __inline inline
 
 #ifdef _DEBUG
 #define OSDebugOut(psz_fmt, ...) fprintf(stderr, psz_fmt, ##__VA_ARGS__)
 #else
 #define OSDebugOut(psz_fmt, ...)
 #endif
-
-//#ifndef TEXT
-//#define TEXT(x) L##x
-//#endif
-//FIXME narrow string fmt
-#define SFMTs "s"
-#define TEXT(val) val
-#define TCHAR char
-#define wfopen fopen
-#define STDSTR std::string
 
 #endif //_WIN32
 
@@ -122,14 +102,16 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 
 typedef struct _Config {
   int Log;
-  int Port0; //player2
-  int Port1; //player1
+  std::string Port0; //player2
+  std::string Port1; //player1
   int DFPPass; //[2]; //TODO per player
   int WheelType[2];
-  TCHAR usb_img[MAX_PATH+1];
+  //TCHAR usb_img[MAX_PATH+1];
 
-  STDSTR mics[2];
-  std::string micApi;// [2];
+  //TSTDSTRING mics[2];
+  //std::string micApi;// [2];
+  //TODO Make device manage this setting itself
+  //std::string wheelApi[2];
   int MicBuffering; //ms
 
 } Config;
@@ -170,12 +152,6 @@ USBDevice *usb_hub_init(int nb_ports);
 USBDevice *usb_msd_init(const TCHAR *filename);
 USBDevice *eyetoy_init(void);
 USBDevice *usb_mouse_init(void);
-
-/* usb-pad.cpp */
-USBDevice *pad_init(int port, int type);
-
-/* usb-mic-singstar.cpp */
-USBDevice *singstar_mic_init(int port, STDSTR *devs);
 
 /* usb-pad-raw.cpp */
 #if _WIN32

@@ -1,0 +1,81 @@
+#ifndef CONFIGURATION_H
+#define CONFIGURATION_H
+#include <vector>
+#include <string>
+#include <map>
+#include "platcompat.h"
+
+#define RESULT_CANCELED 0
+#define RESULT_OK       1
+#define RESULT_FAILED   2
+
+// Device-level config related defines
+#define S_DEVICE_API	TEXT("Device API")
+#define S_WHEEL_TYPE	TEXT("Wheel type")
+#define S_DEVICE_PORT0	TEXT("Port 0")
+#define S_DEVICE_PORT1	TEXT("Port 1")
+
+#define N_DEVICE_API	TEXT("device_api")
+#define N_DEVICES		TEXT("devices")
+#define N_DEVICE_PORT0	TEXT("port_0")
+#define N_DEVICE_PORT1	TEXT("port_1")
+#define N_WHEEL_TYPE0	TEXT("wheel_type_0")
+#define N_WHEEL_TYPE1	TEXT("wheel_type_1")
+
+struct SelectedDeviceAPI
+{
+	int port;
+	std::string api;
+	SelectedDeviceAPI() : port(-1) {}
+	SelectedDeviceAPI(int p, std::string a) : port(p), api(a) {}
+};
+static std::map<std::string, SelectedDeviceAPI> changedAPIs;
+static std::string GetSelectedAPI(const std::string& device)
+{
+	auto it = changedAPIs.find(device);
+	if (it != changedAPIs.end())
+		return it->second.api;
+	return std::string();
+}
+
+enum CONFIG_VARIANT_TYPE
+{
+	CONFIG_TYPE_EMPTY,
+	CONFIG_TYPE_INT,
+	CONFIG_TYPE_DOUBLE,
+	CONFIG_TYPE_CHAR,
+	CONFIG_TYPE_WCHAR,
+	CONFIG_TYPE_TCHAR,
+	CONFIG_TYPE_PTR
+};
+
+struct CONFIGVARIANT
+{
+	const CONFIG_VARIANT_TYPE	type;
+	const TCHAR*	desc;
+	const TCHAR*	name;
+
+	union
+	{
+		int64_t		intValue;
+		double		doubleValue;
+		//char*		charValue;
+		//wchar_t*	wcharValue;
+		void*		ptrValue;
+	};
+
+	//TODO Can't define as pointers and who would free them then?
+	std::string strValue;
+	std::wstring wstrValue;
+	TSTDSTRING tstrValue;
+
+	CONFIGVARIANT() : type(CONFIG_TYPE_EMPTY), ptrValue(0) {}
+	CONFIGVARIANT(const TCHAR* n, CONFIG_VARIANT_TYPE t) : name(n), type(t), ptrValue(0) {}
+	CONFIGVARIANT(const TCHAR* d, const TCHAR* n, CONFIG_VARIANT_TYPE t)
+		: desc(d), name(n), type(t), ptrValue(0) {}
+};
+
+bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var);
+bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var);
+
+#endif

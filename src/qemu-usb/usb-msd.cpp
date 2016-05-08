@@ -12,6 +12,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "vl.h"
+#include "usb-msd.h"
+
+#define DEVICENAME "msd"
+#define APINAME "cstdio"
 
 #define le32_to_cpu(x) (x)
 #define cpu_to_le32(x) (x)
@@ -56,21 +60,22 @@ enum USBMSDMode {
     USB_MSDM_CSW /* Command Status.  */
 };
 
-typedef struct {
-    USBDevice dev;
-    enum USBMSDMode mode;
-    int32_t data_len;
-    uint32_t tag;
-    FILE *hfile;
-    //char fn[MAX_PATH+1]; //TODO Could use with open/close, 
+typedef struct MSDState {
+	USBDevice	dev;
+
+	enum USBMSDMode mode;
+	int32_t data_len;
+	uint32_t tag;
+	FILE *hfile;
+	//char fn[MAX_PATH+1]; //TODO Could use with open/close, 
 							//but error recovery currently can't deal with file suddenly
 							//becoming not accessible
-    int result;
+	int result;
 
-    uint32_t off; //buffer offset
-    uint8_t buf[4096];//random length right now
-    uint8_t sense_buf[18];
-    uint8_t last_cmd;
+	uint32_t off; //buffer offset
+	uint8_t buf[4096];//random length right now
+	uint8_t sense_buf[18];
+	uint8_t last_cmd;
 } MSDState;
 
 static const uint8_t qemu_msd_dev_descriptor[] = {
@@ -688,40 +693,54 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 
 static void usb_msd_handle_destroy(USBDevice *dev)
 {
-    MSDState *s = (MSDState *)dev;
-
-	if(s->hfile)
-		fclose(s->hfile);
+	MSDState *s = (MSDState *)dev;
+	if (s)
+	{
+		if(s->hfile)
+			fclose(s->hfile);
+		s->hfile = NULL;
+	}
 	free(s);
 }
 
-USBDevice *usb_msd_init(const TCHAR *filename)
+USBDevice *MsdDevice::CreateDevice(int port)
 {
-    MSDState *s;
+	MSDState *s = (MSDState *)qemu_mallocz(sizeof(MSDState));
+	if (!s)
+		return NULL;
 
-    s = (MSDState*)qemu_mallocz(sizeof(MSDState));
-    if (!s)
-        return NULL;
+	//CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
+	//LoadSetting(port, DEVICENAME, varApi);
+	std::string api = *MsdDevice::APIs().begin();
 
-	s->hfile = NULL;
-    s->hfile = wfopen(filename, TEXT("r+b"));
-	if (!s->hfile) {
-		fprintf(stderr, "usb-msd: Could not open image file\n");
-        return NULL;
+	CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
+
+	if(!LoadSetting(port, api, var))
+	{
+		fprintf(stderr, "usb-msd: Could not load settings\n");
+		return NULL;
 	}
 
-    s->last_cmd = -1;
-    s->dev.speed = USB_SPEED_FULL;
-    s->dev.handle_packet = usb_generic_handle_packet;
+	s->hfile = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
+	if (!s->hfile) {
+		fprintf(stderr, "usb-msd: Could not open image file\n");
+		return NULL;
+	}
 
-    s->dev.handle_reset = usb_msd_handle_reset;
-    s->dev.handle_control = usb_msd_handle_control;
-    s->dev.handle_data = usb_msd_handle_data;
-    s->dev.handle_destroy = usb_msd_handle_destroy;
+	s->last_cmd = -1;
+	s->dev.speed = USB_SPEED_FULL;
+	s->dev.handle_packet = usb_generic_handle_packet;
 
-    sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
-             ""/*filename*/);
+	s->dev.handle_reset = usb_msd_handle_reset;
+	s->dev.handle_control = usb_msd_handle_control;
+	s->dev.handle_data = usb_msd_handle_data;
+	s->dev.handle_destroy = usb_msd_handle_destroy;
 
-    usb_msd_handle_reset((USBDevice *)s);
-    return (USBDevice *)s;
+	sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
+			 ""/*filename*/);
+
+	usb_msd_handle_reset((USBDevice *)s);
+	return (USBDevice *)s;
 }
+
+REGISTER_DEVICE(1, DEVICENAME, MsdDevice);

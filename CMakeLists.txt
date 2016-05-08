@@ -17,7 +17,7 @@ set(CMAKE_MODULE_PATH
 
 SET (PLUGIN_VERSION_MAJOR "0")
 SET (PLUGIN_VERSION_MINOR "5")
-SET (PLUGIN_VERSION_PATCH "1")
+SET (PLUGIN_VERSION_PATCH "2")
 SET (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
 
 IF(WIN32)
@@ -26,6 +26,7 @@ IF(WIN32)
 	OPTION (BUILD_WITH_DXSDK "Build with DX 2010 SDK" FALSE)
 	OPTION (BUILD_FIND_WINSDK "Find Windows SDK" FALSE)
 ELSE(WIN32)
+	OPTION (BUILD_PULSE "Build with PulseAudio" TRUE)
 	IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 		MESSAGE("debug mode")
 	ENDIF()
@@ -85,27 +86,34 @@ SET(HDRS_MIC
 	./src/usb-mic/usb.h
 	./src/usb-mic/audiosrc.h
 	./src/usb-mic/audiosourceproxy.h
+	./src/usb-mic/usb-mic-singstar.h
 )
 
 SET(HDRS_QEMU
 	./src/qemu-usb/vl.h
 	./src/qemu-usb/usb.h
 	./src/qemu-usb/USBinternal.h
+	./src/qemu-usb/usb-msd.h
 )
 
 SET(HDRS_PAD
 	./src/usb-pad/usb-pad.h
 	./src/usb-pad/config.h
+	./src/usb-pad/padproxy.h
 )
 
 SET(HDRS_PLG
 	./src/USB.h
 	./src/PS2Etypes.h
 	./src/PS2Edefs.h
+	./src/deviceproxy.h
+	./src/configuration.h
+	./src/platcompat.h
 )
 
 SET(SRCS_PLG
 	./src/USB.cpp
+	./src/deviceproxy.cpp
 )
 
 SET(SRCS_QEMU
@@ -120,6 +128,7 @@ SET(SRCS_QEMU
 SET(SRCS_PAD
 	./src/usb-pad/bitjuggling.cpp
 	./src/usb-pad/usb-pad.cpp
+	./src/usb-pad/padproxy.cpp
 )
 
 SET(SRCS_MIC
@@ -138,15 +147,20 @@ IF(WIN32)
 	LIST(APPEND HDRS_WIN32
 		./src/Win32/resource.h
 		./src/Win32/Config.h
+		./src/Win32/Config-win32.h
 	)
 	
 	LIST(APPEND SRCS_WIN32
 		./src/Win32/Config.cpp
-		./src/Win32/Win32.cpp
+		./src/Win32/Config-win32.cpp
 	)
 	
 	LIST(APPEND SRCS_MIC
 		./src/usb-mic/audiosrc-win32.cpp
+	)
+	
+	LIST(APPEND SRCS_QEMU
+		./src/qemu-usb/usb-msd-win32.cpp
 	)
 	
 	# These two eventually contain only code that manages raw/dx configurations
@@ -233,15 +247,24 @@ IF(UNIX)
 	LIST(APPEND HDRS 
 		./src/linux/ini.h
 		./src/linux/actualfile.h
+		./src/linux/config.h
 	)
-	LIST(APPEND SRCS 
+	LIST(APPEND SRCS
+		./src/qemu-usb/usb-msd-linux.cpp
 		./src/usb-pad/usb-pad-linux.cpp
-		./src/usb-mic/audiosrc-linux.cpp
 		./src/linux/config.cpp
+		./src/linux/config-gtk.cpp
 		./src/linux/ini.c
 		./src/linux/actualfile.c
 	)
-	
+
+	IF(BUILD_PULSE)
+		LIST(APPEND SRCS
+			./src/usb-mic/audiosrc-pulse.cpp
+		)
+		LIST(APPEND LIBS pulse)
+	ENDIF(BUILD_PULSE)
+
 	ADD_DEFINITIONS(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
 	FIND_PACKAGE(GTK2 REQUIRED)
 	LIST(APPEND LIBS ${GTK2_LIBRARIES})

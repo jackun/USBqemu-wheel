@@ -26,8 +26,10 @@
 
 #include "../USB.h"
 #include "../qemu-usb/vl.h"
-#include "audiosourceproxy.h"
+#include "usb-mic-singstar.h"
 #include <assert.h>
+
+#define DEVICENAME "singstar"
 
 static FILE *file = NULL;
 
@@ -49,14 +51,6 @@ static FILE *file = NULL;
 //#include "usbdesc.h"
 
 #define BUFFER_FRAMES 200
-enum MicMode {
-	MIC_MODE_NONE,
-	MIC_MODE_SINGLE,
-	MIC_MODE_SEPARATE,
-    // Use same source for both player or
-    // left channel for P1 and right for P2 if stereo.
-	MIC_MODE_SHARED
-};
 
 /*
  * A Basic Audio Device uses these specific values
@@ -703,7 +697,8 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         ret = 0;
         break;
     case DeviceRequest | USB_REQ_GET_INTERFACE:
-        data[0] = 0;
+		OSDebugOut(TEXT("Get interface, len :%d\n"), length);
+        data[0] = s->intf;
         ret = 1;
         break;
 	case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
@@ -921,31 +916,51 @@ int singstar_mic_handle_packet(USBDevice *s, int pid,
 	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
-USBDevice *singstar_mic_init(int port, STDSTR *devs)
+//USBDevice *singstar_mic_init(int port, TSTDSTRING *devs)
+USBDevice* SingstarDevice::CreateDevice(int port)
 {
     SINGSTARMICState *s;
     AudioDeviceInfo info;
+    TSTDSTRING devs[2];
+    std::string api;
 
     s = (SINGSTARMICState *)qemu_mallocz(sizeof(SINGSTARMICState));
     if (!s)
         return NULL;
 
-	s->audsrcproxy = RegisterAudioSource::instance().AudioSource(conf.micApi);
+	{
+		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
+		if(LoadSetting(port, DEVICENAME, var))
+			api = var.strValue;
+	}
+
+	{
+		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
+		LoadSetting(port, api, var);
+	}
+
+	s->audsrcproxy = RegisterAudioSource::instance().Proxy(api);
 	if (!s->audsrcproxy)
 	{
-		auto map = RegisterAudioSource::instance().Map();
-		if(!map.empty())
-			s->audsrcproxy = map.begin()->second;
-		else
-		{
-			SysMessage(TEXT("No AudioSource classes where registered!"));
-			return nullptr;
-		}
+		SysMessage(TEXT("singstar: Invalid audio API.\n"));
+		return NULL;
 	}
 
 	s->audsrcproxy->AudioInit();
 
-	if(!devs[0].empty() && !devs[1].empty()
+	s->audsrc[0] = s->audsrcproxy->CreateObject(port, 0);
+	s->audsrc[1] = s->audsrcproxy->CreateObject(port, 1);
+
+	s->mode = MIC_MODE_SEPARATE;
+	auto src = s->audsrc[0] ? s->audsrc[0] : (s->audsrc[1] ? s->audsrc[1] : nullptr);
+
+	if (src)
+		s->mode = src->GetMicMode(nullptr);
+
+	if(!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1]))
+		s->mode = MIC_MODE_SEPARATE;
+
+	/*if(!devs[0].empty() && !devs[1].empty()
 		&& (devs[0] == devs[1]))
 	{
 		s->mode = MIC_MODE_SHARED;
@@ -972,7 +987,7 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
 			s->buffer[1] = new int16_t[BUFFER_FRAMES * s->audsrc[1]->GetChannels()];
 			s->mode = MIC_MODE_SEPARATE;
 		}
-	}
+	}*/
 
 	if(!s->audsrc[0] && !s->audsrc[1])
 	{
@@ -1003,3 +1018,20 @@ USBDevice *singstar_mic_init(int port, STDSTR *devs)
     return (USBDevice *)s;
 
 }
+
+std::vector<CONFIGVARIANT> SingstarDevice::GetSettings(const std::string &api)
+{
+	auto proxy = RegisterAudioSource::instance().Proxy(api);
+	if (proxy)
+		return proxy->GetSettings();
+	return std::vector<CONFIGVARIANT>();
+}
+
+bool SingstarDevice::Configure(int port, std::string api, void *data)
+{
+	auto proxy = RegisterAudioSource::instance().Proxy(api);
+	if (proxy)
+		return proxy->Configure(port, data);
+	return false;
+}
+REGISTER_DEVICE(2, DEVICENAME, SingstarDevice);

@@ -1,5 +1,29 @@
 #include "../USB.h"
-#include "usb-pad.h"
+#include "../deviceproxy.h"
+#include "padproxy.h"
+
+#define DEVICENAME "pad"
+
+class PadDevice : public Device
+{
+public:
+	virtual ~PadDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const wchar_t* Name()
+	{
+		return L"Pad/Wheel device";
+	}
+	static std::list<std::string> APIs()
+	{
+		return RegisterPad::instance().Names();
+	}
+	static const wchar_t* APIName(const std::string& name)
+	{
+		return RegisterPad::instance().Proxy(name)->Name();
+	}
+	static bool Configure(int port, std::string api, void *data);
+	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
+};
 
 #ifdef _DEBUG
 void PrintBits(void * data, int size)
@@ -22,6 +46,16 @@ void PrintBits(void * data, int size)
 #define PrintBits(...)
 #define DbgPrint(...)
 #endif //_DEBUG
+
+typedef struct PADState {
+	USBDevice		dev;
+	PadProxyBase*	padProxy;
+	Pad*			pad;
+	uint8_t			port;
+	int				initStage;
+	//Config instead?
+	bool			doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
+} PADState;
 
 static generic_data_t generic_data;
 static dfp_data_t dfp_data;
@@ -108,8 +142,8 @@ static int pad_handle_data(USBDevice *dev, int pid,
 
 	switch(pid) {
 	case USB_TOKEN_IN:
-		if (devep == 1 && s->usb_pad_poll) {
-			ret = s->usb_pad_poll(s, data, len);
+		if (devep == 1 && s->pad) {
+			ret = s->pad->TokenIn(data, len);
 		} else {
 			goto fail;
 		}
@@ -122,8 +156,7 @@ static int pad_handle_data(USBDevice *dev, int pid,
 		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
 		//	s->initStage ++;
 
-		if(s->token_out)
-			ret = s->token_out(s, data, len);
+		ret = s->pad->TokenOut(data, len);
 		break;
 	default:
 	fail:
@@ -136,6 +169,8 @@ static int pad_handle_data(USBDevice *dev, int pid,
 static void pad_handle_reset(USBDevice *dev)
 {
 	/* XXX: do it */
+	PADState *s = (PADState*)dev;
+	s->pad->Reset();
 	return;
 }
 
@@ -287,9 +322,10 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 static void pad_handle_destroy(USBDevice *dev)
 {
 	PADState *s = (PADState *)dev;
-	if(s && s->destroy_pad){
-		s->destroy_pad(dev);
+	if (s) {
+		delete s->pad;
 	}
+	free(s);
 }
 
 int pad_handle_packet(USBDevice *s, int pid, 
@@ -300,29 +336,30 @@ int pad_handle_packet(USBDevice *s, int pid,
 	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
-USBDevice *pad_init(int port, int type)
+USBDevice *PadDevice::CreateDevice(int port)
 {
-	PADState *s = NULL;
+	CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
+	LoadSetting(port, DEVICENAME, varApi);
+	PadProxyBase *proxy = RegisterPad::instance().Proxy(varApi.strValue);
+	if (!proxy)
+	{
+		SysMessage(TEXT("Invalid pad API.\n"));
+		return NULL;
+	}
 
-#ifdef _WIN32
+	Pad *pad = proxy->CreateObject();
 
-	#if BUILD_RAW
-		if(type == 0)
-			s = (PADState *)get_new_raw_padstate();
-	#endif
-	#if BUILD_DX
-		if(type == 1)
-			s = (PADState *)get_new_dx_padstate();
-	#endif
+	if (!pad)
+		return NULL;
 
-#else //linux
-
-	s = (PADState *)get_new_padstate();
-
-#endif
+	PADState *s = (PADState *)qemu_mallocz(sizeof(PADState));
 
 	if (!s)
 		return NULL;
+
+	pad->Port(port);
+	s->pad = pad;
+	//s->padProxy = proxy;
 	s->dev.speed = USB_SPEED_FULL;
 	s->dev.handle_packet  = pad_handle_packet;
 	s->dev.handle_reset   = pad_handle_reset;
@@ -358,10 +395,8 @@ void ResetData(dfp_data_t *d)
 
 int key = 1;
 
-void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
+void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 {
-	int type = conf.WheelType[idx];
-
 	//fprintf(stderr,"usb-pad: axis x %d\n", data.axis_x);
 	switch(type){
 	case WT_GENERIC:
@@ -423,3 +458,21 @@ void pad_copy_data(uint32_t idx, uint8_t *buf, wheel_data_t &data)
 		break;
 	}
 }
+
+bool PadDevice::Configure(int port, std::string api, void *data)
+{
+	auto proxy = RegisterPad::instance().Proxy(api);
+	if (proxy)
+		return proxy->Configure(port, data);
+	return false;
+}
+
+std::vector<CONFIGVARIANT> PadDevice::GetSettings(const std::string &api)
+{
+	auto proxy = RegisterPad::instance().Proxy(api);
+	if (proxy)
+		return proxy->GetSettings();
+	return std::vector<CONFIGVARIANT>();
+}
+
+REGISTER_DEVICE(0, DEVICENAME, PadDevice);

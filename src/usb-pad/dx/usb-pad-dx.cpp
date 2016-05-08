@@ -1,5 +1,7 @@
 #include "../../USB.h"
-#include "../usb-pad.h"
+#include "../padproxy.h"
+
+#define APINAME "dinput"
 
 //externs
 extern void PollDevices();
@@ -25,11 +27,6 @@ static bool alternate = false;
 static bool calibrating = false;
 static bool sendCrap = false;
 
-typedef struct Win32PADState {
-	PADState padState;
-
-} Win32PADState;
-
 enum CONTROLID
 {
 	STEERING,
@@ -53,20 +50,40 @@ enum CONTROLID
 	START,
 };
 
-static inline int range_max(uint32_t idx)
+class DInputPad : public Pad
 {
-	int type = conf.WheelType[idx];
+public:
+	DInputPad() {}
+	~DInputPad() { FreeDirectInput(); }
+	int Open();
+	int Close();
+	int TokenIn(uint8_t *buf, int len);
+	int TokenOut(const uint8_t *data, int len);
+	int Reset() { return 0; }
+
+	static const wchar_t* Name()
+	{
+		return L"DInput";
+	}
+
+	static bool Configure(int port, void *data);
+	static std::vector<CONFIGVARIANT> GetSettings()
+	{
+		//TODO GetSettings()
+		return std::vector<CONFIGVARIANT>();
+	}
+};
+
+static inline int range_max(PS2WheelTypes type)
+{
 	if(type == WT_DRIVING_FORCE_PRO)
 		return 0x3FFF;
 	return 0x3FF;
 }
 
-static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
+int DInputPad::TokenIn(uint8_t *buf, int len)
 {
-	Win32PADState *s = (Win32PADState*) ps;
-	uint8_t idx = 1 - s->padState.port;
-	if(idx>1) return 0;
-	int range = range_max(idx);
+	int range = range_max(mType);
 
 	// Setting to unpressed
 	ZeroMemory(&wheel_data, sizeof(wheel_data_t));
@@ -79,7 +96,7 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 	//TODO Atleast GT4 detects DFP then
 	if(sendCrap)
 	{
-		pad_copy_data(idx, buf, wheel_data);
+		pad_copy_data(mType, buf, wheel_data);
 		sendCrap = false;
 		return len;
 	}
@@ -114,20 +131,19 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 		//brake
 		wheel_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
 
-		PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[idx];
-		if(GetControl(CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_CROSS);
-		if(GetControl(SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_SQUARE);
-		if(GetControl(CIRCLE))		wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_CIRCLE);
-		if(GetControl(TRIANGLE))	wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_TRIANGLE);
-		if(GetControl(R1))			wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_R1);
-		if(GetControl(L1))			wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_L1);
-		if(GetControl(R2))			wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_R2);
-		if(GetControl(L2))			wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_L2);
+		if(GetControl(CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
+		if(GetControl(SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
+		if(GetControl(CIRCLE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CIRCLE);
+		if(GetControl(TRIANGLE))	wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
+		if(GetControl(R1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R1);
+		if(GetControl(L1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L1);
+		if(GetControl(R2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R2);
+		if(GetControl(L2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L2);
 
-		if(GetControl(SELECT))		wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_SELECT);
-		if(GetControl(START))		wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_START);
-		if(GetControl(R3))			wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_R3);
-		if(GetControl(L3))			wheel_data.buttons |= 1 << convert_wt_btn(wt, PAD_L3);
+		if(GetControl(SELECT))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SELECT);
+		if(GetControl(START))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_START);
+		if(GetControl(R3))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R3);
+		if(GetControl(L3))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L3);
 
 		//diagonal
 		if(GetControl(HATUP, true)  && GetControl(HATRIGHT, true))
@@ -151,20 +167,15 @@ static int usb_pad_poll(PADState *ps, uint8_t *buf, int len)
 				wheel_data.hatswitch = 6;
 		}
 
-		pad_copy_data(idx, buf, wheel_data);
+		pad_copy_data(mType, buf, wheel_data);
 	//} //if(idx ...
 	return len;
 }
 
-static int token_out(PADState *ps, uint8_t *data, int len)
+int DInputPad::TokenOut(const uint8_t *data, int len)
 {
-
-	Win32PADState *s = (Win32PADState*) ps;
-	uint8_t idx = 1 - s->padState.port;
-	if(idx>1) return 0;
-
-	memcpy(&ffdata,data, sizeof(ffdata));
-	//if(idx!=0)return 0;
+	//TODO just cast data to struct pointer, maybe
+	memcpy(&ffdata, data, sizeof(ffdata));
 
 	switch(ffdata.reportid)
 	{
@@ -232,32 +243,21 @@ static int token_out(PADState *ps, uint8_t *data, int len)
 	return len;
 }
 
-static void destroy_pad(USBDevice *dev)
-{
-	if(dev)
-		free(dev);
-}
-
-static int open(USBDevice *dev)
+int DInputPad::Open()
 {
 	InitDI();
 	return 0;
 }
 
-static void close(USBDevice *dev)
+int DInputPad::Close()
 {
 	FreeDirectInput();
+	return 0;
 }
 
-PADState* get_new_dx_padstate()
+bool DInputPad::Configure(int port, void *data)
 {
-	PADState *s = (PADState*)qemu_mallocz(sizeof(Win32PADState));
-
-	s->dev.open = open;
-	s->dev.close = close;
-
-	s->destroy_pad = destroy_pad;
-	s->token_out = token_out;
-	s->usb_pad_poll = usb_pad_poll;
-	return s;
+	return false;
 }
+
+REGISTER_PAD(APINAME, DInputPad);

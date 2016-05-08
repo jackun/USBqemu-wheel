@@ -6,16 +6,27 @@
 #include <list>
 #include <algorithm>
 #include <iterator>
+#include "../helpers.h"
+#include "../configuration.h"
+
+class AudioSourceError : public std::runtime_error
+{
+public:
+	AudioSourceError(const char* msg) : std::runtime_error(msg) {}
+	virtual ~AudioSourceError() throw () {}
+};
 
 class AudioSourceProxyBase
 {
 	public:
 	AudioSourceProxyBase(std::string name);
-	virtual AudioSource* CreateObject(AudioDeviceInfo& dev) const = 0; //Can be generalized? Probably not
+	virtual AudioSource* CreateObject(int port, int mic) const = 0; //Can be generalized? Probably not
 	virtual const wchar_t* Name() const = 0;
+	virtual bool Configure(int port, void *data) = 0;
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
+	virtual std::vector<CONFIGVARIANT> GetSettings() = 0;
 };
 
 template <class T>
@@ -23,10 +34,25 @@ class AudioSourceProxy : public AudioSourceProxyBase
 {
 	public:
 	AudioSourceProxy(std::string name): AudioSourceProxyBase(name) {} //Why can't it automagically, ugh
-	AudioSource* CreateObject(AudioDeviceInfo& dev) const { return new T(dev); }
+	AudioSource* CreateObject(int port, int mic) const
+	{
+		try
+		{
+			return new T(port, mic);
+		}
+		catch(AudioSourceError& err)
+		{
+			(void)err;
+			return nullptr;
+		}
+	}
 	virtual const wchar_t* Name() const
 	{
 		return T::Name();
+	}
+	virtual bool Configure(int port, void *data)
+	{
+		return T::Configure(port, data);
 	}
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const
 	{
@@ -40,11 +66,10 @@ class AudioSourceProxy : public AudioSourceProxyBase
 	{
 		T::AudioDeinit();
 	}
-};
-
-struct SelectKey {
-	template <typename F, typename S>
-	F operator()(const std::pair<const F, S> &x) const { return x.first; }
+	virtual std::vector<CONFIGVARIANT> GetSettings()
+	{
+		return T::GetSettings();
+	}
 };
 
 class RegisterAudioSource
@@ -61,7 +86,7 @@ class RegisterAudioSource
 		registerAudioSourceMap[name] = creator;
 	}
 
-	AudioSourceProxyBase* AudioSource(std::string name)
+	AudioSourceProxyBase* Proxy(std::string name)
 	{
 		return registerAudioSourceMap[name];
 	}
@@ -76,6 +101,15 @@ class RegisterAudioSource
 		return nameList;
 	}
 
+	std::string Name(int idx) const
+	{
+		auto it = registerAudioSourceMap.begin();
+		std::advance(it, idx);
+		if (it != registerAudioSourceMap.end())
+			return std::string(it->first);
+		return std::string();
+	}
+
 	const RegisterAudioSourceMap& Map() const
 	{
 		return registerAudioSourceMap;
@@ -85,5 +119,5 @@ private:
 	RegisterAudioSourceMap registerAudioSourceMap;
 };
 
-#define REGISTER_AUDIOSRC(name,cls) AudioSourceProxy<cls> g##cls##Proxy(#name)
+#define REGISTER_AUDIOSRC(name,cls) AudioSourceProxy<cls> g##cls##Proxy(name)
 #endif
