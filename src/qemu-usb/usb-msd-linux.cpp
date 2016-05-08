@@ -2,9 +2,9 @@
 #include "../linux/ini.h"
 #include "../configuration.h"
 
-bool MsdDevice::Configure(int port, std::string api, void *data)
+int MsdDevice::Configure(int port, std::string api, void *data)
 {
-	return false;
+	return RESULT_CANCELED;
 }
 
 /*std::vector<CONFIGVARIANT> MsdDevice::GetSettings(const std::string &api)

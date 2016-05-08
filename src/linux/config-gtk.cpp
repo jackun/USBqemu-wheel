@@ -103,20 +103,21 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 	gtk_list_store_clear (GTK_LIST_STORE (gtk_combo_box_get_model (widget)));
 
 	auto dev = RegisterDevice::instance().Device( device );
+	int port = 1 - player;
 	if (dev)
 	{
 		std::vector<char> name;
 		std::string api;
 
-		auto it = changedAPIs.find(device);
+		auto it = changedAPIs.find(std::make_pair(port, device));
 		if (it == changedAPIs.end())
 		{
 			CONFIGVARIANT currAPI(N_DEVICE_API, CONFIG_TYPE_CHAR);
-			LoadSetting(1 - player, device, currAPI);
+			LoadSetting(port, device, currAPI);
 			api = currAPI.strValue;
 		}
 		else
-			api = it->second.api;
+			api = it->second;
 
 		fprintf(stdout, "Current api: %s\n", api.c_str());
 		int i = 0;
@@ -162,6 +163,7 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 {
 	int player = (int)data;
 	gint active = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+	int port = 1 - player;
 
 	auto name = apiCallback[player].device;
 	auto dev = RegisterDevice::instance().Device( name );
@@ -172,19 +174,17 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 		std::advance(it, active);
 		if (it != apis.end())
 		{
-			auto itAPI = changedAPIs.find(name);
+			auto pair = std::make_pair(port, name);
+			auto itAPI = changedAPIs.find(pair);
+
 			if (itAPI != changedAPIs.end())
-			{
-				itAPI->second.port = 1 - player;
-				itAPI->second.api = *it;
-			}
+				itAPI->second = *it;
 			else
-			{
-				changedAPIs[name] = SelectedDeviceAPI(1 - player, *it);
-			}
-			fprintf(stderr, "selected api: %s\n", it->c_str());
+				changedAPIs[pair] = *it;
+
+			fprintf(stderr, "selected api: %s\napi settings:\n", it->c_str());
 			for(auto& p : dev->GetSettings(*it))
-				fprintf(stderr, "[%s] %s = %s (%d)\n", it->c_str(), p.name, p.desc, p.type);
+				fprintf(stderr, "\t[%s] %s = %s (%d)\n", it->c_str(), p.name, p.desc, p.type);
 		}
 	}
 }

@@ -18,6 +18,7 @@
 #define Dbg(...)
 #endif
 
+#define APINAME "joydev"
 #define S_CONFIG_JOY "Joystick"
 #define N_CONFIG_JOY "joystick"
 
@@ -25,7 +26,7 @@
 class JoyDevPad : public Pad
 {
 public:
-	JoyDevPad() {}
+	JoyDevPad(int port): mPort(port) {}
 	~JoyDevPad() { Close(); }
 	int Open();
 	int Close();
@@ -55,6 +56,7 @@ protected:
 	int mAxisCount;
 	int mButtonCount;
 	struct wheel_data_t wheel_data;
+	int mPort;
 };
 
 extern bool file_exists(std::string path);
@@ -469,4 +471,4 @@ bool JoyDevPad::Configure(int port, void *data)
 	return false;
 }
 
-REGISTER_PAD(joydev, JoyDevPad);
+REGISTER_PAD(APINAME, JoyDevPad);

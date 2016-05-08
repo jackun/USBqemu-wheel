@@ -172,9 +172,9 @@ void SaveConfig() {
 	for (auto& k : changedAPIs)
 	{
 		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		var.strValue = k.second.api;
-		fprintf(stderr, "Save apis: %s %s\n", k.first.c_str(), k.second.api.c_str());
-		SaveSetting(k.second.port, k.first, var);
+		var.strValue = k.second;
+		fprintf(stderr, "Save apis: %s %s\n", k.first.second.c_str(), k.second.c_str());
+		SaveSetting(k.first.first, k.first.second, var);
 	}
 }
 
@@ -208,7 +208,7 @@ void LoadConfig() {
 			api = *instance.Device(conf.Port0)->APIs().begin();
 
 		if(api.size())
-			changedAPIs[conf.Port0] = SelectedDeviceAPI(0, api);
+			changedAPIs[std::make_pair(0, conf.Port0)] = api;
 
 		LoadSetting(1, conf.Port1, tmpVar);
 		api = tmpVar.strValue;
@@ -218,7 +218,7 @@ void LoadConfig() {
 			api = *instance.Device(conf.Port1)->APIs().begin();
 
 		if(api.size())
-			changedAPIs[conf.Port1] = SelectedDeviceAPI(1, api);
+			changedAPIs[std::make_pair(1, conf.Port1)] = api;
 	}
 
 	//INILoadString(path, N_DEVICES, "USB Image", conf.usb_img);
