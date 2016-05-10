@@ -205,7 +205,11 @@ void LoadConfig() {
 		auto dev = instance.Device(conf.Port0);
 
 		if (dev && !dev->IsValidAPI(api))
-			api = *instance.Device(conf.Port0)->APIs().begin();
+		{
+			auto apis = dev->APIs();
+			if (!apis.empty())
+				api = *apis.begin();
+		}
 
 		if(api.size())
 			changedAPIs[std::make_pair(0, conf.Port0)] = api;
@@ -215,7 +219,11 @@ void LoadConfig() {
 
 		dev = instance.Device(conf.Port1);
 		if (dev && !dev->IsValidAPI(api))
-			api = *instance.Device(conf.Port1)->APIs().begin();
+		{
+			auto apis = dev->APIs();
+			if (!apis.empty())
+				api = *apis.begin();
+		}
 
 		if(api.size())
 			changedAPIs[std::make_pair(1, conf.Port1)] = api;
