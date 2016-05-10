@@ -744,3 +744,6 @@ USBDevice *MsdDevice::CreateDevice(int port)
 }
 
 REGISTER_DEVICE(1, DEVICENAME, MsdDevice);
+#undef DPRINTF
+#undef DEVICENAME
+#undef APINAME

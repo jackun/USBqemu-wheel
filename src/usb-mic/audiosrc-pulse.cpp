@@ -191,3 +191,4 @@ protected:
 };
 
 REGISTER_AUDIOSRC(APINAME, PulseAudioSource);
+#undef APINAME

@@ -472,3 +472,4 @@ bool JoyDevPad::Configure(int port, void *data)
 }
 
 REGISTER_PAD(APINAME, JoyDevPad);
+#undef APINAME

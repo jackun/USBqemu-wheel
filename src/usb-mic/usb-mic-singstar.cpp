@@ -363,50 +363,6 @@ static void singstar_mic_handle_reset(USBDevice *dev)
     (((cs) << 24) | ((attrib) << 16) | (idif))
 
 
-static void streambuf_init(struct streambuf *buf, uint32_t size)
-{
-    free(buf->data);
-    buf->size = size - (size % USBAUDIO_PACKET_SIZE);
-    buf->data = (uint8_t*)malloc(buf->size);
-    buf->prod = 0;
-    buf->cons = 0;
-}
-
-static void streambuf_fini(struct streambuf *buf)
-{
-    free(buf->data);
-    buf->data = NULL;
-}
-
-static int streambuf_put(struct streambuf *buf, uint8_t *p)
-{
-    uint32_t free = buf->size - (buf->prod - buf->cons);
-
-    if (!free) {
-        return 0;
-    }
-    assert(free >= USBAUDIO_PACKET_SIZE);
-	//TODO
-    memcpy(buf->data + (buf->prod % buf->size), p,
-                    USBAUDIO_PACKET_SIZE);
-    buf->prod += USBAUDIO_PACKET_SIZE;
-    return USBAUDIO_PACKET_SIZE;
-}
-
-static uint8_t *streambuf_get(struct streambuf *buf)
-{
-    uint32_t used = buf->prod - buf->cons;
-    uint8_t *data;
-
-    if (!used) {
-        return NULL;
-    }
-    assert(used >= USBAUDIO_PACKET_SIZE);
-    data = buf->data + (buf->cons % buf->size);
-    buf->cons += USBAUDIO_PACKET_SIZE;
-    return data;
-}
-
 //0x0300 - feature bUnitID 0x03
 static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
                                  uint16_t cscn, uint16_t idif,
@@ -1035,3 +991,4 @@ int SingstarDevice::Configure(int port, std::string api, void *data)
 	return RESULT_CANCELED;
 }
 REGISTER_DEVICE(2, DEVICENAME, SingstarDevice);
+#undef DEVICENAME

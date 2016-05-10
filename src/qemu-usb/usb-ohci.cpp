@@ -1387,3 +1387,4 @@ OHCIState *ohci_create(uint32_t base, int ports)
 
 	return ohci;
 }
+#undef DPRINTF

@@ -82,3 +82,4 @@ bool MsdDevice::LoadSettings(int port, TSTDSTRING& path)
 bool MsdDevice::SaveSettings(int port, TSTDSTRING& path)
 {
 }*/
+#undef APINAME

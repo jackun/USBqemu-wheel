@@ -477,3 +477,4 @@ std::vector<CONFIGVARIANT> PadDevice::GetSettings(const std::string &api)
 }
 
 REGISTER_DEVICE(0, DEVICENAME, PadDevice);
+#undef DEVICENAME

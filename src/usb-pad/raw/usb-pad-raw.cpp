@@ -584,3 +584,4 @@ bool RawInputPad::Configure(int port, void *data)
 }
 
 REGISTER_PAD(APINAME, RawInputPad);
+#undef APINAME

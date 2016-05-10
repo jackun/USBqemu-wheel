@@ -1024,3 +1024,5 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 }
 
 REGISTER_AUDIOSRC(APINAME, MMAudioSource);
+#undef APINAME
+#undef APINAMEW

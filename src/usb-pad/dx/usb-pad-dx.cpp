@@ -263,3 +263,4 @@ int DInputPad::Configure(int port, void *data)
 }
 
 REGISTER_PAD(APINAME, DInputPad);
+#undef APINAME

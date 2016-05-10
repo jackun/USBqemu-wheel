@@ -19,7 +19,7 @@ public:
 class PadProxyBase : public ProxyBase
 {
 	public:
-	PadProxyBase(std::string name);
+	PadProxyBase(const std::string& name);
 	virtual Pad* CreateObject(int port) const = 0;
 };
 
@@ -27,7 +27,7 @@ template <class T>
 class PadProxy : public PadProxyBase
 {
 	public:
-	PadProxy(std::string name): PadProxyBase(name) {}
+	PadProxy(const std::string& name): PadProxyBase(name) {}
 	Pad* CreateObject(int port) const
 	{
 		try

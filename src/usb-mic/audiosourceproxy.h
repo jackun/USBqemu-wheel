@@ -20,7 +20,7 @@ public:
 class AudioSourceProxyBase : public ProxyBase
 {
 	public:
-	AudioSourceProxyBase(std::string name);
+	AudioSourceProxyBase(const std::string& name);
 	virtual AudioSource* CreateObject(int port, int mic) const = 0; //Can be generalized? Probably not
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const = 0;
 	virtual bool AudioInit() = 0;
@@ -31,7 +31,7 @@ template <class T>
 class AudioSourceProxy : public AudioSourceProxyBase
 {
 	public:
-	AudioSourceProxy(std::string name): AudioSourceProxyBase(name) {} //Why can't it automagically, ugh
+	AudioSourceProxy(const std::string& name): AudioSourceProxyBase(name) {} //Why can't it automagically, ugh
 	AudioSource* CreateObject(int port, int mic) const
 	{
 		try

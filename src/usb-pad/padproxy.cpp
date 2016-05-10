@@ -1,6 +1,6 @@
 #include "padproxy.h"
 
-PadProxyBase::PadProxyBase(std::string name)
+PadProxyBase::PadProxyBase(const std::string& name)
 {
 	RegisterPad::instance().Add(name, this);
 }
