@@ -112,7 +112,6 @@ typedef struct _Config {
   //std::string micApi;// [2];
   //TODO Make device manage this setting itself
   //std::string wheelApi[2];
-  int MicBuffering; //ms
 
 } Config;
 

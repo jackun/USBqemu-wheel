@@ -222,21 +222,6 @@ void SaveConfig()
 
 	swprintf_s(szValue,L"%u",Conf1->WheelType[1]);
 	WritePrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE1, szValue, szIniFile.c_str());
-
-	//WritePrivateProfileStringW(N_DEVICES, TEXT("USB Image"),Conf1->usb_img,szIniFile.c_str());
-
-	//WritePrivateProfileStringW(N_DEVICES, TEXT("Mic 1"), Conf1->mics[0].c_str(), szIniFile.c_str());
-	//WritePrivateProfileStringW(N_DEVICES, TEXT("Mic 2"), Conf1->mics[1].c_str(), szIniFile.c_str());
-
-	//swprintf_s(szValue, L"%" TEXT(SFMTs), Conf1->micApi.c_str());
-	//WritePrivateProfileString(TEXT("Devices"), TEXT("MicAPI"), szValue, szIniFile.c_str());
-
-	//swprintf_s(szValue,L"%u",Conf1->MicBuffering);
-	//WritePrivateProfileString(TEXT("Devices"), TEXT("Mic Buffering"),szValue,szIniFile.c_str());
-
-	//WritePrivateProfileString("Joystick", "Player1", player_joys[0].c_str(), szIniFile);
-	//WritePrivateProfileString("Joystick", "Player2", player_joys[1].c_str(), szIniFile);
-
 }
 
 void LoadConfig() {
@@ -280,38 +265,6 @@ void LoadConfig() {
 	GetPrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE1, NULL, szValue, 20, szIniFile.c_str());
 	Conf1->WheelType[1] = wcstoul(szValue, NULL, 10);
 
-	//GetPrivateProfileStringW(N_DEVICES, TEXT("USB Image"), NULL, Conf1->usb_img, sizeof(Conf1->usb_img), szIniFile.c_str());
-
-	// Get mics
-	//TCHAR tmp[1024];
-	//GetPrivateProfileStringW(N_DEVICES, TEXT("Mic 1"), NULL, tmp, sizeof(tmp)/sizeof(*tmp), szIniFile.c_str());
-	//Conf1->mics[0] = tmp;
-
-	//GetPrivateProfileStringW(N_DEVICES, TEXT("Mic 2"), NULL, tmp, sizeof(tmp)/sizeof(*tmp), szIniFile.c_str());
-	//Conf1->mics[1] = tmp;
-
-	//GetPrivateProfileStringW(N_DEVICES, TEXT("MicAPI"), NULL, tmp, sizeof(tmp) / sizeof(*tmp), szIniFile.c_str());
-
-/*#if UNICODE
-	char tmpA[64] = { 0 };
-	size_t num = 0;
-	wcstombs_s(&num, tmpA, tmp, sizeof(tmpA));
-	Conf1->micApi = tmpA;
-#else
-	Conf1->micApi = tmp;
-#endif*/
-
-	GetPrivateProfileString(N_DEVICES, TEXT("Mic Buffering"), NULL, szValue, 20, szIniFile.c_str());
-	Conf1->MicBuffering = wcstoul(szValue, NULL, 10);
-	if(Conf1->MicBuffering == 0)
-		Conf1->MicBuffering = 50;
-
-	//GetPrivateProfileString("Joystick", "Player1", NULL, szValue, MAX_PATH, szIniFile);
-	//player_joys[0] = szValue;
-
-	//GetPrivateProfileString("Joystick", "Player2", NULL, szValue, MAX_PATH, szIniFile);
-	//player_joys[1] = szValue;
-	
 	return ;
 
 }
