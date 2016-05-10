@@ -204,6 +204,7 @@ public:
 	, mQuit(false)
 	, mPaused(true)
 	, mLastGetBufferMS(0)
+	, mBuffering(50)
 	{
 		mEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("ResamplerThread"));
 		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
@@ -250,12 +251,21 @@ public:
 		const IID IID_IMMDeviceEnumerator    = __uuidof(IMMDeviceEnumerator);
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 
-		CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
-		if (!LoadSetting(mPort, APINAME, var))
 		{
-			return false;
+			CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
+			if (!LoadSetting(mPort, APINAME, var))
+			{
+				return false;
+			}
+			mDevID = var.wstrValue;
 		}
-		mDevID = var.wstrValue;
+
+		{
+			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
+			if (LoadSetting(mPort, APINAME, var))
+				mBuffering = var.intValue;
+		}
+
 
 		HRESULT err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
 		if(FAILED(err))
@@ -361,12 +371,12 @@ public:
 		DWORD flags = 0;//useInputDevice ? 0 : AUDCLNT_STREAMFLAGS_LOOPBACK;
 
 		//Random limit of 1ms to 1 seconds
-		if(conf.MicBuffering == 0)
-			conf.MicBuffering = 50;
-		conf.MicBuffering = MIN(MAX(conf.MicBuffering, 1), 1000);
-		OSDebugOut(TEXT("Mic buffering: %d\n"), conf.MicBuffering);
+		if(mBuffering == 0)
+			mBuffering = 50;
+		mBuffering = MIN(MAX(mBuffering, 1), 1000);
+		OSDebugOut(TEXT("Mic buffering: %d\n"), mBuffering);
 
-		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(conf.MicBuffering), 0, pwfx, NULL);
+		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(mBuffering), 0, pwfx, NULL);
 		//err = AUDCLNT_E_UNSUPPORTED_FORMAT;
 
 		if(FAILED(err))
@@ -570,7 +580,7 @@ public:
 				{
 					//too long, drop samples, caused by saving/loading savestates and random stutters
 					int sizeInMS = (((src->mResampledBuffer.size() + len) * 1000 / src->mInputChannels) / src->mOutputSamplesPerSec);
-					int threshold = conf.MicBuffering > 25 ? conf.MicBuffering : 25;
+					int threshold = mBuffering > 25 ? mBuffering : 25;
 					if (sizeInMS > threshold)
 					{
 						size = 0;
@@ -872,6 +882,7 @@ private:
 	std::wstring mDeviceName;
 	int mMic;
 	int mPort;
+	int mBuffering;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
