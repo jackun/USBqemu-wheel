@@ -22,14 +22,8 @@
 #define N_WHEEL_TYPE0	TEXT("wheel_type_0")
 #define N_WHEEL_TYPE1	TEXT("wheel_type_1")
 
-static std::map<std::pair<int, std::string>, std::string> changedAPIs;
-static std::string GetSelectedAPI(const std::pair<int, std::string>& pair)
-{
-	auto it = changedAPIs.find(pair);
-	if (it != changedAPIs.end())
-		return it->second;
-	return std::string();
-}
+extern std::map<std::pair<int, std::string>, std::string> changedAPIs;
+std::string GetSelectedAPI(const std::pair<int, std::string>& pair);
 
 enum CONFIG_VARIANT_TYPE
 {
