@@ -134,6 +134,7 @@ SET(HDRS_PLG
 SET(SRCS_PLG
 	./src/USB.cpp
 	./src/deviceproxy.cpp
+	./src/configuration.cpp
 )
 
 SET(SRCS_QEMU
