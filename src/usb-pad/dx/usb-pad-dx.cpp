@@ -1,20 +1,23 @@
 #include "../../USB.h"
 #include "../padproxy.h"
+#include "../../Win32/Config-win32.h"
+#include "global.h"
+#include "dialog.h"
 
 #define APINAME "dinput"
 
 //externs
-extern void PollDevices();
-extern float GetControl(int id,  bool axisbutton=true);
+/*extern void PollDevices();
+extern float GetControl(int port, int id,  bool axisbutton=true);
 extern void SetSpringForce(LONG magnitude);
 extern void SetConstantForce(LONG magnitude);
 extern void AutoCenter(int jid, bool onoff);
 extern void DisableConstantForce();
 extern int FFBindex;
-extern DWORD INVERTFORCES;
-extern void InitDI();
+extern DWORD INVERTFORCES[2];
+extern void InitDI(int port);
 extern void FreeDirectInput();
-extern DWORD BYPASSCAL;
+extern DWORD BYPASSCAL;*/
 
 //struct generic_data_t	generic_data;
 static struct wheel_data_t	wheel_data;
@@ -133,39 +136,39 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 		//brake
 		wheel_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
 
-		if(GetControl(CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
-		if(GetControl(SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
-		if(GetControl(CIRCLE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CIRCLE);
-		if(GetControl(TRIANGLE))	wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
-		if(GetControl(R1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R1);
-		if(GetControl(L1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L1);
-		if(GetControl(R2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R2);
-		if(GetControl(L2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L2);
+		if(GetControl(mPort, CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
+		if(GetControl(mPort, SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
+		if(GetControl(mPort, CIRCLE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CIRCLE);
+		if(GetControl(mPort, TRIANGLE))	wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
+		if(GetControl(mPort, R1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R1);
+		if(GetControl(mPort, L1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L1);
+		if(GetControl(mPort, R2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R2);
+		if(GetControl(mPort, L2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L2);
 
-		if(GetControl(SELECT))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SELECT);
-		if(GetControl(START))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_START);
-		if(GetControl(R3))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R3);
-		if(GetControl(L3))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L3);
+		if(GetControl(mPort, SELECT))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SELECT);
+		if(GetControl(mPort, START))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_START);
+		if(GetControl(mPort, R3))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R3);
+		if(GetControl(mPort, L3))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L3);
 
 		//diagonal
-		if(GetControl(HATUP, true)  && GetControl(HATRIGHT, true))
+		if(GetControl(mPort, HATUP, true)  && GetControl(mPort, HATRIGHT, true))
 			wheel_data.hatswitch = 1;
-		if(GetControl(HATRIGHT, true) && GetControl(HATDOWN, true))
+		if(GetControl(mPort, HATRIGHT, true) && GetControl(mPort, HATDOWN, true))
 			wheel_data.hatswitch = 3;
-		if(GetControl(HATDOWN, true) && GetControl(HATLEFT, true))
+		if(GetControl(mPort, HATDOWN, true) && GetControl(mPort, HATLEFT, true))
 			wheel_data.hatswitch = 5;
-		if(GetControl(HATLEFT, true) && GetControl(HATUP, true))
+		if(GetControl(mPort, HATLEFT, true) && GetControl(mPort, HATUP, true))
 			wheel_data.hatswitch = 7;
 
 		//regular
 		if(wheel_data.hatswitch==0x8){
-			if(GetControl(HATUP, true))
+			if(GetControl(mPort, HATUP, true))
 				wheel_data.hatswitch = 0;
-			if(GetControl(HATRIGHT, true))
+			if(GetControl(mPort, HATRIGHT, true))
 				wheel_data.hatswitch = 2;
-			if(GetControl(HATDOWN, true))
+			if(GetControl(mPort, HATDOWN, true))
 				wheel_data.hatswitch = 4;
-			if(GetControl(HATLEFT, true))
+			if(GetControl(mPort, HATLEFT, true))
 				wheel_data.hatswitch = 6;
 		}
 
@@ -195,7 +198,7 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 			//some games issue this command on pause
 			//if(ffdata.reportid == 19 && ffdata.data2 == 0)break;
 			if(ffdata.index == 0x8)
-				SetConstantForce(127); //data1 looks like previous force sent with reportid 0x11
+				SetConstantForce(mPort, 127); //data1 looks like previous force sent with reportid 0x11
 			//TODO unset spring
 			else if(ffdata.index == 3)
 				SetSpringForce(127);
@@ -205,7 +208,7 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 		case 17://constant force
 			{
 				//handle calibration commands
-				if(!calibrating){SetConstantForce(ffdata.data1);}
+				if(!calibrating){SetConstantForce(mPort, ffdata.data1);}
 			}
 			break;
 		case 0x21:
@@ -224,12 +227,12 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 		case 245://autocenter?
 			{
 					//just release force
-					SetConstantForce(127);
+					SetConstantForce(mPort, 127);
 			}
 			break;
 		case 241:
 			//DF/GTF and GT3
-			if(!calibrating){SetConstantForce(ffdata.pad1);}
+			if(!calibrating){SetConstantForce(mPort, ffdata.pad1);}
 			break;
 		case 243://initialize
 			{
@@ -247,7 +250,7 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 
 int DInputPad::Open()
 {
-	InitDI();
+	InitDI(mPort);
 	return 0;
 }
 
@@ -259,7 +262,8 @@ int DInputPad::Close()
 
 int DInputPad::Configure(int port, void *data)
 {
-	return RESULT_CANCELED;
+	Win32Handles h = *(Win32Handles*)data;
+	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, port);
 }
 
 REGISTER_PAD(APINAME, DInputPad);

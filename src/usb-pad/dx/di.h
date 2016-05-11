@@ -1,3 +1,4 @@
+#define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 
 #define SAFE_DELETE(p)  { if(p) { delete (p);     (p)=NULL; } }
@@ -13,7 +14,7 @@ LPDIRECTINPUTDEVICE8 g_pJoysticks[10] = {NULL};
 //only two effect (constant force, spring)
 bool FFB=false;
 int FFBindex = -1;
-LPDIRECTINPUTEFFECT  g_pEffect = NULL;
+LPDIRECTINPUTEFFECT  g_pEffect[2] = { NULL };
 LPDIRECTINPUTEFFECT  g_pEffectSpring = NULL;
 DWORD g_dwNumForceFeedbackAxis[4] = {0};
 DIEFFECT eff;
@@ -43,6 +44,8 @@ bool didDIinit = false;					//we have a handle
 
 void FreeDirectInput()
 {
+	if (!refCount || --refCount > 0) return;
+
 	numj=0;  //no joysticks
 
     // Unacquire the device one last time just in case 
@@ -62,7 +65,8 @@ void FreeDirectInput()
     SAFE_RELEASE( g_pMouse );
 	for(DWORD i=0; i<numj; i++) SAFE_RELEASE( g_pJoysticks[i] );
     SAFE_RELEASE( g_pDI );
-	SAFE_RELEASE( g_pEffect );
+	SAFE_RELEASE( g_pEffect[0] );
+	SAFE_RELEASE( g_pEffect[1] );
 	didDIinit=false;
 }
 BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
@@ -381,9 +385,9 @@ float ReadAxis(LONG axisid, LONG inverted, LONG initial)
 	return retval;
 }
 //using both above functions
-float ReadAxisFiltered(LONG id) 
+float ReadAxisFiltered(int port, LONG id)
 {
-	return FilterControl(ReadAxis(AXISID[id], INVERT[id],HALF[id]), LINEAR[id], OFFSET[id], DEADZONE[id]);
+	return FilterControl(ReadAxis(AXISID[port][id], INVERT[port][id],HALF[port][id]), LINEAR[port][id], OFFSET[port][id], DEADZONE[port][id]);
 }
 
 //config only
@@ -518,20 +522,20 @@ void AutoCenter(int jid, bool onoff)
 }
 
 //set left/right ffb torque
-extern void InitDI();
-void SetConstantForce(LONG magnitude)
+extern void InitDI(int port);
+void SetConstantForce(int port, LONG magnitude)
 {
 	if(FFBindex==-1)return;
 
 	WriteLogFile(L"DINPUT: Apply Force");
 
-	if(INVERTFORCES)
+	if(INVERTFORCES[port])
 		cfw.lMagnitude = (127-magnitude) * 78.4803149606299;
 	else
 		cfw.lMagnitude = -(127-magnitude) * 78.4803149606299;
 	
-	if(g_pEffect) {
-		g_pEffect->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+	if(g_pEffect[port]) {
+		g_pEffect[port]->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 
 			
 		//DWORD flags;
@@ -546,9 +550,10 @@ void SetConstantForce(LONG magnitude)
 
 
 //start/stop effect
-void DisableConstantForce()
+void DisableConstantForce(int port)
 {
-	g_pEffect->Stop();
+	if (g_pEffect[port])
+		g_pEffect[port]->Stop();
 }
 //set spring offset  (not used by ps2? only rfactor pc i think.  using as centering spring hack)
 void SetSpringForce(LONG magnitude)
@@ -568,81 +573,89 @@ void SetSpringForce(LONG magnitude)
 	
 	if(g_pEffectSpring) g_pEffectSpring->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
-void TestForce()
+void TestForce(int port)
 {
 
 	//SetSpringForce(0);
-	SetConstantForce(127-63);
+	SetConstantForce(port, 127-63);
 
 	Sleep(500);
-	SetConstantForce(127+63);
+	SetConstantForce(port, 127+63);
 
 	Sleep(500);
 	//SetSpringForce(10000);
-	SetConstantForce(127);
+	SetConstantForce(port, 127);
 }
 
 //initialize all available devices
-HRESULT InitDirectInput( HWND hWindow, int joyindex )
+HRESULT InitDirectInput( HWND hWindow, int port )
 {
 
     HRESULT hr; 
 
 	//release any previous resources
 	swprintf_s(logstring, L"DINPUT: FreeDirectInput %p", hWin);WriteLogFile(logstring);
-    FreeDirectInput();
 
-
-
-    // Create a DInput object
-	swprintf_s(logstring, L"DINPUT: DirectInput8Create %p", hWin);WriteLogFile(logstring);
-    if( FAILED( hr = DirectInput8Create( GetModuleHandle(NULL), DIRECTINPUT_VERSION, 
-                                         IID_IDirectInput8, (VOID**)&g_pDI, NULL ) ) )
-        return hr;
-
-
-	swprintf_s(logstring, L"DINPUT: CreateDevice Keyboard %p", hWin);WriteLogFile(logstring);
-	//Create Keyboard
-    g_pDI->CreateDevice( GUID_SysKeyboard, &g_pKeyboard, NULL );
-	if( g_pKeyboard )
+	if (refCount == 0)
 	{
-		g_pKeyboard->SetDataFormat( &c_dfDIKeyboard );
-		g_pKeyboard->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
-		g_pKeyboard->Acquire();
-	}
-	swprintf_s(logstring, L"DINPUT: CreateDevice Mouse %p", hWin);WriteLogFile(logstring);
-	//Create Mouse
-    g_pDI->CreateDevice( GUID_SysMouse, &g_pMouse, NULL );
-	if( g_pMouse )
-	{
-		g_pMouse->SetDataFormat( &c_dfDIMouse2 );
-		g_pMouse->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
-		g_pMouse->Acquire();
-	}
+		refCount++;
+		FreeDirectInput();
 
-	//Create Joysticks
-	FFBindex = -1;
-	FFB = false;  //no FFB device selected
+		// Create a DInput object
+		swprintf_s(logstring, L"DINPUT: DirectInput8Create %p", hWin); WriteLogFile(logstring);
+		if (FAILED(hr = DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION,
+			IID_IDirectInput8, (VOID**)&g_pDI, NULL)))
+			return hr;
 
-	//enumerate attached only
-	swprintf_s(logstring, L"DINPUT: EnumDevices Joystick %p", hWin);WriteLogFile(logstring);
-	g_pDI->EnumDevices( DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY );
+		swprintf_s(logstring, L"DINPUT: CreateDevice Keyboard %p", hWin); WriteLogFile(logstring);
+		//Create Keyboard
+		g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
+		if (g_pKeyboard)
+		{
+			g_pKeyboard->SetDataFormat(&c_dfDIKeyboard);
+			g_pKeyboard->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
+			g_pKeyboard->Acquire();
+		}
+		swprintf_s(logstring, L"DINPUT: CreateDevice Mouse %p", hWin); WriteLogFile(logstring);
+		//Create Mouse
+		g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
+		if (g_pMouse)
+		{
+			g_pMouse->SetDataFormat(&c_dfDIMouse2);
+			g_pMouse->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
+			g_pMouse->Acquire();
+		}
+
+		//Create Joysticks
+		FFBindex = -1;
+		FFB = false;  //no FFB device selected
+
+		//enumerate attached only
+		swprintf_s(logstring, L"DINPUT: EnumDevices Joystick %p", hWin); WriteLogFile(logstring);
+		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
+	}
 
 	//loop through all attached joysticks
 	for(DWORD i=0; i<numj; i++){
 
 		if( g_pJoysticks[i] )
 		{
-			swprintf_s(logstring, L"DINPUT: SetDataFormat Joystick %i", i);WriteLogFile(logstring);
-			g_pJoysticks[i]->SetDataFormat( &c_dfDIJoystick2 );
-			swprintf_s(logstring, L"DINPUT: SetCooperativeLevel Joystick %i", i);WriteLogFile(logstring);
-			
+			if (refCount == 0)
+			{
+				swprintf_s(logstring, L"DINPUT: SetDataFormat Joystick %i", i); WriteLogFile(logstring);
+				g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2);
+				swprintf_s(logstring, L"DINPUT: SetCooperativeLevel Joystick %i", i); WriteLogFile(logstring);
+			}
+
 			DIDEVCAPS diCaps;
 			diCaps.dwSize = sizeof(DIDEVCAPS);
 			g_pJoysticks[i]->GetCapabilities(&diCaps);
 
+			//TODO Select joystick for FFB that has X axis (assumed!!) mapped as wheel
+			int joyid = AXISID[port][0] * 0.125;
+
 			//has ffb?  
-			if(FFB==false && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
+			if(FFB==false && joyid == i && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
 				//First FFB device detected
 				
 				//create effect
@@ -678,7 +691,7 @@ HRESULT InitDirectInput( HWND hWindow, int joyindex )
 					
 					eff.cbTypeSpecificParams    = sizeof(DICONSTANTFORCE);
 					eff.lpvTypeSpecificParams   = &cfw;
-					g_pJoysticks[i]->CreateEffect( GUID_ConstantForce, &eff, &g_pEffect, NULL );
+					g_pJoysticks[i]->CreateEffect( GUID_ConstantForce, &eff, &g_pEffect[port], NULL );
 
 					//spring
 					
@@ -710,20 +723,20 @@ HRESULT InitDirectInput( HWND hWindow, int joyindex )
 			else
 				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
 			
-			
-			swprintf_s(logstring, L"DINPUT: EnumObjects Joystick %i", i);WriteLogFile(logstring);
-			g_pJoysticks[i]->EnumObjects( EnumObjectsCallback, (VOID*)hWindow, DIDFT_ALL );
-			swprintf_s(logstring, L"DINPUT: Acquire Joystick %i", i);WriteLogFile(logstring);
-			g_pJoysticks[i]->Acquire();
-
-
+			if (refCount == 0)
+			{
+				swprintf_s(logstring, L"DINPUT: EnumObjects Joystick %i", i); WriteLogFile(logstring);
+				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, (VOID*)hWindow, DIDFT_ALL);
+				swprintf_s(logstring, L"DINPUT: Acquire Joystick %i", i); WriteLogFile(logstring);
+				g_pJoysticks[i]->Acquire();
+			}
 		}
 	}
 
 	WriteLogFile(L"DINPUT: Start Effect");
 	//start the effect
 	//SetSpringForce(10000);
-	if(g_pEffect) g_pEffect->SetParameters(&eff, DIEP_START);
+	if(g_pEffect[port]) g_pEffect[port]->SetParameters(&eff, DIEP_START);
 
 	didDIinit=true;
 	return S_OK;

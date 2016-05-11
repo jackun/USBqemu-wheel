@@ -2,21 +2,21 @@
 // floats to int
 #pragma warning (disable : 4244)
 
-void ApplyFilter()
+void ApplyFilter(int port)
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 
 	if(filtercontrol==-1)return;
 	//slider
-	LINEAR[filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_GETPOS, 0, 0)-50;
-	OFFSET[filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50;
-	DEADZONE[filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50;
+	LINEAR[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_GETPOS, 0, 0)-50;
+	OFFSET[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50;
+	DEADZONE[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50;
 
-	swprintf_s(text, TEXT("LINEARITY: %i"), LINEAR[filtercontrol]);
+	swprintf_s(text, TEXT("LINEARITY: %i"), LINEAR[port][filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_LINEAR), text);
-	swprintf_s(text, TEXT("OFFSET: %i"), OFFSET[filtercontrol]);
+	swprintf_s(text, TEXT("OFFSET: %i"), OFFSET[port][filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_OFFSET), text);
-	swprintf_s(text, TEXT("DEAD-ZONE: %i"), DEADZONE[filtercontrol]);
+	swprintf_s(text, TEXT("DEAD-ZONE: %i"), DEADZONE[port][filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_DEADZONE), text);
 
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
@@ -24,59 +24,59 @@ void ApplyFilter()
 	InvalidateRect( hWnd, &rect, TRUE );
 }
 
-void LoadFilter()
+void LoadFilter(int port)
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol==-1)return;
 	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[filtercontrol]+50);
-	ApplyFilter();
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50);
+	ApplyFilter(port);
 
 }
 
-void DefaultFilters(LONG id)
+void DefaultFilters(int port, LONG id)
 {
 
 	for(int i=0;i<6;i++)
 	{
-		LINEAR[i] = 0;
-		OFFSET[i] = 0;
-		DEADZONE[i] = 0;
+		LINEAR[port][i] = 0;
+		OFFSET[port][i] = 0;
+		DEADZONE[port][i] = 0;
 	}
 
 	switch(id)
 	{
 		case 0: 
-			LINEAR[0]=0;
-			OFFSET[0]=0;
-			LINEAR[1]=0;
-			OFFSET[1]=0;
+			LINEAR[port][0]=0;
+			OFFSET[port][0]=0;
+			LINEAR[port][1]=0;
+			OFFSET[port][1]=0;
 			break;
 		case 1: 
-			LINEAR[0]=6;
-			OFFSET[0]=0;
-			LINEAR[1]=6;
-			OFFSET[1]=0;
+			LINEAR[port][0]=6;
+			OFFSET[port][0]=0;
+			LINEAR[port][1]=6;
+			OFFSET[port][1]=0;
 			break;
 		case 2: 
-			LINEAR[0]=12;
-			OFFSET[0]=0;
-			LINEAR[1]=12;
-			OFFSET[1]=0;
+			LINEAR[port][0]=12;
+			OFFSET[port][0]=0;
+			LINEAR[port][1]=12;
+			OFFSET[port][1]=0;
 			break;
 		case 3: 
-			LINEAR[0]=18;
-			OFFSET[0]=0;
-			LINEAR[1]=18;
-			OFFSET[1]=0;
+			LINEAR[port][0]=18;
+			OFFSET[port][0]=0;
+			LINEAR[port][1]=18;
+			OFFSET[port][1]=0;
 			break;
 		case 4: 
-			LINEAR[0]=25;
-			OFFSET[0]=0;
-			LINEAR[1]=25;
-			OFFSET[1]=0;
+			LINEAR[port][0]=25;
+			OFFSET[port][0]=0;
+			LINEAR[port][1]=25;
+			OFFSET[port][1]=0;
 			break;
 	}
 
@@ -84,22 +84,22 @@ void DefaultFilters(LONG id)
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol==-1)return;
 	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50);
 
-	ApplyFilter();
+	ApplyFilter(port);
 
 }
 
-void ControlTest( ) //thread: waits for window
+void ControlTest(int port) //thread: waits for window
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol>=0 && listening==false)
 	{
 		PollDevices();
-		TESTV=ReadAxis(AXISID[filtercontrol], INVERT[filtercontrol],HALF[filtercontrol]);
-		TESTVF=FilterControl(ReadAxis(AXISID[filtercontrol], INVERT[filtercontrol],HALF[filtercontrol]), LINEAR[filtercontrol],OFFSET[filtercontrol],DEADZONE[filtercontrol]);
+		TESTV=ReadAxis(AXISID[port][filtercontrol], INVERT[port][filtercontrol], HALF[port][filtercontrol]);
+		TESTVF=FilterControl(ReadAxis(AXISID[port][filtercontrol], INVERT[port][filtercontrol], HALF[port][filtercontrol]), LINEAR[port][filtercontrol], OFFSET[port][filtercontrol], DEADZONE[port][filtercontrol]);
 		GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
 		MapWindowPoints(GetDlgItem(hWnd,IDC_PICTURE), hWnd, (POINT *) &rect, 2);
 		InvalidateRect( hWnd, &rect, TRUE );
@@ -110,7 +110,7 @@ void ControlTest( ) //thread: waits for window
 	return;
 }
 
-void ListenForControl()
+void ListenForControl(int port)
 {
 	LONG inv=0;
 	LONG ini=0;
@@ -123,17 +123,19 @@ void ListenForControl()
 	ret = FindControl(ax,inv,ini,but);
 
 	if(ret){
-		AXISID[CID] = ax;
-		INVERT[CID] = inv;
-		HALF[CID] = ini;
-		BUTTON[CID] = but;
+		AXISID[port][CID] = ax;
+		INVERT[port][CID] = inv;
+		HALF[port][CID] = ini;
+		BUTTON[port][CID] = but;
 		
 	}
 
 	if(listening){
-		swprintf_s(text, L"Listening... %i", GetListenTimeout()/1000+1);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+		swprintf_s(text, L"Listening... %i", GetListenTimeout()/1000+1);
+		SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 	}else{
-		swprintf_s(text, L"%i/%i/%i/%i", AXISID[CID], INVERT[CID], HALF[CID], BUTTON[CID]);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+		swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][CID], INVERT[port][CID], HALF[port][CID], BUTTON[port][CID]);
+		SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 	}
 
 }
@@ -147,17 +149,18 @@ void StartListen(char controlid)
 	{swprintf_s(logstring, L"Begin Listen %i", numj);WriteLogFile(logstring); ListenAxis(); }
 }
 
-void DeleteControl(char controlid)
+void DeleteControl(int port, char controlid)
 {
 	CID = controlid;
-	AXISID[CID] = -1;
-	INVERT[CID] = -1;
-	HALF[CID] = -1;
-	BUTTON[CID] = -1;
-	swprintf_s(text, L"%i/%i/%i/%i", AXISID[CID], INVERT[CID], HALF[CID], BUTTON[CID]);SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+	AXISID[port][CID] = -1;
+	INVERT[port][CID] = -1;
+	HALF[port][CID] = -1;
+	BUTTON[port][CID] = -1;
+	swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][CID], INVERT[port][CID], HALF[port][CID], BUTTON[port][CID]);
+	SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 }
 
-void CreateDrawing(HDC hDrawingDC, int scale)
+void CreateDrawing(int port, HDC hDrawingDC, int scale)
 {
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
 	//MapWindowPoints(GetDlgItem(hWnd,IDC_PICTURE), hWnd, (POINT *) &rect, 2);
@@ -209,7 +212,7 @@ void CreateDrawing(HDC hDrawingDC, int scale)
 		MoveToEx(hDrawingDC, (px+8)*scale, (pheight+py-8)*scale, 0);
 		for(float x=0; x<1.0f; x+=0.001f)
 		{
-			float y1 = FilterControl(x, LINEAR[filtercontrol], OFFSET[filtercontrol], DEADZONE[filtercontrol]);
+			float y1 = FilterControl(x, LINEAR[port][filtercontrol], OFFSET[port][filtercontrol], DEADZONE[port][filtercontrol]);
 			LineTo(hDrawingDC, (x*(pwidth-16)+px+8)*scale, (-y1*(pheight-16)+(pheight-8)+py)*scale);
 		}
 		LineTo(hDrawingDC, (1.0f*(pwidth-16)+px+8)*scale, (-1.0f*(pheight-16)+(pheight-8)+py)*scale);
@@ -226,7 +229,7 @@ void CreateDrawing(HDC hDrawingDC, int scale)
 	DeleteObject(blackpen);
 }
 
-void CreateAAImage(HDC hAADC, int scale)
+void CreateAAImage(int port, HDC hAADC, int scale)
 {
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
 	MapWindowPoints(GetDlgItem(hWnd,IDC_PICTURE), hWnd, (POINT *) &rect, 2);
@@ -257,7 +260,7 @@ void CreateAAImage(HDC hAADC, int scale)
 
 	// Create drawing
 	startTime = GetTickCount();
-	CreateDrawing(hTempDC, scale);
+	CreateDrawing(port, hTempDC, scale);
 	endTime = GetTickCount();
 	m_dwDrawingTime = endTime - startTime;
 
@@ -382,7 +385,7 @@ void InitialUpdate()
 	//CreateAAImage(m_hAADC, 1);
 }
 
-void OnPaint()
+void OnPaint(int port)
 {
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
 	MapWindowPoints(GetDlgItem(hWnd,IDC_PICTURE), hWnd, (POINT *) &rect, 2);
@@ -393,7 +396,7 @@ void OnPaint()
 	int pheight = rect.bottom-rect.top;
 
 	//hDC = GetDC(hWnd);//
-	CreateAAImage(m_hAADC, 2);
+	CreateAAImage(port, m_hAADC, 2);
 
 	hDC=BeginPaint(hWnd, &Ps);
 
@@ -429,7 +432,7 @@ INT_PTR CALLBACK HotKeyProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
-void InitDialog()
+void InitDialog(int port)
 {
 	hFont = CreateFont(18,
 					0,
@@ -461,7 +464,7 @@ void InitDialog()
 					TEXT("Tahoma"));
 	
 	//pFnPrevFunc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hWnd,IDC_PICTURE),GWLP_WNDPROC,(LONG_PTR) StaticProc);
-	LoadMain();
+	LoadMain(port);
 
 	InitDirectInput(hWnd, 0);
 
@@ -487,7 +490,7 @@ void InitDialog()
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, 50);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, 50);
 
-	SendMessage(GetDlgItem(hWnd,IDC_CHECK1), BM_SETCHECK, INVERTFORCES, 0);
+	SendMessage(GetDlgItem(hWnd,IDC_CHECK1), BM_SETCHECK, INVERTFORCES[port], 0);
 	SendMessage(GetDlgItem(hWnd,IDC_CHECK2), BM_SETCHECK, BYPASSCAL, 0);
 	//HANDLE hBitmap = LoadImage(NULL,MAKEINTRESOURCE(IDB_BITMAP1), IMAGE_BITMAP,0,0,LR_DEFAULTSIZE);
 	//SendMessage(GetDlgItem(hWnd,IDC_PICTURELINK), STM_SETIMAGE, IMAGE_BITMAP, LPARAM(hBitmap)); 
@@ -522,7 +525,7 @@ void InitDialog()
 
 	for(int i = 0;i<numc;i++)
 	{
-		swprintf_s(text, L"%i/%i/%i/%i", AXISID[i], INVERT[i], HALF[i], BUTTON[i]);
+		swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][i], INVERT[port][i], HALF[port][i], BUTTON[port][i]);
 		SetWindowText(GetDlgItem(hWnd,LABELS[i]),text);
 	}
 	ShowWindow(hWnd, SW_SHOW);
@@ -534,15 +537,20 @@ void InitDialog()
 
 INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	int port;
 	//return false;
 	if(tw)return false;
 	switch(uMsg)
 	{
+		case WM_CREATE:
+			SetWindowLong(hDlg, GWL_USERDATA, (LONG)lParam);
+		break;
+
 		case WM_INITDIALOG:
 			{
 				hWnd = hDlg;
-				InitDialog();
-			
+				SetWindowLong(hDlg, GWL_USERDATA, (LONG)lParam);
+				InitDialog((LONG)lParam);
 			}break;
 		case  WM_CTLCOLORSTATIC:
 			{
@@ -561,8 +569,9 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					case 22:
 						{
-							if(listening)ListenForControl();
-							ControlTest();
+							int port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+							if(listening) ListenForControl(port);
+							ControlTest(port);
 							break;
 						}
 					
@@ -571,6 +580,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 
 		case WM_COMMAND:
+			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
 			switch(LOWORD(wParam))
 			{
 				case IDC_BUTTON31:
@@ -586,7 +596,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 					switch(HIWORD(wParam))
 					{
 						case CBN_SELCHANGE:
-							LoadFilter();
+							LoadFilter(port);
 							break;
 					}			
 					break;
@@ -594,7 +604,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 					switch(HIWORD(wParam))
 					{
 						case CBN_SELCHANGE:
-							DefaultFilters(SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_GETCURSEL, 0, 0));
+							DefaultFilters(port, SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_GETCURSEL, 0, 0));
 							SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_SETCURSEL, -1, 0);
 							break;
 					}			
@@ -610,12 +620,16 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				case IDOK:
 					{
-						INVERTFORCES = SendDlgItemMessage(hWnd, IDC_CHECK1, BM_GETCHECK, 0, 0);
+						INVERTFORCES[port] = SendDlgItemMessage(hWnd, IDC_CHECK1, BM_GETCHECK, 0, 0);
 						BYPASSCAL = SendDlgItemMessage(hWnd, IDC_CHECK2, BM_GETCHECK, 0, 0);
-						SaveMain();
+						SaveMain(port);
 						//Seems to create some dead locks
 						//SendMessage(hWnd, WM_CLOSE, 0, 0);
 						//return TRUE;
+						dialogOpen = false;
+						FreeDirectInput();
+						EndDialog(hWnd, TRUE);
+						return TRUE;
 						
 					}
 					//break; //Fall through
@@ -633,7 +647,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_BUTTON1:
 					{
 						//MessageBeep(MB_ICONEXCLAMATION);
-						TestForce();
+						TestForce(port);
 					}
 					break;
 
@@ -657,26 +671,26 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_ASS17:{StartListen(17);break;}
 				case IDC_ASS18:{StartListen(18);break;}
 				case IDC_ASS19:{StartListen(19);break;}
-				case IDC_DEL0:{DeleteControl(0);break;}
-				case IDC_DEL1:{DeleteControl(1);break;}
-				case IDC_DEL2:{DeleteControl(2);break;}
-				case IDC_DEL3:{DeleteControl(3);break;}
-				case IDC_DEL4:{DeleteControl(4);break;}
-				case IDC_DEL5:{DeleteControl(5);break;}
-				case IDC_DEL6:{DeleteControl(6);break;}
-				case IDC_DEL7:{DeleteControl(7);break;}
-				case IDC_DEL8:{DeleteControl(8);break;}
-				case IDC_DEL9:{DeleteControl(9);break;}
-				case IDC_DEL10:{DeleteControl(10);break;}
-				case IDC_DEL11:{DeleteControl(11);break;}
-				case IDC_DEL12:{DeleteControl(12);break;}
-				case IDC_DEL13:{DeleteControl(13);break;}
-				case IDC_DEL14:{DeleteControl(14);break;}
-				case IDC_DEL15:{DeleteControl(15);break;}
-				case IDC_DEL16:{DeleteControl(16);break;}
-				case IDC_DEL17:{DeleteControl(17);break;}
-				case IDC_DEL18:{DeleteControl(18);break;}
-				case IDC_DEL19:{DeleteControl(19);break;}
+				case IDC_DEL0:{DeleteControl(port, 0);break;}
+				case IDC_DEL1:{DeleteControl(port, 1);break;}
+				case IDC_DEL2:{DeleteControl(port, 2);break;}
+				case IDC_DEL3:{DeleteControl(port, 3);break;}
+				case IDC_DEL4:{DeleteControl(port, 4);break;}
+				case IDC_DEL5:{DeleteControl(port, 5);break;}
+				case IDC_DEL6:{DeleteControl(port, 6);break;}
+				case IDC_DEL7:{DeleteControl(port, 7);break;}
+				case IDC_DEL8:{DeleteControl(port, 8);break;}
+				case IDC_DEL9:{DeleteControl(port, 9);break;}
+				case IDC_DEL10:{DeleteControl(port, 10);break;}
+				case IDC_DEL11:{DeleteControl(port, 11);break;}
+				case IDC_DEL12:{DeleteControl(port, 12);break;}
+				case IDC_DEL13:{DeleteControl(port, 13);break;}
+				case IDC_DEL14:{DeleteControl(port, 14);break;}
+				case IDC_DEL15:{DeleteControl(port, 15);break;}
+				case IDC_DEL16:{DeleteControl(port, 16);break;}
+				case IDC_DEL17:{DeleteControl(port, 17);break;}
+				case IDC_DEL18:{DeleteControl(port, 18);break;}
+				case IDC_DEL19:{DeleteControl(port, 19);break;}
 
 
 				case IDC_PICTURELINK1:{ShellExecuteA(NULL, "open", "http://www.ecsimhardware.com",NULL, NULL, SW_SHOWNORMAL);break;}
@@ -698,10 +712,12 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return TRUE;
 			break;
 		case WM_HSCROLL:
-			ApplyFilter();
+			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+			ApplyFilter(port);
 			break;
 		case WM_PAINT:
-			OnPaint();
+			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+			OnPaint(port);
 			break;
 	}
 

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <vector>
 #include <map>
+#include <atomic>
 
 #include "stdio.h"
 //local code
@@ -20,8 +21,9 @@
 #include "math.h"
 #include "stdio.h"
 
+static std::atomic<int> refCount = 0;
 DWORD LOG = 0;
-DWORD INVERTFORCES = 0;
+DWORD INVERTFORCES[2] = { 0 };
 DWORD BYPASSCAL = 0;
  //logfile
 FILE* fl = NULL;
@@ -74,13 +76,13 @@ HDC m_hMemDC;
 
 const DWORD numc = 20; //total control maps
 
-LONG AXISID[numc] = {0};
-LONG INVERT[numc] = {0};
-LONG HALF[numc] = {0};
-LONG BUTTON[numc] = {0};
-LONG LINEAR[numc] = {0};
-LONG OFFSET[numc] = {0};
-LONG DEADZONE[numc] = {0};
+LONG AXISID[2][numc] = { { 0 } };
+LONG INVERT[2][numc] = { { 0 } };
+LONG HALF[2][numc] = { { 0 } };
+LONG BUTTON[2][numc] = { { 0 } };
+LONG LINEAR[2][numc] = { { 0 } };
+LONG OFFSET[2][numc] = { { 0 } };
+LONG DEADZONE[2][numc] = { {0} };
 
 
 //label enum
@@ -147,31 +149,35 @@ void WriteLogFile(const TCHAR* szString)
 	}
 
 }
-void SaveMain()
+void SaveMain(int port)
 {
 	GetIniFile(strMySystemFile);
 
 	swprintf_s(strTemp, L"%i", LOG);WriteToFile(L"MAIN", L"LOG", strTemp);
-	swprintf_s(strTemp, L"%i", INVERTFORCES);WriteToFile(L"MAIN", L"INVERTFORCES", strTemp);
 	swprintf_s(strTemp, L"%i", BYPASSCAL);WriteToFile(L"MAIN", L"BYPASSCAL", strTemp);
 
+	wchar_t section[128];
+	swprintf_s(section, L"CONTROLS %d", port);
+
+	swprintf_s(strTemp, L"%i", INVERTFORCES[port]); WriteToFile(section, L"INVERTFORCES", strTemp);
+
 	for(int i=0; i<numc;i++){
-		swprintf_s(text, L"AXISID%i", i);swprintf_s(strTemp, L"%i", AXISID[i]);WriteToFile(L"CONTROLS", text, strTemp);
-		swprintf_s(text, L"INVERT%i", i);swprintf_s(strTemp, L"%i", INVERT[i]);WriteToFile(L"CONTROLS", text, strTemp);
-		swprintf_s(text, L"HALF%i", i);swprintf_s(strTemp, L"%i", HALF[i]);WriteToFile(L"CONTROLS", text, strTemp);
-		swprintf_s(text, L"BUTTON%i", i);swprintf_s(strTemp, L"%i", BUTTON[i]);WriteToFile(L"CONTROLS", text, strTemp);
-		swprintf_s(text, L"LINEAR%i", i);swprintf_s(strTemp, L"%i", LINEAR[i]);WriteToFile(L"CONTROLS", text, strTemp);
-		swprintf_s(text, L"OFFSET%i", i);swprintf_s(strTemp, L"%i", OFFSET[i]);WriteToFile(L"CONTROLS", text, strTemp);
-		swprintf_s(text, L"DEADZONE%i", i);swprintf_s(strTemp, L"%i", DEADZONE[i]);WriteToFile(L"CONTROLS", text, strTemp);
+		swprintf_s(text, L"AXISID%i", i);swprintf_s(strTemp, L"%i", AXISID[port][i]);WriteToFile(section, text, strTemp);
+		swprintf_s(text, L"INVERT%i", i);swprintf_s(strTemp, L"%i", INVERT[port][i]);WriteToFile(section, text, strTemp);
+		swprintf_s(text, L"HALF%i", i);swprintf_s(strTemp, L"%i", HALF[port][i]);WriteToFile(section, text, strTemp);
+		swprintf_s(text, L"BUTTON%i", i);swprintf_s(strTemp, L"%i", BUTTON[port][i]);WriteToFile(section, text, strTemp);
+		swprintf_s(text, L"LINEAR%i", i);swprintf_s(strTemp, L"%i", LINEAR[port][i]);WriteToFile(section, text, strTemp);
+		swprintf_s(text, L"OFFSET%i", i);swprintf_s(strTemp, L"%i", OFFSET[port][i]);WriteToFile(section, text, strTemp);
+		swprintf_s(text, L"DEADZONE%i", i);swprintf_s(strTemp, L"%i", DEADZONE[port][i]);WriteToFile(section, text, strTemp);
 	}
 }
 
-void LoadMain()
+void LoadMain(int port)
 {
-	memset(AXISID, 0xFF, sizeof(LONG)*numc);
-	memset(INVERT, 0xFF, sizeof(LONG)*numc);
-	memset(HALF, 0xFF, sizeof(LONG)*numc);
-	memset(BUTTON, 0xFF, sizeof(LONG)*numc);
+	memset(AXISID[port], 0xFF, sizeof(LONG)*numc);
+	memset(INVERT[port], 0xFF, sizeof(LONG)*numc);
+	memset(HALF[port], 0xFF, sizeof(LONG)*numc);
+	memset(BUTTON[port], 0xFF, sizeof(LONG)*numc);
 
 	GetIniFile(strMySystemFile);
 
@@ -180,7 +186,7 @@ void LoadMain()
 	if (!fp)
 	{
 		CreateDirectory(L"inis",NULL);
-		SaveMain();//save
+		SaveMain(port);//save
 	}
 	else
 		fclose(fp);
@@ -189,27 +195,30 @@ void LoadMain()
 	//if (ReadFromFile("MAIN", "FFBDEVICE1")) strcpy(szText, ReadFromFile("MAIN", "FFBDEVICE1"));
 	//player_joys[0] = szText;
 	if (ReadFromFile(L"MAIN", L"LOG", szText)) LOG = wcstol(szText, NULL, 10);
-	if (ReadFromFile(L"MAIN", L"INVERTFORCES", szText)) INVERTFORCES = wcstol(szText, NULL, 10);
 	if (ReadFromFile(L"MAIN", L"BYPASSCAL", szText)) BYPASSCAL = wcstol(szText, NULL, 10);
 
+	wchar_t section[128];
+	swprintf_s(section, L"CONTROLS %d", port);
+
+	if (ReadFromFile(section, L"INVERTFORCES", szText)) INVERTFORCES[port] = wcstol(szText, NULL, 10);
 	for(int i=0; i<numc;i++){
-		swprintf_s(text, TEXT("AXISID%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) AXISID[i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("INVERT%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) INVERT[i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("HALF%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) HALF[i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("BUTTON%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) BUTTON[i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("LINEAR%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) LINEAR[i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("OFFSET%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) OFFSET[i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("DEADZONE%i"), i); if (ReadFromFile(L"CONTROLS", text, szText)) DEADZONE[i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("AXISID%i"), i); if (ReadFromFile(section, text, szText)) AXISID[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("INVERT%i"), i); if (ReadFromFile(section, text, szText)) INVERT[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("HALF%i"), i); if (ReadFromFile(section, text, szText)) HALF[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("BUTTON%i"), i); if (ReadFromFile(section, text, szText)) BUTTON[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("LINEAR%i"), i); if (ReadFromFile(section, text, szText)) LINEAR[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("OFFSET%i"), i); if (ReadFromFile(section, text, szText)) OFFSET[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, TEXT("DEADZONE%i"), i); if (ReadFromFile(section, text, szText)) DEADZONE[port][i] = wcstol(szText, NULL, 10);
 	}
 
 }
 
 //use direct input
 #include "di.h"
-void InitDI()
+void InitDI(int port)
 {
 
-	LoadMain();
+	LoadMain(port);
 	if(gsWnd) {
 		hWin = gsWnd;
 	} else {
@@ -217,21 +226,20 @@ void InitDI()
 		while(hWin == 0){ hWin = GetWindowHandle(pid);}
 	}
 	
-	
-	InitDirectInput(hWin, 0);
+	InitDirectInput(hWin, port);
 }
 
-float GetControl(int id,  bool axisbutton=false)
+float GetControl(int port, int id,  bool axisbutton=false)
 {
 	if(id==0) //steering uses two inputs
 	{
 		//apply steering
-		if(AXISID[0] > -1 && AXISID[1] > -1){
-			if(ReadAxisFiltered(0) > 0.0){
-				return -ReadAxisFiltered(0);
+		if(AXISID[port][0] > -1 && AXISID[port][1] > -1){
+			if(ReadAxisFiltered(port, 0) > 0.0){
+				return -ReadAxisFiltered(port, 0);
 			}else{
-				if(ReadAxisFiltered(1) > 0.0){
-					return ReadAxisFiltered(1);
+				if(ReadAxisFiltered(port, 1) > 0.0){
+					return ReadAxisFiltered(port, 1);
 				}else{
 					return  0;
 				}
@@ -242,19 +250,19 @@ float GetControl(int id,  bool axisbutton=false)
 	{
 		//apply
 		if(axisbutton){
-			if(AXISID[id+1] > -1){
-				if(ReadAxisFiltered(id+1)>0.5){
+			if(AXISID[port][id+1] > -1){
+				if(ReadAxisFiltered(port, id+1)>0.5){
 					return 1.0;
 				}else{
 					return 0.0;}
 			}
 		}else{
-			if(AXISID[id+1] > -1){return ReadAxisFiltered(id+1);}
+			if(AXISID[port][id+1] > -1){return ReadAxisFiltered(port, id+1);}
 		}
 
 
-		if(BUTTON[id+1] > -1){
-			if(KeyDown(BUTTON[id+1]))
+		if(BUTTON[port][id+1] > -1){
+			if(KeyDown(BUTTON[port][id+1]))
 				return 1.0;
 			else
 				return 0.0;

@@ -20,11 +20,6 @@
 #include <string>
 #include <errno.h>
 
-#if BUILD_DX
-	#include "usb-pad/dx/global.h"
-	#include "usb-pad/dx/dialog.h"
-#endif
-
 #include "qemu-usb/vl.h"
 #include "USB.h"
 #include "usb-pad/config.h"
