@@ -222,6 +222,14 @@ void SaveConfig()
 
 	swprintf_s(szValue,L"%u",Conf1->WheelType[1]);
 	WritePrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE1, szValue, szIniFile.c_str());
+
+	for (auto &kp : changedAPIs)
+	{
+		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
+		var.strValue = kp.second;
+		SaveSetting(kp.first.first, kp.first.second, var);
+	}
+	changedAPIs.clear();
 }
 
 void LoadConfig() {

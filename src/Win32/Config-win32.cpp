@@ -46,6 +46,7 @@ void SelChangedAPI(HWND hW, int port)
 void PopulateAPIs(HWND hW, int port)
 {
 	OSDebugOut(TEXT("Populate api %d\n"), port);
+	SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_RESETCONTENT, 0, 0);
 	int devtype = SendDlgItemMessage(hW, port ? IDC_COMBO1 : IDC_COMBO2, CB_GETCURSEL, 0, 0);
 	if (devtype == 0)
 		return;
@@ -58,10 +59,17 @@ void PopulateAPIs(HWND hW, int port)
 	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
 	CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	LoadSetting(port, rd.Name(devtype), var);
-	OSDebugOut(L"Current API: %S\n", var.strValue.c_str());
+	if(LoadSetting(port, rd.Name(devtype), var))
+		OSDebugOut(L"Current API: %S\n", var.strValue.c_str());
+	else
+	{
+		if (apis.begin() != apis.end())
+		{
+			selApi = *apis.begin();
+			changedAPIs[std::make_pair(port, devName)] = selApi;
+		}
+	}
 
-	SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_RESETCONTENT, 0, 0);
 	int i = 0, sel = 0;
 	for (auto& api : apis)
 	{
@@ -186,17 +194,10 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					//wheel type
 					conf.WheelType[0] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_GETCURSEL, 0, 0);
 					conf.WheelType[1] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_GETCURSEL, 0, 0);
-					//TODO remove DInput limitation
-					if(conf.Port1 == "pad" && conf.Port0 == "pad" && 
-						GetSelectedAPI(std::make_pair(1, conf.Port1)) == "dinput" &&
-						(GetSelectedAPI(std::make_pair(1, conf.Port1)) == GetSelectedAPI(std::make_pair(0, conf.Port0)))
-					) {
-						MessageBoxExA(hW, "Currently only one DX wheel\n at a time is supported!", "Warning", MB_ICONEXCLAMATION, 0);
-						return FALSE;
-					}
+
 					SaveConfig();
 					CreateDevices();
-					EndDialog(hW, FALSE);
+					EndDialog(hW, RESULT_OK);
 					configChanged = true;
 					return TRUE;
 				}

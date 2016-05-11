@@ -580,7 +580,7 @@ public:
 				{
 					//too long, drop samples, caused by saving/loading savestates and random stutters
 					int sizeInMS = (((src->mResampledBuffer.size() + len) * 1000 / src->mInputChannels) / src->mOutputSamplesPerSec);
-					int threshold = mBuffering > 25 ? mBuffering : 25;
+					int threshold = src->mBuffering > 25 ? src->mBuffering : 25;
 					if (sizeInMS > threshold)
 					{
 						size = 0;
@@ -936,10 +936,10 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 	case WM_CREATE:
 		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 		break;
-		break;
 	case WM_INITDIALOG:
 	{
-		port = (int)GetWindowLong(hW, GWL_USERDATA);
+		port = (int)lParam;
+		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 		int buffering = 20;
 		{
 			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);

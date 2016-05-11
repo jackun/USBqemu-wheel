@@ -11,10 +11,12 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
 	case WM_INITDIALOG:
 	{
-		port = (int)GetWindowLong(hW, GWL_USERDATA);
+		memset(buff, 0, sizeof(buff));
+		port = (int)lParam;
+		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 		CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_WCHAR);
 		if (LoadSetting(port, APINAME, var))
-			wcsncpy(buff, var.wstrValue.c_str(), ARRAYSIZE(buff));
+			wcsncpy_s(buff, var.wstrValue.c_str(), ARRAYSIZE(buff));
 		SetWindowTextW(GetDlgItem(hW, IDC_EDIT1), buff);
 		return TRUE;
 	}
