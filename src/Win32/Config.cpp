@@ -118,7 +118,7 @@ bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, cons
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
-	OSDebugOut(L"USBqemu load \"%s\" from %S\n", var.name, key.c_str());
+	OSDebugOut(L"USBqemu load \"%s\" from [%S %d]\n", var.name, key.c_str(), port);
 
 	std::wstringstream section;
 	std::wstring wkey;
@@ -163,7 +163,7 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 * */
 bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
-	OSDebugOut(L"USBqemu save \"%s\" to %S\n", var.name, key.c_str());
+	OSDebugOut(L"USBqemu save \"%s\" to [%S %d]\n", var.name, key.c_str(), port);
 
 	std::wstringstream section;
 	std::wstring wkey;

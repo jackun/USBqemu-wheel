@@ -9,129 +9,133 @@
 #include <algorithm>
 #include <map>
 #include "../../USB.h"
+#include "../../configuration.h"
 #include "raw-config.h"
 #include "raw-config-res.h"
 
 extern HINSTANCE hInst;
 extern char *szIni;
 extern std::wstring szIniDir;
+static std::wstring player_joys[2];
 extern void GetIniFile(std::wstring &iniFile);
 #define MSG_PRESS_ESC(wnd) SendDlgItemMessageW(wnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel")
 
-inline bool MapExists(MapVector *maps, TCHAR* hid)
+inline bool MapExists(const MapVector& maps, TCHAR* hid)
 {
-	MapVector::iterator it;
-	for(it = maps->begin(); it != maps->end(); it++)
-		if(!it->hidPath.compare(hid))
+	for(auto& it : maps)
+		if(!it.hidPath.compare(hid))
 			return true;
 	return false;
 }
 
-void LoadMappings(MapVector *maps)
+void LoadMappings(MapVector& maps)
 {
 	std::wstring szIniFile;
 
 	GetIniFile(szIniFile);
 
-	maps->clear();
+	maps.clear();
 	
-	TCHAR sec[32] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
+	WCHAR sec[32] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
 	int j = 0, v = 0;
 	while(j < 25)
 	{
-		StringCbPrintf(sec, sizeof(sec), TEXT("DEVICE %d"), j++);
-		if(GetPrivateProfileString(sec, TEXT("HID"), NULL, hid, MAX_PATH, szIniFile.c_str())
-			&& hid && !MapExists(maps, hid))
+		hid[0] = 0;
+		swprintf_s(sec, TEXT("RAW DEVICE %d"), j++);
+		if(GetPrivateProfileStringW(sec, TEXT("HID"), NULL, hid, MAX_PATH, szIniFile.c_str())
+			&& hid[0] && !MapExists(maps, hid))
 		{
 			Mappings m;// = new Mappings;
 			ZeroMemory(&m, sizeof(Mappings));
-			maps->push_back(m);
-			Mappings *ptr = &maps->back();
+			maps.push_back(m);
+			Mappings& ptr = maps.back();
 
-			ptr->hidPath = hid;
-			ptr->devName = hid;
-			//ResetData(&ptr->data[0]);
-			//ResetData(&ptr->data[1]);
-			memset(&ptr->data[0], 0xFF, sizeof(wheel_data_t));
-			memset(&ptr->data[1], 0xFF, sizeof(wheel_data_t));
-			ptr->data[0].buttons = 0;
-			ptr->data[1].buttons = 0;
-			ptr->data[0].hatswitch = 0x8; //memset to 0xFF already or set to -1
-			ptr->data[1].hatswitch = 0x8;
+			ptr.hidPath = hid;
+			ptr.devName = hid;
+			//ResetData(&ptr.data[0]);
+			//ResetData(&ptr.data[1]);
+			memset(&ptr.data[0], 0xFF, sizeof(wheel_data_t));
+			memset(&ptr.data[1], 0xFF, sizeof(wheel_data_t));
+			ptr.data[0].buttons = 0;
+			ptr.data[1].buttons = 0;
+			ptr.data[0].hatswitch = 0x8; //memset to 0xFF already or set to -1
+			ptr.data[1].hatswitch = 0x8;
 
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
 				swprintf_s(bind, L"Button %d", i);
-				if(GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr->btnMap[i]));
+				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
+					swscanf_s(tmp, L"%08X", &(ptr.btnMap[i]));
 			}
 
 			for(int i = 0; i<MAX_AXES; i++)
 			{
 				swprintf_s(bind, L"Axis %d", i);
-				if(GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &ptr->axisMap[i]);
+				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
+					swscanf_s(tmp, L"%08X", &(ptr.axisMap[i]));
 			}
 
 			for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 			{
 				swprintf_s(bind, L"Hat %d", i);
-				if(GetPrivateProfileString(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &ptr->hatMap[i]);
+				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
+					swscanf_s(tmp, L"%08X", &(ptr.hatMap[i]));
 			}
-			ptr = NULL;
 		}
 	}
 
-	GetPrivateProfileString(L"Joystick", L"Player1", NULL, hid, MAX_PATH, szIniFile.c_str());
-	player_joys[0] = hid;
+	CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_WCHAR);
+	if (LoadSetting(0, APINAME, var))
+		player_joys[0] = var.wstrValue;
+	else
+		player_joys[0] = L"";
 
-	GetPrivateProfileString(L"Joystick", L"Player2", NULL, hid, MAX_PATH, szIniFile.c_str());
-	player_joys[1] = hid;
+	if (LoadSetting(1, APINAME, var))
+		player_joys[1] = var.wstrValue;
+	else
+		player_joys[1] = L"";
+
 	return;
 }
 
-void SaveMappings(MapVector *maps)
+void SaveMappings(MapVector& maps)
 {
 	std::wstring szIniFile;
 	char szValue[256] = {0};
 
 	GetIniFile(szIniFile);
 
-	MapVector::iterator it;
 	uint32_t numDevice = 0;
-	for(it = maps->begin(); it != maps->end(); it++)
+	for(auto& it : maps)
 	{
-		TCHAR dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
+		WCHAR dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
 
-		swprintf_s(dev, L"DEVICE %d", numDevice++);
-		WritePrivateProfileString(dev, L"HID", it->hidPath.c_str(), szIniFile.c_str());
+		swprintf_s(dev, L"RAW DEVICE %d", numDevice++);
+		WritePrivateProfileStringW(dev, L"HID", it.hidPath.c_str(), szIniFile.c_str());
 
 		//writing everything separately, then string lengths are more predictable
 		for(int i = 0; i<MAX_BUTTONS; i++)
 		{
 			swprintf_s(bind, L"Button %d", i);
-			swprintf_s(tmp, L"%08X", it->btnMap[i]);
-			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
+			swprintf_s(tmp, L"%08X", it.btnMap[i]);
+			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
 		}
 
 		for(int i = 0; i<MAX_AXES; i++)
 		{
 			swprintf_s(bind, L"Axis %d", i);
-			swprintf_s(tmp, L"%08X", it->axisMap[i]);
-			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
+			swprintf_s(tmp, L"%08X", it.axisMap[i]);
+			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
 		}
 
 		for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 		{
 			swprintf_s(bind, L"Hat %d", i);
-			swprintf_s(tmp, L"%08X", it->hatMap[i]);
-			WritePrivateProfileString(dev, bind, tmp, szIniFile.c_str());
+			swprintf_s(tmp, L"%08X", it.hatMap[i]);
+			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
 		}
 	}
 
-	WritePrivateProfileString(L"Joystick", L"Player1", player_joys[0].c_str(), szIniFile.c_str());
-	WritePrivateProfileString(L"Joystick", L"Player2", player_joys[1].c_str(), szIniFile.c_str());
 	return;
 }
 
@@ -166,8 +170,8 @@ void resetState(HWND hW);
 HWND dgHwnd = NULL;
 HINSTANCE hInst;
 //std::vector<std::wstring> joysName;
-std::vector<std::wstring> joysDev;
-DWORD selectedJoy[2];
+static std::vector<std::wstring> joysDev;
+static DWORD selectedJoy[2];
 //std::vector<std::string>::iterator* tmpIter;
 
 typedef struct _DevInfo
@@ -315,7 +319,7 @@ void populate(HWND hW)
 				SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
 			else
 			{
-				StringCbPrintfW(str, MAX_PATH, L"%04X:%04X", attr.VendorID, attr.ProductID);
+				swprintf_s(str, L"%04X:%04X", attr.VendorID, attr.ProductID);
 				SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
 			}
 
@@ -343,7 +347,7 @@ void populateMappings(HWND hW)
 	LVITEM lvItem;
 	HWND lv = GetDlgItem(hW, IDC_LIST1);
 
-	//LoadMappings(&mapVector);
+	//LoadMappings(mapVector);
 
 	memset(&lvItem,0,sizeof(lvItem));
 	
@@ -447,7 +451,7 @@ void populateMappings(HWND hW)
 			mapping->axisMap[x] = PLY_SET_MAPPED(plyCapturing, axisCapturing);\
 			axisPass2 = false;\
 			OSDebugOut(TEXT("Selected axis %d\n"), x);\
-			StringCbPrintf(buf, sizeof(buf), TEXT("Captured wheel axis %d"), x); \
+			swprintf_s(buf, TEXT("Captured wheel axis %d"), x); \
 			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf); \
 			axisCapturing = PAD_AXIS_COUNT;\
 			goto Error;\
@@ -530,7 +534,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 		if(btnCapturing < PAD_BUTTON_COUNT)
 		{
 			mapping->btnMap[btnCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
-			StringCbPrintf(buf, sizeof(buf), TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
+			swprintf_s(buf, TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
 			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			btnCapturing = PAD_BUTTON_COUNT;
 		}
@@ -541,14 +545,14 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 				if(hats7to4[h] == hatCapturing)
 					mapping->hatMap[h] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
 			}
-			StringCbPrintf(buf, sizeof(buf), TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
+			swprintf_s(buf, TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
 			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			hatCapturing = PAD_HAT_COUNT;
 		}
 		else if(axisCapturing < PAD_AXIS_COUNT)
 		{
 			mapping->axisMap[axisCapturing] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
-			StringCbPrintf(buf, sizeof(buf), TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
+			swprintf_s(buf, TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
 			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 			axisCapturing = PAD_AXIS_COUNT;
 		}
@@ -640,7 +644,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 						mapping->axisMap[6] = PLY_SET_MAPPED(plyCapturing, axisCapturing);
 						axisPass2 = false;
 						OSDebugOut(TEXT("Selected hat switch\n"));
-						StringCbPrintf(buf, sizeof(buf), TEXT("Captured wheel hat switch"));
+						swprintf_s(buf, TEXT("Captured wheel hat switch"));
 						SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 						axisCapturing = PAD_AXIS_COUNT;
 						goto Error;
@@ -684,6 +688,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			if(!InitHid())
 				return FALSE;
 			dgHwnd = hW;
+			SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 			//SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			
 			RAWINPUTDEVICE rid[3];
@@ -707,7 +712,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 
 			//LoadConfig();
-			LoadMappings(&mapVector);
+			LoadMappings(mapVector);
 			//if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
 			//CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
 			populate(hW);
@@ -822,7 +827,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON20://rz
 				case IDC_BUTTON21://hat
 					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
-					StringCbPrintf(buf, sizeof(buf), TEXT("Capturing for axis %d, press ESC to cancel"), axisCapturing);
+					swprintf_s(buf, TEXT("Capturing for axis %d, press ESC to cancel"), axisCapturing);
 					SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
 				case IDC_BUTTON13:
@@ -846,14 +851,23 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 							axisCapturing < PAD_AXIS_COUNT || 
 							hatCapturing < PAD_HAT_COUNT)
 						return FALSE;
-					EndDialog(hW, TRUE);
+					EndDialog(hW, FALSE);
 					return TRUE;
 				case IDOK:
 					//conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
 					player_joys[0] = *(joysDev.begin() + selectedJoy[0]);
 					player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
-					SaveMappings(&mapVector);
-					EndDialog(hW, FALSE);
+
+					INT_PTR res = RESULT_OK;
+					CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_WCHAR);
+					var.wstrValue = player_joys[0];
+					if (!SaveSetting(0, APINAME, var))
+						res = RESULT_FAILED;
+					var.wstrValue = player_joys[1];
+					if (!SaveSetting(1, APINAME, var))
+						res = RESULT_FAILED;
+					SaveMappings(mapVector);
+					EndDialog(hW, res);
 					return TRUE;
 				}
 			}

@@ -1,9 +1,8 @@
 #include <algorithm>
 #include "../padproxy.h"
 #include "../../USB.h"
+#include "../../Win32/Config-win32.h"
 #include "raw-config.h"
-
-#define APINAME "rawinput"
 
 static bool sendCrap = false;
 
@@ -29,7 +28,7 @@ public:
 		return L"Raw Input";
 	}
 
-	static bool Configure(int port, void *data);
+	static int Configure(int port, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings()
 	{
 		//TODO GetSettings()
@@ -419,7 +418,7 @@ int RawInputPad::Open()
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 
 	//TODO Better place?
-	LoadMappings(&mapVector);
+	LoadMappings(mapVector);
 
 	memset(&this->ovl, 0, sizeof(OVERLAPPED));
 	memset(&this->ovlW, 0, sizeof(OVERLAPPED));
@@ -427,16 +426,16 @@ int RawInputPad::Open()
 	//this->padState.initStage = 0;
 	this->doPassthrough = !!conf.DFPPass;//TODO per player
 	this->usbHandle = INVALID_HANDLE_VALUE;
-	std::string path;
+	std::wstring path;
 	{
-		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_WCHAR);
 		if (LoadSetting(mPort, APINAME, var))
-			path = var.strValue;
+			path = var.wstrValue;
 		else
 			return 0;
 	}
 
-	this->usbHandle = CreateFile(player_joys[mPort].c_str(), GENERIC_READ|GENERIC_WRITE,
+	this->usbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
 
 	if(this->usbHandle != INVALID_HANDLE_VALUE)
@@ -451,7 +450,7 @@ int RawInputPad::Open()
 		return 1;
 	}
 	else
-		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[mPort].c_str());
+		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", path.c_str());
 
 	return 0;
 }
@@ -566,7 +565,7 @@ int InitWindow(HWND hWnd)
 	eatenWndProc = (WNDPROC) SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)RawInputProc);
 	RegisterRaw(hWnd, 0);
 #endif
-	return 0;
+	return 1;
 }
 
 void UninitWindow()
@@ -587,9 +586,18 @@ void UninitWindow()
 }
 
 // ---------
-bool RawInputPad::Configure(int port, void *data)
+#include "raw-config-res.h"
+BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
+int RawInputPad::Configure(int port, void *data)
 {
-	return false;
+	Win32Handles *h = (Win32Handles*)data;
+	INT_PTR res = RESULT_FAILED;
+	if (InitWindow(h->hWnd))
+	{
+		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, port);
+		UninitWindow();
+	}
+	return res;
 }
 
 REGISTER_PAD(APINAME, RawInputPad);

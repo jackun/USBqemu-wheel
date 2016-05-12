@@ -5,6 +5,10 @@
 #include <setupapi.h>
 #include "hid.h"
 
+#define APINAME "rawinput"
+#define S_CONFIG_JOY TEXT("Joystick")
+#define N_CONFIG_JOY TEXT("joystick")
+
 /*
 Layout:
 	0x8000 bit means it is a valid mapping,
@@ -39,7 +43,7 @@ struct Mappings {
 typedef std::vector<Mappings> MapVector;
 static MapVector mapVector;
 
-void LoadMappings(MapVector *maps);
-void SaveMappings(MapVector *maps);
+void LoadMappings(MapVector& maps);
+void SaveMappings(MapVector& maps);
 
 #endif
