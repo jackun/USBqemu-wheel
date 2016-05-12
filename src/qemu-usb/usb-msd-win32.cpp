@@ -1,5 +1,6 @@
 #include "usb-msd.h"
 #include "../Win32/Config-win32.h"
+#include "../Win32/resource.h"
 
 #define APINAME "cstdio"
 static OPENFILENAMEW ofn;

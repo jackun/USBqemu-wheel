@@ -1,4 +1,5 @@
 #include "../USB.h"
+#include "resource.h"
 #include "Config-win32.h"
 #include "../deviceproxy.h"
 #include "../usb-pad/padproxy.h"

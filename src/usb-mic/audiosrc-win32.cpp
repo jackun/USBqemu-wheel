@@ -5,6 +5,7 @@
 #include "audiosourceproxy.h"
 #include "../libsamplerate/samplerate.h"
 #include "../Win32/Config-win32.h"
+#include "../Win32/resource.h"
 
 #include <assert.h>
 #include <Mmdeviceapi.h>
