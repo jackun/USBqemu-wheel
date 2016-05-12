@@ -160,15 +160,12 @@ void SaveConfig() {
 	const char *path = iniPath.c_str();
 
 	//fprintf(stderr, "%s\n", path);
-	//snprintf(conf.usb_img, sizeof(conf.usb_img), "%s", usb_path.c_str());
 
 	INISaveString(path, N_DEVICES, N_DEVICE_PORT0, conf.Port0.c_str());
 	INISaveString(path, N_DEVICES, N_DEVICE_PORT1, conf.Port1.c_str());
 	INISaveUInt(path, N_DEVICES, N_WHEEL_TYPE0, conf.WheelType[0]);
 	INISaveUInt(path, N_DEVICES, N_WHEEL_TYPE1, conf.WheelType[1]);
-	//INISaveString(path, N_DEVICES, "USB Image", conf.usb_img);
-	//INISaveString(path, "Joystick", "Player1", player_joys[0].c_str());
-	//INISaveString(path, "Joystick", "Player2", player_joys[1].c_str());
+
 	for (auto& k : changedAPIs)
 	{
 		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
@@ -228,10 +225,4 @@ void LoadConfig() {
 		if(api.size())
 			changedAPIs[std::make_pair(1, conf.Port1)] = api;
 	}
-
-	//INILoadString(path, N_DEVICES, "USB Image", conf.usb_img);
-	//INILoadString(path, "Joystick", "Player1", tmp);
-	//player_joys[0] = tmp;
-	//INILoadString(path, "Joystick", "Player2", tmp);
-	//player_joys[1] = tmp;
 }

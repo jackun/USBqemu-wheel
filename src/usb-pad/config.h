@@ -104,11 +104,4 @@ struct wheel_data_t
 	int32_t axis_z;
 	int32_t axis_rz;
 };
-
-#ifdef UNICODE
-extern std::wstring player_joys[2];
-#else
-extern std::string player_joys[2];
-#endif
-extern bool has_rumble[2];
 #endif

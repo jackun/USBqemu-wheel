@@ -56,7 +56,6 @@ protected:
 	int mButtonCount;
 	struct wheel_data_t wheel_data;
 	int mPort;
-	std::string mPath;
 };
 
 extern bool file_exists(std::string path);
@@ -187,21 +186,22 @@ bool JoyDevPad::FindPad()
 	mHandleFF = -1;
 	mEffect.id = -1;
 
+	std::string joypath;
 	{
 		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_CHAR);
 		if(LoadSetting(mPort, APINAME, var))
-			mPath = var.strValue;
+			joypath = var.strValue;
 		else
 		{
 			Dbg("Cannot load joystick settings\n");
 			return false;
 		}
 	}
-	if(!mPath.empty() && file_exists(mPath))
+	if(!joypath.empty() && file_exists(joypath))
 	{
-		if ((mHandle = open(mPath.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
+		if ((mHandle = open(joypath.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
-			Dbg("Cannot open player %d's controller: %s\n", idx+1, mPath.c_str());
+			Dbg("Cannot open player %d's controller: %s\n", idx+1, joypath.c_str());
 		}
 		else
 		{
@@ -235,12 +235,12 @@ bool JoyDevPad::FindPad()
 
 			std::stringstream event;
 			int index = 0;
-			const char *tmp = mPath.c_str();
+			const char *tmp = joypath.c_str();
 			while(*tmp && !isdigit(*tmp))
 				tmp++;
 
 			sscanf(tmp, "%d", &index);
-			Dbg("input index: %d of '%s'\n", index, mPath.c_str());
+			Dbg("input index: %d of '%s'\n", index, joypath.c_str());
 
 			for (int j = 0; j <= 99; j++)
 			{

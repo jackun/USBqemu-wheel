@@ -61,14 +61,6 @@ static generic_data_t generic_data;
 static dfp_data_t dfp_data;
 static gtforce_data_t gtf_data;
 
-//TODO move to Config?
-#ifdef UNICODE
-std::wstring player_joys[2]; //two players
-#else
-std::string player_joys[2]; //two players
-#endif
-bool has_rumble[2];
-
 /* HID interface requests */
 #define GET_REPORT   0xa101
 #define GET_IDLE     0xa102
@@ -336,6 +328,21 @@ int pad_handle_packet(USBDevice *s, int pid,
 	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
+int pad_open(USBDevice *dev)
+{
+	PADState *s = (PADState *) dev;
+	if (s)
+		return s->pad->Open();
+	return 0;
+}
+
+void pad_close(USBDevice *dev)
+{
+	PADState *s = (PADState *) dev;
+	if (s)
+		s->pad->Close();
+}
+
 USBDevice *PadDevice::CreateDevice(int port)
 {
 	CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
@@ -367,6 +374,8 @@ USBDevice *PadDevice::CreateDevice(int port)
 	s->dev.handle_control = pad_handle_control;
 	s->dev.handle_data    = pad_handle_data;
 	s->dev.handle_destroy = pad_handle_destroy;
+	s->dev.open = pad_open;
+	s->dev.close = pad_close;
 	s->port = port;
 
 	// GT4 doesn't seem to care for a proper name?

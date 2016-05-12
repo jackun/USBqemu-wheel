@@ -6,6 +6,9 @@
 #include "config.h"
 #include "../configuration.h"
 
+#define S_CONFIG_JOY TEXT("Joystick")
+#define N_CONFIG_JOY TEXT("joystick")
+
 class Pad
 {
 public:

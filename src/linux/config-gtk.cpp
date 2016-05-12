@@ -33,6 +33,7 @@ GtkWidget *mOKButton;
 typedef vector< pair<string,string> > vstring;
 vstring jsdata;
 static char buffer[MAX_PATH];
+static std::string joysticks[2];
 
 //TODO better way to access API comboboxes from "device changed" callback
 struct APICallback
@@ -48,7 +49,7 @@ static void joystickChanged (GtkComboBox *widget, gpointer data)
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	int ply = (int)data;
 	string devPath = (jsdata.begin() + idx)->second;
-	player_joys[ply] = devPath;
+	//joysticks[ply] = devPath;"
 	fprintf(stderr, "Selected player %d idx: %d dev: '%s'\n", ply, idx, devPath.c_str());
 }
 
@@ -236,20 +237,28 @@ extern "C" {
 #endif
 
 void CALLBACK USBconfigure() {
-/*
 //----- TEST
+{
 	printf("Audio sources:\n");
 	auto names = RegisterAudioSource::instance().Names();
 	for(auto& n : names)
 		printf("\t%s : %S\n", n.c_str(), RegisterAudioSource::instance().Proxy(n)->Name());
 	printf("End of audio source\n");
-	
-	AudioDeviceInfoList inputs;
-	RegisterAudioSource::instance().Proxy("pulse")->AudioDevices(inputs);
-	for(auto& dev : inputs)
-		printf("Input: %s [%s]\n", dev.strID.c_str(), dev.strName.c_str());
+
+	AudioSourceProxyBase *devProxy;
+	if ((devProxy = RegisterAudioSource::instance().Proxy("pulse")) != nullptr &&
+		devProxy->AudioInit())
+	{
+		AudioDeviceInfoList inputs;
+		devProxy->AudioDevices(inputs);
+		for(auto& dev : inputs)
+			printf("Input: %s [%s]\n", dev.strID.c_str(), dev.strName.c_str());
+		devProxy->AudioDeinit();
+	}
+}
 //----- TEST
-*/
+
+
 	LoadConfig();
 	void * that = NULL;
 	jsdata.clear();
@@ -423,6 +432,7 @@ void CALLBACK USBconfigure() {
 	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
 	gtk_widget_show (vbox);
 
+	// TODO Move to separate API specific config. dialog
 	/*** Joysticks' Comboboxes ***/
 	for(int ply = 0; ply < 2; ply++)
 	{
@@ -436,13 +446,14 @@ void CALLBACK USBconfigure() {
 			stringstream str;
 			str << r->first <<  " [" << r->second << "]";
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), str.str().c_str ());
-			//if(r->second == player_joys[ply])
+			//if(r->second == joysticks[ply])
 			//	sel_idx = idx;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
 		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)ply);
 	}
 
+	// TODO Move to separate API specific config. dialog
 	/*** Mass storage ***/
 	ro_frame = gtk_frame_new (NULL);
 	gtk_widget_show (ro_frame);

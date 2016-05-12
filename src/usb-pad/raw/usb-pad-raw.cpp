@@ -427,6 +427,14 @@ int RawInputPad::Open()
 	//this->padState.initStage = 0;
 	this->doPassthrough = !!conf.DFPPass;//TODO per player
 	this->usbHandle = INVALID_HANDLE_VALUE;
+	std::string path;
+	{
+		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_CHAR);
+		if (LoadSetting(mPort, APINAME, var))
+			path = var.strValue;
+		else
+			return 0;
+	}
 
 	this->usbHandle = CreateFile(player_joys[mPort].c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
@@ -440,6 +448,7 @@ int RawInputPad::Open()
 		HidD_GetPreparsedData(this->usbHandle, &pPreparsedData);
 		HidP_GetCaps(pPreparsedData, &(this->caps));
 		HidD_FreePreparsedData(pPreparsedData);
+		return 1;
 	}
 	else
 		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", player_joys[mPort].c_str());
