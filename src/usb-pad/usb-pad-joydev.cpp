@@ -50,11 +50,11 @@ protected:
 	int mHandle;
 	int mHandleFF;
 	struct ff_effect mEffect;
+	struct wheel_data_t mWheelData;
 	uint8_t  mAxisMap[ABS_MAX + 1];
 	uint16_t mBtnMap[KEY_MAX + 1];
 	int mAxisCount;
 	int mButtonCount;
-	struct wheel_data_t wheel_data;
 	int mPort;
 };
 
@@ -80,19 +80,16 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 	if(sendCrap)
 	{
 		// Setting to unpressed
-		memset(&wheel_data, 0, sizeof(wheel_data_t));
-		wheel_data.axis_x = range >> 1;
-		wheel_data.axis_y = 0xFF;
-		wheel_data.axis_z = 0xFF;
-		wheel_data.axis_rz = 0xFF;
-		wheel_data.hatswitch = 0x8;
-		pad_copy_data(mType, buf, wheel_data);
+		memset(&mWheelData, 0, sizeof(wheel_data_t));
+		mWheelData.axis_x = range >> 1;
+		mWheelData.axis_y = 0xFF;
+		mWheelData.axis_z = 0xFF;
+		mWheelData.axis_rz = 0xFF;
+		mWheelData.hatswitch = 0x8;
+		pad_copy_data(mType, buf, mWheelData);
 		sendCrap = false;
 		return len;
 	}
-
-	// Events are raised if state changes, so keep old generic_data intact
-	//memset(&wheel_data, 0, sizeof(wheel_data_t));
 
 	struct js_event event;
 
@@ -108,32 +105,32 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 				//Dbg("Axis: %d, %d\n", event.number, event.value);
 				switch(mAxisMap[event.number])
 				{
-					case ABS_X: wheel_data.axis_x = NORM(event.value, range); break;
-					case ABS_Y: wheel_data.axis_y = NORM(event.value, 0xFF); break;
-					case ABS_Z: wheel_data.axis_z = NORM(event.value, 0xFF); break;
-					//case ABS_RX: wheel_data.axis_rx = NORM(event.value, 0xFF); break;
-					//case ABS_RY: wheel_data.axis_ry = NORM(event.value, 0xFF); break;
-					case ABS_RZ: wheel_data.axis_rz = NORM(event.value, 0xFF); break;
+					case ABS_X: mWheelData.axis_x = NORM(event.value, range); break;
+					case ABS_Y: mWheelData.axis_y = NORM(event.value, 0xFF); break;
+					case ABS_Z: mWheelData.axis_z = NORM(event.value, 0xFF); break;
+					//case ABS_RX: mWheelData.axis_rx = NORM(event.value, 0xFF); break;
+					//case ABS_RY: mWheelData.axis_ry = NORM(event.value, 0xFF); break;
+					case ABS_RZ: mWheelData.axis_rz = NORM(event.value, 0xFF); break;
 
 					//FIXME hatswitch mapping
 					//TODO Ignoring diagonal directions
 					case ABS_HAT0X:
 					case ABS_HAT1X:
 						if(event.value < 0 ) //left usually
-							wheel_data.hatswitch = PAD_HAT_W;
+							mWheelData.hatswitch = PAD_HAT_W;
 						else if(event.value > 0 ) //right
-							wheel_data.hatswitch = PAD_HAT_E;
+							mWheelData.hatswitch = PAD_HAT_E;
 						else
-							wheel_data.hatswitch = PAD_HAT_COUNT;
+							mWheelData.hatswitch = PAD_HAT_COUNT;
 					break;
 					case ABS_HAT0Y:
 					case ABS_HAT1Y:
 						if(event.value < 0 ) //up usually
-							wheel_data.hatswitch = PAD_HAT_N;
+							mWheelData.hatswitch = PAD_HAT_N;
 						else if(event.value > 0 ) //down
-							wheel_data.hatswitch = PAD_HAT_S;
+							mWheelData.hatswitch = PAD_HAT_S;
 						else
-							wheel_data.hatswitch = PAD_HAT_COUNT;
+							mWheelData.hatswitch = PAD_HAT_COUNT;
 					break;
 					default: break;
 				}
@@ -146,9 +143,9 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 				{
 					//FIXME bit juggling
 					if(event.value)
-						wheel_data.buttons |= 1 << event.number; //on
+						mWheelData.buttons |= 1 << event.number; //on
 					else
-						wheel_data.buttons &= ~(1 << event.number); //off
+						mWheelData.buttons &= ~(1 << event.number); //off
 				}
 			}
 		}
@@ -160,7 +157,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 	}
 
 	//Dbg("call pad_copy_data\n");
-	pad_copy_data(mType, buf, wheel_data);
+	pad_copy_data(mType, buf, mWheelData);
 	return buflen;
 }
 
@@ -170,13 +167,13 @@ bool JoyDevPad::FindPad()
 	uint8_t idx = 1 - mPort;
 	if(idx > 1) return false;
 
-	memset(&wheel_data, 0, sizeof(wheel_data_t));
+	memset(&mWheelData, 0, sizeof(wheel_data_t));
 
 	// Setting to unpressed
-	wheel_data.axis_x = 0x3FF >> 1;
-	wheel_data.axis_y = 0xFF;
-	wheel_data.axis_z = 0xFF;
-	wheel_data.axis_rz = 0xFF;
+	mWheelData.axis_x = 0x3FF >> 1;
+	mWheelData.axis_y = 0xFF;
+	mWheelData.axis_z = 0xFF;
+	mWheelData.axis_rz = 0xFF;
 	memset(mAxisMap, -1, sizeof(mAxisMap));
 	memset(mBtnMap, -1, sizeof(mBtnMap));
 
@@ -227,7 +224,6 @@ bool JoyDevPad::FindPad()
 			}
 			else
 			{
-
 				ioctl(mHandle, JSIOCGBUTTONS, &mButtonCount);
 				for(int i = 0; i < mButtonCount; ++i)
 					Dbg("Button: %d -> %d \n", i, mBtnMap[i] );
@@ -363,7 +359,7 @@ void JoyDevPad::SetGain(int gain /* between 0 and 100 */)
 int JoyDevPad::TokenOut(const uint8_t *data, int len)
 {
 	struct ff_data* ffdata = (struct ff_data*) data;
-	Dbg("FFB 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x0%4X\n", 
+	Dbg("FFB 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x0%4X\n",
 		ffdata->reportid, ffdata->index, ffdata->data1, ffdata->data2, *(int*)((char*)ffdata + 4) );
 
 	switch(ffdata->reportid)
@@ -483,3 +479,4 @@ bool JoyDevPad::Configure(int port, void *data)
 
 REGISTER_PAD(APINAME, JoyDevPad);
 #undef APINAME
+#undef Dbg
