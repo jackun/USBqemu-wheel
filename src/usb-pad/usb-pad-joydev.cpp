@@ -32,7 +32,6 @@ public:
 	int TokenIn(uint8_t *buf, int len);
 	int TokenOut(const uint8_t *data, int len);
 	int Reset() { return 0; }
-	bool FindPad();
 
 	static const wchar_t* Name()
 	{
@@ -42,6 +41,7 @@ public:
 	static bool Configure(int port, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings();
 protected:
+	bool FindPad();
 	void SetConstantForce(int force);
 	void SetSpringForce(int force);
 	void SetAutoCenter(int value);
