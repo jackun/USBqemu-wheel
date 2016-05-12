@@ -1,6 +1,7 @@
 #include <cstdint>
 #include "audiosourceproxy.h"
-#include <pulse/pulseaudio.h>
+//#include <pulse/pulseaudio.h>
+#include "../dynlink/pulse.h"
 #include <typeinfo>
 
 #define APINAME "pulse"
@@ -10,7 +11,7 @@ static void pa_context_state_cb(pa_context *c, void *userdata)
 	pa_context_state_t state;
 	int *pa_ready = (int *)userdata;
 
-	state = pa_context_get_state(c);
+	state = pf_pa_context_get_state(c);
 	switch (state) {
 		// There are just here for reference
 		case PA_CONTEXT_UNCONNECTED:
@@ -54,53 +55,53 @@ static int pa_get_devicelist(AudioDeviceInfoList& input)
 	int state = 0;
 	int pa_ready = 0;
 
-	pa_ml = pa_mainloop_new();
-	pa_mlapi = pa_mainloop_get_api(pa_ml);
-	pa_ctx = pa_context_new(pa_mlapi, "USBqemu-devicelist");
+	pa_ml = pf_pa_mainloop_new();
+	pa_mlapi = pf_pa_mainloop_get_api(pa_ml);
+	pa_ctx = pf_pa_context_new(pa_mlapi, "USBqemu-devicelist");
 
-	pa_context_connect(pa_ctx, NULL, PA_CONTEXT_NOFLAGS, NULL);
+	pf_pa_context_connect(pa_ctx, NULL, PA_CONTEXT_NOFLAGS, NULL);
 
-	pa_context_set_state_callback(pa_ctx, pa_context_state_cb, &pa_ready);
+	pf_pa_context_set_state_callback(pa_ctx, pa_context_state_cb, &pa_ready);
 
 	for (;;) {
 
 		if (pa_ready == 0)
 		{
-			pa_mainloop_iterate(pa_ml, 1, NULL);
+			pf_pa_mainloop_iterate(pa_ml, 1, NULL);
 			continue;
 		}
 
 		// Connection failed
 		if (pa_ready == 2)
 		{
-			pa_context_disconnect(pa_ctx);
-			pa_context_unref(pa_ctx);
-			pa_mainloop_free(pa_ml);
+			pf_pa_context_disconnect(pa_ctx);
+			pf_pa_context_unref(pa_ctx);
+			pf_pa_mainloop_free(pa_ml);
 			return -1;
 		}
 
 		switch (state)
 		{
 			case 0:
-				pa_op = pa_context_get_source_info_list(pa_ctx,
+				pa_op = pf_pa_context_get_source_info_list(pa_ctx,
 						pa_sourcelist_cb,
 						&input);
 				state++;
 				break;
 			case 1:
-				if (pa_operation_get_state(pa_op) == PA_OPERATION_DONE)
+				if (pf_pa_operation_get_state(pa_op) == PA_OPERATION_DONE)
 				{
-					pa_operation_unref(pa_op);
-					pa_context_disconnect(pa_ctx);
-					pa_context_unref(pa_ctx);
-					pa_mainloop_free(pa_ml);
+					pf_pa_operation_unref(pa_op);
+					pf_pa_context_disconnect(pa_ctx);
+					pf_pa_context_unref(pa_ctx);
+					pf_pa_mainloop_free(pa_ml);
 					return 0;
 				}
 				break;
 			default:
 				return -1;
 		}
-		pa_mainloop_iterate(pa_ml, 1, NULL);
+		pf_pa_mainloop_iterate(pa_ml, 1, NULL);
 	}
 }
 
@@ -176,8 +177,14 @@ public:
 		pa_get_devicelist(devices);
 	}
 
-	static bool AudioInit() { return false; }
-	static void AudioDeinit() {}
+	static bool AudioInit()
+	{
+		return DynLoadPulse();
+	}
+	static void AudioDeinit()
+	{
+		DynUnloadPulse();
+	}
 	static std::vector<CONFIGVARIANT> GetSettings()
 	{
 		return std::vector<CONFIGVARIANT>();

@@ -272,7 +272,7 @@ IF(UNIX)
 	)
 	LIST(APPEND SRCS
 		./src/qemu-usb/usb-msd-linux.cpp
-		./src/usb-pad/usb-pad-linux.cpp
+		./src/usb-pad/usb-pad-joydev.cpp
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
 		./src/linux/ini.c
@@ -280,10 +280,14 @@ IF(UNIX)
 	)
 
 	IF(PLUGIN_BUILD_PULSE)
+		LIST(APPEND HDRS
+			./src/dynlink/pulse.h
+		)
 		LIST(APPEND SRCS
 			./src/usb-mic/audiosrc-pulse.cpp
+			./src/dynlink/pulse.cpp
 		)
-		LIST(APPEND LIBS pulse)
+		#LIST(APPEND LIBS pulse)
 	ENDIF(PLUGIN_BUILD_PULSE)
 
 	ADD_DEFINITIONS(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
