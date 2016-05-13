@@ -482,6 +482,8 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 {
 	PulseAudioSource *src = (PulseAudioSource *) userdata;
 	const void* padata = NULL;
+	if (src->mQuit)
+		return;
 
 	OSDebugOut("stream_read_callback %d bytes\n", nbytes);
 
