@@ -19,5 +19,13 @@ FUNDEFDECL(pa_mainloop_new);
 FUNDEFDECL(pa_context_new);
 FUNDEFDECL(pa_mainloop_iterate);
 FUNDEFDECL(pa_mainloop_free);
+FUNDEFDECL(pa_strerror);
+FUNDEFDECL(pa_stream_drop);
+FUNDEFDECL(pa_stream_peek);
+FUNDEFDECL(pa_stream_new);
+FUNDEFDECL(pa_stream_connect_record);
+FUNDEFDECL(pa_stream_set_read_callback);
+FUNDEFDECL(pa_threaded_mainloop_get_api);
+FUNDEFDECL(pa_threaded_mainloop_new);
 
 #undef FUNDEFDECL

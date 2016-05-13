@@ -14,6 +14,14 @@
 		return false; \
 	}
 
+FUNDEFDECL(pa_threaded_mainloop_new);
+FUNDEFDECL(pa_threaded_mainloop_get_api);
+FUNDEFDECL(pa_stream_set_read_callback);
+FUNDEFDECL(pa_stream_connect_record);
+FUNDEFDECL(pa_stream_new);
+FUNDEFDECL(pa_stream_peek);
+FUNDEFDECL(pa_strerror);
+FUNDEFDECL(pa_stream_drop);
 FUNDEFDECL(pa_context_connect);
 FUNDEFDECL(pa_operation_unref);
 FUNDEFDECL(pa_context_set_state_callback);
@@ -36,15 +44,25 @@ bool DynLoadPulse()
 {
 	const char* error = nullptr;
 
-	refCntPulse++;
 	if (pulse_handle && pf_pa_mainloop_free)
 		return true;
 
-	pulse_handle = dlopen ("libpulse.so", RTLD_LAZY);
+	//dlopen itself is refcounted too
+	pulse_handle = dlopen ("libpulse.so.0", RTLD_LAZY);
 	if (!pulse_handle) {
 		std::cerr << dlerror() << std::endl;
 		return false;
 	}
+
+	refCntPulse++;
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_new);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_get_api);
+	FUN_LOAD(pulse_handle, pa_stream_set_read_callback);
+	FUN_LOAD(pulse_handle, pa_stream_connect_record);
+	FUN_LOAD(pulse_handle, pa_stream_new);
+	FUN_LOAD(pulse_handle, pa_stream_peek);
+	FUN_LOAD(pulse_handle, pa_strerror);
+	FUN_LOAD(pulse_handle, pa_stream_drop);
 	FUN_LOAD(pulse_handle, pa_context_connect);
 	FUN_LOAD(pulse_handle, pa_operation_unref);
 	FUN_LOAD(pulse_handle, pa_context_set_state_callback);
@@ -63,11 +81,20 @@ bool DynLoadPulse()
 
 void DynUnloadPulse()
 {
-	if(!refCntPulse || --refCntPulse > 0)
-		return;
 	if (!pulse_handle && !pf_pa_mainloop_free)
 		return;
 
+	if(!refCntPulse || --refCntPulse > 0)
+		return;
+
+	FUN_UNLOAD(pa_threaded_mainloop_new);
+	FUN_UNLOAD(pa_threaded_mainloop_get_api);
+	FUN_UNLOAD(pa_stream_set_read_callback);
+	FUN_UNLOAD(pa_stream_connect_record);
+	FUN_UNLOAD(pa_stream_new);
+	FUN_UNLOAD(pa_stream_peek);
+	FUN_UNLOAD(pa_strerror);
+	FUN_UNLOAD(pa_stream_drop);
 	FUN_UNLOAD(pa_context_connect);
 	FUN_UNLOAD(pa_operation_unref);
 	FUN_UNLOAD(pa_context_set_state_callback);
