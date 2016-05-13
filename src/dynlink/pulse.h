@@ -3,8 +3,8 @@
 #include <pulse/pulseaudio.h>
 #define FUNDEFDECL(x) extern decltype(&x) pf_##x
 
-extern bool DynLoadPulse();
-extern void DynUnloadPulse();
+bool DynLoadPulse();
+void DynUnloadPulse();
 
 FUNDEFDECL(pa_context_connect);
 FUNDEFDECL(pa_operation_unref);
