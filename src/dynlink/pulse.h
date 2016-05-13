@@ -27,5 +27,12 @@ FUNDEFDECL(pa_stream_connect_record);
 FUNDEFDECL(pa_stream_set_read_callback);
 FUNDEFDECL(pa_threaded_mainloop_get_api);
 FUNDEFDECL(pa_threaded_mainloop_new);
+FUNDEFDECL(pa_stream_disconnect);
+FUNDEFDECL(pa_stream_unref);
+FUNDEFDECL(pa_threaded_mainloop_stop);
+FUNDEFDECL(pa_threaded_mainloop_free);
+FUNDEFDECL(pa_threaded_mainloop_start);
+FUNDEFDECL(pa_bytes_per_second);
+FUNDEFDECL(pa_usec_to_bytes);
 
 #undef FUNDEFDECL

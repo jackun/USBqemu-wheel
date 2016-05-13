@@ -14,6 +14,13 @@
 		return false; \
 	}
 
+FUNDEFDECL(pa_usec_to_bytes);
+FUNDEFDECL(pa_bytes_per_second);
+FUNDEFDECL(pa_threaded_mainloop_start);
+FUNDEFDECL(pa_threaded_mainloop_free);
+FUNDEFDECL(pa_threaded_mainloop_stop);
+FUNDEFDECL(pa_stream_unref);
+FUNDEFDECL(pa_stream_disconnect);
 FUNDEFDECL(pa_threaded_mainloop_new);
 FUNDEFDECL(pa_threaded_mainloop_get_api);
 FUNDEFDECL(pa_stream_set_read_callback);
@@ -55,6 +62,13 @@ bool DynLoadPulse()
 	}
 
 	refCntPulse++;
+	FUN_LOAD(pulse_handle, pa_usec_to_bytes);
+	FUN_LOAD(pulse_handle, pa_bytes_per_second);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_start);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_free);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_stop);
+	FUN_LOAD(pulse_handle, pa_stream_unref);
+	FUN_LOAD(pulse_handle, pa_stream_disconnect);
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_new);
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_get_api);
 	FUN_LOAD(pulse_handle, pa_stream_set_read_callback);
@@ -87,6 +101,13 @@ void DynUnloadPulse()
 	if(!refCntPulse || --refCntPulse > 0)
 		return;
 
+	FUN_UNLOAD(pa_usec_to_bytes);
+	FUN_UNLOAD(pa_bytes_per_second);
+	FUN_UNLOAD(pa_threaded_mainloop_start);
+	FUN_UNLOAD(pa_threaded_mainloop_free);
+	FUN_UNLOAD(pa_threaded_mainloop_stop);
+	FUN_UNLOAD(pa_stream_unref);
+	FUN_UNLOAD(pa_stream_disconnect);
 	FUN_UNLOAD(pa_threaded_mainloop_new);
 	FUN_UNLOAD(pa_threaded_mainloop_get_api);
 	FUN_UNLOAD(pa_stream_set_read_callback);
