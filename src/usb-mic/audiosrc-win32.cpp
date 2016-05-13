@@ -752,8 +752,9 @@ error:
 		if (compare)
 		{
 			MMAudioSource *src = dynamic_cast<MMAudioSource *>(compare);
-			if (mDevID == src->mDevID)
+			if (src && mDevID == src->mDevID)
 				return MIC_MODE_SHARED;
+			return MIC_MODE_SEPARATE;
 		}
 
 		CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE0 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
