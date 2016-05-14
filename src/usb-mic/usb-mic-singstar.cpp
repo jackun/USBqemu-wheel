@@ -890,11 +890,6 @@ USBDevice* SingstarDevice::CreateDevice(int port)
 			api = var.strValue;
 	}
 
-	{
-		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		LoadSetting(port, api, var);
-	}
-
 	s->audsrcproxy = RegisterAudioSource::instance().Proxy(api);
 	if (!s->audsrcproxy)
 	{

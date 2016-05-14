@@ -253,7 +253,7 @@ public:
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 
 		{
-			CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
+			CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_WCHAR);
 			if (!LoadSetting(mPort, APINAME, var))
 			{
 				return false;
