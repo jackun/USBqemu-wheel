@@ -9,6 +9,7 @@
 #include "../helpers.h"
 #include "../configuration.h"
 #include "../proxybase.h"
+#include "../osdebugout.h"
 
 class AudioSourceError : public std::runtime_error
 {
@@ -40,7 +41,7 @@ class AudioSourceProxy : public AudioSourceProxyBase
 		}
 		catch(AudioSourceError& err)
 		{
-			(void)err;
+			OSDebugOut(TEXT("AudioSource port %d mic %d: %") TEXT(SFMTs) TEXT("\n"), port, mic, err.what());
 			return nullptr;
 		}
 	}
