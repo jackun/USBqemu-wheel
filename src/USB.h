@@ -35,7 +35,6 @@
 
 #ifdef _WIN32
 
-#define usleep(x)	Sleep(x / 1000)
 #include <windows.h>
 #include <windowsx.h>
 
@@ -61,13 +60,6 @@ typedef struct _Config {
   std::string Port1; //player1
   int DFPPass; //[2]; //TODO per player
   int WheelType[2];
-  //TCHAR usb_img[MAX_PATH+1];
-
-  //TSTDSTRING mics[2];
-  //std::string micApi;// [2];
-  //TODO Make device manage this setting itself
-  //std::string wheelApi[2];
-
 } Config;
 
 extern Config conf;
