@@ -908,8 +908,12 @@ USBDevice* SingstarDevice::CreateDevice(int port)
 	if (src)
 		s->mode = src->GetMicMode(nullptr);
 
-	if(!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1]))
-		s->mode = MIC_MODE_SEPARATE;
+	if(s->mode != MIC_MODE_SHARED && (!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1])))
+		s->mode = MIC_MODE_SINGLE;
+
+	for (int i = 0; i < 2; i++)
+		if (s->audsrc[i])
+			s->buffer[i] = new int16_t[BUFFER_FRAMES * s->audsrc[i]->GetChannels()];
 
 	/*if(!devs[0].empty() && !devs[1].empty()
 		&& (devs[0] == devs[1]))
