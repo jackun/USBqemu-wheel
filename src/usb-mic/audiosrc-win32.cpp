@@ -761,7 +761,7 @@ error:
 		if (LoadSetting(mPort, APINAME, var) && var.wstrValue == mDevID)
 			return MIC_MODE_SHARED;
 
-		return MIC_MODE_SEPARATE;
+		return MIC_MODE_SINGLE;
 	}
 
 	static const wchar_t* Name()

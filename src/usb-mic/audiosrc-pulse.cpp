@@ -265,7 +265,7 @@ public:
 		if(LoadSetting(mPort, APINAME, var) && var.strValue == mDevice)
 			return MIC_MODE_SHARED;
 
-		return MIC_MODE_SEPARATE;
+		return MIC_MODE_SINGLE;
 	}
 
 	void Uninit()
