@@ -26,6 +26,8 @@ static void pa_context_state_cb(pa_context *c, void *userdata)
 	switch (state) {
 		// There are just here for reference
 		case PA_CONTEXT_UNCONNECTED:
+			*pa_ready = 3;
+			break;
 		case PA_CONTEXT_CONNECTING:
 		case PA_CONTEXT_AUTHORIZING:
 		case PA_CONTEXT_SETTING_NAME:
@@ -308,7 +310,7 @@ public:
 			goto error;
 
 		pf_pa_context_set_state_callback(mPContext,
-			context_notify_cb,
+			pa_context_state_cb,
 			&mPAready
 		);
 
@@ -449,34 +451,6 @@ protected:
 	int mOutSamples;
 	std::chrono::high_resolution_clock::time_point mLastOut;
 };
-
-void PulseAudioSource::context_notify_cb (pa_context *c, void *userdata)
-{
-	OSDebugOut("context_notify\n");
-	pa_context_state_t state;
-	PulseAudioSource *ps = (PulseAudioSource *) userdata;
-	//int *pa_ready = (int *)userdata;
-
-	state = pf_pa_context_get_state(c);
-	switch (state) {
-			// These are just here for reference
-			case PA_CONTEXT_UNCONNECTED:
-					ps->mPAready = 3;
-					break;
-			case PA_CONTEXT_CONNECTING:
-			case PA_CONTEXT_AUTHORIZING:
-			case PA_CONTEXT_SETTING_NAME:
-			default:
-					break;
-			case PA_CONTEXT_FAILED:
-			case PA_CONTEXT_TERMINATED:
-					ps->mPAready = 2;
-					break;
-			case PA_CONTEXT_READY:
-					ps->mPAready = 1;
-					break;
-	}
-}
 
 void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userdata)
 {
