@@ -23,11 +23,6 @@
  */
 #include "vl.h"
 
-void usb_attach(USBPort *port, USBDevice *dev)
-{
-    port->attach(port, dev);
-}
-
 /**********************/
 /* generic USB device helpers (you are not forced to use them when
    writing your USB device driver, but they help handling the

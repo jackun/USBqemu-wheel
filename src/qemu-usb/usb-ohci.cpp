@@ -114,10 +114,10 @@ static void ohci_die(OHCIState *ohci)
     //             PCI_STATUS_DETECTED_PARITY);
 }
 
-//static void usb_attach(USBPort *port, USBDevice *dev)
-//{
-//	port->attach(port,dev);
-//}
+static void usb_attach(USBPort *port, USBDevice *dev)
+{
+	port->attach(port,dev);
+}
 
 /* Attach or detach a device on a root hub port.  */
 static void ohci_attach(USBPort *port1, USBDevice *dev)

@@ -172,7 +172,6 @@ struct USBPort {
     struct USBPort *next; /* Used internally by qemu.  */
 };
 
-void usb_attach(USBPort *port, USBDevice *dev);
 int usb_generic_handle_packet(USBDevice *s, int pid, 
                               uint8_t devaddr, uint8_t devep,
                               uint8_t *data, int len);
