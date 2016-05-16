@@ -38,7 +38,7 @@ public:
 		return L"Input (joydev)";
 	}
 
-	static bool Configure(int port, void *data);
+	static int Configure(int port, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings();
 protected:
 	bool FindPad();
@@ -472,9 +472,9 @@ std::vector<CONFIGVARIANT> JoyDevPad::GetSettings()
 	return params;
 }
 
-bool JoyDevPad::Configure(int port, void *data)
+int JoyDevPad::Configure(int port, void *data)
 {
-	return false;
+	return RESULT_CANCELED;
 }
 
 REGISTER_PAD(APINAME, JoyDevPad);

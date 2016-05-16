@@ -394,9 +394,9 @@ public:
 		return L"PulseAudio";
 	}
 
-	static bool Configure(int port, void *data)
+	static int Configure(int port, void *data)
 	{
-		return false;
+		return RESULT_CANCELED;
 	}
 
 	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
