@@ -271,7 +271,7 @@ IF(UNIX)
 		./src/linux/config.h
 	)
 	LIST(APPEND SRCS
-		./src/qemu-usb/usb-msd-linux.cpp
+		./src/qemu-usb/usb-msd-gtk.cpp
 		./src/usb-pad/usb-pad-joydev.cpp
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
