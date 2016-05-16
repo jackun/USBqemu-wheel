@@ -82,6 +82,9 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
 	fprintf(stderr, "USBqemu load \"%s\" from [%s %d]\n", var.name, key.c_str(), port);
 
+	if (key.empty())
+		return false;
+
 	std::stringstream section;
 	section << key << " " << port;
 
@@ -125,6 +128,9 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
 	fprintf(stderr, "USBqemu save \"%s\" to [%s %d]\n", var.name, key.c_str(), port);
+
+	if (key.empty())
+		return false;
 
 	std::stringstream section;
 	section << key << " " << port;

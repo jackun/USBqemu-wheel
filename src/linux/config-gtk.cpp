@@ -39,6 +39,7 @@ static std::string joysticks[2];
 struct APICallback
 {
 	std::string device;
+	std::string api;
 	GtkComboBox* combo;
 };
 static APICallback apiCallback[2];
@@ -65,40 +66,6 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	}
 }
 
-static void entryChanged(GtkWidget *widget, gpointer data)
-{
-	const gchar *text = gtk_entry_get_text(GTK_ENTRY(widget));
-	//fprintf(stderr, "Entry text:%s\n", text);
-	//snprintf(usb_path, sizeof(usb_path), "%s", text);
-	//int ply = (int)data;
-	//usb_path = text;
-}
-
-static void fileChooser( GtkWidget *widget, gpointer data)
-{
-	GtkWidget *dialog, *entry = NULL;
-
-	entry = (GtkWidget*)data;
-	dialog = gtk_file_chooser_dialog_new ("Open File",
-					  NULL,
-					  GTK_FILE_CHOOSER_ACTION_OPEN,
-					  GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-					  GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
-					  NULL);
-
-	if (entry && gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT)
-	{
-		char *filename;
-
-		filename = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dialog));
-		fprintf (stderr, "%s\n", filename);
-		gtk_entry_set_text(GTK_ENTRY(entry), filename);
-		g_free (filename);
-	}
-
-	gtk_widget_destroy (dialog);
-}
-
 static void populateApiWidget(GtkComboBox *widget, int player, const std::string& device)
 {
 	gtk_list_store_clear (GTK_LIST_STORE (gtk_combo_box_get_model (widget)));
@@ -121,6 +88,7 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 			api = it->second;
 
 		fprintf(stdout, "Current api: %s\n", api.c_str());
+		apiCallback[player].api = api;
 		int i = 0;
 		for(auto& api : dev->APIs())
 		{
@@ -166,7 +134,7 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 	gint active = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	int port = 1 - player;
 
-	auto name = apiCallback[player].device;
+	auto& name = apiCallback[player].device;
 	auto dev = RegisterDevice::instance().Device( name );
 	if (dev)
 	{
@@ -182,11 +150,29 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 				itAPI->second = *it;
 			else
 				changedAPIs[pair] = *it;
+			apiCallback[player].api = *it;
 
 			fprintf(stderr, "selected api: %s\napi settings:\n", it->c_str());
 			for(auto& p : dev->GetSettings(*it))
 				fprintf(stderr, "\t[%s] %s = %s (%d)\n", it->c_str(), p.name, p.desc, p.type);
 		}
+	}
+}
+
+static void configureApi (GtkWidget *widget, gpointer data)
+{
+	int player = (int) data;
+	int port = 1 - player;
+
+	auto& name = apiCallback[player].device;
+	auto& api = apiCallback[player].api;
+	auto dev = RegisterDevice::instance().Device( name );
+
+	fprintf(stderr, "configure api %s [%s] for player %d\n", api.c_str(), name.c_str(), player);
+	if (dev)
+	{
+		int res = dev->Configure(port, api, nullptr);
+		fprintf(stderr, "Configure(...) returned %d\n", res);
 	}
 }
 
@@ -338,6 +324,8 @@ void CALLBACK USBconfigure() {
 	/*** Devices' Comboboxes ***/
 	for(int ply = 0; ply < 2; ply++)
 	{
+		apiCallback[ply].device = devs[ply];
+
 		rs_cb = new_combobox(ports[ply], ro_frame, vbox);
 		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "None");
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), 0);
@@ -360,7 +348,7 @@ void CALLBACK USBconfigure() {
 		//gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "USB Mass storage");
 		//gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "Singstar");
 		//gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), DevToIdx(ply == 0 ? conf.Port1 : conf.Port0));
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (ptrdiff_t*)ply);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (gpointer)ply);
 	}
 
 	/*** APIs ***/
@@ -383,7 +371,15 @@ void CALLBACK USBconfigure() {
 		rs_cb = new_combobox (ports[ply], ro_frame, vbox);
 		apiCallback[ply].combo = GTK_COMBO_BOX(rs_cb);
 		//gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (apiChanged), (ptrdiff_t*)ply);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (apiChanged), (gpointer)ply);
+
+		GtkWidget *hbox = gtk_widget_get_parent (rs_cb);
+		GtkWidget *button = gtk_button_new_with_label ("Configure");
+		gtk_button_set_image(GTK_BUTTON (button), gtk_image_new_from_icon_name ("gtk-preferences", GTK_ICON_SIZE_BUTTON));
+		gtk_widget_show(button);
+		gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 5);
+		g_signal_connect (button, "clicked", G_CALLBACK (configureApi), (gpointer)ply);
+
 		populateApiWidget(GTK_COMBO_BOX (rs_cb), ply, devs[ply]);
 	}
 
@@ -415,7 +411,7 @@ void CALLBACK USBconfigure() {
 				sel_idx = i;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (ptrdiff_t*)(ply));
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)(ply));
 	}
 
 	/*** Joysticks ***/
@@ -450,47 +446,8 @@ void CALLBACK USBconfigure() {
 			//	sel_idx = idx;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (ptrdiff_t*)ply);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystickChanged), (gpointer)ply);
 	}
-
-	// TODO Move to separate API specific config. dialog
-	/*** Mass storage ***/
-	ro_frame = gtk_frame_new (NULL);
-	gtk_widget_show (ro_frame);
-	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 5);
-
-	ro_label = gtk_label_new ("Select USB image:");
-	gtk_widget_show (ro_label);
-	gtk_frame_set_label_widget (GTK_FRAME (ro_frame), ro_label);
-	gtk_label_set_use_markup (GTK_LABEL (ro_label), TRUE);
-
-	vbox = gtk_vbox_new (FALSE, 5);
-	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
-	gtk_widget_show (vbox);
-
-	rs_hbox = gtk_hbox_new (FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (vbox), rs_hbox, FALSE, TRUE, 0);
-
-	GtkWidget *entry = gtk_entry_new ();
-	gtk_entry_set_max_length (GTK_ENTRY (entry), sizeof(buffer));
-	gtk_widget_show (entry);
-
-	/*{
-		CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_CHAR);
-		if(LoadSetting(port, APINAME, var);
-		gtk_entry_set_text(GTK_ENTRY(entry), buffer);
-	}*/
-
-	g_signal_connect (entry, "changed", G_CALLBACK (entryChanged), NULL);
-
-	GtkWidget *button = gtk_button_new_with_label ("Browse");
-	gtk_button_set_image(GTK_BUTTON (button), gtk_image_new_from_icon_name ("gtk-open", GTK_ICON_SIZE_BUTTON));
-	gtk_widget_show(button);
-	g_signal_connect (button, "clicked", G_CALLBACK (fileChooser), entry);
-
-	gtk_box_pack_start (GTK_BOX (rs_hbox), entry, TRUE, TRUE, 5);
-	gtk_box_pack_start (GTK_BOX (rs_hbox), button, FALSE, FALSE, 5);
-	gtk_widget_show (rs_hbox);
 
 	// Modal loop
 	gint result = gtk_dialog_run (GTK_DIALOG (mDialog));
