@@ -40,7 +40,7 @@ class PadProxy : public PadProxyBase
 			return nullptr;
 		}
 	}
-	virtual const wchar_t* Name() const
+	virtual const TCHAR* Name() const
 	{
 		return T::Name();
 	}

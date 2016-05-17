@@ -764,7 +764,7 @@ error:
 		return MIC_MODE_SINGLE;
 	}
 
-	static const wchar_t* Name()
+	static const TCHAR* Name()
 	{
 		return L"WASAPI";
 	}

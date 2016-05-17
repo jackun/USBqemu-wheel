@@ -74,7 +74,6 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 	int port = 1 - player;
 	if (dev)
 	{
-		std::vector<char> name;
 		std::string api;
 
 		auto it = changedAPIs.find(std::make_pair(port, device));
@@ -92,10 +91,8 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 		int i = 0;
 		for(auto& api : dev->APIs())
 		{
-			const wchar_t *wname = dev->APIName(api);
-			name.resize( wcslen(wname)+1 );
-			wcstombs ( &name[0], wname, name.size() );
-			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget), &name[0]);
+			auto name = dev->LongAPIName(api);
+			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget), name);
 			if (api.size() && api == &name[0])
 				gtk_combo_box_set_active (GTK_COMBO_BOX (widget), i);
 			else
@@ -332,14 +329,11 @@ void CALLBACK USBconfigure() {
 
 		auto devices = RegisterDevice::instance().Names();
 		int idx = 0, selected = 0;
-		std::vector<char> name;
 		for(auto& device : devices)
 		{
 			auto deviceProxy = RegisterDevice::instance().Device(device);
-			auto wname = deviceProxy->Name();
-			name.resize( wcslen(wname)+1 );
-			wcstombs ( &name[0], wname, name.size() );
-			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), &name[0] );
+			auto name = deviceProxy->Name();
+			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), name );
 			idx++;
 			if (devs[ply] == device)
 				gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), idx);

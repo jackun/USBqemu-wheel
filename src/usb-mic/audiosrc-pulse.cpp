@@ -389,9 +389,9 @@ public:
 		src_reset(mResampler);
 	}
 
-	static const wchar_t* Name()
+	static const TCHAR* Name()
 	{
-		return L"PulseAudio";
+		return "PulseAudio";
 	}
 
 	static int Configure(int port, void *data)

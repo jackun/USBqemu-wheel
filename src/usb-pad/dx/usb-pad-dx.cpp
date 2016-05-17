@@ -64,7 +64,7 @@ public:
 	int TokenOut(const uint8_t *data, int len);
 	int Reset() { return 0; }
 
-	static const wchar_t* Name()
+	static const TCHAR* Name()
 	{
 		return L"DInput";
 	}

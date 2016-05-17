@@ -47,12 +47,12 @@ class DeviceProxyBase
 {
 	public:
 	DeviceProxyBase(DeviceKey key);
+	virtual ~DeviceProxyBase() {}
 	virtual USBDevice* CreateDevice(int port) = 0;
-	virtual const wchar_t* Name() const = 0;
-	// For harder to "automagic" configurations
+	virtual const TCHAR* Name() const = 0;
 	virtual int Configure(int port, std::string api, void *data) = 0;
 	virtual std::list<std::string> APIs() = 0;
-	virtual const wchar_t* APIName(const std::string& name) = 0;
+	virtual const TCHAR* LongAPIName(const std::string& name) = 0;
 	virtual std::vector<CONFIGVARIANT> GetSettings(const std::string &api) = 0;
 
 	virtual bool IsValidAPI(const std::string& api)
@@ -70,11 +70,12 @@ class DeviceProxy : public DeviceProxyBase
 {
 	public:
 	DeviceProxy(DeviceKey key): DeviceProxyBase(key) {}
+	virtual ~DeviceProxy() {}
 	virtual USBDevice* CreateDevice(int port)
 	{
 		return T::CreateDevice(port);
 	}
-	virtual const wchar_t* Name() const
+	virtual const TCHAR* Name() const
 	{
 		return T::Name();
 	}
@@ -86,9 +87,9 @@ class DeviceProxy : public DeviceProxyBase
 	{
 		return T::APIs();
 	}
-	virtual const wchar_t* APIName(const std::string& name)
+	virtual const TCHAR* LongAPIName(const std::string& name)
 	{
-		return T::APIName(name);
+		return T::LongAPIName(name);
 	}
 	virtual std::vector<CONFIGVARIANT> GetSettings(const std::string &api)
 	{

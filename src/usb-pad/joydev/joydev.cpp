@@ -1,8 +1,6 @@
-#include "padproxy.h"
-#include "../USB.h"
-#include "../configuration.h"
+#include "joydev.h"
+#include "../../USB.h"
 
-#include <linux/joystick.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -20,43 +18,6 @@
 #endif
 
 #define APINAME "joydev"
-
-//TODO what to call this?
-class JoyDevPad : public Pad
-{
-public:
-	JoyDevPad(int port): mPort(port) {}
-	~JoyDevPad() { Close(); }
-	int Open();
-	int Close();
-	int TokenIn(uint8_t *buf, int len);
-	int TokenOut(const uint8_t *data, int len);
-	int Reset() { return 0; }
-
-	static const wchar_t* Name()
-	{
-		return L"Input (joydev)";
-	}
-
-	static int Configure(int port, void *data);
-	static std::vector<CONFIGVARIANT> GetSettings();
-protected:
-	bool FindPad();
-	void SetConstantForce(int force);
-	void SetSpringForce(int force);
-	void SetAutoCenter(int value);
-	void SetGain(int gain);
-
-	int mHandle;
-	int mHandleFF;
-	struct ff_effect mEffect;
-	struct wheel_data_t mWheelData;
-	uint8_t  mAxisMap[ABS_MAX + 1];
-	uint16_t mBtnMap[KEY_MAX + 1];
-	int mAxisCount;
-	int mButtonCount;
-	int mPort;
-};
 
 extern bool file_exists(std::string path);
 extern bool dir_exists(std::string path);
@@ -346,7 +307,7 @@ void JoyDevPad::SetAutoCenter(int value)
 
 void JoyDevPad::SetGain(int gain /* between 0 and 100 */)
 {
-	struct input_event ie;	/* structure used to communicate with the driver */
+	struct input_event ie;
 
 	ie.type = EV_FF;
 	ie.code = FF_GAIN;
@@ -470,11 +431,6 @@ std::vector<CONFIGVARIANT> JoyDevPad::GetSettings()
 	std::vector<CONFIGVARIANT> params;
 	params.push_back(CONFIGVARIANT(S_CONFIG_JOY, N_CONFIG_JOY, CONFIG_TYPE_CHAR));
 	return params;
-}
-
-int JoyDevPad::Configure(int port, void *data)
-{
-	return RESULT_CANCELED;
 }
 
 REGISTER_PAD(APINAME, JoyDevPad);
