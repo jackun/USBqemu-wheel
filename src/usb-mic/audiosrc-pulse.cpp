@@ -316,7 +316,7 @@ public:
 
 		pf_pa_threaded_mainloop_start(mPMainLoop);
 
-		// wait for context_notify_cb
+		// wait for pa_context_state_cb
 		for(;;)
 		{
 			if(mPAready == 1) break;
@@ -417,7 +417,6 @@ public:
 		return std::vector<CONFIGVARIANT>();
 	}
 
-	static void context_notify_cb (pa_context *c, void *userdata);
 	static void stream_read_cb (pa_stream *p, size_t nbytes, void *userdata);
 
 protected:
