@@ -5,6 +5,7 @@
 // Catch typos at compile time
 #define S_CONFIG_PATH TEXT("Image path")
 #define N_CONFIG_PATH TEXT("path")
+#define APINAME "cstdio"
 
 class MsdDevice : public Device
 {

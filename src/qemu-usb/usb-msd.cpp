@@ -15,7 +15,6 @@
 #include "usb-msd.h"
 
 #define DEVICENAME "msd"
-#define APINAME "cstdio"
 
 #define le32_to_cpu(x) (x)
 #define cpu_to_le32(x) (x)
@@ -403,7 +402,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 			break;
 
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
-			s->result = 0x2;//?
+			s->result = 0x2;//PHASE_ERROR
 			set_sense(s, MEDIUM_ERROR, 0);
 			return;
 		}
@@ -412,7 +411,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//Or do actual reading in USB_MSDM_DATAIN?
 		//TODO probably dont set data_len to read length
 		if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile))) {
-			s->result = 0x2;//?
+			s->result = 0x2;//PHASE_ERROR
 			set_sense(s, MEDIUM_ERROR, 0);
 		}
 		break;
@@ -433,7 +432,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, u
 		//if(xfer_len == 0) //nothing to do
 		//	break;
 		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
-			s->result = 0x2;//?
+			s->result = 0x2;//PHASE_ERROR
 			set_sense(s, MEDIUM_ERROR, 0);
 			return;
 		}
@@ -513,6 +512,16 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
                 break;
             case 3:
                 /* serial number */
+                // Example Serial Number Format ???
+                // Offset Field           Size Value Description
+                // 0      bLength         Byte   ??h Size of this descriptor in bytes - Minimum of 26 (1Ah)
+                // 1      bDescriptorType Byte   03h STRING descriptor type
+                // 2      wString1        Word 00??h
+                // 4      wString2        Word 00??h
+                // 6      wString3        Word 00??h
+                // :      :               :
+                // :      :               :
+                // n x 2  wStringn        Word
                 ret = set_usb_string(data, "1");
                 break;
             default:
