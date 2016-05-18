@@ -1,7 +1,6 @@
 #include "../USB.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
-#include "../usb-pad/config.h"
 #include "../usb-pad/padproxy.h"
 #include "../usb-mic/audiosourceproxy.h"
 
