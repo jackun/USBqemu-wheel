@@ -82,7 +82,7 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 }
 
 template<>
-bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int64_t& value)
+bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
 {
 	//value = GetPrivateProfileIntW(section.c_str(), param, 0, ini.c_str());
 	wchar_t tmp[4096] = { 0 };
@@ -109,7 +109,7 @@ bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, cons
 }
 
 template<>
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int64_t& value)
+bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
 {
 	wchar_t tmp[32] = { 0 };
 	swprintf_s(tmp, L"%I64u", value);
