@@ -156,7 +156,7 @@ static const uint8_t singstar_mic_dev_descriptor[] = {
     /* bcdDevice           */ WBVAL(0x0001), //(1)
     /* iManufacturer       */ 0x01, //(1)
     /* iProduct            */ 0x02, //(2)
-    /* iSerialNumber       */ 0x00, //(0)
+    /* iSerialNumber       */ 0x00, //(0) unused
     /* bNumConfigurations  */ 0x01, //(1)
 
 };
@@ -600,9 +600,10 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         break;
     case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
 
-		//XXX qemu has internal buffer of 8KB, but PS2 games' usb driver
+		//XXX qemu has internal buffer of 8KB (device 1KB), but PS2 games' usb driver
 		//first calls with buffer size like 4 or 8 bytes
-		//and then re-requests with 'ret'-urned size buffer.
+		//and then re-requests with 'ret'-urned size buffer 
+		//or gets the size from descriptor if it was copied enough from the first call already, it seems.
         switch(value >> 8) {
         case USB_DT_DEVICE:
             memcpy(data, singstar_mic_dev_descriptor,
