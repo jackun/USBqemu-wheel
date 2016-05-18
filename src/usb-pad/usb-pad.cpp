@@ -403,8 +403,6 @@ void ResetData(dfp_data_t *d)
 	d->axis_rz = 0x3F;
 }
 
-int key = 1;
-
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 {
 	//fprintf(stderr,"usb-pad: axis x %d\n", data.axis_x);

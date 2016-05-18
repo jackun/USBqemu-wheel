@@ -125,9 +125,6 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 //TODO Get rid of player_joys
 bool JoyDevPad::FindPad()
 {
-	uint8_t idx = 1 - mPort;
-	if(idx > 1) return false;
-
 	memset(&mWheelData, 0, sizeof(wheel_data_t));
 
 	// Setting to unpressed
@@ -151,7 +148,7 @@ bool JoyDevPad::FindPad()
 			joypath = var.strValue;
 		else
 		{
-			Dbg("Cannot load joystick settings\n");
+			Dbg("Cannot load joystick setting: %s\n", N_CONFIG_JOY);
 			return false;
 		}
 	}
@@ -159,7 +156,7 @@ bool JoyDevPad::FindPad()
 	{
 		if ((mHandle = open(joypath.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
-			Dbg("Cannot open player %d's controller: %s\n", idx+1, joypath.c_str());
+			Dbg("Cannot open joystick: %s\n", joypath.c_str());
 		}
 		else
 		{
