@@ -54,22 +54,20 @@ Basically:
 	mkdir build
 	cd build
 	cmake ..
-	
 
 CMake defines:
 
-* `BUILD_RAW=[FALSE|TRUE]` for raw api
-* `BUILD_DX=[FALSE|TRUE]` for dinput
-* `BUILD_WITH_DXSDK=[FALSE|TRUE]` build with DX2010 SDK
-* `BUILD_FIND_WINSDK=[FALSE|TRUE]` to find newest installed windows platform toolset/sdk. Probably unnecessery when building with Visual Studio.
-	
+* `PLUGIN_BUILD_RAW` (bool) for raw api
+* `PLUGIN_BUILD_DX` (bool) for dinput
+* `PLUGIN_BUILD_PULSE` (bool) for PulseAudio (singstar, linux)
+* `PLUGIN_BUILD_WITH_DXSDK` (bool) build with DX2010 SDK
+* `PLUGIN_FIND_WINSDK` (bool) to find newest installed windows platform toolset/sdk. Probably unnecessary when building with Visual Studio.
+
 DInput should be using Windows platform toolset/sdk now.
 
 Optionally, you can still use 2010 DirectX SDK. CMake looks for %DXSDK_DIR% environment variable.
 
 http://www.microsoft.com/en-us/download/details.aspx?id=6812
-
-On linux, (limited) configuration dialog uses GTK+ as PCSX2 (still) uses wxGTK.
 
 Forum
 =========
