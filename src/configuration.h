@@ -44,7 +44,7 @@ struct CONFIGVARIANT
 
 	union
 	{
-		int64_t		intValue;
+		int32_t		intValue;
 		double		doubleValue;
 		//char*		charValue;
 		//wchar_t*	wcharValue;
@@ -61,6 +61,8 @@ struct CONFIGVARIANT
 	CONFIGVARIANT(const TCHAR* d, const TCHAR* n, CONFIG_VARIANT_TYPE t)
 		: desc(d), name(n), type(t), ptrValue(0) {}
 
+	CONFIGVARIANT(const TCHAR* n, int32_t val) : CONFIGVARIANT(n, CONFIG_TYPE_INT)
+	{ intValue = val; }
 	CONFIGVARIANT(const TCHAR* n, std::string val) : CONFIGVARIANT(n, CONFIG_TYPE_CHAR)
 	{ strValue = val; }
 	CONFIGVARIANT(const TCHAR* n, std::wstring val) : CONFIGVARIANT(n, CONFIG_TYPE_WCHAR)
