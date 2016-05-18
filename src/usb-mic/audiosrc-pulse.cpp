@@ -10,6 +10,7 @@
 #include <mutex>
 #include <chrono>
 
+using hrc = std::chrono::high_resolution_clock;
 using ms = std::chrono::milliseconds;
 using us = std::chrono::microseconds;
 using ns = std::chrono::nanoseconds;
@@ -173,7 +174,7 @@ public:
 
 	uint32_t GetBuffer(int16_t *buff, uint32_t len)
 	{
-		auto now = std::chrono::high_resolution_clock::now();
+		auto now = hrc::now();
 		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
 		//Disconnected, try reconnect after every 1sec, hopefully game retries to read samples
 		if (mPAready == 3 && dur >= 1000)
@@ -366,7 +367,7 @@ public:
 			goto error;
 		}
 
-		mLastGetBuffer = std::chrono::high_resolution_clock::now();
+		mLastGetBuffer = hrc::now();
 		return true;
 	error:
 		Uninit();
@@ -439,7 +440,7 @@ protected:
 	std::mutex mMutex;
 	bool mQuit;
 	bool mPaused;
-	std::chrono::high_resolution_clock::time_point mLastGetBuffer;
+	hrc::time_point mLastGetBuffer;
 
 	int mPAready;
 	pa_threaded_mainloop *mPMainLoop;
@@ -448,7 +449,7 @@ protected:
 	char *mServer; //TODO add server selector?
 
 	int mOutSamples;
-	std::chrono::high_resolution_clock::time_point mLastOut;
+	hrc::time_point mLastOut;
 };
 
 void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userdata)
@@ -466,8 +467,7 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	if (ret != PA_OK)
 		return;
 
-	auto now = std::chrono::high_resolution_clock::now();
-	auto dur = std::chrono::duration_cast<ms>(now - src->mLastGetBuffer).count();
+	auto dur = std::chrono::duration_cast<ms>(hrc::now() - src->mLastGetBuffer).count();
 	if (src->mPaused || dur > 50000) {
 		ret = pf_pa_stream_drop(p);
 		if (ret != PA_OK)
@@ -490,11 +490,7 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	if (resampled == 0)
 		resampled = src->mQBuffer.size();
 
-	std::vector<float> rebuf;
-	rebuf.resize(resampled);
-
-	OSDebugOut("--------------------------\n");
-	OSDebugOut("Resampled size: %zd\n", resampled);
+	std::vector<float> rebuf(resampled);
 
 	SRC_DATA data;
 	memset(&data, 0, sizeof(SRC_DATA));
@@ -525,21 +521,18 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		src_float_to_short_array(&rebuf[0], &(src->mResampledBuffer[size]), len);
 	}
 
-	OSDebugOut("Resampler: in %d out %d used %d gen %d, rb: %zd\n",
-		data.input_frames, data.output_frames,
-		data.input_frames_used, data.output_frames_gen, src->mResampledBuffer.size());
-
 //#if _DEBUG
 //	if (file && len)
 //		fwrite(&(src->mResampledBuffer[size]), sizeof(short), len, file);
 //#endif
 
-	uint32_t sizeBefore = src->mQBuffer.size();
 	auto remSize = data.input_frames_used * src->mSSpec.channels;
 	src->mQBuffer.erase(src->mQBuffer.begin(), src->mQBuffer.begin() + remSize);
 
-	OSDebugOut("Sample Queue size: %zd - %d -> %zd\n",
-		sizeBefore, remSize, src->mQBuffer.size());
+	OSDebugOut("Resampler: in %d out %d used %d gen %d, rb: %zd, qb: %zd\n",
+		data.input_frames, data.output_frames,
+		data.input_frames_used, data.output_frames_gen,
+		src->mResampledBuffer.size(), src->mQBuffer.size());
 }
 
 REGISTER_AUDIOSRC(APINAME, PulseAudioSource);
