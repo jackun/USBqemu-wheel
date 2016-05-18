@@ -57,7 +57,7 @@ bool LoadSettingValue(const std::string& ini, const std::string& section, const 
 }
 
 template<>
-bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, int64_t& value)
+bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
 	INILoadUInt(ini.c_str(), section.c_str(), param, (unsigned int *)value);
 	return true;
@@ -71,7 +71,7 @@ bool SaveSettingValue(const std::string& ini, const std::string& section, const 
 }
 
 template<>
-bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, int64_t& value)
+bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
 	INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value);
 	return true;
