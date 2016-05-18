@@ -421,6 +421,7 @@ int JoyDevPad::Close()
 
 	mHandle = -1;
 	mHandleFF = -1;
+	return 0;
 }
 
 std::vector<CONFIGVARIANT> JoyDevPad::GetSettings()

@@ -333,7 +333,7 @@ int pad_open(USBDevice *dev)
 	PADState *s = (PADState *) dev;
 	if (s)
 		return s->pad->Open();
-	return 0;
+	return 1;
 }
 
 void pad_close(USBDevice *dev)

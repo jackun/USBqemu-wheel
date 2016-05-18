@@ -432,7 +432,7 @@ int RawInputPad::Open()
 		if (LoadSetting(mPort, APINAME, var))
 			path = var.wstrValue;
 		else
-			return 0;
+			return 1;
 	}
 
 	this->usbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
@@ -447,12 +447,12 @@ int RawInputPad::Open()
 		HidD_GetPreparsedData(this->usbHandle, &pPreparsedData);
 		HidP_GetCaps(pPreparsedData, &(this->caps));
 		HidD_FreePreparsedData(pPreparsedData);
-		return 1;
+		return 0;
 	}
 	else
 		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", path.c_str());
 
-	return 0;
+	return 1;
 }
 
 int RawInputPad::Close()
