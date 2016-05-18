@@ -1,13 +1,11 @@
 #ifndef RAWCONFIG_H
 #define RAWCONFIG_H
 
-#include "../config.h"
+#include "../usb-pad.h"
 #include <setupapi.h>
 #include "hid.h"
 
 #define APINAME "rawinput"
-#define S_CONFIG_JOY TEXT("Joystick")
-#define N_CONFIG_JOY TEXT("joystick")
 
 /*
 Layout:
