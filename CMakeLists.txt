@@ -117,7 +117,6 @@ SET(HDRS_QEMU
 
 SET(HDRS_PAD
 	./src/usb-pad/usb-pad.h
-	./src/usb-pad/config.h
 	./src/usb-pad/padproxy.h
 )
 

@@ -22,7 +22,6 @@
 
 #include "qemu-usb/vl.h"
 #include "USB.h"
-#include "usb-pad/config.h"
 #include "deviceproxy.h"
 
 const unsigned char version  = PS2E_USB_VERSION;

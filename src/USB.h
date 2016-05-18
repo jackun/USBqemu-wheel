@@ -53,6 +53,9 @@
 #include "PS2Edefs.h"
 
 #define USB_LOG __Log
+#define PLAYER_TWO_PORT 0
+#define PLAYER_ONE_PORT 1
+#define USB_PORT PLAYER_ONE_PORT
 
 typedef struct _Config {
   int Log;
