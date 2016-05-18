@@ -41,34 +41,29 @@ int MsdDevice::Configure(int port, std::string api, void *data)
 	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
 
 	GtkWidget *dlg = gtk_dialog_new_with_buttons (
-		"Mass Storage Settings", NULL, GTK_DIALOG_MODAL,
+		"Mass Storage Settings", GTK_WINDOW (data), GTK_DIALOG_MODAL,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
 		NULL);
-	GtkWidget *okbtn = gtk_dialog_add_button (GTK_DIALOG (dlg), GTK_STOCK_OK, GTK_RESPONSE_OK);
 	gtk_window_set_position (GTK_WINDOW (dlg), GTK_WIN_POS_CENTER);
 	gtk_window_set_resizable (GTK_WINDOW (dlg), TRUE);
-	//gtk_widget_show (dlg);
 	GtkWidget *dlg_area_box = gtk_dialog_get_content_area (GTK_DIALOG (dlg));
 
 	ro_frame = gtk_frame_new (NULL);
-	gtk_widget_show (ro_frame);
 	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 5);
 
 	ro_label = gtk_label_new ("Select USB image:");
-	gtk_widget_show (ro_label);
 	gtk_frame_set_label_widget (GTK_FRAME (ro_frame), ro_label);
 	gtk_label_set_use_markup (GTK_LABEL (ro_label), TRUE);
 
 	vbox = gtk_vbox_new (FALSE, 5);
 	gtk_container_add (GTK_CONTAINER (ro_frame), vbox);
-	gtk_widget_show (vbox);
 
 	rs_hbox = gtk_hbox_new (FALSE, 0);
 	gtk_box_pack_start (GTK_BOX (vbox), rs_hbox, FALSE, TRUE, 0);
 
 	GtkWidget *entry = gtk_entry_new ();
 	gtk_entry_set_max_length (GTK_ENTRY (entry), MAX_PATH); //TODO max length
-	gtk_widget_show (entry);
 
 	{
 		CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_CHAR);
@@ -80,13 +75,12 @@ int MsdDevice::Configure(int port, std::string api, void *data)
 
 	GtkWidget *button = gtk_button_new_with_label ("Browse");
 	gtk_button_set_image(GTK_BUTTON (button), gtk_image_new_from_icon_name ("gtk-open", GTK_ICON_SIZE_BUTTON));
-	gtk_widget_show(button);
 	g_signal_connect (button, "clicked", G_CALLBACK (fileChooser), entry);
 
 	gtk_box_pack_start (GTK_BOX (rs_hbox), entry, TRUE, TRUE, 5);
 	gtk_box_pack_start (GTK_BOX (rs_hbox), button, FALSE, FALSE, 5);
-	gtk_widget_show (rs_hbox);
 
+	gtk_widget_show_all (dlg);
 	gint result = gtk_dialog_run (GTK_DIALOG (dlg));
 	std::string path = gtk_entry_get_text(GTK_ENTRY(entry));
 	gtk_widget_destroy (dlg);
@@ -97,8 +91,7 @@ int MsdDevice::Configure(int port, std::string api, void *data)
 
 	if (result == GTK_RESPONSE_OK)
 	{
-		CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_CHAR);
-		var.strValue = path;
+		CONFIGVARIANT var(N_CONFIG_PATH, path);
 		if(SaveSetting(port, APINAME, var))
 			return RESULT_OK;
 		else
