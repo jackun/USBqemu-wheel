@@ -60,6 +60,16 @@ struct CONFIGVARIANT
 	CONFIGVARIANT(const TCHAR* n, CONFIG_VARIANT_TYPE t) : name(n), type(t), ptrValue(0) {}
 	CONFIGVARIANT(const TCHAR* d, const TCHAR* n, CONFIG_VARIANT_TYPE t)
 		: desc(d), name(n), type(t), ptrValue(0) {}
+
+	CONFIGVARIANT(const TCHAR* n, std::string val) : CONFIGVARIANT(n, CONFIG_TYPE_CHAR)
+	{ strValue = val; }
+	CONFIGVARIANT(const TCHAR* n, std::wstring val) : CONFIGVARIANT(n, CONFIG_TYPE_WCHAR)
+	{ wstrValue = val; }
+
+	CONFIGVARIANT(const TCHAR* n, const char* val) : CONFIGVARIANT(n, CONFIG_TYPE_CHAR)
+	{ strValue = val; }
+	CONFIGVARIANT(const TCHAR* n, const wchar_t* val) : CONFIGVARIANT(n, CONFIG_TYPE_WCHAR)
+	{ wstrValue = val; }
 };
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var);
