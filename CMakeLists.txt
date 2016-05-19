@@ -176,7 +176,7 @@ IF(WIN32)
 	)
 	
 	LIST(APPEND SRCS_MIC
-		./src/usb-mic/audiosrc-win32.cpp
+		./src/usb-mic/audiosrc-wasapi.cpp
 	)
 	
 	LIST(APPEND SRCS_QEMU

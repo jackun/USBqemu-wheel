@@ -737,6 +737,7 @@ error:
 		mOutputSamplesPerSec = samplerate;
 		mResampleRatio = double(samplerate) / double(mInputSamplesPerSec);
 		mResample = true;
+		ResetBuffers();
 	}
 
 	virtual uint32_t GetChannels()

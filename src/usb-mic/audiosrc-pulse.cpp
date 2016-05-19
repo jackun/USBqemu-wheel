@@ -236,6 +236,7 @@ public:
 		mOutputSamplesPerSec = samplerate;
 		mResampleRatio = double(samplerate) / double(mSSpec.rate);
 		//mResample = true;
+		ResetBuffers();
 	}
 
 	uint32_t GetChannels()
