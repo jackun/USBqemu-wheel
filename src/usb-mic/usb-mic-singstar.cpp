@@ -895,7 +895,7 @@ USBDevice* SingstarDevice::CreateDevice(int port)
 	s->audsrcproxy = RegisterAudioSource::instance().Proxy(api);
 	if (!s->audsrcproxy)
 	{
-		SysMessage(TEXT("singstar: Invalid audio API.\n"));
+		SysMessage(TEXT("singstar: Invalid audio API: '%" TEXT(SFMTs) TEXT("'\n")), api.c_str());
 		return NULL;
 	}
 
