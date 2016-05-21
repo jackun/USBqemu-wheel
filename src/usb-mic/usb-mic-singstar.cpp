@@ -714,6 +714,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
 			for(int i = 0; i<2; i++)
 			{
+				frames = maxPerChnFrames;
 				if(s->audsrc[i] &&
 					s->audsrc[i]->GetFrames(&frames))
 				{

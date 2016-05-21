@@ -154,6 +154,7 @@ SET(SRCS_PAD
 SET(SRCS_MIC
 	./src/usb-mic/audiosourceproxy.cpp
 	./src/usb-mic/usb-mic-singstar.cpp
+	./src/usb-mic/audiosrc-noop.cpp
 	#./src/usb-mic/usb-mic-dummy.cpp
 	#./src/usb-mic/usb-mic.cpp
 	#./src/usb-eyetoy/usb-eyetoy.cpp
