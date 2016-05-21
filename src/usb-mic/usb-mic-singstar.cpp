@@ -626,15 +626,15 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 data[3] = 0x04;
                 ret = 4;
                 break;
-            case 1:// TODO iSerial = 0
+            case 3:// TODO iSerial = 0 (unused according to specs)
                 /* serial number */
                 ret = set_usb_string(data, "3X0420811");
                 break;
-            case 2:// TODO iProduct = 2
+            case 2:
                 /* product description */
                 ret = set_usb_string(data, "USBMIC");
                 break;
-            case 3:// TODO iManufacturer = 1
+            case 1:
                 /* vendor description */
                 ret = set_usb_string(data, "Nam Tai E&E Products Ltd.");
                 break;
