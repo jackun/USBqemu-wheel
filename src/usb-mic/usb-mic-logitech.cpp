@@ -236,7 +236,6 @@ static int logitech_mic_handle_control(USBDevice *dev, int request, int value,
 				sizeof(logitech_mic_config_descriptor));
 			ret = sizeof(logitech_mic_config_descriptor);
 			break;
-			//Probably ignored most of the time
 		case USB_DT_STRING:
 			switch (value & 0xff) {
 			case 0:
@@ -247,10 +246,6 @@ static int logitech_mic_handle_control(USBDevice *dev, int request, int value,
 				data[3] = 0x04;
 				ret = 4;
 				break;
-				//case 1:// TODO iSerial = 0 (unused according to specs)
-				//    /* serial number */
-				//    ret = set_usb_string(data, "3X0420811");
-				//    break;
 			case 2:
 				/* product description */
 				ret = set_usb_string(data, "USBMIC");
