@@ -105,6 +105,8 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
 			SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
 
+			CheckDlgButton(hW, IDC_LOGITECH_IDS, conf.LogitechIDs);
+
 			if(AudioInit())
 			{
 				audioDevs.clear();
@@ -168,6 +170,7 @@ BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 						conf.mics[1] = L"";
 
 					conf.MicBuffering = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+					conf.LogitechIDs = IsDlgButtonChecked(hW, IDC_LOGITECH_IDS);
 
 					SaveConfig();
 				case IDCANCEL:

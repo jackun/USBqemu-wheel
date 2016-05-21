@@ -89,6 +89,7 @@ BEGIN
     GROUPBOX        "Buffering",IDC_STATIC,6,66,270,48
     CONTROL         "",IDC_MICSLIDER,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,18,78,252,15
     EDITTEXT        IDC_MICBUF,122,96,40,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Appear as Logitech Mic",IDC_LOGITECH_IDS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,119,89,10
 END
 
 
@@ -186,6 +187,17 @@ BEGIN
     IDC_COMBO_WHEEL_TYPE2, 0x403, 20, 0
 0x6953, 0x676e, 0x7473, 0x7261, 0x4d20, 0x6369, 0x6f72, 0x6870, 0x6e6f, 
 0x0065, 
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_DLGMIC AFX_DIALOG_LAYOUT
+BEGIN
     0
 END
 

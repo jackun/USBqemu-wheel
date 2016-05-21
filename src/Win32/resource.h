@@ -25,14 +25,16 @@
 #define IDC_COMBOMIC2                   1041
 #define IDC_MICSLIDER                   1042
 #define IDC_MICBUF                      1043
+#define IDC_CHECK1                      1044
+#define IDC_LOGITECH_IDS                1044
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        108
+#define _APS_NEXT_RESOURCE_VALUE        109
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1044
+#define _APS_NEXT_CONTROL_VALUE         1045
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

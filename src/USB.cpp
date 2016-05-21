@@ -31,8 +31,8 @@
 
 const unsigned char version  = PS2E_USB_VERSION;
 const unsigned char revision = 0;
-const unsigned char build    = 5;    // increase that with each version
-const unsigned char fix      = 2;
+const unsigned char build    = 6;    // increase that with each version
+const unsigned char fix      = 0;
 
 static char libraryName[256];
 
@@ -168,7 +168,7 @@ EXPORT_C_(char*) PS2EgetLibName() {
 #else
 	sprintf
 #endif
-	( libraryName, "Qemu USB Driver (Wheel) (" __DATE__ ")" 
+	( libraryName, "Qemu USB Driver (Wheel, oldstyle) (" __DATE__ ")" 
 #ifdef _DEBUG
 		" (debug)"
 #endif

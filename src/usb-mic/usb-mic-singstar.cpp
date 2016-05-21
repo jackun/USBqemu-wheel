@@ -656,6 +656,8 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         case USB_DT_DEVICE:
             memcpy(data, singstar_mic_dev_descriptor,
                    sizeof(singstar_mic_dev_descriptor));
+            if (conf.LogitechIDs)
+                *(int16_t*)&data[8] = 0x046D;
             ret = sizeof(singstar_mic_dev_descriptor);
             break;
         case USB_DT_CONFIG:
@@ -663,7 +665,6 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 sizeof(singstar_mic_config_descriptor));
             ret = sizeof(singstar_mic_config_descriptor);
             break;
-		//Probably ignored most of the time
         case USB_DT_STRING:
             switch(value & 0xff) {
             case 0:
@@ -674,7 +675,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 data[3] = 0x04;
                 ret = 4;
                 break;
-            case 1:// TODO iSerial = 0
+            case 3:// TODO iSerial = 0
                 /* serial number */
                 ret = set_usb_string(data, "3X0420811");
                 break;
@@ -682,9 +683,9 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 /* product description */
                 ret = set_usb_string(data, "USBMIC");
                 break;
-            case 3:// TODO iManufacturer = 1
+            case 1:// TODO iManufacturer = 1
                 /* vendor description */
-                ret = set_usb_string(data, "Nam Tai E&E Products Ltd.");
+                ret = set_usb_string(data, conf.LogitechIDs ? "Logitech" : "Nam Tai E&E Products Ltd.");
                 break;
             default:
                 goto fail;

@@ -130,6 +130,7 @@ typedef struct _Config {
 
   STDSTR mics[2];
   int MicBuffering; //ms
+  int LogitechIDs;
 
 } Config;
 
