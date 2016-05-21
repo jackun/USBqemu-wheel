@@ -877,20 +877,23 @@ int singstar_mic_handle_packet(USBDevice *s, int pid,
 //USBDevice *singstar_mic_init(int port, TSTDSTRING *devs)
 USBDevice* SingstarDevice::CreateDevice(int port)
 {
+	std::string api;
+	{
+		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
+		if (LoadSetting(port, DEVICENAME, var))
+			api = var.strValue;
+	}
+	return SingstarDevice::CreateDevice(port, api);
+}
+USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
+{
     SINGSTARMICState *s;
     AudioDeviceInfo info;
     TSTDSTRING devs[2];
-    std::string api;
 
     s = (SINGSTARMICState *)qemu_mallocz(sizeof(SINGSTARMICState));
     if (!s)
         return NULL;
-
-	{
-		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		if(LoadSetting(port, DEVICENAME, var))
-			api = var.strValue;
-	}
 
 	s->audsrcproxy = RegisterAudioSource::instance().Proxy(api);
 	if (!s->audsrcproxy)

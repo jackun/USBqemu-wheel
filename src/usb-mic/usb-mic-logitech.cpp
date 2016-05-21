@@ -280,7 +280,14 @@ public:
 	virtual ~LogitechMicDevice() {}
 	static USBDevice* CreateDevice(int port)
 	{
-		USBDevice* dev = SingstarDevice::CreateDevice(port);
+		std::string api;
+		{
+			CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
+			if (LoadSetting(port, DEVICENAME, var))
+				api = var.strValue;
+		}
+
+		USBDevice* dev = SingstarDevice::CreateDevice(port, api);
 		if (!dev)
 			return NULL;
 		pfn_singstar_mic_handle_control = dev->handle_control;

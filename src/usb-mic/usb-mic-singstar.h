@@ -10,6 +10,7 @@ class SingstarDevice : public Device
 public:
 	virtual ~SingstarDevice() {}
 	static USBDevice* CreateDevice(int port);
+	static USBDevice* CreateDevice(int port, const std::string& api);
 	static const TCHAR* Name()
 	{
 		return TEXT("Singstar");
