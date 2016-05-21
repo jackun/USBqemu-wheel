@@ -47,13 +47,6 @@ void GetIniFile(std::wstring &iniFile)
 	}
 }
 
-
-template<typename T>
-bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, T& value);
-template<typename T>
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, T& value);
-
-template<>
 bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::string& value)
 {
 	wchar_t tmp[4096] = { 0 };
@@ -69,7 +62,6 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return true;
 }
 
-template<>
 bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::wstring& value)
 {
 	wchar_t tmp[4096] = { 0 };
@@ -81,7 +73,6 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return true;
 }
 
-template<>
 bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
 {
 	//value = GetPrivateProfileIntW(section.c_str(), param, 0, ini.c_str());
@@ -94,7 +85,6 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return true;
 }
 
-template<>
 bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::string& value)
 {
 	std::wstring wstr;
@@ -102,17 +92,15 @@ bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return !!WritePrivateProfileStringW(section.c_str(), param, wstr.c_str(), ini.c_str());
 }
 
-template<>
 bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::wstring& value)
 {
 	return !!WritePrivateProfileStringW(section.c_str(), param, value.c_str(), ini.c_str());
 }
 
-template<>
 bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
 {
 	wchar_t tmp[32] = { 0 };
-	swprintf_s(tmp, L"%I64u", value);
+	swprintf_s(tmp, L"%d", value);
 	return !!WritePrivateProfileStringW(section.c_str(), param, tmp, ini.c_str());
 }
 
