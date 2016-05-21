@@ -42,39 +42,29 @@ void CALLBACK USBsetLogDir( const char* dir )
 	LogDir = dir;
 }
 
-template<typename T>
-bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, T& value);
-template<typename T>
-bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, T& value);
-
-template<>
 bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, std::string& value)
 {
 	char tmp[4096] = {0};
-	INILoadString(ini.c_str(), section.c_str(), param, tmp);
+	if (INILoadString(ini.c_str(), section.c_str(), param, tmp) != 0)
+		return false;
+
 	value = tmp;
 	return true;
 }
 
-template<>
 bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
-	INILoadUInt(ini.c_str(), section.c_str(), param, (unsigned int *)value);
-	return true;
+	return !INILoadUInt(ini.c_str(), section.c_str(), param, (unsigned int *)value);
 }
 
-template<>
 bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, std::string& value)
 {
-	INISaveString(ini.c_str(), section.c_str(), param, value.c_str());
-	return true;
+	return !INISaveString(ini.c_str(), section.c_str(), param, value.c_str());
 }
 
-template<>
 bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
-	INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value);
-	return true;
+	return !INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value);
 }
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
