@@ -3,8 +3,6 @@
 #include "../configuration.h"
 #include <gtk/gtk.h>
 
-#define APINAME "cstdio"
-
 static void entryChanged(GtkWidget *widget, gpointer data)
 {
 	const gchar *text = gtk_entry_get_text(GTK_ENTRY(widget));
@@ -22,6 +20,11 @@ static void fileChooser( GtkWidget *widget, gpointer data)
 					  GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 					  GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
 					  NULL);
+
+	//XXX check access? Dialog seems to default to "Recently used" etc.
+	//Or set to empty string anyway? Then it seems to default to some sort of "working dir"
+	if (access (gtk_entry_get_text (GTK_ENTRY (entry)), F_OK) == 0)
+		gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (dialog), gtk_entry_get_text (GTK_ENTRY (entry)));
 
 	if (entry && gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT)
 	{
@@ -126,3 +129,4 @@ bool MsdDevice::SaveSettings(int port, std::vector<CONFIGVARIANT>& params)
 	return true;
 }
 */
+#undef APINAME
