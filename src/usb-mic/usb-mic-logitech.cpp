@@ -281,6 +281,8 @@ public:
 	static USBDevice* CreateDevice(int port)
 	{
 		USBDevice* dev = SingstarDevice::CreateDevice(port);
+		if (!dev)
+			return NULL;
 		singstar_mic_handle_control = dev->handle_control;
 		dev->handle_control = logitech_mic_handle_control;
 		return dev;
