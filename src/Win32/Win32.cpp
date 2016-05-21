@@ -1,5 +1,5 @@
 #include "../USB.h"
-#include "../usb-mic/mic-audiodefs.h"
+#include "../usb-mic/audiosrc.h"
 #include "resource.h"
 #include <CommCtrl.h>
 
