@@ -31,7 +31,7 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return L"NOOP";
+		return TEXT("NOOP");
 	}
 
 	static bool AudioInit()
@@ -46,8 +46,8 @@ public:
 	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
 	{
 		AudioDeviceInfo info;
-		info.strID = L"silence";
-		info.strName = L"Silence";
+		info.strID = TEXT("silence");
+		info.strName = TEXT("Silence");
 		devices.push_back(info);
 	}
 
