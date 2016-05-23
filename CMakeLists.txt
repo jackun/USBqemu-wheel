@@ -20,7 +20,7 @@ SET (PLUGIN_VERSION_MINOR "5")
 SET (PLUGIN_VERSION_PATCH "2")
 SET (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
 
-OPTION (PLUGIN_ENABLE_UNITY_BUILD "Enable unity build. Concatenate source files into one unit." TRUE)
+OPTION (PLUGIN_ENABLE_UNITY_BUILD "Enable unity build. Concatenate source files into one unit." FALSE)
 
 IF(WIN32)
 	OPTION (PLUGIN_BUILD_RAW "Build with raw input api" TRUE)
