@@ -30,7 +30,7 @@ IF(WIN32)
 ELSE(WIN32)
 	OPTION (PLUGIN_BUILD_PULSE "Build with PulseAudio" TRUE)
 	IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
-		MESSAGE("debug mode")
+		ADD_DEFINITIONS(-D_DEBUG=1)
 	ENDIF()
 	IF(_DEBUG)
 		ADD_DEFINITIONS(-D_DEBUG=1)
@@ -92,15 +92,6 @@ SET(SRCS_SAMPLERATE
 
 # Some unneeded headers too
 SET(HDRS_MIC
-	#./src/usb-mic/usbreg.h
-	#./src/usb-mic/usbcore.h
-	#./src/usb-mic/usbcfg.h
-	#./src/usb-mic/type.h
-	#./src/usb-mic/usbuser.h
-	#./src/usb-mic/usbdesc.h
-	#./src/usb-mic/demo.h
-	#./src/usb-mic/usbhw.h
-	#./src/usb-mic/adcuser.h
 	./src/usb-mic/audio.h
 	./src/usb-mic/usb.h
 	./src/usb-mic/audiosrc.h
@@ -156,8 +147,6 @@ SET(SRCS_MIC
 	./src/usb-mic/usb-mic-singstar.cpp
 	./src/usb-mic/usb-mic-logitech.cpp
 	./src/usb-mic/audiosrc-noop.cpp
-	#./src/usb-mic/usb-mic-dummy.cpp
-	#./src/usb-mic/usb-mic.cpp
 	#./src/usb-eyetoy/usb-eyetoy.cpp
 )
 
