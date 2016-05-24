@@ -610,13 +610,13 @@ struct ff_data
 // hold intermediate wheel data
 struct wheel_data_t
 {
-	int32_t axis_x;
+	int32_t steering;
 	uint32_t buttons;
 	uint32_t hatswitch;
 
-	int32_t axis_y;
-	int32_t axis_z;
-	int32_t axis_rz;
+	int32_t clutch; //no game uses though
+	int32_t throttle;
+	int32_t brake;
 };
 
 void ResetData(generic_data_t *d);

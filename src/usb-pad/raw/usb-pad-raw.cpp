@@ -96,32 +96,32 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 		//Yeah, but what if first is not a wheel with mapped axes...
 		if(false && it == mapVector.begin())
 		{
-			if((*it)->data[mPort].axis_x != 0xFFFFFFFF)
-				data_summed.axis_x = (*it)->data[mPort].axis_x;
+			if((*it)->data[mPort].steering != 0xFFFFFFFF)
+				data_summed.steering = (*it)->data[mPort].steering;
 
-			if((*it)->data[mPort].axis_y != 0xFFFFFFFF)
-				data_summed.axis_y = (*it)->data[mPort].axis_y;
+			if((*it)->data[mPort].clutch != 0xFFFFFFFF)
+				data_summed.clutch = (*it)->data[mPort].clutch;
 
-			if((*it)->data[mPort].axis_z != 0xFFFFFFFF)
-				data_summed.axis_z = (*it)->data[mPort].axis_z;
+			if((*it)->data[mPort].throttle != 0xFFFFFFFF)
+				data_summed.throttle = (*it)->data[mPort].throttle;
 
-			if((*it)->data[mPort].axis_rz != 0xFFFFFFFF)
-				data_summed.axis_rz = (*it)->data[mPort].axis_rz;
+			if((*it)->data[mPort].brake != 0xFFFFFFFF)
+				data_summed.brake = (*it)->data[mPort].brake;
 		}
 		else
 #endif
 		{
-			if(data_summed.axis_x < (*it).data[mPort].axis_x)
-				data_summed.axis_x = (*it).data[mPort].axis_x;
+			if(data_summed.steering < (*it).data[mPort].steering)
+				data_summed.steering = (*it).data[mPort].steering;
 
-			if(data_summed.axis_y < (*it).data[mPort].axis_y)
-				data_summed.axis_y = (*it).data[mPort].axis_y;
+			if(data_summed.clutch < (*it).data[mPort].clutch)
+				data_summed.clutch = (*it).data[mPort].clutch;
 
-			if(data_summed.axis_z < (*it).data[mPort].axis_z)
-				data_summed.axis_z = (*it).data[mPort].axis_z;
+			if(data_summed.throttle < (*it).data[mPort].throttle)
+				data_summed.throttle = (*it).data[mPort].throttle;
 
-			if(data_summed.axis_rz < (*it).data[mPort].axis_rz)
-				data_summed.axis_rz = (*it).data[mPort].axis_rz;
+			if(data_summed.brake < (*it).data[mPort].brake)
+				data_summed.brake = (*it).data[mPort].brake;
 		}
 
 		data_summed.buttons |= (*it).data[mPort].buttons;
@@ -308,28 +308,28 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					// Need for logical min too?
 					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / (pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin);
 					if(type == WT_DRIVING_FORCE_PRO)
-						mapping->data[j].axis_x = (value * 0x3FFF) / pValueCaps[i].LogicalMax;
+						mapping->data[j].steering = (value * 0x3FFF) / pValueCaps[i].LogicalMax;
 					else
 						//XXX Limit value range to 0..1023 if using 'generic' wheel descriptor
-						mapping->data[j].axis_x = (value * 0x3FF) / pValueCaps[i].LogicalMax;
+						mapping->data[j].steering = (value * 0x3FF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case PAD_AXIS_Y: // Y-axis
 					if(!(devInfo.hid.dwVendorId == 0x046D && devInfo.hid.dwProductId == 0xCA03))
 						//XXX Limit value range to 0..255
-						mapping->data[j].axis_y = (value * 0xFF) / pValueCaps[i].LogicalMax;
+						mapping->data[j].clutch = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case PAD_AXIS_Z: // Z-axis
 					//fprintf(stderr, "Z: %d\n", value);
 					//XXX Limit value range to 0..255
-					mapping->data[j].axis_z = (value * 0xFF) / pValueCaps[i].LogicalMax;
+					mapping->data[j].throttle = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case PAD_AXIS_RZ: // Rotate-Z
 					//fprintf(stderr, "Rz: %d\n", value);
 					//XXX Limit value range to 0..255
-					mapping->data[j].axis_rz = (value * 0xFF) / pValueCaps[i].LogicalMax;
+					mapping->data[j].brake = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
 
 				case PAD_AXIS_HAT: // TODO Hat Switch

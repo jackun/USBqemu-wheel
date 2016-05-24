@@ -413,10 +413,10 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 		generic_data.buttons = data.buttons;
 		generic_data.hatswitch = data.hatswitch;
-		generic_data.axis_x = data.axis_x;
-		generic_data.axis_y = 0xFF; //data.axis_y;
-		generic_data.axis_z = data.axis_z;
-		generic_data.axis_rz = data.axis_rz;
+		generic_data.axis_x = data.steering;
+		generic_data.axis_y = 0xFF; //data.clutch;
+		generic_data.axis_z = data.throttle;
+		generic_data.axis_rz = data.brake;
 
 		memcpy(buf, &generic_data, sizeof(generic_data_t));
 		break;
@@ -427,9 +427,9 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 		dfp_data.buttons = data.buttons;
 		dfp_data.hatswitch = data.hatswitch;
-		dfp_data.axis_x = data.axis_x;
-		dfp_data.axis_z = 1 | (data.axis_z * 0x3F) / 0xFF; //TODO Always > 0 or everything stops working, wut.
-		dfp_data.axis_rz = 0x3F - (data.axis_rz * 0x3F) / 0xFF;
+		dfp_data.axis_x = data.steering;
+		dfp_data.axis_z = 1 | (data.throttle * 0x3F) / 0xFF; //TODO Always > 0 or everything stops working, wut.
+		dfp_data.axis_rz = 0x3F - (data.brake * 0x3F) / 0xFF;
 		OSDebugOut(TEXT("dfp: axis_z=0x%02x, axis_rz=0x%02x\n"), dfp_data.axis_z, dfp_data.axis_rz);
 
 		dfp_data.magic1 = 1;
@@ -454,10 +454,10 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		memset(&gtf_data, 0xff, sizeof(gtforce_data_t));
 
 		gtf_data.buttons = data.buttons;
-		gtf_data.axis_x = data.axis_x;
-		gtf_data.axis_y = 0xFF; //data.axis_y;
-		gtf_data.axis_z = data.axis_z;
-		gtf_data.axis_rz = data.axis_rz;
+		gtf_data.axis_x = data.steering;
+		gtf_data.axis_y = 0xFF; //data.clutch;
+		gtf_data.axis_z = data.throttle;
+		gtf_data.axis_rz = data.brake;
 
 		memcpy(buf, &gtf_data, sizeof(gtforce_data_t));
 		break;

@@ -92,10 +92,10 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 	// Setting to unpressed
 	ZeroMemory(&wheel_data, sizeof(wheel_data_t));
-	wheel_data.axis_x = range >> 1;
-	wheel_data.axis_y = 0xFF;
-	wheel_data.axis_z = 0xFF;
-	wheel_data.axis_rz = 0xFF;
+	wheel_data.steering = range >> 1;
+	wheel_data.clutch = 0xFF;
+	wheel_data.throttle = 0xFF;
+	wheel_data.brake = 0xFF;
 	wheel_data.hatswitch = 0x8;
 
 	//TODO Atleast GT4 detects DFP then
@@ -110,9 +110,8 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 	//Allow in both ports but warn in configure dialog that only one DX wheel is supported for now
 	//if(idx == 0){
-		//wheel_data.axis_x = 8191 + (int)(GetControl(STEERING, false)* 8191.0f) ;
+		//wheel_data.steering = 8191 + (int)(GetControl(STEERING, false)* 8191.0f) ;
 		
-		//steering
 		if(calibrating){
 			//Alternate full extents
 			if (alternate)calidata--;
@@ -120,21 +119,19 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 			if(calidata>range-1 || calidata < 1) alternate = !alternate;  //invert
 
-			wheel_data.axis_x = calidata;		//pass fake
+			wheel_data.steering = calidata;		//pass fake
 
 			//breakout after 11 seconds
 			if(GetTickCount()-calibrationtime > 11000){
 				calibrating = false;
-				wheel_data.axis_x = range >> 1;
+				wheel_data.steering = range >> 1;
 			}
 		}else{
-			wheel_data.axis_x = (range>>1)+(int)(GetControl(STEERING, false)* (float)(range>>1)) ;
+			wheel_data.steering = (range>>1)+(int)(GetControl(STEERING, false)* (float)(range>>1)) ;
 		}
 
-		//throttle
-		wheel_data.axis_z = 255-(int)(GetControl(THROTTLE, false)*255.0f);
-		//brake
-		wheel_data.axis_rz = 255-(int)(GetControl(BRAKE, false)*255.0f);
+		wheel_data.throttle = 255-(int)(GetControl(THROTTLE, false)*255.0f);
+		wheel_data.brake = 255-(int)(GetControl(BRAKE, false)*255.0f);
 
 		if(GetControl(mPort, CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
 		if(GetControl(mPort, SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
