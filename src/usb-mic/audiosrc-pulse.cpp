@@ -364,7 +364,7 @@ public:
 		mResampler = src_new(SRC_SINC_FASTEST, mSSpec.channels, &ret);
 		if (!mResampler)
 		{
-			OSDebugOut("Failed to create resampler: error %08lX\n", ret);
+			OSDebugOut("Failed to create resampler: error %08X\n", ret);
 			goto error;
 		}
 
@@ -530,7 +530,7 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	auto remSize = data.input_frames_used * src->mSSpec.channels;
 	src->mQBuffer.erase(src->mQBuffer.begin(), src->mQBuffer.begin() + remSize);
 
-	OSDebugOut("Resampler: in %d out %d used %d gen %d, rb: %zd, qb: %zd\n",
+	OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd\n",
 		data.input_frames, data.output_frames,
 		data.input_frames_used, data.output_frames_gen,
 		src->mResampledBuffer.size(), src->mQBuffer.size());
