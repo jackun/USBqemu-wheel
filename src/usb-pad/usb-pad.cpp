@@ -204,23 +204,15 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
 		switch(value >> 8) {
 		case USB_DT_DEVICE:
-			//if(s->initStage > 2)
-			if(t == WT_DRIVING_FORCE_PRO)
-			{
-				pad_dev_descriptor[11] = (DFP_PID>>8) & 0xFF;
-				pad_dev_descriptor[10] = DFP_PID & 0xFF;
-			}
-			else if(t == WT_GT_FORCE)
-			{
-				pad_dev_descriptor[11] = (FFGP_PID>>8) & 0xFF;
-				pad_dev_descriptor[10] = FFGP_PID & 0xFF;
-			}
-
 			ret = sizeof(pad_dev_descriptor);
 			memcpy(data, pad_dev_descriptor, ret);
+			if (t == WT_DRIVING_FORCE_PRO)
+				*(uint16_t*)&data[10] = DFP_PID;
+			else if (t == WT_GT_FORCE)
+				*(uint16_t*)&data[10] = FFGP_PID;
 			break;
 		case USB_DT_CONFIG:
-			if(t == WT_DRIVING_FORCE_PRO)
+			if (t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(dfp_config_descriptor);
 				memcpy(data, dfp_config_descriptor, ret);
