@@ -216,7 +216,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
     0                                     /* bLength */
 };
 
-static int (*singstar_mic_handle_control)(USBDevice *dev, int request, int value,
+static int (*pfn_singstar_mic_handle_control)(USBDevice *dev, int request, int value,
 	int index, int length, uint8_t *data) = nullptr;
 
 static int logitech_mic_handle_control(USBDevice *dev, int request, int value,
@@ -264,8 +264,8 @@ static int logitech_mic_handle_control(USBDevice *dev, int request, int value,
 		}
 		break;
 	default:
-		if (singstar_mic_handle_control)
-			return singstar_mic_handle_control(dev, request, value, index, length, data);
+		if (pfn_singstar_mic_handle_control)
+			return pfn_singstar_mic_handle_control(dev, request, value, index, length, data);
 
 	fail:
 		return USB_RET_STALL;
@@ -283,7 +283,7 @@ public:
 		USBDevice* dev = SingstarDevice::CreateDevice(port);
 		if (!dev)
 			return NULL;
-		singstar_mic_handle_control = dev->handle_control;
+		pfn_singstar_mic_handle_control = dev->handle_control;
 		dev->handle_control = logitech_mic_handle_control;
 		return dev;
 	}
