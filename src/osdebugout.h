@@ -50,7 +50,7 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 #ifdef _DEBUG
 #define OSDebugOut(psz_fmt, ...) fprintf(stderr, psz_fmt, ##__VA_ARGS__)
 #else
-#define OSDebugOut(psz_fmt, ...)
+#define OSDebugOut(psz_fmt, ...) do{}while(0)
 #endif
 
 #endif //_WIN32
