@@ -116,7 +116,7 @@ int JoyDevPad::Configure(int port, void *data)
 	for(int ply = 0; ply < 2; ply++)
 	{
 		std::string path;
-		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
 		if(LoadSetting(1 - ply, APINAME, var))
 			path = var.strValue;
 

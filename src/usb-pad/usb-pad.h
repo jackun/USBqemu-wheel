@@ -10,7 +10,7 @@
 #define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
 
 #define S_CONFIG_JOY TEXT("Joystick")
-#define N_CONFIG_JOY TEXT("joystick")
+#define N_JOYSTICK TEXT("joystick")
 
 enum PS2WheelTypes {
 	WT_GENERIC, // DF or any other LT wheel in non-native mode

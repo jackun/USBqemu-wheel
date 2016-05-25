@@ -428,7 +428,7 @@ int RawInputPad::Open()
 	this->usbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
 	{
-		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_WCHAR);
+		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
 		if (LoadSetting(mPort, APINAME, var))
 			path = var.wstrValue;
 		else

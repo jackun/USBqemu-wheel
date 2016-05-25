@@ -143,12 +143,12 @@ bool JoyDevPad::FindPad()
 
 	std::string joypath;
 	{
-		CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
 		if(LoadSetting(mPort, APINAME, var))
 			joypath = var.strValue;
 		else
 		{
-			Dbg("Cannot load joystick setting: %s\n", N_CONFIG_JOY);
+			Dbg("Cannot load joystick setting: %s\n", N_JOYSTICK);
 			return false;
 		}
 	}
@@ -427,7 +427,7 @@ int JoyDevPad::Close()
 std::vector<CONFIGVARIANT> JoyDevPad::GetSettings()
 {
 	std::vector<CONFIGVARIANT> params;
-	params.push_back(CONFIGVARIANT(S_CONFIG_JOY, N_CONFIG_JOY, CONFIG_TYPE_CHAR));
+	params.push_back(CONFIGVARIANT(S_CONFIG_JOY, N_JOYSTICK, CONFIG_TYPE_CHAR));
 	return params;
 }
 

@@ -84,7 +84,7 @@ void LoadMappings(MapVector& maps)
 		}
 	}
 
-	CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_WCHAR);
+	CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
 	if (LoadSetting(0, APINAME, var))
 		player_joys[0] = var.wstrValue;
 	else
@@ -859,7 +859,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 					player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
 
 					INT_PTR res = RESULT_OK;
-					CONFIGVARIANT var(N_CONFIG_JOY, CONFIG_TYPE_WCHAR);
+					CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
 					var.wstrValue = player_joys[0];
 					if (!SaveSetting(0, APINAME, var))
 						res = RESULT_FAILED;
