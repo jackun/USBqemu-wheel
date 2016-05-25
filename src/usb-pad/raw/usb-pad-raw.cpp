@@ -336,7 +336,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					//fprintf(stderr, "Hat: %02X\n", value);
 					//TODO 4 vs 8 direction hat switch
 					if(pValueCaps[i].LogicalMax == 4 && value < 4)
-						mapping->data[j].hatswitch = hats7to4[value];
+						mapping->data[j].hatswitch = HATS_8TO4[value];
 					else
 						mapping->data[j].hatswitch = value;
 					break;
@@ -399,7 +399,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 				if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
 					mapping->data[j].hatswitch = 0x8;
 				else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
-					mapping->data[j].hatswitch = hats7to4[i];
+					mapping->data[j].hatswitch = HATS_8TO4[i];
 			}
 		}
 	}

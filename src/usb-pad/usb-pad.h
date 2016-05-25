@@ -87,7 +87,6 @@ enum PS2Axis : uint32_t {
 	PAD_AXIS_COUNT
 };
 
-//Ugh
 enum PS2HatSwitch {
 	PAD_HAT_N = 0,
 	PAD_HAT_NE,
@@ -100,8 +99,7 @@ enum PS2HatSwitch {
 	PAD_HAT_COUNT
 };
 
-//y u no bitmap, ugh
-static int hats7to4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
+static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 
 #define PAD_VID			0x046D
 #define PAD_PID			0xCA03 //black MOMO
@@ -133,7 +131,7 @@ static int hats7to4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 //#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
 
 /* descriptor Logitech Driving Force Pro */
-static /*const*/ uint8_t dfp_dev_descriptor[] = {
+static const uint8_t dfp_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
 	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
@@ -150,7 +148,7 @@ static /*const*/ uint8_t dfp_dev_descriptor[] = {
 	/* bNumConfigurations  */ 0x01, //(1)
 };
 
-static /*const*/ uint8_t pad_dev_descriptor[] = {
+static const uint8_t pad_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
 	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
@@ -613,6 +611,8 @@ struct wheel_data_t
 	int32_t steering;
 	uint32_t buttons;
 	uint32_t hatswitch;
+	uint32_t hat_horz;
+	uint32_t hat_vert;
 
 	int32_t clutch; //no game uses though
 	int32_t throttle;

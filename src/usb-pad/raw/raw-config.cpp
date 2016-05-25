@@ -542,7 +542,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 		{
 			for(int h=0; h < 4; h++)
 			{
-				if(hats7to4[h] == hatCapturing)
+				if(HATS_8TO4[h] == hatCapturing)
 					mapping->hatMap[h] = PLY_SET_MAPPED(plyCapturing, pRawInput->data.keyboard.VKey);
 			}
 			swprintf_s(buf, TEXT("Captured KB button %d"), pRawInput->data.keyboard.VKey);
