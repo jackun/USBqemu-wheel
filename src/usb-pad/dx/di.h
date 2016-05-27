@@ -598,8 +598,6 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 	if (refCount == 0)
 	{
-		refCount++;
-
 		// Create a DInput object
 		swprintf_s(logstring, L"DINPUT: DirectInput8Create %p", hWin); WriteLogFile(logstring);
 		if (FAILED(hr = DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION,
@@ -634,12 +632,14 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
 
+	refCount++;
+
 	//loop through all attached joysticks
 	for(DWORD i=0; i<numj; i++){
 
 		if( g_pJoysticks[i] )
 		{
-			if (refCount == 0)
+			if (refCount == 1)
 			{
 				swprintf_s(logstring, L"DINPUT: SetDataFormat Joystick %i", i); WriteLogFile(logstring);
 				g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2);
@@ -722,7 +722,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			else
 				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
 			
-			if (refCount == 0)
+			if (refCount == 1)
 			{
 				swprintf_s(logstring, L"DINPUT: EnumObjects Joystick %i", i); WriteLogFile(logstring);
 				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, (VOID*)hWindow, DIDFT_ALL);
