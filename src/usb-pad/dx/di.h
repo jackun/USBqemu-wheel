@@ -599,7 +599,6 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 	if (refCount == 0)
 	{
 		refCount++;
-		FreeDirectInput();
 
 		// Create a DInput object
 		swprintf_s(logstring, L"DINPUT: DirectInput8Create %p", hWin); WriteLogFile(logstring);
