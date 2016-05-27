@@ -127,11 +127,11 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 				wheel_data.steering = range >> 1;
 			}
 		}else{
-			wheel_data.steering = (range>>1)+(int)(GetControl(STEERING, false)* (float)(range>>1)) ;
+			wheel_data.steering = (range>>1)+(int)(GetControl(mPort, STEERING, false)* (float)(range>>1)) ;
 		}
 
-		wheel_data.throttle = 255-(int)(GetControl(THROTTLE, false)*255.0f);
-		wheel_data.brake = 255-(int)(GetControl(BRAKE, false)*255.0f);
+		wheel_data.throttle = 255-(int)(GetControl(mPort, THROTTLE, false)*255.0f);
+		wheel_data.brake = 255-(int)(GetControl(mPort, BRAKE, false)*255.0f);
 
 		if(GetControl(mPort, CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
 		if(GetControl(mPort, SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
