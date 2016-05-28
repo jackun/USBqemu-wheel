@@ -128,7 +128,7 @@ SET(SRCS_PLG
 )
 
 SET(SRCS_QEMU
-	./src/qemu-usb/usb-hid.cpp
+	#./src/qemu-usb/usb-hid.cpp
 	#./src/qemu-usb/usb-hub.cpp
 	./src/qemu-usb/vl.cpp
 	./src/qemu-usb/usb-base.cpp
@@ -221,8 +221,8 @@ IF(WIN32)
 		LIST(APPEND SRCS_DX
 			./src/usb-pad/dx/usb-pad-dx.cpp
 		)
-		SOURCE_GROUP("Header Files\\Dx" FILES ${HDRS_DX})
-		SOURCE_GROUP("Source Files\\Dx" FILES ${SRCS_DX})
+		SOURCE_GROUP("Header Files\\usb-pad\\Dx" FILES ${HDRS_DX})
+		SOURCE_GROUP("Source Files\\usb-pad\\Dx" FILES ${SRCS_DX})
 		LIST(APPEND HDRS ${HDRS_DX})
 		LIST(APPEND SRCS ${SRCS_DX})
 		LIST(APPEND LIBS dxguid dinput8 Comctl32)
@@ -241,8 +241,8 @@ IF(WIN32)
 			./src/usb-pad/raw/raw-config.cpp
 			./src/usb-pad/raw/hid.cpp
 		)
-		SOURCE_GROUP("Header Files\\Raw" FILES ${HDRS_RAW})
-		SOURCE_GROUP("Source Files\\Raw" FILES ${SRCS_RAW})
+		SOURCE_GROUP("Header Files\\usb-pad\\Raw" FILES ${HDRS_RAW})
+		SOURCE_GROUP("Source Files\\usb-pad\\Raw" FILES ${SRCS_RAW})
 		
 		LIST(APPEND HDRS ${HDRS_RAW})
 		LIST(APPEND SRCS ${SRCS_RAW})
