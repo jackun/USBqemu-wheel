@@ -223,28 +223,27 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 				memcpy(data, df_config_descriptor, ret);
 			}
 			break;
-		//TODO sync with pad_dev_descriptor
 		case USB_DT_STRING:
 			switch(value & 0xff) {
 			case 0:
 				/* language ids */
 				data[0] = 4;
-				data[1] = 3;
+				data[1] = USB_DT_STRING;
 				data[2] = 0x09;
 				data[3] = 0x04;
 				ret = 4;
 				break;
 			case 1:
-				/* serial number */
-				ret = set_usb_string(data, "");
+				/* vendor description */
+				ret = set_usb_string(data, "Logitech", length);
 				break;
 			case 2:
-				/* vendor description */
-				ret = set_usb_string(data, "Logitech");
+				/* product description */
+				ret = set_usb_string(data, "Driving Force Pro", length);
 				break;
 			case 3:
-				/* product description */
-				ret = set_usb_string(data, "Driving Force Pro");
+				/* serial number */
+				ret = set_usb_string(data, "1234567890AB", length);
 				break;
 			default:
 				goto fail;

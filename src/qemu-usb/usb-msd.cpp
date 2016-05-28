@@ -504,11 +504,11 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
                 break;
             case 1:
                 /* vendor description */
-                ret = set_usb_string(data, "QEMU ");
+                ret = set_usb_string(data, "QEMU ", length);
                 break;
             case 2:
                 /* product description */
-                ret = set_usb_string(data, "QEMU USB HARDDRIVE");
+                ret = set_usb_string(data, "QEMU USB HARDDRIVE", length);
                 break;
             case 3:
                 /* serial number */
@@ -522,7 +522,7 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
                 // :      :               :
                 // :      :               :
                 // n x 2  wStringn        Word
-                ret = set_usb_string(data, "1");
+                ret = set_usb_string(data, "1", length);
                 break;
             default:
                 goto fail;

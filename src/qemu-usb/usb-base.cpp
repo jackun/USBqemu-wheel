@@ -170,21 +170,28 @@ int usb_generic_handle_packet(USBDevice *s, int pid,
     return ret;
 }
 
-/* XXX: fix overflow */
-int set_usb_string(uint8_t *buf, const char *str)
+int set_usb_string(uint8_t *dest, const char *str, int len)
 {
-    int len, i;
-    uint8_t *q;
-
-    q = buf;
-    len = strlen(str);
-    *q++ = 2 * len + 2;
-    *q++ = 3;
-    for(i = 0; i < len; i++) {
-        *q++ = str[i];
-        *q++ = 0;
+    uint8_t bLength, pos, i;
+    if (len < 4) {
+        return -1;
     }
-    return q - buf;
+
+    bLength = strlen(str) * 2 + 2;
+    dest[0] = bLength;
+    dest[1] = USB_DT_STRING;
+    i = 0; pos = 2;
+    while (pos+1 < bLength && pos+1 < len) {
+        dest[pos++] = str[i++];
+        dest[pos++] = 0;
+    }
+    return pos;
+}
+
+/* XXX: fix overflow */
+int set_usb_string(uint8_t *dest, const char *str)
+{
+	return set_usb_string(dest, str, 254);
 }
 
 void usb_device_reset(USBDevice *dev)
