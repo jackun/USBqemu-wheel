@@ -12,6 +12,46 @@
 #define S_CONFIG_JOY TEXT("Joystick")
 #define N_JOYSTICK TEXT("joystick")
 
+// Most likely as seen on https://github.com/matlo/GIMX
+#define CMD_DOWNLOAD			0x00
+#define CMD_DOWNLOAD_AND_PLAY	0x01
+#define CMD_PLAY				0x02
+#define CMD_STOP				0x03
+#define CMD_DEFAULT_SPRING_ON	0x04
+#define CMD_DEFAULT_SPRING_OFF	0x05
+#define CMD_NORMAL_MODE			0x08
+#define CMD_EXTENDED_CMD		0xF8
+#define CMD_SET_LED				0x09 //??
+#define CMD_RAW_MODE			0x0B
+#define CMD_SET_DEFAULT_SPRING	0x0E
+#define CMD_SET_DEAD_BAND		0x0F
+
+#define EXT_CMD_CHANGE_MODE_DFP				0x01
+#define EXT_CMD_WHEEL_RANGE_200_DEGREES		0x02
+#define EXT_CMD_WHEEL_RANGE_900_DEGREES		0x03
+#define EXT_CMD_CHANGE_MODE					0x09
+#define EXT_CMD_REVERT_IDENTITY				0x0a
+#define EXT_CMD_CHANGE_MODE_G25				0x10
+#define EXT_CMD_CHANGE_MODE_G25_NO_DETACH	0x11
+#define EXT_CMD_SET_RPM_LEDS				0x12
+#define EXT_CMD_CHANGE_WHEEL_RANGE			0x81
+
+#define FTYPE_CONSTANT                           0x00
+#define FTYPE_SPRING                             0x01
+#define FTYPE_DAMPER                             0x02
+#define FTYPE_AUTO_CENTER_SPRING                 0x03
+#define FTYPE_SAWTOOTH_UP                        0x04
+#define FTYPE_SAWTOOTH_DOWN                      0x05
+#define FTYPE_TRAPEZOID                          0x06
+#define FTYPE_RECTANGLE                          0x07
+#define FTYPE_VARIABLE                           0x08
+#define FTYPE_RAMP                               0x09
+#define FTYPE_SQUARE_WAVE                        0x0A
+#define FTYPE_HIGH_RESOLUTION_SPRING             0x0B
+#define FTYPE_HIGH_RESOLUTION_DAMPER             0x0C
+#define FTYPE_HIGH_RESOLUTION_AUTO_CENTER_SPRING 0x0D
+#define FTYPE_FRICTION                           0x0E
+
 enum PS2WheelTypes {
 	WT_GENERIC, // DF or any other LT wheel in non-native mode
 	WT_DRIVING_FORCE_PRO, //LPRC-11000? DF GT can be downgraded to Pro (?)
@@ -593,15 +633,15 @@ struct random_data_t
 //packet is 8 bytes
 struct ff_data
 {
-	uint32_t reportid : 8; //17 or 19?
-	uint32_t index : 8; //0-255
-	uint32_t data1 : 8; //0-255
-	uint32_t data2 : 8; //always 128 ??
+	uint32_t reportid : 8;
+	uint32_t index : 8;
+	uint32_t data1 : 8;
+	uint32_t data2 : 8;
 	//32
-	uint32_t pad1 : 8; //packet is 8 bytes
-	uint32_t pad2 : 8; //
-	uint32_t pad3 : 8; //
-	uint32_t pad4 : 8; //
+	uint32_t data_ext1 : 8;
+	uint32_t data_ext2 : 8;
+	uint32_t data_ext3 : 8;
+	uint32_t data_ext4 : 8;
 	//32
 };
 
