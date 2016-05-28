@@ -1,30 +1,33 @@
 Wheel inits
 ================
+
+GTF to https://github.com/matlo/GIMX/blob/f0013f8daa6e88b4cf1f6653ccdadef22667bc9f/core/ffb_logitech.c ;)
+
 Also http://vdrift.net/Forum/printthread.php?tid=403&page=5
 
 Driving Force Pro init by GT4
 Results based on G27
 8 byte usb packet sent to wheel
 
-	F8,6,0,0,0,0,0,0 //?
-	F8,5,1,0,0,0,0,0 //?
-	B,0,0,0,0,0,0,0 //reset value range
+	F8,6,0,0,0,0,0,0 //Extended cmd / unknown
+	F8,5,1,0,0,0,0,0 //Extended cmd / unknown
+	0B,0,0,0,0,0,0,0 //raw mode (?)
 	F3,0,0,0,0,0,0,0 //release all forces?
+	F4,0,0,0,0,0,0,0 //activate auto-center, 0xF0 - all slots, 0x04 - def_spring_on ???
 	F4,0,0,0,0,0,0,0 //activate auto-center
-	F4,0,0,0,0,0,0,0 //activate auto-center
-	8,0,0,0,0,0,0,0 //reset value range
-	B,0,0,0,0,0,0,0 //set value range
-	F8,3,0,0,0,0,0,0 //set range 900 deg (F8,2,0,0,0,0,0,0 sets range to ~220 deg)
+	08,0,0,0,0,0,0,0 //normal mode
+	0B,0,0,0,0,0,0,0 //raw mode
+	F8,3,0,0,0,0,0,0 //ext cmd / set range 900 deg (F8,2,0,0,0,0,0,0 sets range to ~220 deg)
 	F5,0,0,0,0,0,0,0 //deactivate autocenter
 	F8,3,0,0,0,0,0,0 //set range 900 deg
-	8,0,0,0,0,0,0,0 //reset value range
-	B,0,0,0,0,0,0,0 //set value range (4105 .. 8841)
-	13,3,0,0,0,0,0,0 //deactivate force?
-	21,B,7F,7F,77,0,80,0 //just center force (0x7f)
-	8,0,0,0,0,0,0,0 //for-
-	B,0,0,0,0,0,0,0 //ever
-	8,0,0,0,0,0,0,0 //and
-	B,0,0,0,0,0,0,0 //ever
+	08,0,0,0,0,0,0,0 //normal mode
+	0B,0,0,0,0,0,0,0 //raw mode
+	13,3,0,0,0,0,0,0 //deactivate force? 0x10 - slot 1, 0x03 - stop, 0x03 - auto_center_spring ???
+	21,B,7F,7F,77,0,80,0 //just center force (0x7f); 0x20 - slot 2? | 0x01 - dl_and_play?, 0x0B - spring, "center"..???
+	08,0,0,0,0,0,0,0 //for-
+	0B,0,0,0,0,0,0,0 //ever
+	08,0,0,0,0,0,0,0 //and
+	0B,0,0,0,0,0,0,0 //ever because the "wheel" didn't return axis state
 
 DF init?
 	0xF3, 0x00, 0x00, 0x00
@@ -36,7 +39,6 @@ DFP GT4 init
 	0xF8, 0x06, 0x00, 0x00
 	0xF8, 0x05, 0x01, 0x00
 	0x0B, 0x00, 0x00, 0x00
-	usb-ohci: got NAK
 	0xF3, 0x00, 0x00, 0x00
 	0xF4, 0x00, 0x00, 0x00
 	0xF4, 0x00, 0x00, 0x00
@@ -45,6 +47,30 @@ DFP GT4 init
 	0xF8, 0x03, 0x00, 0x00
 	0x13, 0x03, 0x00, 0x00
 	0x21, 0x0B, 0x7F, 0x7F
+	----
+	F8, 06, 00, 00 : 00, 00, 00, 00
+	CMD_EXTENDED: unhandled cmd 0x060000
+	F8, 05, 01, 00 : 00, 00, 00, 00
+	CMD_EXTENDED: unhandled cmd 0x050100
+	0B, 00, 00, 00 : 00, 00, 00, 00
+	CMD_RAW_MODE: unhandled cmd
+	F3, 83, 1D, 00 : A4, D0, 10, 00
+	F4, 83, 1D, 00 : A4, D0, 10, 00
+	CMD_DEFAULT_SPRING_ON: unhandled cmd
+	F4, 00, 00, 00 : 00, 00, 00, 00
+	CMD_DEFAULT_SPRING_ON: unhandled cmd
+	F8, 03, 00, 00 : 00, 00, 00, 00
+	CMD_EXTENDED: unhandled cmd 0x030000
+	F5, 00, 00, 00 : 00, 00, 00, 00
+	F8, 03, 00, 00 : 00, 00, 00, 00
+	CMD_EXTENDED: unhandled cmd 0x030000
+	13, 03, 00, 00 : 00, 00, 00, 00
+	21, 0B, 7F, 7F : 77, 00, 80, 00
+	
+	--
+	23, 0B, 7F, 7F : 77, 00, 80, 00
+	CMD_STOP: unhandled slot 0x20
+	21, 0E, 80, FF : 20, 00, 00, 00
 
 
 DFP GT4 pause/unpause mid-race
@@ -61,3 +87,116 @@ DFP GT4 pause/unpause mid-race
 	0x11, 0x08, 0x67, 0x80
 	0x11, 0x08, 0x70, 0x80
 	0x11, 0x08, 0x79, 0x80
+
+	0x11, 0x8, 0x6C, 0x80 : 0x0, 0x0, 0x0, 0x0
+	0x13, 0x8, 0x6C, 0x80 : 0x0, 0x0, 0x0, 0x0
+	0x41, 0xB, 0x7F, 0x7F : 0x77, 0x0, 0x80, 0x0
+	CMD_DL_N_PLAY: unhandled slot 0x40
+	
+	DFP to DF
+	0xF3, 0x0, 0x0, 0x0 : 0x0, 0x0, 0x0, 0x0
+	0xF4, 0x0, 0x0, 0x0 : 0x0, 0x0, 0x0, 0x0
+	CMD_DEFAULT_SPRING_ON: unhandled cmd
+	0x9, 0x3, 0x0, 0x0 : 0x0, 0x0, 0x0, 0x0
+	CMD_CHANGE_MODE: unhandled cmd
+	0xF5, 0x0, 0x0, 0x0 : 0x0, 0x0, 0x0, 0x0
+	
+DF init GT3
+	F1, 00, 6C, 6C : 6C, 6C, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, D8, D8 : D8, D8, 00, FF
+	F1, 00, E6, E6 : E6, E6, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, F6, F6 : F6, F6, 00, FF
+	F1, 00, EA, EA : EA, EA, 00, FF
+	F1, 00, DD, DD : DD, DD, 00, FF
+	F1, 00, C2, C2 : C2, C2, 00, FF
+	F1, 00, B3, B3 : B3, B3, 00, FF
+	F1, 00, A5, A5 : A5, A5, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, FF, FF : FF, FF, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 0A, 0A : 0A, 0A, 00, FF
+	F1, 00, 19, 19 : 19, 19, 00, FF
+	F1, 00, 22, 22 : 22, 22, 00, FF
+	F1, 00, 40, 40 : 40, 40, 00, FF
+	F1, 00, 4D, 4D : 4D, 4D, 00, FF
+	F1, 00, 5B, 5B : 5B, 5B, 00, FF
+	F1, 00, 00, 00 : 00, 00, 00, FF
+	F1, 00, 7F, 7F : 7F, 7F, 00, FF
+
+	
+DF init Enthusia
+	F3, CE, 01, 00 : FF, FF, FF, FF
+	F4, CE, 01, 00 : FF, FF, FF, FF
+	CMD_DEFAULT_SPRING_ON: unhandled cmd
+	09, 03, 00, 00 : 00, 00, 00, 00
+	CMD_CHANGE_MODE: unhandled cmd
+	F5, 00, 00, 00 : 00, 00, 00, 00
+	11, 08, 82, 80 : 00, 00, 00, 00
+	11, 08, 2D, 80 : 00, 00, 00, 00
+	11, 08, 45, 80 : 00, 00, 00, 00
+	11, 08, D7, 80 : 00, 00, 00, 00
+	11, 08, BF, 80 : 00, 00, 00, 00
+	11, 08, 63, 80 : 00, 00, 00, 00
+	11, 08, 26, 80 : 00, 00, 00, 00
+	11, 08, 27, 80 : 00, 00, 00, 00
+	11, 08, 36, 80 : 00, 00, 00, 00
+	11, 08, 37, 80 : 00, 00, 00, 00
+	11, 08, 3A, 80 : 00, 00, 00, 00
+	11, 08, 45, 80 : 00, 00, 00, 00
+	11, 08, 46, 80 : 00, 00, 00, 00
+	11, 08, 51, 80 : 00, 00, 00, 00
+	11, 08, 53, 80 : 00, 00, 00, 00
+	11, 08, 54, 80 : 00, 00, 00, 00
+	11, 08, 5D, 80 : 00, 00, 00, 00
+	11, 08, 5F, 80 : 00, 00, 00, 00
+	11, 08, 60, 80 : 00, 00, 00, 00
+	11, 08, 6A, 80 : 00, 00, 00, 00
+	11, 08, 6C, 80 : 00, 00, 00, 00
+	11, 08, 75, 80 : 00, 00, 00, 00
+	11, 08, 77, 80 : 00, 00, 00, 00
+	11, 08, 7F, 80 : 00, 00, 00, 00
+	
+DF init Driven
+	F3, 00, 00, 00 : 00, 00, 00, 00
+	F4, 00, 00, 00 : 00, 00, 00, 00
+	CMD_DEFAULT_SPRING_ON: unhandled cmd
+	F5, 00, 00, 00 : 00, 00, 00, 00
+	13, 00, 00, 00 : 00, 00, 00, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
+	21, 01, 80, 80 : 66, 00, 25, 00
