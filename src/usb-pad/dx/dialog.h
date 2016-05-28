@@ -466,7 +466,7 @@ void InitDialog(int port)
 	//pFnPrevFunc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hWnd,IDC_PICTURE),GWLP_WNDPROC,(LONG_PTR) StaticProc);
 	LoadMain(port);
 
-	InitDirectInput(hWnd, 0);
+	InitDirectInput(hWnd, port);
 
 	InitCommonControls();
 
