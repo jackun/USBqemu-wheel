@@ -136,7 +136,7 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 		if(GetControl(mPort, CROSS))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
 		if(GetControl(mPort, SQUARE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
 		if(GetControl(mPort, CIRCLE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_CIRCLE);
-		if(GetControl(mPort, TRIANGLE))	wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
+		if(GetControl(mPort, TRIANGLE))		wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
 		if(GetControl(mPort, R1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R1);
 		if(GetControl(mPort, L1))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_L1);
 		if(GetControl(mPort, R2))			wheel_data.buttons |= 1 << convert_wt_btn(mType, PAD_R2);
@@ -176,71 +176,132 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 int DInputPad::TokenOut(const uint8_t *data, int len)
 {
-	//TODO just cast data to struct pointer, maybe
-	memcpy(&ffdata, data, sizeof(ffdata));
+	ff_data *ffdata = (ff_data*)data;
 
-	switch(ffdata.reportid)
+	OSDebugOut(TEXT("FFB %02X, %02X, %02X, %02X : %02X, %02X, %02X, %02X\n"),
+		ffdata->reportid, ffdata->index, ffdata->data1, ffdata->data2,
+		ffdata->data_ext1, ffdata->data_ext2, ffdata->data_ext3, ffdata->data_ext4);
+
+	if (ffdata->reportid != CMD_EXTENDED_CMD)
 	{
-		case 0xF8:
-			//TODO needed?
-			if(ffdata.index == 5)
-				sendCrap = true;
-		break;
-		case 9:
-			{
-				//not handled
-			}
-			break;
-		case 19:
-			//some games issue this command on pause
-			//if(ffdata.reportid == 19 && ffdata.data2 == 0)break;
-			if(ffdata.index == 0x8)
-				SetConstantForce(mPort, 127); //data1 looks like previous force sent with reportid 0x11
-			//TODO unset spring
-			else if(ffdata.index == 3)
-				SetSpringForce(127);
 
-			//fprintf(stderr, "FFB 0x%X, 0x%X, 0x%X\n", ffdata.reportid, ffdata.index, ffdata.data1);
-			break;
-		case 17://constant force
+		uint8_t slot = ffdata->reportid & 0xF0;
+		uint8_t cmd  = ffdata->reportid & 0x0F;
+
+		switch (cmd)
+		{
+			case CMD_DOWNLOAD_AND_PLAY: //0x01
 			{
-				//handle calibration commands
-				if(!calibrating){SetConstantForce(mPort, ffdata.data1);}
-			}
-			break;
-		case 0x21:
-			if(ffdata.index == 0xB)
-			{
-				//if(!calibrating){
-					//SetConstantForce(ffdata.data1);
-					SetSpringForce(ffdata.data1); //spring is broken?
-				//}
-				break;
-			}
-			//drop through
-		case 254://autocenter?
-		case 255://autocenter?
-		case 244://autocenter?
-		case 245://autocenter?
-			{
-					//just release force
-					SetConstantForce(mPort, 127);
-			}
-			break;
-		case 241:
-			//DF/GTF and GT3
-			if(!calibrating){SetConstantForce(mPort, ffdata.pad1);}
-			break;
-		case 243://initialize
-			{
-				if(BYPASSCAL){
-					alternate=false;
-					calidata=0;
-					calibrating = true;
-					calibrationtime = GetTickCount();
+				switch (slot)
+				{
+				case 0x10:
+				case 0xF0:
+					if (!calibrating)
+					{
+						if (ffdata->index == FTYPE_VARIABLE)
+							SetConstantForce(mPort, ffdata->data1);
+						else if (ffdata->index == FTYPE_CONSTANT)
+							SetConstantForce(mPort, ffdata->data_ext1); //DF/GTF and GT3
+						else
+							OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled type 0x%02X:0x02X\n"), slot, ffdata->index);
+					}
+					break;
+				case 0x20:
+					if (ffdata->index == 0xB) // hi res spring?
+					{
+						//if(!calibrating){
+						//SetConstantForce(ffdata->data1);
+						//TODO spring effect is currently not started 
+						SetSpringForce(mPort, ffdata->data1);
+						//}
+					}
+					else if (ffdata->index == FTYPE_CONSTANT)
+						SetConstantForce(mPort, ffdata->data1);
+					else if (ffdata->index == FTYPE_SPRING)
+						SetSpringForce(mPort, ffdata->data1);
+					break;
+				default:
+					OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled slot 0x%02X\n"), slot);
+					break;
 				}
 			}
 			break;
+			case CMD_STOP: //0x03
+			{
+				switch (slot)
+				{
+					case 0xF0: //0xF3, usually sent on init
+					{
+						if (BYPASSCAL)
+						{
+							alternate=false;
+							calidata=0;
+							calibrating = true;
+							calibrationtime = GetTickCount();
+						}
+						SetConstantForce(mPort, 127);
+					}
+					break;
+					case 0x10:
+					case 0x20:
+					{
+						//some games issue this command on pause
+						//if(ffdata->reportid == 0x13 && ffdata->data2 == 0)break;
+						if (ffdata->index == 0x8)
+							SetConstantForce(mPort, 127); //data1 looks like previous force sent with reportid 0x11
+						else if (ffdata->index == FTYPE_AUTO_CENTER_SPRING)
+							SetSpringForce(mPort, 127);
+						else if (ffdata->index == FTYPE_HIGH_RESOLUTION_SPRING)
+							SetSpringForce(mPort, 127);
+					}
+					break;
+					default:
+						OSDebugOut(TEXT("CMD_STOP: unhandled slot 0x%02X\n"), slot);
+					break;
+				}
+			}
+			break;
+			case CMD_DEFAULT_SPRING_ON: //0x04
+				OSDebugOut(TEXT("CMD_DEFAULT_SPRING_ON: unhandled cmd\n"));
+				break;
+			case CMD_DEFAULT_SPRING_OFF: //0x05
+			{
+				if (slot == 0xF0) {
+					//just release force
+					SetConstantForce(mPort, 127);
+				}
+				else
+				{
+					OSDebugOut(TEXT("CMD_DEFAULT_SPRING_OFF: unhandled slot 0x%02X\n"), slot);
+				}
+			}
+			break;
+			case CMD_NORMAL_MODE: //0x08
+				OSDebugOut(TEXT("CMD_NORMAL_MODE: unhandled cmd\n"));
+			break;
+			case CMD_SET_LED: //0x09
+				OSDebugOut(TEXT("CMD_SET_LED: unhandled cmd\n"));
+			break;
+			case CMD_RAW_MODE: //0x0B
+				OSDebugOut(TEXT("CMD_RAW_MODE: unhandled cmd\n"));
+			break;
+			case CMD_SET_DEFAULT_SPRING: //0x0E
+				OSDebugOut(TEXT("CMD_SET_DEFAULT_SPRING: unhandled cmd\n"));
+			break;
+			case CMD_SET_DEAD_BAND: //0x0F
+				OSDebugOut(TEXT("CMD_SET_DEAD_BAND: unhandled cmd\n"));
+			break;
+		}
+	}
+	else
+	{
+		// 0xF8, 0x05, 0x01, 0x00
+		//if(ffdata->index == 5) //TODO
+		//	sendCrap = true;
+		if (ffdata->index == EXT_CMD_WHEEL_RANGE_900_DEGREES) {}
+		if (ffdata->index == EXT_CMD_WHEEL_RANGE_200_DEGREES) {}
+		OSDebugOut(TEXT("CMD_EXTENDED: unhandled cmd 0x%02X%02X%02X\n"),
+			ffdata->index, ffdata->data1, ffdata->data2);
 	}
 	return len;
 }

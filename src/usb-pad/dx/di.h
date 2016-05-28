@@ -548,15 +548,15 @@ void SetConstantForce(int port, LONG magnitude)
 	}
 }
 
-
 //start/stop effect
 void DisableConstantForce(int port)
 {
 	if (g_pEffect[port])
 		g_pEffect[port]->Stop();
 }
+
 //set spring offset  (not used by ps2? only rfactor pc i think.  using as centering spring hack)
-void SetSpringForce(LONG magnitude)
+void SetSpringForce(int port, LONG magnitude)
 {
 	//if(magnitude == 0)
 	//{
