@@ -1,6 +1,8 @@
 USBqemu-wheel
 =============
 
+Go to https://opensource.logitech.com/opensource/index.php/Technical_Information
+
 PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using usb host emulation code from qemu.
 
 USB packets with FFB commands are passed staight to the wheel when using raw input API mode.
