@@ -12,16 +12,24 @@ LPDIRECTINPUTDEVICE8 g_pMouse	 = NULL;
 LPDIRECTINPUTDEVICE8 g_pJoysticks[10] = {NULL}; 
 
 //only two effect (constant force, spring)
-bool FFB=false;
-int FFBindex = -1;
+bool FFB[2] = { false };
+int FFBindex[2] = { -1 };
 LPDIRECTINPUTEFFECT  g_pEffect[2] = { NULL };
-LPDIRECTINPUTEFFECT  g_pEffectSpring = NULL;
+LPDIRECTINPUTEFFECT  g_pEffectSpring[2] = { NULL };
+LPDIRECTINPUTEFFECT  g_pEffectFriction[2] = { NULL }; //DFP mode only
+LPDIRECTINPUTEFFECT  g_pEffectRamp[2] = { NULL };
+LPDIRECTINPUTEFFECT  g_pEffectDamper[2] = { NULL };
 DWORD g_dwNumForceFeedbackAxis[4] = {0};
 DIEFFECT eff;
 DIEFFECT effSpring;
+DIEFFECT effFriction;
+DIEFFECT effRamp;
+DIEFFECT effDamper;
 DICONSTANTFORCE cfw;
-DICONDITION c;
-
+DICONDITION cSpring;
+DICONDITION cFriction;
+DIRAMPFORCE cRamp;
+DICONDITION cDamper;
 
 BYTE diks[256];							// DirectInput keyboard state buffer 
 DIMOUSESTATE2 dims2;					// DirectInput mouse state structure
@@ -48,6 +56,20 @@ void FreeDirectInput()
 
 	numj=0;  //no joysticks
 
+	for (int i = 0; i < 2; i++)
+	{
+		if (g_pEffect[i])
+			g_pEffect[i]->Stop();
+		if (g_pEffectSpring[i])
+			g_pEffectSpring[i]->Stop();
+		if (g_pEffectFriction[i])
+			g_pEffectFriction[i]->Stop();
+		if (g_pEffectRamp[i])
+			g_pEffectRamp[i]->Stop();
+		if (g_pEffectDamper[i])
+			g_pEffectDamper[i]->Stop();
+	}
+
     // Unacquire the device one last time just in case 
     // the app tried to exit while the device is still acquired.
     if( g_pKeyboard ) 
@@ -65,8 +87,14 @@ void FreeDirectInput()
     SAFE_RELEASE( g_pMouse );
 	for(DWORD i=0; i<numj; i++) SAFE_RELEASE( g_pJoysticks[i] );
     SAFE_RELEASE( g_pDI );
-	SAFE_RELEASE( g_pEffect[0] );
-	SAFE_RELEASE( g_pEffect[1] );
+	for (int i = 0; i < 2; i++)
+	{
+		SAFE_RELEASE(g_pEffect[i]);
+		SAFE_RELEASE(g_pEffectSpring[i]);
+		SAFE_RELEASE(g_pEffectFriction[i]);
+		SAFE_RELEASE(g_pEffectRamp[i]);
+		SAFE_RELEASE(g_pEffectDamper[i]);
+	}
 	didDIinit=false;
 }
 BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
@@ -525,7 +553,7 @@ void AutoCenter(int jid, bool onoff)
 extern void InitDI(int port);
 void SetConstantForce(int port, LONG magnitude)
 {
-	if(FFBindex==-1)return;
+	if (FFBindex[port] == -1) return;
 
 	WriteLogFile(L"DINPUT: Apply Force");
 
@@ -555,24 +583,162 @@ void DisableConstantForce(int port)
 		g_pEffect[port]->Stop();
 }
 
+void SetRamp(int port, const variable& var)
+{
+	if (FFBindex[port] == -1) return;
+
+	if (INVERTFORCES[port])
+	{
+		cRamp.lStart = (128 - var.initial_lvl_1) * 78.4803149606299;
+		cRamp.lEnd = (128 - var.initial_lvl_2) * 78.4803149606299;
+	}
+	else
+	{
+		cRamp.lStart = -(128 - var.initial_lvl_1) * 78.4803149606299;
+		cRamp.lEnd = -(128 - var.initial_lvl_2) * 78.4803149606299;
+	}
+
+	if (g_pEffectRamp[port])
+		g_pEffectRamp[port]->SetParameters(&effRamp, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
+void DisableRamp(int port)
+{
+	if (g_pEffectRamp[port])
+		g_pEffectRamp[port]->Stop();
+}
+
 //set spring offset  (not used by ps2? only rfactor pc i think.  using as centering spring hack)
-void SetSpringForce(int port, LONG magnitude)
+void SetSpringForce(int port, int position, const spring& spring, bool hires)
 {
 	//if(magnitude == 0)
 	//{
 	//	g_pEffectSpring->Stop();
 	//}
 
-	//not used
-	c.lOffset = 0;//(127-offset) * 78.4803149606299;
-	c.lNegativeCoefficient = magnitude;
-	c.lPositiveCoefficient = magnitude;
-	c.dwNegativeSaturation = 0;
-	c.dwPositiveSaturation = 0;
-	c.lDeadBand = 0;
+	int dead1 = spring.dead1;
+	int dead2 = spring.dead2;
+	if (hires)
+	{
+		dead1 = (dead1 << 3) | ((spring.slope1 >> 1) & 0x7);
+		dead1 = (dead1 << 3) | ((spring.slope2 >> 1) & 0x7);
+	}
 	
-	if(g_pEffectSpring) g_pEffectSpring->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+	//guess work
+	dead1 *= DI_FFNOMINALMAX / (hires ? 0x7FF : 0xFF);
+	dead2 *= DI_FFNOMINALMAX / (hires ? 0x7FF : 0xFF);
+
+	int offset;
+	int off1 = std::abs(-dead1 - position);
+	int off2 = std::abs(dead2 - position);
+
+	static float coeffs1[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 2.f, 3.f, 4.f };
+	static float coeffs2[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 3.f, 2.f, 4.f }; //DFP
+	float* coeffs = hires ? coeffs2 : coeffs1;
+	if (off1 < off2)
+		offset = off1;
+	else
+		offset = off2;
+
+	// no idea
+	if (!hires && spring.k1 < ARRAYSIZE(coeffs1) && spring.k2 < ARRAYSIZE(coeffs1))
+	{
+		//cSpring.lNegativeCoefficient = offset * coeffs[spring.k1];
+		//cSpring.lPositiveCoefficient = offset * coeffs[spring.k2];
+
+		cSpring.dwNegativeSaturation = offset * coeffs[spring.k1];
+		cSpring.dwPositiveSaturation = offset * coeffs[spring.k2];
+	}
+	else
+	{
+		cSpring.dwNegativeSaturation = DI_FFNOMINALMAX * spring.k1 / 15;
+		cSpring.dwPositiveSaturation = DI_FFNOMINALMAX * spring.k2 / 15;
+	}
+
+	cSpring.lOffset = 0; // offset;
+	cSpring.lNegativeCoefficient = DI_FFNOMINALMAX * spring.dead1 / 255;
+	cSpring.lPositiveCoefficient = DI_FFNOMINALMAX * spring.dead2 / 255;
+	cSpring.lDeadBand = 0;
+
+	OSDebugOut(TEXT("spring: %d %d/%d %d/%d %d\n"), cSpring.lOffset,
+		cSpring.lNegativeCoefficient, cSpring.lPositiveCoefficient,
+		cSpring.dwNegativeSaturation, cSpring.dwPositiveSaturation, cSpring.lDeadBand);
+	
+	if (g_pEffectSpring[port])
+			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
+
+void DisableSpring(int port)
+{
+	if (g_pEffectSpring[port])
+		g_pEffectSpring[port]->Stop();
+}
+
+void SetDamper(int port, const damper& damper, bool isdfp)
+{
+	//noidea(TM)
+	cDamper.lNegativeCoefficient = DI_FFNOMINALMAX * damper.k1 / 15;
+	cDamper.lPositiveCoefficient = DI_FFNOMINALMAX * damper.k2 / 15;
+	cDamper.dwNegativeSaturation = DI_FFNOMINALMAX;
+	cDamper.dwPositiveSaturation = DI_FFNOMINALMAX;
+
+	if (isdfp)
+	{
+		cDamper.lNegativeCoefficient = cDamper.lNegativeCoefficient * damper.clip / 255;
+		cDamper.lPositiveCoefficient = cDamper.lPositiveCoefficient * damper.clip / 255;
+	}
+
+	if (g_pEffectDamper[port])
+		g_pEffectDamper[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
+void DisableDamper(int port)
+{
+	if (g_pEffectDamper[port])
+		g_pEffectDamper[port]->Stop();
+}
+// IDK
+void SetSpringSlopeForce(int port, const spring& spring)
+{
+	cSpring.lOffset = 0;
+	cSpring.lNegativeCoefficient = (spring.slope1 & 1 ? -1 : 1) * spring.k1 * 10000 / 15;
+	cSpring.lPositiveCoefficient = (spring.slope2 & 1 ? -1 : 1) * spring.k2 * 10000 / 15;
+	cSpring.dwNegativeSaturation = spring.dead1 * 10000 / 0xFF;
+	cSpring.dwPositiveSaturation = spring.dead2 * 10000 / 0xFF;
+	cSpring.lDeadBand = 0;
+
+	if (g_pEffectSpring[port])
+		g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
+void SetFrictionForce(int port, const friction& frict)
+{
+	//noideaTM
+	cFriction.lOffset = 0;
+	if (frict.s1 & 1)
+		cFriction.lNegativeCoefficient =  (127 - (255 - frict.k1)) * 78.4803149606299;
+	else
+		cFriction.lNegativeCoefficient = (127 - frict.k1) * 78.4803149606299;
+	cFriction.lNegativeCoefficient = cFriction.lNegativeCoefficient * frict.clip / 255;
+	cFriction.lPositiveCoefficient = cFriction.lNegativeCoefficient;
+
+	if (frict.s2 & 1)
+		cFriction.dwNegativeSaturation = (255 - frict.k2) * DI_FFNOMINALMAX / 255;
+	else
+		cFriction.dwNegativeSaturation = (frict.k2) * DI_FFNOMINALMAX / 255;
+	cFriction.dwPositiveSaturation = cFriction.dwNegativeSaturation;
+	cFriction.lDeadBand = 0;
+
+	if (g_pEffectFriction[port])
+		g_pEffectFriction[port]->SetParameters(&effFriction, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
+void DisableFriction(int port)
+{
+	if (g_pEffectFriction[port])
+		g_pEffectFriction[port]->Stop();
+}
+
 void TestForce(int port)
 {
 
@@ -624,8 +790,8 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		}
 
 		//Create Joysticks
-		FFBindex = -1;
-		FFB = false;  //no FFB device selected
+		FFBindex[port] = -1;
+		FFB[port] = false;  //no FFB device selected
 
 		//enumerate attached only
 		swprintf_s(logstring, L"DINPUT: EnumDevices Joystick %p", hWin); WriteLogFile(logstring);
@@ -654,7 +820,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			int joyid = AXISID[port][0] * 0.125;
 
 			//has ffb?  
-			if(FFB==false && joyid == i && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
+			if(FFB[port] == false && joyid == i && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
 				//First FFB device detected
 				
 				//create effect
@@ -667,11 +833,14 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 					//create the constant force effect
 					DWORD           rgdwAxes[2]     = { DIJOFS_X,DIJOFS_Y };
-					LONG            rglDirection[2] = { 0, 0 };
+					LONG            rglDirection[2] = { 1, 0 }; // {1,0} from Logitech SDK sample, maybe {0,0} is enough, DIEP_AXES|DIEP_DIRECTION isn't set anyway
 					ZeroMemory( &eff, sizeof(eff) );
 					ZeroMemory( &effSpring, sizeof(effSpring) );
+					ZeroMemory( &effFriction, sizeof(effFriction) );
 					ZeroMemory( &cfw, sizeof(cfw) );
-					ZeroMemory( &c, sizeof(c) );
+					ZeroMemory( &cSpring, sizeof(cSpring) );
+					ZeroMemory( &cFriction, sizeof(cFriction) );
+					ZeroMemory( &cRamp, sizeof(cRamp) );
 
 					//constantforce
 					eff.dwSize                  = sizeof(DIEFFECT);
@@ -692,30 +861,32 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 					eff.lpvTypeSpecificParams   = &cfw;
 					g_pJoysticks[i]->CreateEffect( GUID_ConstantForce, &eff, &g_pEffect[port], NULL );
 
-					//spring
-					
+					effSpring = eff;
+					effFriction = eff;
+					effRamp = eff;
+					effDamper = eff;
 
-					effSpring.dwSize                  = sizeof(DIEFFECT);
-					effSpring.dwFlags                 = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
-					effSpring.dwSamplePeriod          = 0;
-					effSpring.dwGain                  = 10000;
-					effSpring.dwTriggerButton         = DIEB_NOTRIGGER;
-					effSpring.dwTriggerRepeatInterval = 0;
-					effSpring.cAxes                   = 1;
-					effSpring.rgdwAxes                = rgdwAxes;
-					effSpring.rglDirection            = rglDirection;
-					effSpring.dwStartDelay            = 0;
-					effSpring.dwDuration              = INFINITE;
-
-					c.lNegativeCoefficient = 0;
-					c.lPositiveCoefficient = 0;
+					cSpring.lNegativeCoefficient = 0;
+					cSpring.lPositiveCoefficient = 0;
 
 					effSpring.cbTypeSpecificParams    = sizeof(DICONDITION);
-					effSpring.lpvTypeSpecificParams   = &c;
-					//g_pJoysticks[i]->CreateEffect( GUID_Spring, &effSpring, &g_pEffectSpring, NULL );
+					effSpring.lpvTypeSpecificParams   = &cSpring;
+					g_pJoysticks[i]->CreateEffect( GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL );
 
-					FFBindex=i;
-					FFB = true;
+					effFriction.cbTypeSpecificParams = sizeof(DICONDITION);
+					effFriction.lpvTypeSpecificParams = &cFriction;
+					g_pJoysticks[i]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
+
+					effRamp.cbTypeSpecificParams = sizeof(DIRAMPFORCE);
+					effRamp.lpvTypeSpecificParams = &cRamp;
+					g_pJoysticks[i]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
+
+					effDamper.cbTypeSpecificParams = sizeof(DICONDITION);
+					effDamper.lpvTypeSpecificParams = &cDamper;
+					g_pJoysticks[i]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
+
+					FFBindex[port] =i;
+					FFB[port] = true;
 				}catch(...){};
 
 			}

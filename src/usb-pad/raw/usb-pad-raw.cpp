@@ -9,7 +9,7 @@ static bool sendCrap = false;
 class RawInputPad : public Pad
 {
 public:
-	RawInputPad(int port) : mPort(port)
+	RawInputPad(int port) : Pad(port)
 	, doPassthrough(false)
 	, usbHandle(INVALID_HANDLE_VALUE)
 	{

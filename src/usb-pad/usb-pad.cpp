@@ -421,7 +421,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		dfp_data.axis_x = data.steering;
 		dfp_data.axis_z = 1 | (data.throttle * 0x3F) / 0xFF; //TODO Always > 0 or everything stops working, wut.
 		dfp_data.axis_rz = 0x3F - (data.brake * 0x3F) / 0xFF;
-		OSDebugOut(TEXT("dfp: axis_z=0x%02x, axis_rz=0x%02x\n"), dfp_data.axis_z, dfp_data.axis_rz);
+		//OSDebugOut(TEXT("dfp: axis_z=0x%02x, axis_rz=0x%02x\n"), dfp_data.axis_z, dfp_data.axis_rz);
 
 		dfp_data.magic1 = 1;
 		dfp_data.magic2 = 1;
@@ -437,7 +437,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 			0 << 7 ;
 
 		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
-		PrintBits(&dfp_data, sizeof(dfp_data_t));
+		//PrintBits(&dfp_data, sizeof(dfp_data_t));
 
 		break;
 
