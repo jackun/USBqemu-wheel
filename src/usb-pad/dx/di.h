@@ -6,10 +6,10 @@
 
 #define SAMPLE_BUFFER_SIZE 16
 
-LPDIRECTINPUT8       g_pDI       = NULL;        
+LPDIRECTINPUT8       g_pDI       = NULL;
 LPDIRECTINPUTDEVICE8 g_pKeyboard = NULL;
-LPDIRECTINPUTDEVICE8 g_pMouse	 = NULL;  
-LPDIRECTINPUTDEVICE8 g_pJoysticks[10] = {NULL}; 
+LPDIRECTINPUTDEVICE8 g_pMouse	 = NULL;
+LPDIRECTINPUTDEVICE8 g_pJoysticks[10] = {NULL};
 
 //only two effect (constant force, spring)
 bool FFB[2] = { false };
@@ -31,11 +31,11 @@ DICONDITION cFriction;
 DIRAMPFORCE cRamp;
 DICONDITION cDamper;
 
-BYTE diks[256];							// DirectInput keyboard state buffer 
+BYTE diks[256];							// DirectInput keyboard state buffer
 DIMOUSESTATE2 dims2;					// DirectInput mouse state structure
-DIJOYSTATE2 js[10] = {NULL};			// DInput joystick state 
-DIJOYSTATE2 jso[10] = {NULL};           // DInput joystick old state 
-DIJOYSTATE2 jsi[10] = {NULL};           // DInput joystick initial state 
+DIJOYSTATE2 js[10] = {NULL};			// DInput joystick state
+DIJOYSTATE2 jso[10] = {NULL};           // DInput joystick old state
+DIJOYSTATE2 jsi[10] = {NULL};           // DInput joystick initial state
 
 
 DWORD numj = 0;							//current attached joysticks
@@ -70,15 +70,15 @@ void FreeDirectInput()
 			g_pEffectDamper[i]->Stop();
 	}
 
-    // Unacquire the device one last time just in case 
+    // Unacquire the device one last time just in case
     // the app tried to exit while the device is still acquired.
-    if( g_pKeyboard ) 
+    if( g_pKeyboard )
         g_pKeyboard->Unacquire();
-	if( g_pMouse ) 
+	if( g_pMouse )
         g_pMouse->Unacquire();
 
 	for(DWORD i=0; i<numj; i++){
-		if( g_pJoysticks[i] ) 
+		if( g_pJoysticks[i] )
 			g_pJoysticks[i]->Unacquire();
 	}
 
@@ -101,7 +101,7 @@ BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
                                      VOID* pContext )
 {
     HRESULT hr;
-	
+
     // Obtain an interface to the enumerated joystick.
     hr = g_pDI->CreateDevice( pdidInstance->guidInstance, &g_pJoysticks[numj], NULL );
 	numj++;
@@ -121,18 +121,18 @@ BOOL CALLBACK EnumObjectsCallback( const DIDEVICEOBJECTINSTANCE* pdidoi,
     // enumerated axis in order to scale min/max values.
     if( pdidoi->dwType & DIDFT_AXIS )
     {
-        DIPROPRANGE diprg; 
-        diprg.diph.dwSize       = sizeof(DIPROPRANGE); 
-        diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER); 
-        diprg.diph.dwHow        = DIPH_BYID; 
+        DIPROPRANGE diprg;
+        diprg.diph.dwSize       = sizeof(DIPROPRANGE);
+        diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+        diprg.diph.dwHow        = DIPH_BYID;
         diprg.diph.dwObj        = pdidoi->dwType; // Specify the enumerated axis
-        diprg.lMin              = -1000; 
-        diprg.lMax              = +1000; 
-    
+        diprg.lMin              = -1000;
+        diprg.lMax              = +1000;
+
         // Set the range for the axis  (not used, DX defaults 65535 all axis)
-        //if( FAILED( g_pJoystick->SetProperty( DIPROP_RANGE, &diprg.diph ) ) ) 
+        //if( FAILED( g_pJoystick->SetProperty( DIPROP_RANGE, &diprg.diph ) ) )
         //    return DIENUM_STOP;
-         
+
     }
 
     return DIENUM_CONTINUE;
@@ -145,11 +145,11 @@ void PollDevices()
 	HRESULT hr;
 
 	//KEYBOARD
-	if( g_pKeyboard ) 
+	if( g_pKeyboard )
 	{
 		ZeroMemory( diks, sizeof(diks) );
 		hr = g_pKeyboard->GetDeviceState( sizeof(diks), diks );
-		if( FAILED(hr) ) 
+		if( FAILED(hr) )
 		{
 			g_pKeyboard->Acquire();
 		}
@@ -161,16 +161,16 @@ void PollDevices()
 		ZeroMemory( &dims2, sizeof(dims2) );
 		hr = g_pMouse->GetDeviceState( sizeof(DIMOUSESTATE2), &dims2 );
 
-		if( FAILED(hr) ) 
+		if( FAILED(hr) )
 			g_pMouse->Acquire();
 	}
 
 	//JOYSTICK
 	for(DWORD i=0; i<numj; i++){
-		if( g_pJoysticks[i] ) 
+		if( g_pJoysticks[i] )
 		{
-			hr = g_pJoysticks[i]->Poll(); 
-			if( FAILED(hr) )  
+			hr = g_pJoysticks[i]->Poll();
+			if( FAILED(hr) )
 			{
 				g_pJoysticks[i]->Acquire();
 
@@ -178,7 +178,7 @@ void PollDevices()
 			else
 			{
 				g_pJoysticks[i]->GetDeviceState( sizeof(DIJOYSTATE2), &js[i] );
-				
+
 			}
 		}
 	}
@@ -192,14 +192,14 @@ bool KeyDown(DWORD KeyID)
 	//Check keyboard
 	if (KeyID < 256)
 	{
-		if( g_pKeyboard ) 
+		if( g_pKeyboard )
 			if ( diks[KeyID] & 0x80 )
 				return true;
 	}
 	//Check mouse
 	if (KeyID > 256 && KeyID < 265)
 	{
-		if( g_pMouse ) 
+		if( g_pMouse )
 			if ( dims2.rgbButtons[KeyID - 257] & 0x80 )
 				return true;
 	}
@@ -210,7 +210,7 @@ bool KeyDown(DWORD KeyID)
 	{
 		int i = (KeyID-265)*0.015625f;  //get controller index
 		int b = (KeyID-265)-i*64; //get button index
-		if( g_pJoysticks[i] ) 
+		if( g_pJoysticks[i] )
 		{
 			if(b<32){
 				if ( js[i].rgbButtons[b] & 0x80 )
@@ -292,7 +292,7 @@ bool KeyDown(DWORD KeyID)
 						break;
 					default:return false;break;//still 16 more reserved cases..
 				}
-				
+
 			}
 		}
 	}
@@ -306,10 +306,10 @@ bool KeyDown(DWORD KeyID)
 //the non-linear filter (input/output 0.0-1.0 only) (parameters -50 to +50)
 float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 {
-	
+
 	//ugly, but it works gooood
 
-	
+
 	float hs=0;
 	if(linear>0){hs = (float)(1.0-((linear*2) *(float)0.01));}	//format+shorten variable
 	else{hs = (float)(1.0-(abs(linear*2) *(float)0.01));}		//format+shorten variable
@@ -319,7 +319,7 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 
 
 	//format and apply deadzone
-	v=(v*(1.0f+(d*2.0)))-d; 
+	v=(v*(1.0f+(d*2.0)))-d;
 
 	//clamp
 	if(v<0.0f)v=0.0f;
@@ -337,10 +337,10 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 	float c4 = ((v - pow((float)v , (float)(1.0 / hs))));
 	float res = 0;
 
-	
+
 	if(linear<0){res = v - (((1.0f - hs2) * c3) + (hs2 * c4));}		//get negative result
 	else{res = v - (((1.0f - hs2) * c1) + (hs2 * c2));}				//get positive result
-	
+
 
 
 	//return our result
@@ -357,7 +357,7 @@ float ReadAxis(LONG axisid, LONG inverted, LONG initial)
 
 	int i = axisid*0.125;  //obtain controller index
 	int ax = axisid-i*8;  //obtain axis index
-	
+
 	if (initial > 60000) // origin somewhere near top
 	{
 		if(ax == 0) retval =  (65535-js[i].lX) * (1.0f/65535);
@@ -469,7 +469,7 @@ bool AxisDown(LONG axisid, LONG & inverted, LONG & initial)
 			LONG lSlider1diff = js[i].rglSlider[0] - jso[i].rglSlider[0];
 			LONG lSlider2diff = js[i].rglSlider[1] - jso[i].rglSlider[1];
 
-			
+
 			if(axisid-i*8 == 0 && lXdiff > detectrange) { initial = jsi[i].lX; inverted = true; return true;}
 			if(axisid-i*8 == 0 && lXdiff < -detectrange) {initial = jsi[i].lX; inverted = false; return true;}
 
@@ -510,22 +510,22 @@ bool FindControl(LONG & axis,LONG & inverted, LONG & initial, LONG & button)
 				listennext = listeninterval+GetTickCount();
 				ListenUpdate();
 				for(int i = 0; i<160;i++){
-					if(AxisDown(i, inverted, initial)){ 
-						listening = false; 
-						axis=i; 
+					if(AxisDown(i, inverted, initial)){
+						listening = false;
+						axis=i;
 						button=-1;
 						return true;
 					}
 				}
 				for(int i = 0; i<904;i++){
-					if(KeyDown(i)){ 
-						listening = false; 
-						axis=-1; 
-						button=i; 
+					if(KeyDown(i)){
+						listening = false;
+						axis=-1;
+						button=i;
 						return true;
 					}
 				}
-				
+
 			}
 		}else{
 			listening=false;
@@ -539,14 +539,14 @@ void AutoCenter(int jid, bool onoff)
 {
 	if(jid<0)return;
 	//disable the auto-centering spring.
-	DIPROPDWORD dipdw; 
+	DIPROPDWORD dipdw;
  	dipdw.diph.dwSize       = sizeof(DIPROPDWORD);
 	dipdw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
 	dipdw.diph.dwObj        = 0;
 	dipdw.diph.dwHow        = DIPH_DEVICE;
 	dipdw.dwData            = onoff;
 
-	g_pJoysticks[jid]->SetProperty( DIPROP_AUTOCENTER, &dipdw.diph );  
+	g_pJoysticks[jid]->SetProperty( DIPROP_AUTOCENTER, &dipdw.diph );
 }
 
 //set left/right ffb torque
@@ -561,11 +561,11 @@ void SetConstantForce(int port, LONG magnitude)
 		cfw.lMagnitude = (127-magnitude) * 78.4803149606299;
 	else
 		cfw.lMagnitude = -(127-magnitude) * 78.4803149606299;
-	
+
 	if(g_pEffect[port]) {
 		g_pEffect[port]->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 
-			
+
 		//DWORD flags;
 		//g_pEffect->GetEffectStatus(&flags);
 
@@ -623,7 +623,7 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires)
 		dead1 = (dead1 << 3) | ((spring.slope1 >> 1) & 0x7);
 		dead1 = (dead1 << 3) | ((spring.slope2 >> 1) & 0x7);
 	}
-	
+
 	//guess work
 	dead1 *= DI_FFNOMINALMAX / (hires ? 0x7FF : 0xFF);
 	dead2 *= DI_FFNOMINALMAX / (hires ? 0x7FF : 0xFF);
@@ -663,7 +663,7 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires)
 	OSDebugOut(TEXT("spring: %d %d/%d %d/%d %d\n"), cSpring.lOffset,
 		cSpring.lNegativeCoefficient, cSpring.lPositiveCoefficient,
 		cSpring.dwNegativeSaturation, cSpring.dwPositiveSaturation, cSpring.lDeadBand);
-	
+
 	if (g_pEffectSpring[port])
 			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
@@ -757,7 +757,7 @@ void TestForce(int port)
 HRESULT InitDirectInput( HWND hWindow, int port )
 {
 
-    HRESULT hr; 
+    HRESULT hr;
 
 	//release any previous resources
 	swprintf_s(logstring, L"DINPUT: FreeDirectInput %p", hWin);WriteLogFile(logstring);
@@ -819,16 +819,16 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			//TODO Select joystick for FFB that has X axis (assumed!!) mapped as wheel
 			int joyid = AXISID[port][0] * 0.125;
 
-			//has ffb?  
+			//has ffb?
 			if(FFB[port] == false && joyid == i && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
 				//First FFB device detected
-				
+
 				//create effect
 				try{
-					
+
 					//Exclusive
 					g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
- 
+
 					AutoCenter(i, false);  //just keep it off for all wheels
 
 					//create the constant force effect
@@ -856,7 +856,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 					eff.dwDuration              = INFINITE;
 
 					cfw.lMagnitude = 0;
-					
+
 					eff.cbTypeSpecificParams    = sizeof(DICONSTANTFORCE);
 					eff.lpvTypeSpecificParams   = &cfw;
 					g_pJoysticks[i]->CreateEffect( GUID_ConstantForce, &eff, &g_pEffect[port], NULL );
@@ -892,7 +892,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			}
 			else
 				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
-			
+
 			if (refCount == 1)
 			{
 				swprintf_s(logstring, L"DINPUT: EnumObjects Joystick %i", i); WriteLogFile(logstring);
