@@ -621,7 +621,7 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires)
 	if (hires)
 	{
 		dead1 = (dead1 << 3) | ((spring.slope1 >> 1) & 0x7);
-		dead1 = (dead1 << 3) | ((spring.slope2 >> 1) & 0x7);
+		dead2 = (dead2 << 3) | ((spring.slope2 >> 1) & 0x7);
 	}
 
 	//guess work
@@ -634,7 +634,7 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires)
 
 	static float coeffs1[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 2.f, 3.f, 4.f };
 	static float coeffs2[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 3.f, 2.f, 4.f }; //DFP
-	float* coeffs = hires ? coeffs2 : coeffs1;
+	float* coeffs = /* isdfp ? coeffs2 : */ coeffs1;
 	if (off1 < off2)
 		offset = off1;
 	else
@@ -643,9 +643,6 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires)
 	// no idea
 	if (!hires && spring.k1 < ARRAYSIZE(coeffs1) && spring.k2 < ARRAYSIZE(coeffs1))
 	{
-		//cSpring.lNegativeCoefficient = offset * coeffs[spring.k1];
-		//cSpring.lPositiveCoefficient = offset * coeffs[spring.k2];
-
 		cSpring.dwNegativeSaturation = offset * coeffs[spring.k1];
 		cSpring.dwPositiveSaturation = offset * coeffs[spring.k2];
 	}
