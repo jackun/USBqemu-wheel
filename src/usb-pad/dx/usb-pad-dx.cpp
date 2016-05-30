@@ -209,7 +209,7 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 				break;
 			case FTYPE_VARIABLE: //Ramp-like
 				if (!calibrating)
-					//SetRamp(mPort, ffdata->u.variable);
+					//SetRampVariable(mPort, ffdata->u.variable);
 					SetConstantForce(mPort, ffdata->u.params[0]);
 				break;
 			//case FTYPE_HIGH_RESOLUTION_SPRING:
@@ -242,7 +242,7 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 					calibrationtime = GetTickCount();
 				}
 				DisableConstantForce(mPort);
-				SetSpringForce(mPort, DI_FFNOMINALMAX + 1, spring { 0 }, hires);
+				DisableSpring(mPort);
 			}
 			else
 			{
