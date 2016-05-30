@@ -512,16 +512,6 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
                 break;
             case 3:
                 /* serial number */
-                // Example Serial Number Format ???
-                // Offset Field           Size Value Description
-                // 0      bLength         Byte   ??h Size of this descriptor in bytes - Minimum of 26 (1Ah)
-                // 1      bDescriptorType Byte   03h STRING descriptor type
-                // 2      wString1        Word 00??h
-                // 4      wString2        Word 00??h
-                // 6      wString3        Word 00??h
-                // :      :               :
-                // :      :               :
-                // n x 2  wStringn        Word
                 ret = set_usb_string(data, "1", length);
                 break;
             default:
