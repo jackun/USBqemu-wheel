@@ -35,7 +35,6 @@ public:
 		return std::vector<CONFIGVARIANT>();
 	}
 protected:
-	int mPort;
 	HIDP_CAPS caps;
 	HIDD_ATTRIBUTES attr;
 	//PHIDP_PREPARSED_DATA pPreparsedData;
@@ -52,6 +51,7 @@ protected:
 	uint32_t reportInSize;// = 0;
 	uint32_t reportOutSize;// = 0;
 	bool doPassthrough;
+	wheel_data_t mDataCopy;
 };
 
 int RawInputPad::TokenIn(uint8_t *buf, int len)
@@ -59,6 +59,7 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 	uint8_t data[64];
 	DWORD waitRes;
 	ULONG value = 0;
+	int ply = 1 - mPort;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
 	if(this->doPassthrough && this->usbHandle != INVALID_HANDLE_VALUE)
@@ -88,48 +89,54 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 		return len;
 	}
 
+	int copied = 0;
 	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
 	for(; it!=mapVector.end(); it++)
 	{
-#if 0
-		//Yeah, but what if first is not a wheel with mapped axes...
-		if(false && it == mapVector.begin())
+
+		if (data_summed.steering < (*it).data[ply].steering)
 		{
-			if((*it)->data[mPort].steering != 0xFFFFFFFF)
-				data_summed.steering = (*it)->data[mPort].steering;
-
-			if((*it)->data[mPort].clutch != 0xFFFFFFFF)
-				data_summed.clutch = (*it)->data[mPort].clutch;
-
-			if((*it)->data[mPort].throttle != 0xFFFFFFFF)
-				data_summed.throttle = (*it)->data[mPort].throttle;
-
-			if((*it)->data[mPort].brake != 0xFFFFFFFF)
-				data_summed.brake = (*it)->data[mPort].brake;
-		}
-		else
-#endif
-		{
-			if(data_summed.steering < (*it).data[mPort].steering)
-				data_summed.steering = (*it).data[mPort].steering;
-
-			if(data_summed.clutch < (*it).data[mPort].clutch)
-				data_summed.clutch = (*it).data[mPort].clutch;
-
-			if(data_summed.throttle < (*it).data[mPort].throttle)
-				data_summed.throttle = (*it).data[mPort].throttle;
-
-			if(data_summed.brake < (*it).data[mPort].brake)
-				data_summed.brake = (*it).data[mPort].brake;
+			data_summed.steering = (*it).data[ply].steering;
+			copied |= 1;
 		}
 
-		data_summed.buttons |= (*it).data[mPort].buttons;
-		if(data_summed.hatswitch > (*it).data[mPort].hatswitch)
-			data_summed.hatswitch = (*it).data[mPort].hatswitch;
+		//if(data_summed.clutch < (*it).data[ply].clutch)
+		//	data_summed.clutch = (*it).data[ply].clutch;
+
+		if (data_summed.throttle < (*it).data[ply].throttle)
+		{
+			data_summed.throttle = (*it).data[ply].throttle;
+			copied |= 2;
+		}
+
+		if (data_summed.brake < (*it).data[ply].brake)
+		{
+			data_summed.brake = (*it).data[ply].brake;
+			copied |= 4;
+		}
+
+		data_summed.buttons |= (*it).data[ply].buttons;
+		if(data_summed.hatswitch > (*it).data[ply].hatswitch)
+			data_summed.hatswitch = (*it).data[ply].hatswitch;
+	}
+
+	if (!copied)
+		memcpy(&data_summed, &mDataCopy, sizeof(wheel_data_t));
+	else
+	{
+		if (!(copied & 1))
+			data_summed.steering = mDataCopy.steering;
+		if (!(copied & 2))
+			data_summed.throttle = mDataCopy.throttle;
+		if (!(copied & 4))
+			data_summed.brake = mDataCopy.brake;
 	}
 
 	pad_copy_data(mType, buf, data_summed);
+
+	if (copied)
+		memcpy(&mDataCopy, &data_summed, sizeof(wheel_data_t));
 	return len;
 }
 
@@ -142,8 +149,9 @@ int RawInputPad::TokenOut(const uint8_t *data, int len)
 	if(this->usbHandle == INVALID_HANDLE_VALUE) return 0;
 
 	if(data[0] == 0x8 || data[0] == 0xB) return len;
-	if(data[0] == 0xF8 && data[1] == 0x5) 
-		sendCrap = true;
+	//if(data[0] == 0xF8 && data[1] == 0x5) 
+	//	sendCrap = true;
+	if (data[0] == 0xF8) return len; //don't send extended commands
 	//If i'm reading it correctly MOMO report size for output has Report Size(8) and Report Count(7), so that's 7 bytes
 	//Now move that 7 bytes over by one and add report id of 0 (right?). Supposedly mandatory for HIDs.
 	memcpy(outbuf + 1, data, len - 1);

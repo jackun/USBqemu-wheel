@@ -861,10 +861,10 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 					INT_PTR res = RESULT_OK;
 					CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
 					var.wstrValue = player_joys[0];
-					if (!SaveSetting(0, APINAME, var))
+					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
 						res = RESULT_FAILED;
 					var.wstrValue = player_joys[1];
-					if (!SaveSetting(1, APINAME, var))
+					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
 						res = RESULT_FAILED;
 					SaveMappings(mapVector);
 					EndDialog(hW, res);
