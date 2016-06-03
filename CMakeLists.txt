@@ -28,7 +28,7 @@ IF(WIN32)
 	OPTION (PLUGIN_BUILD_WITH_DXSDK "Build with DX 2010 SDK" FALSE)
 	OPTION (PLUGIN_FIND_WINSDK "Find Windows SDK if your build tools don't include it automatically" FALSE)
 ELSE(WIN32)
-	OPTION (PLUGIN_BUILD_PULSE "Build with PulseAudio" TRUE)
+	OPTION (PLUGIN_BUILD_PULSE "Build with PulseAudio (dynamically loaded)" TRUE)
 	IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 		ADD_DEFINITIONS(-D_DEBUG=1)
 	ENDIF()
@@ -223,8 +223,8 @@ IF(WIN32)
 		)
 		SOURCE_GROUP("Header Files\\usb-pad\\Dx" FILES ${HDRS_DX})
 		SOURCE_GROUP("Source Files\\usb-pad\\Dx" FILES ${SRCS_DX})
-		LIST(APPEND HDRS ${HDRS_DX})
-		LIST(APPEND SRCS ${SRCS_DX})
+		LIST(APPEND HDRS_PAD ${HDRS_DX})
+		LIST(APPEND SRCS_PAD ${SRCS_DX})
 		LIST(APPEND LIBS dxguid dinput8 Comctl32)
 		FILE(GLOB DX_RCS ./src/usb-pad/dx/*.rc)
 	ENDIF(NOT PLUGIN_BUILD_DX)
@@ -244,8 +244,8 @@ IF(WIN32)
 		SOURCE_GROUP("Header Files\\usb-pad\\Raw" FILES ${HDRS_RAW})
 		SOURCE_GROUP("Source Files\\usb-pad\\Raw" FILES ${SRCS_RAW})
 		
-		LIST(APPEND HDRS ${HDRS_RAW})
-		LIST(APPEND SRCS ${SRCS_RAW})
+		LIST(APPEND HDRS_PAD ${HDRS_RAW})
+		LIST(APPEND SRCS_PAD ${SRCS_RAW})
 		LIST(APPEND LIBS setupapi)
 		FILE(GLOB RAW_RCS ./src/usb-pad/raw/*.rc)
 	ENDIF(PLUGIN_BUILD_RAW)
@@ -260,10 +260,14 @@ IF(UNIX)
 		./src/linux/actualfile.h
 		./src/linux/config.h
 	)
-	LIST(APPEND SRCS
+	LIST(APPEND SRCS_QEMU
 		./src/qemu-usb/usb-msd-gtk.cpp
+	)
+	LIST(APPEND SRCS_PAD
 		./src/usb-pad/joydev/joydev.cpp
 		./src/usb-pad/joydev/joydev-gtk.cpp
+	)
+	LIST(APPEND SRCS
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
 		./src/linux/ini.c
@@ -271,10 +275,10 @@ IF(UNIX)
 	)
 
 	IF(PLUGIN_BUILD_PULSE)
-		LIST(APPEND HDRS
+		LIST(APPEND HDRS_MIC
 			./src/dynlink/pulse.h
 		)
-		LIST(APPEND SRCS
+		LIST(APPEND SRCS_MIC
 			./src/usb-mic/audiosrc-pulse.cpp
 			./src/dynlink/pulse.cpp
 		)
@@ -297,7 +301,7 @@ LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)
-enable_unity_build("libsamplerate" SRCS_SAMPLERATE)
+enable_unity_build("${TargetName}_libsamplerate" SRCS_SAMPLERATE)
 ENDIF(PLUGIN_ENABLE_UNITY_BUILD)
 
 ADD_LIBRARY(${TargetName} SHARED ${SRCS} ${SRCS_SAMPLERATE} ${HDRS} ${RAW_RCS} ${DX_RCS} ${RCS} ${DEF})
