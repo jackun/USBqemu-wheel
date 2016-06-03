@@ -39,7 +39,7 @@ enum CONTROLID
 class DInputPad : public Pad
 {
 public:
-	DInputPad(int port) : Pad(port) {}
+	DInputPad(int port) : Pad(port), mUseRamp(false){}
 	~DInputPad() { FreeDirectInput(); }
 	int Open();
 	int Close();
@@ -58,6 +58,8 @@ public:
 		//TODO GetSettings()
 		return std::vector<CONFIGVARIANT>();
 	}
+private:
+	bool mUseRamp;
 };
 
 static inline int range_max(PS2WheelTypes type)
@@ -165,11 +167,11 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 {
 	ff_data *ffdata = (ff_data*)data;
 
-	OSDebugOut(TEXT("FFB %02X, %02X, %02X, %02X : %02X, %02X, %02X, %02X\n"),
+	OSDebugOut(TEXT("FFB %02X, %02X : %02X, %02X : %02X, %02X : %02X, %02X\n"),
 		ffdata->cmdslot, ffdata->type, ffdata->u.params[0], ffdata->u.params[1],
 		ffdata->u.params[2], ffdata->u.params[3], ffdata->u.params[4], ffdata->padd0);
 
-	bool hires = (mType == WT_DRIVING_FORCE_PRO);
+	bool isdfp = (mType == WT_DRIVING_FORCE_PRO);
 	if (ffdata->cmdslot != CMD_EXTENDED_CMD)
 	{
 
@@ -192,6 +194,8 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 				if (slots & (1 << i))
 				{
 					mFFstate.slot_type[i] = ffdata->type;
+					// TODO save state, reapply from open()
+					//memcpy(&mFFstate.slot_ffdata[i], ffdata, sizeof(ff_data));
 					if (ffdata->type == FTYPE_CONSTANT)
 						mFFstate.slot_force[i] = ffdata->u.params[i];
 				}
@@ -204,25 +208,28 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 					SetConstantForce(mPort, ffdata->u.params[2]); //DF/GTF and GT3
 				break;
 			case FTYPE_SPRING:
+				SetSpringForce(mPort, NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, false, isdfp);
+				break;
 			case FTYPE_HIGH_RESOLUTION_SPRING:
-				SetSpringForce(mPort, NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, hires);
+				SetSpringForce(mPort, NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, true, isdfp);
 				break;
 			case FTYPE_VARIABLE: //Ramp-like
 				if (!calibrating)
-					//SetRampVariable(mPort, ffdata->u.variable);
-					SetConstantForce(mPort, ffdata->u.params[0]);
+				{
+					if (mUseRamp)
+						SetRampVariable(mPort, slots, ffdata->u.variable);
+					else
+						SetConstantForce(mPort, ffdata->u.params[0]);
+				}
 				break;
-			//case FTYPE_HIGH_RESOLUTION_SPRING:
-			//	SetSpringSlopeForce(mPort, ffdata->u.spring);
-			//	break;
 			case FTYPE_FRICTION:
 				SetFrictionForce(mPort, ffdata->u.friction);
 				break;
 			case FTYPE_DAMPER:
-				SetDamper(mPort, ffdata->u.damper, false);
+				//SetDamper(mPort, ffdata->u.damper, false);
 				break;
 			case FTYPE_HIGH_RESOLUTION_DAMPER:
-				SetDamper(mPort, ffdata->u.damper, hires);
+				//SetDamper(mPort, ffdata->u.damper, hires);
 				break;
 			default:
 				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
@@ -256,8 +263,10 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 							DisableConstantForce(mPort);
 							break;
 						case FTYPE_VARIABLE:
-							//DisableRamp(mPort);
-							DisableConstantForce(mPort);
+							if (mUseRamp)
+								DisableRamp(mPort);
+							else
+								DisableConstantForce(mPort);
 							break;
 						case FTYPE_SPRING:
 						case FTYPE_HIGH_RESOLUTION_SPRING:
@@ -329,6 +338,9 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 
 int DInputPad::Open()
 {
+	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
+	if (LoadSetting(mPort, APINAME, var))
+		mUseRamp = var.boolValue;
 	InitDI(mPort);
 	return 0;
 }

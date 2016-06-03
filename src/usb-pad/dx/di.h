@@ -583,23 +583,43 @@ void DisableConstantForce(int port)
 		g_pEffect[port]->Stop();
 }
 
-void SetRamp(int port, const variable& var)
+void SetRamp(int port, const ramp& var)
+{
+}
+
+void SetRampVariable(int port, int forceids, const variable& var)
 {
 	if (FFBindex[port] == -1) return;
 
-	if (INVERTFORCES[port])
+	// one main loop is 2ms, too erratic
+	effRamp.dwDuration = 2000 * (var.t1 + 1) * 25;
+
+	// Force0 only (Force2 is Y axis?)
+	if (forceids & 1)
 	{
-		cRamp.lStart = (128 - var.initial_lvl_1) * 78.4803149606299;
-		cRamp.lEnd = (128 - var.initial_lvl_2) * 78.4803149606299;
-	}
-	else
-	{
-		cRamp.lStart = -(128 - var.initial_lvl_1) * 78.4803149606299;
-		cRamp.lEnd = -(128 - var.initial_lvl_2) * 78.4803149606299;
+		int force = var.initial1;
+		int dir = (var.d1 & 1 ? 1 : -1);
+
+		if (INVERTFORCES[port])
+		{
+			cRamp.lStart = (127 - force) * DI_FFNOMINALMAX / 128;
+			int sign = 1;
+			if (cRamp.lStart < 0) sign = -1; // pull to force's direction?
+			cRamp.lEnd = sign * DI_FFNOMINALMAX * dir;
+		}
+		else
+		{
+			cRamp.lStart = -(127 - force) * DI_FFNOMINALMAX / 128;
+			//int sign = -1;
+			//if (cRamp.lStart < 0) sign = 1; // pull to force's direction?
+			//cRamp.lEnd = sign * DI_FFNOMINALMAX * dir; // or to center?
+			cRamp.lEnd = -(127 -(force + /* var.t1 **/ var.s1 * dir)) * DI_FFNOMINALMAX / 128;
+		}
 	}
 
 	if (g_pEffectRamp[port])
-		g_pEffectRamp[port]->SetParameters(&effRamp, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+		g_pEffectRamp[port]->SetParameters(&effRamp,
+				DIEP_TYPESPECIFICPARAMS | DIEP_START | DIEP_DURATION);
 }
 
 void DisableRamp(int port)
@@ -609,57 +629,74 @@ void DisableRamp(int port)
 }
 
 //set spring offset  (not used by ps2? only rfactor pc i think.  using as centering spring hack)
-void SetSpringForce(int port, int position, const spring& spring, bool hires)
+void SetSpringForce(int port, int position, const spring& spring, bool hires, bool isdfp)
 {
-	//if(magnitude == 0)
-	//{
-	//	g_pEffectSpring->Stop();
-	//}
-
+	// broken maths by reversing linux ff-memless-next patch
+	int deadband, center;
 	int dead1 = spring.dead1;
 	int dead2 = spring.dead2;
+
+	int sign1 = spring.s1 & 1 ? -1 : 1;
+	int sign2 = spring.s2 & 1 ? -1 : 1;
+
+	if (hires) //XXX enthusia doesn't set deadbands' low bits though
+	{
+		dead1 = (dead1 << 3) | ((spring.s1 >> 1) & 0x7);
+		dead2 = (dead2 << 3) | ((spring.s2 >> 1) & 0x7);
+
+		//deadband = (dead2 << 5) - (dead1 << 5);
+		deadband = (dead2 * DI_FFNOMINALMAX / 1024) - (dead1 * DI_FFNOMINALMAX / 1024);
+
+		//center = ((dead2 << 5) - 0x8000 + (dead1 << 5) - 0x8000 ) / 2;
+		//center = (((dead2 + dead1) << 5) - 0x10000) / 2; //or above reduced
+		//XXX straight to DI_FFNOMINALMAX
+		center = ((dead2 + dead1) * DI_FFNOMINALMAX / 1024 - (2 * DI_FFNOMINALMAX)) / 2;
+	}
+	else
+	{
+		deadband = (dead2 * DI_FFNOMINALMAX / 128) - (dead1 * DI_FFNOMINALMAX / 128);
+		center = ((dead2 + dead1) * DI_FFNOMINALMAX / 128 - (2 * DI_FFNOMINALMAX)) / 2;
+	}
+
+	//int offset;
+	//int off1 = std::abs(-dead1 - position);
+	//int off2 = std::abs(dead2 - position);
+	//if (off1 < off2)
+		//offset = off1;
+	//else
+		//offset = off2;
+
+	static const float coeffs1[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 2.f, 3.f, 4.f };
+	static const float coeffs2[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 3.f, 2.f, 4.f }; //DFP
+	const float *coeffs = isdfp ? coeffs2 : coeffs1;
+
 	if (hires)
 	{
-		dead1 = (dead1 << 3) | ((spring.slope1 >> 1) & 0x7);
-		dead2 = (dead2 << 3) | ((spring.slope2 >> 1) & 0x7);
-	}
-
-	//guess work
-	dead1 *= DI_FFNOMINALMAX / (hires ? 0x7FF : 0xFF);
-	dead2 *= DI_FFNOMINALMAX / (hires ? 0x7FF : 0xFF);
-
-	int offset;
-	int off1 = std::abs(-dead1 - position);
-	int off2 = std::abs(dead2 - position);
-
-	static float coeffs1[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 2.f, 3.f, 4.f };
-	static float coeffs2[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 3.f, 2.f, 4.f }; //DFP
-	float* coeffs = /* isdfp ? coeffs2 : */ coeffs1;
-	if (off1 < off2)
-		offset = off1;
-	else
-		offset = off2;
-
-	// no idea
-	if (!hires && spring.k1 < ARRAYSIZE(coeffs1) && spring.k2 < ARRAYSIZE(coeffs1))
-	{
-		cSpring.dwNegativeSaturation = offset * coeffs[spring.k1];
-		cSpring.dwPositiveSaturation = offset * coeffs[spring.k2];
+		cSpring.lNegativeCoefficient = sign1 * spring.k1 * DI_FFNOMINALMAX / 16;
+		cSpring.lPositiveCoefficient = sign2 * spring.k2 * DI_FFNOMINALMAX / 16;
 	}
 	else
 	{
-		cSpring.dwNegativeSaturation = DI_FFNOMINALMAX * spring.k1 / 15;
-		cSpring.dwPositiveSaturation = DI_FFNOMINALMAX * spring.k2 / 15;
+		// FIXME
+		cSpring.lNegativeCoefficient = center * coeffs[spring.k1 & 7];
+		cSpring.lPositiveCoefficient = center * coeffs[spring.k2 & 7];
 	}
 
-	cSpring.lOffset = 0; // offset;
-	cSpring.lNegativeCoefficient = DI_FFNOMINALMAX * spring.dead1 / 255;
-	cSpring.lPositiveCoefficient = DI_FFNOMINALMAX * spring.dead2 / 255;
-	cSpring.lDeadBand = 0;
+	cSpring.dwNegativeSaturation = spring.clip * DI_FFNOMINALMAX / 256;
+	cSpring.dwPositiveSaturation = cSpring.dwNegativeSaturation;
 
-	OSDebugOut(TEXT("spring: %d %d/%d %d/%d %d\n"), cSpring.lOffset,
+	//int check_x = (center - deadband/2 + 0x8000) >> 5;
+	//int check_y = (center + deadband/2 + 0x8000) >> 5;
+
+	cSpring.lOffset = center;// * DI_FFNOMINALMAX / 0x8000;
+	cSpring.lDeadBand = deadband; // * DI_FFNOMINALMAX / 0x1fff;
+
+	//OSDebugOut(TEXT("spring check: %d/%d = %d/%d\n"), dead1, dead2, check_x, check_y);
+
+	OSDebugOut(TEXT("spring: %d  %d coeff:%d/%d sat:%d/%d\n"),
+		cSpring.lOffset, cSpring.lDeadBand,
 		cSpring.lNegativeCoefficient, cSpring.lPositiveCoefficient,
-		cSpring.dwNegativeSaturation, cSpring.dwPositiveSaturation, cSpring.lDeadBand);
+		cSpring.dwNegativeSaturation, cSpring.dwPositiveSaturation);
 
 	if (g_pEffectSpring[port])
 			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
@@ -674,10 +711,10 @@ void DisableSpring(int port)
 void SetDamper(int port, const damper& damper, bool isdfp)
 {
 	//noidea(TM)
-	cDamper.lNegativeCoefficient = DI_FFNOMINALMAX * damper.k1 / 15;
-	cDamper.lPositiveCoefficient = DI_FFNOMINALMAX * damper.k2 / 15;
-	cDamper.dwNegativeSaturation = DI_FFNOMINALMAX;
-	cDamper.dwPositiveSaturation = DI_FFNOMINALMAX;
+	cDamper.lNegativeCoefficient = DI_FFNOMINALMAX * damper.k1 / 15 * (damper.s1 & 1 ? -1 : 1);
+	cDamper.lPositiveCoefficient = DI_FFNOMINALMAX * damper.k2 / 15 * (damper.s2 & 1 ? -1 : 1);
+	cDamper.dwNegativeSaturation = 0;
+	cDamper.dwPositiveSaturation = 0;
 
 	if (isdfp)
 	{
@@ -698,8 +735,8 @@ void DisableDamper(int port)
 void SetSpringSlopeForce(int port, const spring& spring)
 {
 	cSpring.lOffset = 0;
-	cSpring.lNegativeCoefficient = (spring.slope1 & 1 ? -1 : 1) * spring.k1 * 10000 / 15;
-	cSpring.lPositiveCoefficient = (spring.slope2 & 1 ? -1 : 1) * spring.k2 * 10000 / 15;
+	cSpring.lNegativeCoefficient = (spring.s1 & 1 ? -1 : 1) * spring.k1 * 10000 / 15;
+	cSpring.lPositiveCoefficient = (spring.s2 & 1 ? -1 : 1) * spring.k2 * 10000 / 15;
 	cSpring.dwNegativeSaturation = spring.dead1 * 10000 / 0xFF;
 	cSpring.dwPositiveSaturation = spring.dead2 * 10000 / 0xFF;
 	cSpring.lDeadBand = 0;
@@ -843,7 +880,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 					eff.dwSize                  = sizeof(DIEFFECT);
 					eff.dwFlags                 = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
 					eff.dwSamplePeriod          = 0;
-					eff.dwGain                  = 10000;
+					eff.dwGain                  = MIN(MAX(GAINZ[port][0], 0), 10000);
 					eff.dwTriggerButton         = DIEB_NOTRIGGER;
 					eff.dwTriggerRepeatInterval = 0;
 					eff.cAxes                   = 1;

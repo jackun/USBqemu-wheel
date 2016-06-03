@@ -20,6 +20,7 @@
 #include "ini.h"
 #include "math.h"
 #include "stdio.h"
+#include "../../configuration.h"
 
 static std::atomic<int> refCount = 0;
 DWORD LOG = 0;
@@ -29,6 +30,7 @@ DWORD BYPASSCAL = 0;
 FILE* fl = NULL;
 TCHAR logstring[255];
 TCHAR	*pStr, strPath[255], strTemp[255];
+static bool useRamp = false;
 
 char key[255]={0};
 
@@ -82,7 +84,8 @@ LONG HALF[2][numc] = { { 0 } };
 LONG BUTTON[2][numc] = { { 0 } };
 LONG LINEAR[2][numc] = { { 0 } };
 LONG OFFSET[2][numc] = { { 0 } };
-LONG DEADZONE[2][numc] = { {0} };
+LONG DEADZONE[2][numc] = { { 0 } };
+LONG GAINZ[2][numc] = { { 0 } };
 
 
 //label enum
@@ -169,7 +172,12 @@ void SaveMain(int port)
 		swprintf_s(text, L"LINEAR%i", i);swprintf_s(strTemp, L"%i", LINEAR[port][i]);WriteToFile(section, text, strTemp);
 		swprintf_s(text, L"OFFSET%i", i);swprintf_s(strTemp, L"%i", OFFSET[port][i]);WriteToFile(section, text, strTemp);
 		swprintf_s(text, L"DEADZONE%i", i);swprintf_s(strTemp, L"%i", DEADZONE[port][i]);WriteToFile(section, text, strTemp);
+		//swprintf_s(text, L"GAINZ%i", i); swprintf_s(strTemp, L"%i", GAINZ[port][i]); WriteToFile(section, text, strTemp);
 	}
+	swprintf_s(strTemp, L"%i", GAINZ[port][0]); WriteToFile(section, TEXT("GAINZ"), strTemp);
+	//only for config dialog
+	CONFIGVARIANT var(L"UseRamp", useRamp);
+	SaveSetting(port, "dinput", var);
 }
 
 void LoadMain(int port)
@@ -211,6 +219,15 @@ void LoadMain(int port)
 		swprintf_s(text, TEXT("DEADZONE%i"), i); if (ReadFromFile(section, text, szText)) DEADZONE[port][i] = wcstol(szText, NULL, 10);
 	}
 
+	if (ReadFromFile(section, TEXT("GAINZ"), szText))
+		GAINZ[port][0] = wcstol(szText, NULL, 10);
+	else
+		GAINZ[port][0] = 10000;
+
+	//only for config dialog
+	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
+	if (LoadSetting(port, "dinput", var))
+		useRamp = var.boolValue;
 }
 
 //use direct input

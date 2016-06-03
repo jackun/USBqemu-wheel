@@ -72,10 +72,85 @@ struct wheel_data_t
 	int32_t brake;
 };
 
+struct spring
+{
+	uint8_t dead1 : 8; //Lower limit of central dead band
+	uint8_t dead2 : 8; //Upper limit of central dead band
+	uint8_t k1 : 4;   //Low (left or push) side spring constant selector
+	uint8_t k2 : 4;   //High (right or pull) side spring constant selector
+	uint8_t s1 : 4;   //Low side slope inversion (1 = inverted)
+	uint8_t s2 : 4;   //High side slope inversion (1 = inverted)
+	uint8_t clip : 8; //Clip level (maximum force), on either side
+};
+
+struct autocenter
+{
+	uint8_t k1;
+	uint8_t k2;
+	uint8_t clip;
+};
+
+struct variable
+{
+	uint8_t initial1; //Initial level for Force 0
+	uint8_t initial2; //Initial level for Force 2
+	uint8_t s1 : 4; //Force 0 Step size
+	uint8_t t1 : 4; //Force 0 Step duration (in main loops)
+	uint8_t s2 : 4;
+	uint8_t t2 : 4;
+	uint8_t d1 : 4; //Force 0 Direction (0 = increasing, 1 = decreasing)
+	uint8_t d2 : 4;
+};
+
+struct ramp
+{
+	uint8_t level1; //max force
+	uint8_t level2; //min force
+	uint8_t dir;
+	uint8_t time : 4;
+	uint8_t step : 4;
+};
+
+struct friction
+{
+	uint8_t k1;
+	uint8_t k2;
+	uint8_t clip;
+	uint8_t s1 : 4;
+	uint8_t s2 : 4;
+};
+
+struct damper
+{
+	uint8_t k1;
+	uint8_t s1;
+	uint8_t k2;
+	uint8_t s2;
+	uint8_t clip; //dfp only
+};
+
+//packet is 8 bytes
+struct ff_data
+{
+	uint8_t cmdslot;    // 0x0F cmd, 0xF0 slot
+	uint8_t type;       // force type or cmd param
+	union u
+	{
+		uint8_t params[5];
+		struct spring spring;
+		struct autocenter autocenter;
+		struct variable variable;
+		struct friction friction;
+		struct damper damper;
+	} u; //if anon union: gcc needs -fms-extensions?
+	uint8_t padd0;
+};
+
 struct ff_state
 {
 	uint8_t slot_type[4];
 	uint8_t slot_force[4];
+	ff_data slot_ffdata[4];
 	bool deadband;
 };
 
@@ -652,71 +727,6 @@ struct random_data_t
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
 	uint32_t pad2 : 8;
-};
-
-struct spring //TODO idk if bitfields here work :P
-{
-	uint8_t dead1 : 8; //Lower limit of central dead band
-	uint8_t dead2 : 8; //Upper limit of central dead band
-	uint8_t k1 : 4;   //Low (left or push) side spring constant selector
-	uint8_t k2 : 4;   //High (right or pull) side spring constant selector
-	uint8_t slope1 : 4; //Low side slope inversion (1 = inverted)
-	uint8_t slope2 : 4; //High side slope inversion (1 = inverted)
-	uint8_t clip : 8;   //Clip level (maximum force), on either side
-};
-
-struct autocenter
-{
-	uint8_t k1;
-	uint8_t k2;
-	uint8_t clip;
-};
-
-struct variable
-{
-	uint8_t initial_lvl_1; //Initial level for Force 0
-	uint8_t initial_lvl_2; //Initial level for Force 2
-	uint8_t s1 : 4; //Force 0 Step size
-	uint8_t t1 : 4; //Force 0 Step duration (in main loops)
-	uint8_t s2 : 4;
-	uint8_t t2 : 4;
-	uint8_t d1 : 4; //Force 0 Direction (0 = increasing, 1 = decreasing)
-	uint8_t d2 : 4;
-};
-
-struct friction
-{
-	uint8_t k1;
-	uint8_t k2;
-	uint8_t clip;
-	uint8_t s1 : 4;
-	uint8_t s2 : 4;
-};
-
-struct damper
-{
-	uint8_t k1;
-	uint8_t s1;
-	uint8_t k2;
-	uint8_t s2;
-	uint8_t clip; //dfp only
-};
-
-//packet is 8 bytes
-struct ff_data
-{
-	uint8_t cmdslot;    // 0x0F cmd, 0xF0 slot
-	uint8_t type;       // force type or cmd param
-	union u
-	{
-		uint8_t params[5];
-		struct spring spring;
-		struct autocenter autocenter;
-		struct variable variable;
-		struct friction friction;
-		struct damper damper;
-	} u; //if anon union: gcc needs -fms-extensions?
-	uint8_t padd0;
 };
 
 void ResetData(generic_data_t *d);
