@@ -73,6 +73,18 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return true;
 }
 
+bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, bool& value)
+{
+	//value = GetPrivateProfileIntW(section.c_str(), param, 0, ini.c_str());
+	wchar_t tmp[4096] = { 0 };
+	if (!GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str()))
+		return false;
+	if (GetLastError() == ERROR_FILE_NOT_FOUND)
+		return false;
+	value = !!wcstoul(tmp, NULL, 10);
+	return true;
+}
+
 bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
 {
 	//value = GetPrivateProfileIntW(section.c_str(), param, 0, ini.c_str());
@@ -85,19 +97,26 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return true;
 }
 
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::string& value)
+bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const std::string& value)
 {
 	std::wstring wstr;
 	wstr.assign(value.begin(), value.end());
 	return !!WritePrivateProfileStringW(section.c_str(), param, wstr.c_str(), ini.c_str());
 }
 
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::wstring& value)
+bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const std::wstring& value)
 {
 	return !!WritePrivateProfileStringW(section.c_str(), param, value.c_str(), ini.c_str());
 }
 
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
+bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const bool value)
+{
+	wchar_t tmp[2] = { 0 };
+	swprintf_s(tmp, L"%d", value ? 1 : 0);
+	return !!WritePrivateProfileStringW(section.c_str(), param, tmp, ini.c_str());
+}
+
+bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const int32_t value)
 {
 	wchar_t tmp[32] = { 0 };
 	swprintf_s(tmp, L"%d", value);
@@ -118,6 +137,8 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 
 	switch (var.type)
 	{
+	case CONFIG_TYPE_BOOL:
+		return LoadSettingValue(ini, section.str(), var.name, var.boolValue);
 	case CONFIG_TYPE_INT:
 		return LoadSettingValue(ini, section.str(), var.name, var.intValue);
 		//case CONFIG_TYPE_DOUBLE:
@@ -163,6 +184,8 @@ bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 
 	switch (var.type)
 	{
+	case CONFIG_TYPE_BOOL:
+		return SaveSettingValue(ini, section.str(), var.name, var.boolValue);
 	case CONFIG_TYPE_INT:
 		return SaveSettingValue(ini, section.str(), var.name, var.intValue);
 	case CONFIG_TYPE_TCHAR:

@@ -33,6 +33,7 @@ enum CONFIG_VARIANT_TYPE
 	CONFIG_TYPE_CHAR,
 	CONFIG_TYPE_WCHAR,
 	CONFIG_TYPE_TCHAR,
+	CONFIG_TYPE_BOOL,
 	CONFIG_TYPE_PTR
 };
 
@@ -44,6 +45,7 @@ struct CONFIGVARIANT
 
 	union
 	{
+		bool		boolValue;
 		int32_t		intValue;
 		double		doubleValue;
 		//char*		charValue;
@@ -61,6 +63,8 @@ struct CONFIGVARIANT
 	CONFIGVARIANT(const TCHAR* d, const TCHAR* n, CONFIG_VARIANT_TYPE t)
 		: desc(d), name(n), type(t), ptrValue(0) {}
 
+	CONFIGVARIANT(const TCHAR* n, bool val) : CONFIGVARIANT(n, CONFIG_TYPE_BOOL)
+	{ boolValue = val; }
 	CONFIGVARIANT(const TCHAR* n, int32_t val) : CONFIGVARIANT(n, CONFIG_TYPE_INT)
 	{ intValue = val; }
 	CONFIGVARIANT(const TCHAR* n, std::string val) : CONFIGVARIANT(n, CONFIG_TYPE_CHAR)
