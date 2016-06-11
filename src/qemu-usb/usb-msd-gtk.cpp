@@ -3,6 +3,8 @@
 #include "../configuration.h"
 #include <gtk/gtk.h>
 
+#define APINAME "cstdio"
+
 static void entryChanged(GtkWidget *widget, gpointer data)
 {
 	const gchar *text = gtk_entry_get_text(GTK_ENTRY(widget));
