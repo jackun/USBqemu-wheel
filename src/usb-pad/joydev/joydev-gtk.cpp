@@ -76,7 +76,7 @@ static void PopulateJoysticks()
 			char name[1024];
 			if (GetJoystickName(str.str(), name))
 			{
-				fprintf(stderr, "Cannot get controller's name\n");
+				OSDebugOut("Cannot get controller's name\n");
 				//XXX though it also could mean that controller is unusable
 				jsdata.push_back(std::make_pair(str.str(), str.str()));
 			}
@@ -192,8 +192,11 @@ static void joystickChanged (GtkComboBox *widget, gpointer data)
 	cfg->pathIt = (jsdata.begin() + idx);
 
 	if (idx > 0)
+	{
 		LoadMappings(port, name, cfg->mappings);
-	fprintf(stderr, "Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
+		RefreshStore(cfg);
+	}
+	OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
 }
 
 static void buttonClicked (GtkComboBox *widget, gpointer data)
@@ -207,16 +210,27 @@ static void buttonClicked (GtkComboBox *widget, gpointer data)
 		int value;
 		bool isaxis = (type >= JOY_STEERING && type <= JOY_BRAKE);
 		gtk_label_set_text (GTK_LABEL (cfg->label), "Polling for input...");
-		fprintf (stderr, "%s isaxis:%d %s\n" , cfg->pathIt->second.c_str(), isaxis, JoyDevMapNames[type]);
+		OSDebugOut("%s isaxis:%d %s\n" , cfg->pathIt->second.c_str(), isaxis, JoyDevMapNames[type]);
 
 		// let label change its text
 		while (gtk_events_pending ())
 			gtk_main_iteration_do (FALSE);
 
 		if (PollInput(cfg->pathIt->second, isaxis, value))
+		{
 			cfg->mappings[type] = value;
+			RefreshStore(cfg);
+		}
 		gtk_label_set_text (GTK_LABEL (cfg->label), "");
 	}
+}
+
+static void clearAllClicked (GtkComboBox *widget, gpointer data)
+{
+	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
+	auto& m = cfg->mappings;
+	m.assign(JOY_MAPS_COUNT, -1);
+	RefreshStore(cfg);
 }
 
 int JoyDevPad::Configure(int port, void *data)
@@ -225,14 +239,20 @@ int JoyDevPad::Configure(int port, void *data)
 	GtkWidget *main_hbox, *right_vbox, *left_vbox, *treeview;
 	GtkWindow *parent = GTK_WINDOW (data);
 
-	GtkCellRenderer *renderer;
-
 	PopulateJoysticks();
+	std::string path;
+	{
+		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
+		if (LoadSetting(port, APINAME, var))
+			path = var.strValue;
+	}
 
 	ConfigData cfg;
 	cfg.pathIt = jsdata.end();
 	cfg.label = gtk_label_new ("");
+	cfg.store = gtk_list_store_new (NUM_COLS, G_TYPE_STRING, G_TYPE_UINT);
 
+	// ---------------------------
 	std::string title = (port ? "Player One " : "Player Two ");
 	title += "Joydev Settings";
 
@@ -245,6 +265,7 @@ int JoyDevPad::Configure(int port, void *data)
 	gtk_window_set_resizable (GTK_WINDOW (dlg), TRUE);
 	gtk_window_set_default_size (GTK_WINDOW(dlg), 320, 240);
 
+	// ---------------------------
 	GtkWidget *dlg_area_box = gtk_dialog_get_content_area (GTK_DIALOG (dlg));
 
 	main_hbox = gtk_hbox_new (FALSE, 5);
@@ -255,20 +276,18 @@ int JoyDevPad::Configure(int port, void *data)
 	right_vbox = gtk_vbox_new (FALSE, 5);
 	gtk_box_pack_start (GTK_BOX (main_hbox), right_vbox, TRUE, TRUE, 5);
 
-	cfg.store = gtk_list_store_new (NUM_COLS, G_TYPE_STRING, G_TYPE_UINT);
+	// ---------------------------
 	treeview = gtk_tree_view_new ();
-	renderer = gtk_cell_renderer_text_new ();
 	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
 		-1,
-		"PS2 mapping",
-		renderer,
+		"PS2",
+		gtk_cell_renderer_text_new (),
 		"text", COL_PS2,
 		NULL);
-	renderer = gtk_cell_renderer_text_new ();
 	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
 		-1,
-		"PC mapping",
-		renderer,
+		"PC",
+		gtk_cell_renderer_text_new (),
 		"text", COL_PC,
 		NULL);
 
@@ -276,15 +295,8 @@ int JoyDevPad::Configure(int port, void *data)
 	g_object_unref (GTK_TREE_MODEL (cfg.store)); //treeview has its own ref
 	gtk_box_pack_start (GTK_BOX (left_vbox), treeview, TRUE, TRUE, 5);
 
-	std::string path;
-	{
-		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
-		if (LoadSetting(port, APINAME, var))
-			path = var.strValue;
-	}
-
+	// ---------------------------
 	rs_cb = new_combobox ("Joystick:", right_vbox);
-	//g_object_set_data (G_OBJECT (ro_cb), "joystick-option", cfg.label);
 
 	int idx = 0, sel_idx = 0;
 
@@ -372,17 +384,19 @@ int JoyDevPad::Configure(int port, void *data)
 		button = gtk_button_new_with_label ("Clear All");
 		gtk_box_pack_start (GTK_BOX (right_vbox), button, TRUE, TRUE, 5);
 		g_object_set_data (G_OBJECT (button), CFG, &cfg);
+		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (clearAllClicked), (gpointer)port);
 	}
 
+	// ---------------------------
 	gtk_widget_show_all (dlg);
 	gint result = gtk_dialog_run (GTK_DIALOG (dlg));
 
-	fprintf(stderr, "mappings %d\n", cfg.mappings.size());
+	OSDebugOut("mappings %d\n", cfg.mappings.size());
 
 	int ret = RESULT_OK;
 	if (result == GTK_RESPONSE_OK)
 	{
-		if (cfg.pathIt != jsdata.end()) {
+		if (cfg.pathIt != jsdata.begin() && cfg.pathIt != jsdata.end()) {
 			CONFIGVARIANT var(N_JOYSTICK, cfg.pathIt->second);
 			if(!SaveSetting(port, APINAME, var))
 				ret = RESULT_FAILED;
