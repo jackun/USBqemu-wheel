@@ -23,7 +23,7 @@ static void pa_context_state_cb(pa_context *c, void *userdata)
 	pa_context_state_t state;
 	int *pa_ready = (int *)userdata;
 
-	state = pf_pa_context_get_state(c);
+	state = pa_context_get_state(c);
 	switch (state) {
 		// There are just here for reference
 		case PA_CONTEXT_UNCONNECTED:
@@ -69,53 +69,53 @@ static int pa_get_devicelist(AudioDeviceInfoList& input)
 	int state = 0;
 	int pa_ready = 0;
 
-	pa_ml = pf_pa_mainloop_new();
-	pa_mlapi = pf_pa_mainloop_get_api(pa_ml);
-	pa_ctx = pf_pa_context_new(pa_mlapi, "USBqemu-devicelist");
+	pa_ml = pa_mainloop_new();
+	pa_mlapi = pa_mainloop_get_api(pa_ml);
+	pa_ctx = pa_context_new(pa_mlapi, "USBqemu-devicelist");
 
-	pf_pa_context_connect(pa_ctx, NULL, PA_CONTEXT_NOFLAGS, NULL);
+	pa_context_connect(pa_ctx, NULL, PA_CONTEXT_NOFLAGS, NULL);
 
-	pf_pa_context_set_state_callback(pa_ctx, pa_context_state_cb, &pa_ready);
+	pa_context_set_state_callback(pa_ctx, pa_context_state_cb, &pa_ready);
 
 	for (;;) {
 
 		if (pa_ready == 0)
 		{
-			pf_pa_mainloop_iterate(pa_ml, 1, NULL);
+			pa_mainloop_iterate(pa_ml, 1, NULL);
 			continue;
 		}
 
 		// Connection failed
 		if (pa_ready == 2)
 		{
-			pf_pa_context_disconnect(pa_ctx);
-			pf_pa_context_unref(pa_ctx);
-			pf_pa_mainloop_free(pa_ml);
+			pa_context_disconnect(pa_ctx);
+			pa_context_unref(pa_ctx);
+			pa_mainloop_free(pa_ml);
 			return -1;
 		}
 
 		switch (state)
 		{
 			case 0:
-				pa_op = pf_pa_context_get_source_info_list(pa_ctx,
+				pa_op = pa_context_get_source_info_list(pa_ctx,
 						pa_sourcelist_cb,
 						&input);
 				state++;
 				break;
 			case 1:
-				if (pf_pa_operation_get_state(pa_op) == PA_OPERATION_DONE)
+				if (pa_operation_get_state(pa_op) == PA_OPERATION_DONE)
 				{
-					pf_pa_operation_unref(pa_op);
-					pf_pa_context_disconnect(pa_ctx);
-					pf_pa_context_unref(pa_ctx);
-					pf_pa_mainloop_free(pa_ml);
+					pa_operation_unref(pa_op);
+					pa_context_disconnect(pa_ctx);
+					pa_context_unref(pa_ctx);
+					pa_mainloop_free(pa_ml);
 					return 0;
 				}
 				break;
 			default:
 				return -1;
 		}
-		pf_pa_mainloop_iterate(pa_ml, 1, NULL);
+		pa_mainloop_iterate(pa_ml, 1, NULL);
 	}
 }
 
@@ -180,13 +180,13 @@ public:
 		if (mPAready == 3 && dur >= 1000)
 		{
 			mLastGetBuffer = now;
-			int ret = pf_pa_context_connect (mPContext,
+			int ret = pa_context_connect (mPContext,
 				mServer,
 				PA_CONTEXT_NOFLAGS,
 				NULL
 			);
 
-			OSDebugOut("pa_context_connect %s\n", pf_pa_strerror(ret));
+			OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
 		}
 		else
 			mLastGetBuffer = now;
@@ -276,18 +276,18 @@ public:
 	{
 		int ret;
 		if (mStream) {
-			ret = pf_pa_stream_disconnect(mStream);
-			pf_pa_stream_unref(mStream); //needed?
+			ret = pa_stream_disconnect(mStream);
+			pa_stream_unref(mStream); //needed?
 			mStream = nullptr;
 		}
 		if (mPContext) {
-			pf_pa_context_disconnect(mPContext);
-			pf_pa_context_unref(mPContext);
+			pa_context_disconnect(mPContext);
+			pa_context_unref(mPContext);
 			mPContext = nullptr;
 		}
 		if (mPMainLoop) {
-			pf_pa_threaded_mainloop_stop(mPMainLoop);
-			pf_pa_threaded_mainloop_free(mPMainLoop);
+			pa_threaded_mainloop_stop(mPMainLoop);
+			pa_threaded_mainloop_free(mPMainLoop);
 			mPMainLoop = nullptr;
 		}
 	}
@@ -296,27 +296,27 @@ public:
 	{
 		int ret = 0;
 
-		mPMainLoop = pf_pa_threaded_mainloop_new();
-		pa_mainloop_api *mlapi = pf_pa_threaded_mainloop_get_api(mPMainLoop);
+		mPMainLoop = pa_threaded_mainloop_new();
+		pa_mainloop_api *mlapi = pa_threaded_mainloop_get_api(mPMainLoop);
 
-		mPContext = pf_pa_context_new (mlapi, "USBqemu-pulse");
+		mPContext = pa_context_new (mlapi, "USBqemu-pulse");
 
-		ret = pf_pa_context_connect (mPContext,
+		ret = pa_context_connect (mPContext,
 			mServer,
 			PA_CONTEXT_NOFLAGS,
 			NULL
 		);
 
-		OSDebugOut("pa_context_connect %s\n", pf_pa_strerror(ret));
+		OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
 		if (ret != PA_OK)
 			goto error;
 
-		pf_pa_context_set_state_callback(mPContext,
+		pa_context_set_state_callback(mPContext,
 			pa_context_state_cb,
 			&mPAready
 		);
 
-		pf_pa_threaded_mainloop_start(mPMainLoop);
+		pa_threaded_mainloop_start(mPMainLoop);
 
 		// wait for pa_context_state_cb
 		for(;;)
@@ -325,13 +325,13 @@ public:
 			if(mPAready == 2 || mQuit) goto error;
 		}
 
-		mStream = pf_pa_stream_new(mPContext,
+		mStream = pa_stream_new(mPContext,
 			"USBqemu-pulse",
 			&mSSpec,
 			NULL
 		);
 
-		pf_pa_stream_set_read_callback(mStream,
+		pa_stream_set_read_callback(mStream,
 			stream_read_cb,
 			this
 		);
@@ -344,16 +344,16 @@ public:
 		buffer_attr.tlength = (uint32_t) -1;
 		buffer_attr.prebuf = (uint32_t) -1;
 		buffer_attr.minreq = (uint32_t) -1;
-		buffer_attr.fragsize = pf_pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
+		buffer_attr.fragsize = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
 		OSDebugOut("usec_to_bytes %zu\n", buffer_attr.fragsize);
 
-		ret = pf_pa_stream_connect_record(mStream,
+		ret = pa_stream_connect_record(mStream,
 			mDevice.c_str(),
 			&buffer_attr,
 			PA_STREAM_ADJUST_LATENCY
 		);
 
-		OSDebugOut("pa_stream_connect_record %s\n", pf_pa_strerror(ret));
+		OSDebugOut("pa_stream_connect_record %s\n", pa_strerror(ret));
 		if (ret != PA_OK)
 			goto error;
 
@@ -381,11 +381,11 @@ public:
 		pa_sample_spec ss(mSSpec);
 		ss.rate = mOutputSamplesPerSec;
 
-		size_t bytes = pf_pa_bytes_per_second(&mSSpec) * 5;
+		size_t bytes = pa_bytes_per_second(&mSSpec) * 5;
 		mQBuffer.resize(0);
 		mQBuffer.reserve(bytes);
 
-		bytes = pf_pa_bytes_per_second(&ss) * 5;
+		bytes = pa_bytes_per_second(&ss) * 5;
 		mResampledBuffer.resize(0);
 		mResampledBuffer.reserve(bytes);
 		src_reset(mResampler);
@@ -462,17 +462,17 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 
 	OSDebugOut("stream_read_callback %d bytes\n", nbytes);
 
-	int ret = pf_pa_stream_peek(p, &padata, &nbytes);
-	OSDebugOut("pa_stream_peek %zu %s\n", nbytes, pf_pa_strerror(ret));
+	int ret = pa_stream_peek(p, &padata, &nbytes);
+	OSDebugOut("pa_stream_peek %zu %s\n", nbytes, pa_strerror(ret));
 
 	if (ret != PA_OK)
 		return;
 
 	auto dur = std::chrono::duration_cast<ms>(hrc::now() - src->mLastGetBuffer).count();
 	if (src->mPaused || dur > 50000) {
-		ret = pf_pa_stream_drop(p);
+		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
-			OSDebugOut("pa_stream_drop %s\n", pf_pa_strerror(ret));
+			OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
 		return;
 	}
 
@@ -482,9 +482,9 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		src->mQBuffer.resize(old_size + nfloats);
 		memcpy(&src->mQBuffer[old_size], padata, nbytes);
 		//if copy succeeded, drop samples at pulse's side
-		ret = pf_pa_stream_drop(p);
+		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
-			OSDebugOut("pa_stream_drop %s\n", pf_pa_strerror(ret));
+			OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
 	}
 
 	size_t resampled = static_cast<size_t>(src->mQBuffer.size() * src->mResampleRatio * src->mTimeAdjust);// * src->mSSpec.channels;
