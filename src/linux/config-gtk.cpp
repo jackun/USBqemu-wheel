@@ -268,7 +268,6 @@ void CALLBACK USBconfigure() {
 
 	for(int ply = 0; ply < 2; ply++)
 	{
-
 		rs_cb = new_combobox (ports[ply], vbox);
 
 		sel_idx = 0;
@@ -280,7 +279,7 @@ void CALLBACK USBconfigure() {
 				sel_idx = i;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)(ply));
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)ply);
 	}
 
 	gtk_widget_show_all (dlg);
