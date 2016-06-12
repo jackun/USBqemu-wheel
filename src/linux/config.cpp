@@ -54,17 +54,17 @@ bool LoadSettingValue(const std::string& ini, const std::string& section, const 
 
 bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
-	return !INILoadUInt(ini.c_str(), section.c_str(), param, (unsigned int *)value);
+	return INILoadUInt(ini.c_str(), section.c_str(), param, (unsigned int *)&value) == 0;
 }
 
 bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, std::string& value)
 {
-	return !INISaveString(ini.c_str(), section.c_str(), param, value.c_str());
+	return INISaveString(ini.c_str(), section.c_str(), param, value.c_str()) == 0;
 }
 
 bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
-	return !INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value);
+	return INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value) == 0;
 }
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
