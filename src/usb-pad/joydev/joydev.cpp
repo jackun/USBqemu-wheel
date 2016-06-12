@@ -128,7 +128,6 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 					case ABS_X: mWheelData.steering = NORM(event.value, range); break;
 					case ABS_Y: mWheelData.clutch = NORM(event.value, 0xFF); break;
 					//case ABS_RX: mWheelData.axis_rx = NORM(event.value, 0xFF); break;
-					case 0x80 | JOY_BRAKE:
 					case ABS_RY:
 					treat_me_like_ABS_RY:
 						mWheelData.throttle = 0xFF;
@@ -145,6 +144,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 						else
 							mWheelData.throttle = NORM(event.value, 0xFF);
 					break;
+					case 0x80 | JOY_BRAKE:
 					case ABS_RZ:
 						if (mIsGamepad)
 							mWheelData.throttle = 0xFF - NORM(event.value, 0xFF);
@@ -176,7 +176,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 			}
 			else if ((event.type & ~JS_EVENT_INIT) == JS_EVENT_BUTTON)
 			{
-				//OSDebugOut("Button: %d, %d\n", event.number, event.value);
+				//OSDebugOut("Button: %d == %x, %d\n", event.number, mBtnMap[event.number], event.value);
 				PS2Buttons button = PAD_BUTTON_COUNT;
 				if (mBtnMap[event.number] >= (0x8000 | JOY_CROSS) &&
 					mBtnMap[event.number] <= (0x8000 | JOY_L3))
@@ -342,7 +342,7 @@ bool JoyDevPad::FindPad()
 				for (int k = 0; k < mAxisCount; k++)
 					for (int i = JOY_STEERING; i < JOY_MAPS_COUNT; i++)
 					{
-						if (mAxisMap[k] == mMappings[i])
+						if (k == mMappings[i])
 							mAxisMap[k] = 0x80 | i;
 					}
 			}
@@ -367,7 +367,7 @@ bool JoyDevPad::FindPad()
 				for (int k = 0; k < mButtonCount; k++)
 					for (int i = 0; i < JOY_STEERING; i++)
 					{
-						if (mBtnMap[k] == mMappings[i])
+						if (k == mMappings[i])
 							mBtnMap[k] = 0x8000 | i;
 					}
 			}
