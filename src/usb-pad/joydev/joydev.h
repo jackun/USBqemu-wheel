@@ -41,6 +41,8 @@ static const char* JoyDevMapNames [] = {
 	"l2",
 	"select",
 	"start",
+	"r3",
+	"l3",
 	"left",
 	"up",
 	"right",
