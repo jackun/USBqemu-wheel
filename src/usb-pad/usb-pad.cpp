@@ -356,7 +356,6 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (!s)
 		return NULL;
 
-	pad->Port(port);
 	s->pad = pad;
 	//s->padProxy = proxy;
 	s->dev.speed = USB_SPEED_FULL;
