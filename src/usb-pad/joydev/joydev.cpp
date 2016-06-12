@@ -12,7 +12,7 @@ static bool sendCrap = false;
 
 #define NORM(x, n) (((uint32_t)(32767 + x) * n)/0xFFFE)
 #define NORM2(x, n) (((uint32_t)(32767 + x) * n)/0x7FFF)
-#define testBit(bit, array) ( (((uint8_t*)array)[bit / 8] >> (bit % 8)) & 1 )
+#define testBit(bit, array) ( (((uint8_t*)(array))[(bit) / 8] >> ((bit) % 8)) & 1 )
 
 static inline int range_max(PS2WheelTypes type)
 {
@@ -385,9 +385,19 @@ bool JoyDevPad::FindPad()
 					OSDebugOut(APINAME ": Get effects failed: %s\n", strerror(errno));
 				}
 
-				if (testBit(FF_CONSTANT, features))
+				if (!testBit(FF_CONSTANT, features))
 				{
 					fprintf(stderr, APINAME ": joystick does not support FF_CONSTANT\n");
+				}
+
+				if (!testBit(FF_GAIN, features))
+				{
+					fprintf(stderr, APINAME ": joystick does not support FF_GAIN\n");
+				}
+
+				if (!testBit(FF_AUTOCENTER, features))
+				{
+					fprintf(stderr, APINAME ": joystick does not support FF_AUTOCENTER\n");
 				}
 
 				// TODO check features and do FF_RUMBLE instead if gamepad?
@@ -407,10 +417,6 @@ bool JoyDevPad::FindPad()
 				mEffConstant.replay.length = 0x7FFFUL;  /* mseconds */
 				mEffConstant.replay.delay = 0;
 
-				if (ioctl(mHandleFF, EVIOCSFF, &(mEffConstant)) < 0) {
-					fprintf(stderr, APINAME ": Failed to upload effect to '%s'\n", event.str().c_str());
-				}
-
 				SetGain(75);
 				SetAutoCenter(0);
 			}
@@ -425,35 +431,17 @@ quit:
 
 void JoyDevPad::SetConstantForce(int force)
 {
-	struct input_event play;
-	play.type = EV_FF;
-	play.code = mEffConstant.id;
-	play.value = 1;
-
-	OSDebugOut("Force: %d\n", force);
-	//mEffConstant.type = FF_CONSTANT;
-	//mEffConstant.id = -1;
-	//mEffConstant.u.constant.level = 0x8000;	/* Strength : 0x2000 == 25 % */
-	//mEffConstant.direction = (0xFFFF * (force)) / 255;
-	int y = 0, x = 0;
-	float magnitude = -(127-force) * 78.4803149606299;
-	mEffConstant.u.constant.level = (MAX(MIN(magnitude, 10000), -10000) / 10) * 32;
-	mEffConstant.direction = 0x4000; //(int)((3 * M_PI / 2 - atan2(y, x)) * -0x7FFF / M_PI);
-	OSDebugOut("dir: %d lvl: %d\n", mEffConstant.direction, mEffConstant.u.constant.level);
-
-//	mEffConstant.u.constant.envelope.attack_length = 0;
-//	mEffConstant.u.constant.envelope.attack_level = 0;
-//	mEffConstant.u.constant.envelope.fade_length = 0;
-//	mEffConstant.u.constant.envelope.fade_level = 0;
-//	mEffConstant.trigger.button = 0;
-//	mEffConstant.trigger.interval = 0;
-//	mEffConstant.replay.length = 0xFFFF;  /* INFINITE mseconds */
-//	mEffConstant.replay.delay = 0;
+	mEffConstant.u.constant.level = -(127-force) * 0x8000 / 127;
+	OSDebugOut("force: %d, level: %d\n", force, mEffConstant.u.constant.level);
 
 	if (ioctl(mHandleFF, EVIOCSFF, &(mEffConstant)) < 0) {
 		OSDebugOut(APINAME ": Failed to upload effect\n");
 	}
 
+	struct input_event play;
+	play.type = EV_FF;
+	play.code = mEffConstant.id;
+	play.value = 1;
 	if (write(mHandleFF, (const void*) &play, sizeof(play)) == -1) {
 		OSDebugOut(APINAME ": Play effect failed\n");
 	}
