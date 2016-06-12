@@ -74,9 +74,8 @@ static void PopulateJoysticks()
 		if (file_exists(str.str()))
 		{
 			char name[1024];
-			if (GetJoystickName(str.str(), name))
+			if (!GetJoystickName(str.str(), name))
 			{
-				OSDebugOut("Cannot get controller's name\n");
 				//XXX though it also could mean that controller is unusable
 				jsdata.push_back(std::make_pair(str.str(), str.str()));
 			}
@@ -84,8 +83,6 @@ static void PopulateJoysticks()
 			{
 				jsdata.push_back(std::make_pair(std::string(name), str.str()));
 			}
-
-			OSDebugOut("%s\n", str.str().c_str());
 		}
 	}
 }

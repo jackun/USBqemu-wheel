@@ -1,7 +1,7 @@
 #include "joydev.h"
 #include "../../USB.h"
 #include "../../osdebugout.h"
-
+#include <assert.h>
 #include <unistd.h>
 //#include <iostream>
 #include <sstream>
@@ -48,6 +48,7 @@ bool GetJoystickName(const std::string& path, char (&name)[_Size])
 
 bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
 {
+	assert(JOY_MAPS_COUNT == ARRAYSIZE(JoyDevMapNames));
 	if (joyname.empty())
 		return false;
 
@@ -69,6 +70,7 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 
 bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
 {
+	assert(JOY_MAPS_COUNT == ARRAYSIZE(JoyDevMapNames));
 	if (joyname.empty() || mappings.size() != JOY_MAPS_COUNT)
 		return false;
 
