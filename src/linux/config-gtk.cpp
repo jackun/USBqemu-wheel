@@ -18,6 +18,7 @@
 #include <linux/joystick.h>
 
 #include "../USB.h"
+#include "../osdebugout.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
 #include "../usb-pad/padproxy.h"
@@ -42,7 +43,7 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 		uint8_t ply = MIN((unsigned)data, 1);
 
 		conf.WheelType[ply] = idx;
-		fprintf(stderr, "Selected wheel type, player %d idx: %d\n", ply, idx);
+		OSDebugOut("Selected wheel type, player %d idx: %d\n", ply, idx);
 	}
 }
 
@@ -68,7 +69,7 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 		else
 			api = it->second;
 
-		fprintf(stdout, "Current api: %s\n", api.c_str());
+		OSDebugOut("Current api: %s\n", api.c_str());
 		apiCallback[player].api = api;
 		int i = 0;
 		for(auto& api : dev->APIs())
@@ -104,7 +105,7 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 	else
 		conf.Port0 = s;
 
-	fprintf(stderr, "Selected player %d idx: %d [%s]\n", player, active, s.c_str());
+	OSDebugOut("Selected player %d idx: %d [%s]\n", player, active, s.c_str());
 }
 
 static void apiChanged (GtkComboBox *widget, gpointer data)
@@ -131,9 +132,9 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 				changedAPIs[pair] = *it;
 			apiCallback[player].api = *it;
 
-			fprintf(stderr, "selected api: %s\napi settings:\n", it->c_str());
+			OSDebugOut("selected api: %s\napi settings:\n", it->c_str());
 			for(auto& p : dev->GetSettings(*it))
-				fprintf(stderr, "\t[%s] %s = %s (%d)\n", it->c_str(), p.name, p.desc, p.type);
+				OSDebugOut("\t[%s] %s = %s (%d)\n", it->c_str(), p.name, p.desc, p.type);
 		}
 	}
 }
@@ -147,12 +148,12 @@ static void configureApi (GtkWidget *widget, gpointer data)
 	auto& api = apiCallback[player].api;
 	auto dev = RegisterDevice::instance().Device( name );
 
-	fprintf(stderr, "configure api %s [%s] for player %d\n", api.c_str(), name.c_str(), player);
+	OSDebugOut("configure api %s [%s] for player %d\n", api.c_str(), name.c_str(), player);
 	if (dev)
 	{
 		GtkWidget *dlg = GTK_WIDGET (g_object_get_data (G_OBJECT(widget), "dlg"));
 		int res = dev->Configure(port, api, dlg);
-		fprintf(stderr, "Configure(...) returned %d\n", res);
+		OSDebugOut("Configure(...) returned %d\n", res);
 	}
 }
 

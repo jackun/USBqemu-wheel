@@ -387,7 +387,7 @@ bool JoyDevPad::FindPad()
 
 				if (testBit(FF_CONSTANT, features))
 				{
-					OSDebugOut(APINAME ": joystick does not support FF_CONSTANT\n");
+					fprintf(stderr, APINAME ": joystick does not support FF_CONSTANT\n");
 				}
 
 				// TODO check features and do FF_RUMBLE instead if gamepad?
@@ -408,7 +408,7 @@ bool JoyDevPad::FindPad()
 				mEffConstant.replay.delay = 0;
 
 				if (ioctl(mHandleFF, EVIOCSFF, &(mEffConstant)) < 0) {
-					OSDebugOut(APINAME ": Failed to upload effect to '%s'\n", event.str().c_str());
+					fprintf(stderr, APINAME ": Failed to upload effect to '%s'\n", event.str().c_str());
 				}
 
 				SetGain(75);

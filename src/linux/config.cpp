@@ -1,4 +1,5 @@
 #include "../USB.h"
+#include "../osdebugout.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
 #include "../usb-pad/padproxy.h"
@@ -67,7 +68,7 @@ bool SaveSettingValue(const std::string& ini, const std::string& section, const 
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
-	fprintf(stderr, "USBqemu load \"%s\" from [%s %d]\n", var.name, key.c_str(), port);
+	OSDebugOut("USBqemu load \"%s\" from [%s %d]\n", var.name, key.c_str(), port);
 
 	if (key.empty())
 		return false;
@@ -92,7 +93,7 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 		//	return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
 		break;
 		default:
-			fprintf(stderr, "Invalid config type %d for %s\n", var.type, var.name);
+			OSDebugOut("Invalid config type %d for %s\n", var.type, var.name);
 			break;
 	};
 	return false;
@@ -114,7 +115,7 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
  * */
 bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
-	fprintf(stderr, "USBqemu save \"%s\" to [%s %d]\n", var.name, key.c_str(), port);
+	OSDebugOut("USBqemu save \"%s\" to [%s %d]\n", var.name, key.c_str(), port);
 
 	if (key.empty())
 		return false;
@@ -135,14 +136,14 @@ bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 			return SaveSettingValue(ini, section.str(), var.name, var.strValue);
 		break;
 		default:
-			fprintf(stderr, "Invalid config type %d for %s\n", var.type, var.name);
+			OSDebugOut("Invalid config type %d for %s\n", var.type, var.name);
 			break;
 	};
 	return false;
 }
 
 void SaveConfig() {
-	fprintf(stderr, "USB save config\n");
+	OSDebugOut("USB save config\n");
 	//char* envptr = getenv("HOME");
 	//if(envptr == NULL)
 	//	return;
@@ -152,7 +153,7 @@ void SaveConfig() {
 	iniPath.append(iniFile);
 	const char *path = iniPath.c_str();
 
-	//fprintf(stderr, "%s\n", path);
+	//OSDebugOut("%s\n", path);
 
 	INISaveString(path, N_DEVICES, N_DEVICE_PORT0, conf.Port0.c_str());
 	INISaveString(path, N_DEVICES, N_DEVICE_PORT1, conf.Port1.c_str());
@@ -163,14 +164,14 @@ void SaveConfig() {
 	{
 		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
 		var.strValue = k.second;
-		fprintf(stderr, "Save apis: %s %s\n", k.first.second.c_str(), k.second.c_str());
+		OSDebugOut("Save apis: %s %s\n", k.first.second.c_str(), k.second.c_str());
 		SaveSetting(k.first.first, k.first.second, var);
 	}
 }
 
 void LoadConfig() {
 	char tmp[1024] = {0};
-	fprintf(stderr, "USB load config\n");
+	OSDebugOut("USB load config\n");
 	//char* envptr = getenv("HOME");
 	//if(envptr == NULL)
 	//	return;
