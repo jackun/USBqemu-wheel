@@ -4,7 +4,6 @@
 #include <chrono>
 #include <thread>
 #include <stdio.h>
-#include <unistd.h>
 #include <sstream>
 #include <gtk/gtk.h>
 

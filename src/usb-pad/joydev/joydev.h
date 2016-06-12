@@ -2,6 +2,7 @@
 #include "../padproxy.h"
 #include "../../configuration.h"
 #include <linux/joystick.h>
+#include <unistd.h>
 
 #define BITS_TO_UCHAR(x) \
 	(((x) + 8 * sizeof (unsigned char) - 1) / (8 * sizeof (unsigned char)))
@@ -100,6 +101,26 @@ protected:
 };
 
 template< size_t _Size >
-bool GetJoystickName(const std::string& path, char (&name)[_Size]);
+bool GetJoystickName(const std::string& path, char (&name)[_Size])
+{
+	int fd = 0;
+	if ((fd = open(path.c_str(), O_RDONLY)) < 0)
+	{
+		fprintf(stderr, "Cannot open %s\n", path.c_str());
+	}
+	else
+	{
+		if (ioctl(fd, JSIOCGNAME(_Size), name) < -1)
+		{
+			fprintf(stderr, "Cannot get controller's name\n");
+			close(fd);
+			return false;
+		}
+		close(fd);
+		return true;
+	}
+	return false;
+}
+
 bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings);
 bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings);

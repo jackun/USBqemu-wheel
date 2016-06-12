@@ -2,10 +2,7 @@
 #include "../../USB.h"
 #include "../../osdebugout.h"
 #include <assert.h>
-#include <unistd.h>
-//#include <iostream>
 #include <sstream>
-//#include <math.h>
 
 #define APINAME "joydev"
 
@@ -22,28 +19,6 @@ static inline int range_max(PS2WheelTypes type)
 	if(type == WT_DRIVING_FORCE_PRO)
 		return 0x3FFF;
 	return 0x3FF;
-}
-
-template< size_t _Size >
-bool GetJoystickName(const std::string& path, char (&name)[_Size])
-{
-	int fd = 0;
-	if ((fd = open(path.c_str(), O_RDONLY)) < 0)
-	{
-		fprintf(stderr, "Cannot open %s\n", path.c_str());
-	}
-	else
-	{
-		if (ioctl(fd, JSIOCGNAME(_Size), name) < -1)
-		{
-			fprintf(stderr, "Cannot get controller's name\n");
-			close(fd);
-			return false;
-		}
-		close(fd);
-		return true;
-	}
-	return false;
 }
 
 bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
