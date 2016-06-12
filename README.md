@@ -10,7 +10,8 @@ As they are pretty much vendor specific, force feedback probably works with Logi
 
 As such, DInput (DirectX) mode is recommended.
 
-Linux: no built-in button/axis remapping yet.
+Linux note: if joystick is type of "gamepad" (xbox etc) then analog sticks/buttons should work mostly out-of-the-box.
+No rumble effect though yet. Also axis input is (too) linear so steering is a little _spazzy_.
 
 Mass storage device
 =======
