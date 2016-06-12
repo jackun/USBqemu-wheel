@@ -94,7 +94,6 @@ protected:
 
 	std::vector<uint16_t> mMappings;
 
-	int mPort;
 	bool mIsGamepad; //xboxish gamepad
 	bool mIsDualAnalog; // tricky, have to read the AXIS_RZ somehow and
 						// determine if its unpressed value is zero
