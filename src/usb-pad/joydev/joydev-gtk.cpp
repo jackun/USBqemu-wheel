@@ -396,11 +396,13 @@ int JoyDevPad::Configure(int port, void *data)
 	int ret = RESULT_OK;
 	if (result == GTK_RESPONSE_OK)
 	{
-		if (cfg.pathIt != jsdata.begin() && cfg.pathIt != jsdata.end()) {
+		if (cfg.pathIt != jsdata.end()) {
 			CONFIGVARIANT var(N_JOYSTICK, cfg.pathIt->second);
 			if(!SaveSetting(port, APINAME, var))
 				ret = RESULT_FAILED;
-			SaveMappings(port, cfg.pathIt->first, cfg.mappings);
+
+			if (cfg.pathIt != jsdata.begin())
+				SaveMappings(port, cfg.pathIt->first, cfg.mappings);
 		}
 	}
 	else
