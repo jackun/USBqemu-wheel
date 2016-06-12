@@ -32,13 +32,11 @@ void SysMessage(const char *fmt, ...)
 
 void CALLBACK USBsetSettingsDir( const char* dir )
 {
-	fprintf(stderr, "USBsetSettingsDir: %s\n", dir);
 	IniDir = dir;
 }
 
 void CALLBACK USBsetLogDir( const char* dir )
 {
-	printf("USBsetLogDir: %s\n", dir);
 	LogDir = dir;
 }
 
