@@ -60,7 +60,7 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.str("");
 		str << "map_" << JoyDevMapNames[i];
 		CONFIGVARIANT var(str.str().c_str(), CONFIG_TYPE_INT);
-		if (LoadSetting(port, joyname.c_str(), var))
+		if (LoadSetting(port, joyname, var))
 			mappings.push_back(var.intValue);
 		else
 			mappings.push_back(-1);

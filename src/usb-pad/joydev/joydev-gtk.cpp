@@ -64,9 +64,8 @@ static void PopulateJoysticks()
 	jsdata.push_back(std::make_pair("None", ""));
 	//jsdata.push_back(std::make_pair("Fake Vendor FakePad", "/dev/null"));
 
-	int count=0, j=0;
 	std::stringstream str;
-	for (count = 0; count < MAX_JOYS; count++)
+	for (int count = 0; count < MAX_JOYS; count++)
 	{
 		str.clear();
 		str.str(""); str << "/dev/input/js" << count;
