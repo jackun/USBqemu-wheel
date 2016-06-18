@@ -269,10 +269,10 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		break;
 		/* hid specific requests */
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //Never called?
-		OSDebugOut("InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n", value);
+		OSDebugOut(TEXT("InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n"), value);
 		switch(value >> 8) {
 		case 0x22:
-			OSDebugOut("Sending hid report desc.\n");
+			OSDebugOut(TEXT("Sending hid report desc.\n"));
 			if(/*s->initStage > 2 &&*/ t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
