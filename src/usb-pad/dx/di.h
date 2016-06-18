@@ -208,8 +208,8 @@ bool KeyDown(DWORD KeyID)
 	//Check each joystick button (64 possibilities with 10 joysticks)
 	if (KeyID > 264 && KeyID < 905)
 	{
-		int i = (KeyID-265)*0.015625f;  //get controller index
-		int b = (KeyID-265)-i*64; //get button index
+		int i = (KeyID-265) / 64;  //get controller index
+		int b = (KeyID-265) % 64; //get button index
 		if( g_pJoysticks[i] )
 		{
 			if(b<32){
@@ -309,7 +309,6 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 
 	//ugly, but it works gooood
 
-
 	float hs=0;
 	if(linear>0){hs = (float)(1.0-((linear*2) *(float)0.01));}	//format+shorten variable
 	else{hs = (float)(1.0-(abs(linear*2) *(float)0.01));}		//format+shorten variable
@@ -317,9 +316,8 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 	float v = input;											//format+shorten variable
 	float d = (dead) * (float)0.005;							//format+shorten variable
 
-
 	//format and apply deadzone
-	v=(v*(1.0f+(d*2.0)))-d;
+	v=(v*(1.0f+(d*2.0f)))-d;
 
 	//clamp
 	if(v<0.0f)v=0.0f;
@@ -328,20 +326,15 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 	//clamp negdead
 	if(v==-d)v=0.0;
 
-
-
 	//possibilities
-	float c1 = v - (1.0 - (pow((double)(1.0 - v) , (double)(1.0 / hs))));
-	float c2 = ((v - pow(v , hs)));
-	float c3 = v - (1.0 - (pow((double)(1.0 - v) , (double)hs)));
+	float c1 = float(v - (1.0 - (pow((double)(1.0 - v) , (double)(1.0 / hs)))));
+	float c2 = float(((v - pow(v , hs))));
+	float c3 = float(v - (1.0 - (pow((double)(1.0 - v) , (double)hs))));
 	float c4 = ((v - pow((float)v , (float)(1.0 / hs))));
 	float res = 0;
 
-
 	if(linear<0){res = v - (((1.0f - hs2) * c3) + (hs2 * c4));}		//get negative result
 	else{res = v - (((1.0f - hs2) * c1) + (hs2 * c2));}				//get positive result
-
-
 
 	//return our result
 	return res;
@@ -355,8 +348,8 @@ float ReadAxis(LONG axisid, LONG inverted, LONG initial)
 
 	float retval =  0;
 
-	int i = axisid*0.125;  //obtain controller index
-	int ax = axisid-i*8;  //obtain axis index
+	int i = axisid / 8;  //obtain controller index
+	int ax = axisid % 8;  //obtain axis index
 
 	if (initial > 60000) // origin somewhere near top
 	{
@@ -381,9 +374,7 @@ float ReadAxis(LONG axisid, LONG inverted, LONG initial)
 			if(ax == 5) retval =  (js[i].lRz-32767) * (1.0f/32767);
 			if(ax == 6) retval =  (js[i].rglSlider[0]-32767) * (1.0f/32767);
 			if(ax == 7) retval =  (js[i].rglSlider[1]-32767) * (1.0f/32767);
-
 		}else{
-
 			if(ax == 0) retval =  (32767-js[i].lX) * (1.0f/32767);
 			if(ax == 1) retval =  (32767-js[i].lY) * (1.0f/32767);
 			if(ax == 2) retval =  (32767-js[i].lZ) * (1.0f/32767);
@@ -392,8 +383,6 @@ float ReadAxis(LONG axisid, LONG inverted, LONG initial)
 			if(ax == 5) retval =  (32767-js[i].lRz) * (1.0f/32767);
 			if(ax == 6) retval =  (32767-js[i].rglSlider[0]) * (1.0f/32767);
 			if(ax == 7) retval =  (32767-js[i].rglSlider[1]) * (1.0f/32767);
-
-
 		}
 	}
 	if (initial >= 0 && initial < 4000) // origin somewhere near bottom
@@ -457,8 +446,6 @@ bool AxisDown(LONG axisid, LONG & inverted, LONG & initial)
 
 	for(DWORD i=0; i<numj; i++){
 		if( g_pJoysticks[i] ) {
-
-
 			LONG detectrange = 2000;
 			LONG lXdiff = js[i].lX - jso[i].lX;
 			LONG lYdiff = js[i].lY - jso[i].lY;
@@ -469,30 +456,29 @@ bool AxisDown(LONG axisid, LONG & inverted, LONG & initial)
 			LONG lSlider1diff = js[i].rglSlider[0] - jso[i].rglSlider[0];
 			LONG lSlider2diff = js[i].rglSlider[1] - jso[i].rglSlider[1];
 
+			if(axisid % 8 == 0 && lXdiff > detectrange) { initial = jsi[i].lX; inverted = true; return true;}
+			if(axisid % 8 == 0 && lXdiff < -detectrange) {initial = jsi[i].lX; inverted = false; return true;}
 
-			if(axisid-i*8 == 0 && lXdiff > detectrange) { initial = jsi[i].lX; inverted = true; return true;}
-			if(axisid-i*8 == 0 && lXdiff < -detectrange) {initial = jsi[i].lX; inverted = false; return true;}
+			if(axisid % 8 == 1 && lYdiff > detectrange) { initial = jsi[i].lY;inverted = true; return true;}
+			if(axisid % 8 == 1 && lYdiff < -detectrange) { initial = jsi[i].lY;inverted = false; return true;}
 
-			if(axisid-i*8 == 1 && lYdiff > detectrange) { initial = jsi[i].lY;inverted = true; return true;}
-			if(axisid-i*8 == 1 && lYdiff < -detectrange) { initial = jsi[i].lY;inverted = false; return true;}
+			if(axisid % 8 == 2 && lZdiff > detectrange) { initial = jsi[i].lZ;inverted = true; return true;}
+			if(axisid % 8 == 2 && lZdiff < -detectrange) { initial = jsi[i].lZ;inverted = false; return true;}
 
-			if(axisid-i*8 == 2 && lZdiff > detectrange) { initial = jsi[i].lZ;inverted = true; return true;}
-			if(axisid-i*8 == 2 && lZdiff < -detectrange) { initial = jsi[i].lZ;inverted = false; return true;}
+			if(axisid % 8 == 3 && lRxdiff > detectrange) { initial = jsi[i].lRx;inverted = true; return true;}
+			if(axisid % 8 == 3 && lRxdiff < -detectrange) {initial = jsi[i].lRx; inverted = false; return true;}
 
-			if(axisid-i*8 == 3 && lRxdiff > detectrange) { initial = jsi[i].lRx;inverted = true; return true;}
-			if(axisid-i*8 == 3 && lRxdiff < -detectrange) {initial = jsi[i].lRx; inverted = false; return true;}
+			if(axisid % 8 == 4 && lRydiff > detectrange) { initial = jsi[i].lRy;inverted = true; return true;}
+			if(axisid % 8 == 4 && lRydiff < -detectrange) { initial = jsi[i].lRy;inverted = false; return true;}
 
-			if(axisid-i*8 == 4 && lRydiff > detectrange) { initial = jsi[i].lRy;inverted = true; return true;}
-			if(axisid-i*8 == 4 && lRydiff < -detectrange) { initial = jsi[i].lRy;inverted = false; return true;}
+			if(axisid % 8 == 5 && lRzdiff > detectrange) { initial = jsi[i].lRz;inverted = true; return true;}
+			if(axisid % 8 == 5 && lRzdiff < -detectrange) { initial = jsi[i].lRz;inverted = false; return true;}
 
-			if(axisid-i*8 == 5 && lRzdiff > detectrange) { initial = jsi[i].lRz;inverted = true; return true;}
-			if(axisid-i*8 == 5 && lRzdiff < -detectrange) { initial = jsi[i].lRz;inverted = false; return true;}
+			if(axisid % 8 == 6 && lSlider1diff > detectrange) { initial = jsi[i].rglSlider[0];inverted = true; return true;}
+			if(axisid % 8 == 6 && lSlider1diff < -detectrange) { initial = jsi[i].rglSlider[0];inverted = false; return true;}
 
-			if(axisid-i*8 == 6 && lSlider1diff > detectrange) { initial = jsi[i].rglSlider[0];inverted = true; return true;}
-			if(axisid-i*8 == 6 && lSlider1diff < -detectrange) { initial = jsi[i].rglSlider[0];inverted = false; return true;}
-
-			if(axisid-i*8 == 7 && lSlider2diff > detectrange) { initial = jsi[i].rglSlider[1];inverted = true; return true;}
-			if(axisid-i*8 == 7 && lSlider2diff < -detectrange) { initial = jsi[i].rglSlider[1];inverted = false; return true;}
+			if(axisid % 8 == 7 && lSlider2diff > detectrange) { initial = jsi[i].rglSlider[1];inverted = true; return true;}
+			if(axisid % 8 == 7 && lSlider2diff < -detectrange) { initial = jsi[i].rglSlider[1];inverted = false; return true;}
 		}
 	}
 	return false;
@@ -525,7 +511,6 @@ bool FindControl(LONG & axis,LONG & inverted, LONG & initial, LONG & button)
 						return true;
 					}
 				}
-
 			}
 		}else{
 			listening=false;
@@ -558,9 +543,9 @@ void SetConstantForce(int port, LONG magnitude)
 	WriteLogFile(L"DINPUT: Apply Force");
 
 	if(INVERTFORCES[port])
-		cfw.lMagnitude = (127-magnitude) * 78.4803149606299;
+		cfw.lMagnitude = (127-magnitude) * DI_FFNOMINALMAX / 127;
 	else
-		cfw.lMagnitude = -(127-magnitude) * 78.4803149606299;
+		cfw.lMagnitude = -(127-magnitude) * DI_FFNOMINALMAX / 127;
 
 	if(g_pEffect[port]) {
 		g_pEffect[port]->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
@@ -602,18 +587,18 @@ void SetRampVariable(int port, int forceids, const variable& var)
 
 		if (INVERTFORCES[port])
 		{
-			cRamp.lStart = (127 - force) * DI_FFNOMINALMAX / 128;
+			cRamp.lStart = (127 - force) * DI_FFNOMINALMAX / 127;
 			int sign = 1;
 			if (cRamp.lStart < 0) sign = -1; // pull to force's direction?
 			cRamp.lEnd = sign * DI_FFNOMINALMAX * dir;
 		}
 		else
 		{
-			cRamp.lStart = -(127 - force) * DI_FFNOMINALMAX / 128;
+			cRamp.lStart = -(127 - force) * DI_FFNOMINALMAX / 127;
 			//int sign = -1;
 			//if (cRamp.lStart < 0) sign = 1; // pull to force's direction?
 			//cRamp.lEnd = sign * DI_FFNOMINALMAX * dir; // or to center?
-			cRamp.lEnd = -(127 -(force + /* var.t1 **/ var.s1 * dir)) * DI_FFNOMINALMAX / 128;
+			cRamp.lEnd = -(127 -(force + /* var.t1 **/ var.s1 * dir)) * DI_FFNOMINALMAX / 127;
 		}
 	}
 
@@ -678,11 +663,11 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires, bo
 	else
 	{
 		// FIXME
-		cSpring.lNegativeCoefficient = center * coeffs[spring.k1 & 7];
-		cSpring.lPositiveCoefficient = center * coeffs[spring.k2 & 7];
+		cSpring.lNegativeCoefficient = LONG(center * coeffs[spring.k1 & 7]);
+		cSpring.lPositiveCoefficient = LONG(center * coeffs[spring.k2 & 7]);
 	}
 
-	cSpring.dwNegativeSaturation = spring.clip * DI_FFNOMINALMAX / 256;
+	cSpring.dwNegativeSaturation = spring.clip * DI_FFNOMINALMAX / 255;
 	cSpring.dwPositiveSaturation = cSpring.dwNegativeSaturation;
 
 	//int check_x = (center - deadband/2 + 0x8000) >> 5;
@@ -750,9 +735,9 @@ void SetFrictionForce(int port, const friction& frict)
 	//noideaTM
 	cFriction.lOffset = 0;
 	if (frict.s1 & 1)
-		cFriction.lNegativeCoefficient =  (127 - (255 - frict.k1)) * 78.4803149606299;
+		cFriction.lNegativeCoefficient =  (127 - (255 - frict.k1)) * DI_FFNOMINALMAX / 127;
 	else
-		cFriction.lNegativeCoefficient = (127 - frict.k1) * 78.4803149606299;
+		cFriction.lNegativeCoefficient = (127 - frict.k1) * DI_FFNOMINALMAX / 127;
 	cFriction.lNegativeCoefficient = cFriction.lNegativeCoefficient * frict.clip / 255;
 	cFriction.lPositiveCoefficient = cFriction.lNegativeCoefficient;
 
@@ -851,7 +836,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			g_pJoysticks[i]->GetCapabilities(&diCaps);
 
 			//TODO Select joystick for FFB that has X axis (assumed!!) mapped as wheel
-			int joyid = AXISID[port][0] * 0.125;
+			int joyid = AXISID[port][0] / 8;
 
 			//has ffb?
 			if(FFB[port] == false && joyid == i && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
