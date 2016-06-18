@@ -189,7 +189,7 @@ bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 	case CONFIG_TYPE_INT:
 		return SaveSettingValue(ini, section.str(), var.name, var.intValue);
 	case CONFIG_TYPE_TCHAR:
-		return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
+		return SaveSettingValue(ini, section.str(), var.name, var.wstrValue);
 	case CONFIG_TYPE_WCHAR:
 		return SaveSettingValue(ini, section.str(), var.name, var.wstrValue);
 	case CONFIG_TYPE_CHAR:
