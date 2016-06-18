@@ -540,7 +540,7 @@ void SetConstantForce(int port, LONG magnitude)
 {
 	if (FFBindex[port] == -1) return;
 
-	WriteLogFile(L"DINPUT: Apply Force");
+	OSDebugOut(TEXT("DINPUT: Apply Force"));
 
 	if(INVERTFORCES[port])
 		cfw.lMagnitude = (127-magnitude) * DI_FFNOMINALMAX / 127;
@@ -779,17 +779,17 @@ HRESULT InitDirectInput( HWND hWindow, int port )
     HRESULT hr;
 
 	//release any previous resources
-	swprintf_s(logstring, L"DINPUT: FreeDirectInput %p", hWin);WriteLogFile(logstring);
+	OSDebugOut(TEXT("DINPUT: FreeDirectInput %p\n"), hWin);
 
 	if (refCount == 0)
 	{
 		// Create a DInput object
-		swprintf_s(logstring, L"DINPUT: DirectInput8Create %p", hWin); WriteLogFile(logstring);
+		OSDebugOut(TEXT("DINPUT: DirectInput8Create %p\n"), hWin);
 		if (FAILED(hr = DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION,
 			IID_IDirectInput8, (VOID**)&g_pDI, NULL)))
 			return hr;
 
-		swprintf_s(logstring, L"DINPUT: CreateDevice Keyboard %p", hWin); WriteLogFile(logstring);
+		OSDebugOut(TEXT("DINPUT: CreateDevice Keyboard %p\n"), hWin);
 		//Create Keyboard
 		g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
 		if (g_pKeyboard)
@@ -798,7 +798,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			g_pKeyboard->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			g_pKeyboard->Acquire();
 		}
-		swprintf_s(logstring, L"DINPUT: CreateDevice Mouse %p", hWin); WriteLogFile(logstring);
+		OSDebugOut(TEXT("DINPUT: CreateDevice Mouse %p\n"), hWin);
 		//Create Mouse
 		g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
 		if (g_pMouse)
@@ -813,7 +813,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		FFB[port] = false;  //no FFB device selected
 
 		//enumerate attached only
-		swprintf_s(logstring, L"DINPUT: EnumDevices Joystick %p", hWin); WriteLogFile(logstring);
+		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWin);
 		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
 
@@ -826,9 +826,9 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		{
 			if (refCount == 1)
 			{
-				swprintf_s(logstring, L"DINPUT: SetDataFormat Joystick %i", i); WriteLogFile(logstring);
+				OSDebugOut(TEXT("DINPUT: SetDataFormat Joystick %i\n"), i);
 				g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2);
-				swprintf_s(logstring, L"DINPUT: SetCooperativeLevel Joystick %i", i); WriteLogFile(logstring);
+				OSDebugOut(TEXT("DINPUT: SetCooperativeLevel Joystick %i\n"), i);
 			}
 
 			DIDEVCAPS diCaps;
@@ -914,15 +914,15 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 			if (refCount == 1)
 			{
-				swprintf_s(logstring, L"DINPUT: EnumObjects Joystick %i", i); WriteLogFile(logstring);
+				OSDebugOut(TEXT("DINPUT: EnumObjects Joystick %i\n"), i);
 				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, (VOID*)hWindow, DIDFT_ALL);
-				swprintf_s(logstring, L"DINPUT: Acquire Joystick %i", i); WriteLogFile(logstring);
+				OSDebugOut(TEXT("DINPUT: Acquire Joystick %i\n"), i);
 				g_pJoysticks[i]->Acquire();
 			}
 		}
 	}
 
-	WriteLogFile(L"DINPUT: Start Effect");
+	OSDebugOut(TEXT("DINPUT: Start Effect"));
 	//start the effect
 	//SetSpringForce(10000);
 	if(g_pEffect[port]) g_pEffect[port]->SetParameters(&eff, DIEP_START);

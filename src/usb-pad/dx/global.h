@@ -21,6 +21,7 @@
 #include "math.h"
 #include "stdio.h"
 #include "../../configuration.h"
+#include "../../osdebugout.h"
 
 static std::atomic<int> refCount = 0;
 DWORD LOG = 0;
@@ -28,7 +29,6 @@ DWORD INVERTFORCES[2] = { 0 };
 DWORD BYPASSCAL = 0;
  //logfile
 FILE* fl = NULL;
-TCHAR logstring[255];
 TCHAR	*pStr, strPath[255], strTemp[255];
 static bool useRamp = false;
 
@@ -136,22 +136,7 @@ void GetID(TCHAR * name)
 	hWin = ::FindWindow(name, NULL);
 	::GetWindowThreadProcessId(hWin, &pid);
 }
-void WriteLogFile(const TCHAR* szString)
-{
-	if (!LOG) return;
-#if _DEBUG
-	fwprintf(stderr, L"%s\n", szString);
-#endif
 
-	FILE* pFile = NULL;
-	errno_t err = _wfopen_s(&pFile, L"DIwheellog.txt", L"a");
-	if(err == 0)
-	{
-		fwprintf(pFile, L"%s\n",szString);
-		fclose(pFile);
-	}
-
-}
 void SaveMain(int port)
 {
 	GetIniFile(strMySystemFile);

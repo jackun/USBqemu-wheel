@@ -149,7 +149,8 @@ void StartListen(char controlid)
 
 	CID = controlid;
 	swprintf_s(text, L"Listening...");SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
-	{swprintf_s(logstring, L"Begin Listen %i", numj);WriteLogFile(logstring); ListenAxis(); }
+	OSDebugOut(TEXT("Begin Listen %i\n"), numj);
+	ListenAxis();
 }
 
 void DeleteControl(int port, char controlid)
