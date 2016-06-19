@@ -119,6 +119,7 @@ SET(HDRS_PLG
 	./src/deviceproxy.h
 	./src/configuration.h
 	./src/platcompat.h
+	./src/osdebugout.h
 )
 
 SET(SRCS_PLG
