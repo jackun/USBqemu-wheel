@@ -59,8 +59,10 @@
 */
 
 #include "PS2Etypes.h"
-#ifdef __LINUX__
-#define CALLBACK
+#ifdef _WIN32
+#	define CALLBACK			__stdcall
+#else
+#	define CALLBACK			__attribute__((stdcall))
 #endif
 
 ///////////////////////////////////////////////////////////////////////
