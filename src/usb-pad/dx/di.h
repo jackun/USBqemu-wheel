@@ -540,12 +540,13 @@ void SetConstantForce(int port, LONG magnitude)
 {
 	if (FFBindex[port] == -1) return;
 
-	OSDebugOut(TEXT("DINPUT: Apply Force"));
-
 	if(INVERTFORCES[port])
 		cfw.lMagnitude = (127-magnitude) * DI_FFNOMINALMAX / 127;
 	else
 		cfw.lMagnitude = -(127-magnitude) * DI_FFNOMINALMAX / 127;
+
+	if (FFMULTI[port][0] > 0)
+		cfw.lMagnitude *= 1 + FFMULTI[port][0];
 
 	if(g_pEffect[port]) {
 		g_pEffect[port]->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);

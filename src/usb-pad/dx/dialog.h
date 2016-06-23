@@ -12,6 +12,7 @@ void ApplyFilter(int port)
 	OFFSET[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50;
 	DEADZONE[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50;
 	GAINZ[port][0] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_GETPOS, 0, 0);
+	FFMULTI[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
 
 	swprintf_s(text, TEXT("LINEARITY: %i"), LINEAR[port][filtercontrol]);
 	SetWindowText(GetDlgItem(hWnd,IDC_LINEAR), text);
@@ -34,6 +35,7 @@ void LoadFilter(int port)
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
 	ApplyFilter(port);
 
 }
@@ -90,6 +92,7 @@ void DefaultFilters(int port, LONG id)
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
 
 	ApplyFilter(port);
 
@@ -497,6 +500,10 @@ void InitDialog(int port)
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETTICFREQ, 1000, 0);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
 
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETRANGEMAX, 1, 10);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETTICFREQ, 1, 0);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
+
 	SendMessage(GetDlgItem(hWnd,IDC_CHECK1), BM_SETCHECK, INVERTFORCES[port], 0);
 	SendMessage(GetDlgItem(hWnd,IDC_CHECK2), BM_SETCHECK, BYPASSCAL, 0);
 	SendMessage(GetDlgItem(hWnd,IDC_CHECK3), BM_SETCHECK, useRamp, 0);
@@ -632,6 +639,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 						BYPASSCAL = SendDlgItemMessage(hWnd, IDC_CHECK2, BM_GETCHECK, 0, 0);
 						useRamp = !!SendDlgItemMessage(hWnd, IDC_CHECK3, BM_GETCHECK, 0, 0);
 						GAINZ[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_GETPOS, 0, 0);
+						FFMULTI[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
 						SaveMain(port);
 						//Seems to create some dead locks
 						//SendMessage(hWnd, WM_CLOSE, 0, 0);

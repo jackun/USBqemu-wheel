@@ -205,7 +205,38 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 			{
 			case FTYPE_CONSTANT:
 				if (!calibrating)
-					SetConstantForce(mPort, ffdata->u.params[2]); //DF/GTF and GT3
+				{
+					//TODO do some mixing of forces, little weird
+					// param0: 0xFF, param1: 0x00, param2-3: 0x7F == no force
+					// param0: 0xFF, param1-3: 0x7F == full force to left
+					// param0: 0x00, param1-3: 0x7F == full force to right
+					// param0: 0xFF/0x3F, param1: 0x3F/0xFF, param2-3: 0x7F == ~half force to left
+					// param0: 0x00, param1: 0xFF, param2: 0x00, param3: 0x7F == full force to right
+					// param0: 0x00, param1: 0xFF, param2: 0x3F, param3: 0x7F == ~half force to right
+					// param0: 0x3F, param1: 0xFF, param2: 0x3F, param3: 0x7F == no force
+					// param0: 0x3F, param1: 0xFF, param2: 0x3F, param3: 0xFF == full force to left
+					// param0: 0x3F/0x00, param1: 0xFF, param2: 0x00/0x3F, param3: 0xFF == ~half force to left
+					if (slots == 0xF)
+					{
+						int force = 0x7F;
+						//TODO hack, GT3 uses slot 3 usually
+						for (int i = 0; i < 4; i++)
+						{
+							force = ffdata->u.params[i];
+							if (force != 0x7F)
+								break;
+						}
+						SetConstantForce(mPort, force);
+					}
+					else
+					{
+						for (int i = 0; i < 4; i++)
+						{
+							if (slots == (1 << i))
+								SetConstantForce(mPort, ffdata->u.params[i]);
+						}
+					}
+				}
 				break;
 			case FTYPE_SPRING:
 				SetSpringForce(mPort, NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, false, isdfp);

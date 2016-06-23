@@ -85,7 +85,8 @@ LONG BUTTON[2][numc] = { { 0 } };
 LONG LINEAR[2][numc] = { { 0 } };
 LONG OFFSET[2][numc] = { { 0 } };
 LONG DEADZONE[2][numc] = { { 0 } };
-LONG GAINZ[2][numc] = { { 0 } };
+LONG GAINZ[2][1] = { { 0 } };
+LONG FFMULTI[2][1] = { { 0 } };
 
 
 //label enum
@@ -160,6 +161,7 @@ void SaveMain(int port)
 		//swprintf_s(text, L"GAINZ%i", i); swprintf_s(strTemp, L"%i", GAINZ[port][i]); WriteToFile(section, text, strTemp);
 	}
 	swprintf_s(strTemp, L"%i", GAINZ[port][0]); WriteToFile(section, TEXT("GAINZ"), strTemp);
+	swprintf_s(strTemp, L"%i", FFMULTI[port][0]); WriteToFile(section, TEXT("FFMULTI"), strTemp);
 	//only for config dialog
 	CONFIGVARIANT var(L"UseRamp", useRamp);
 	SaveSetting(port, "dinput", var);
@@ -208,6 +210,11 @@ void LoadMain(int port)
 		GAINZ[port][0] = wcstol(szText, NULL, 10);
 	else
 		GAINZ[port][0] = 10000;
+
+	if (ReadFromFile(section, TEXT("FFMULTI"), szText))
+		FFMULTI[port][0] = wcstol(szText, NULL, 10);
+	else
+		FFMULTI[port][0] = 0;
 
 	//only for config dialog
 	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
