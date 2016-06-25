@@ -1,7 +1,7 @@
 USBqemu-wheel
 =============
 
-Go to https://opensource.logitech.com/opensource/index.php/Technical_Information
+Latest build is in [Release folder.](https://github.com/jackun/USBqemu-wheel/raw/master/Release/USBqemu-wheel.dll)
 
 PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using usb host emulation code from qemu.
 
@@ -12,6 +12,8 @@ As such, DInput (DirectX) mode is recommended.
 
 Linux note: if joystick is type of "gamepad" (xbox etc) then analog sticks/buttons should work mostly out-of-the-box.
 No rumble effect though yet. Also axis input is (too) linear so steering is a little _spazzy_.
+
+For info about Logitech's FF protocol, go to https://opensource.logitech.com/opensource/index.php/Technical_Information
 
 Mass storage device
 =======
