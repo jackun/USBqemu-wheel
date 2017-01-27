@@ -72,11 +72,11 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 		OSDebugOut("Current api: %s\n", api.c_str());
 		apiCallback[player].api = api;
 		int i = 0;
-		for(auto& api : dev->APIs())
+		for(auto& it : dev->APIs())
 		{
-			auto name = dev->LongAPIName(api);
+			auto name = dev->LongAPIName(it);
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget), name);
-			if (api.size() && api == &name[0])
+			if (api.size() && api == it)
 				gtk_combo_box_set_active (GTK_COMBO_BOX (widget), i);
 			else
 				gtk_combo_box_set_active (GTK_COMBO_BOX (widget), 0);
