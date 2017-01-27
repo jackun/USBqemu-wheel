@@ -209,12 +209,13 @@ void LoadConfig() {
 		api = tmpVar.strValue;
 
 		dev = instance.Device(conf.Port1);
-		if (dev && !dev->IsValidAPI(api))
+		/*if (dev && !dev->IsValidAPI(api))
 		{
 			auto apis = dev->APIs();
 			if (!apis.empty())
 				api = *apis.begin();
-		}
+		}*/
+		OSDebugOut("BUG: restart PCSX2 after plugin has been selected!");
 
 		if(api.size())
 			changedAPIs[std::make_pair(1, conf.Port1)] = api;
