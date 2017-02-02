@@ -343,10 +343,10 @@ void CreateAAImage(int port, HDC hAADC, int scale)
 	SetBitmapBits(hAABitmap, dstSize, lpDstBits);
 
 	// Destroy source bits
-	delete lpSrcBits;
+	delete[] lpSrcBits;
 
 	// Destroy destination bits
-	delete lpDstBits;
+	delete[] lpDstBits;
 
 	endTime = GetTickCount();
 
