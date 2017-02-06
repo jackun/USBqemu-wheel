@@ -254,7 +254,7 @@ IDB_BITMAP3             BITMAP                  "toca.bmp"
 //
 // Dialog Info
 //
-
+#if !defined(__MINGW32__)
 IDD_DIALOG1 DLGINIT
 BEGIN
     IDC_COMBO4, 0x403, 10, 0
@@ -270,7 +270,7 @@ BEGIN
 0x0065, 
     0
 END
-
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 //

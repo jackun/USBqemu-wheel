@@ -33,9 +33,9 @@ DICONDITION cDamper;
 
 BYTE diks[256];							// DirectInput keyboard state buffer
 DIMOUSESTATE2 dims2;					// DirectInput mouse state structure
-DIJOYSTATE2 js[10] = {NULL};			// DInput joystick state
-DIJOYSTATE2 jso[10] = {NULL};           // DInput joystick old state
-DIJOYSTATE2 jsi[10] = {NULL};           // DInput joystick initial state
+DIJOYSTATE2 js[10] = {0};			// DInput joystick state
+DIJOYSTATE2 jso[10] = {0};           // DInput joystick old state
+DIJOYSTATE2 jsi[10] = {0};           // DInput joystick initial state
 
 
 DWORD numj = 0;							//current attached joysticks

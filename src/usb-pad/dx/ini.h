@@ -20,7 +20,7 @@ static void GetIniFile(std::wstring &iniFile)
 	}
 }
 
-static int WriteToFile(TCHAR * strFileSection, TCHAR * strKey, TCHAR* strValue)
+static int WriteToFile(const TCHAR * strFileSection, const TCHAR * strKey, const TCHAR* strValue)
 {
 	//if ((strlen(strKey) > MAX_PATH) | (strlen(strValue) > MAX_PATH))
 	//	return -1;

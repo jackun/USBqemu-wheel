@@ -4,9 +4,9 @@
 
 
 #include <windows.h>
-#include <CommCtrl.h>
+#include <commctrl.h>
 #include <stdlib.h>
-#include <Shellapi.h>
+#include <shellapi.h>
 #include <stdint.h>
 
 #include <algorithm>
@@ -23,7 +23,7 @@
 #include "../../configuration.h"
 #include "../../osdebugout.h"
 
-static std::atomic<int> refCount = 0;
+static std::atomic<int> refCount (0);
 DWORD LOG = 0;
 DWORD INVERTFORCES[2] = { 0 };
 DWORD BYPASSCAL = 0;
@@ -41,8 +41,8 @@ extern HINSTANCE hInst;
 bool dialogOpen = false;
 extern HWND gsWnd;
 HWND hWin = NULL;
-DWORD pid = NULL;
-DWORD old = NULL;
+DWORD pid = 0;
+DWORD old = 0;
 
 bool tw = false;
 HWND hKey;
@@ -118,7 +118,7 @@ HWND GetWindowHandle(DWORD tPID)
 {
 	//Get first window handle
 	HWND res = FindWindow(NULL,NULL);
-	DWORD mPID = NULL;
+	DWORD mPID = 0;
 	while(res != 0)
 	{
 		if(!GetParent(res))

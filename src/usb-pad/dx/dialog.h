@@ -482,12 +482,12 @@ void InitDialog(int port)
 	SetTimer(hWnd, 22, 40, (TIMERPROC) NULL);
 
 	//StartTest();
-	wchar_t * string[] = {L"STEER LEFT", L"STEER RIGHT", L"THROTTLE", L"BRAKE"};
+	const wchar_t * string[] = {L"STEER LEFT", L"STEER RIGHT", L"THROTTLE", L"BRAKE"};
 
 	for(int i=0;i<4;i++)
 		SendMessageW(GetDlgItem(hWnd, IDC_COMBO1),CB_ADDSTRING,0, (LPARAM)string[i]);
 
-	wchar_t * stringp[] = {L"200 deg" , L"360 deg", L"540 deg", L"720 deg", L"900 deg"};
+	const wchar_t * stringp[] = {L"200 deg" , L"360 deg", L"540 deg", L"720 deg", L"900 deg"};
 
 	for(int i=0;i<5;i++)
 		SendMessageW(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
