@@ -8,11 +8,28 @@
 #include "../Win32/resource.h"
 
 #include <assert.h>
-#include <Mmdeviceapi.h>
-#include <Audioclient.h>
+#include <mmdeviceapi.h>
+#include <audioclient.h>
 #include <propsys.h>
-#include <Functiondiscoverykeys_devpkey.h>
 #include <typeinfo>
+
+// Is in header but missing from libuuid?
+#ifdef __MINGW32__
+
+#ifdef DEFINE_PROPERTYKEY
+#undef DEFINE_PROPERTYKEY
+#endif
+#define DEFINE_PROPERTYKEY(id, a, b, c, d, e, f, g, h, i, j, k, l) \
+	const PROPERTYKEY id = { { a,b,c, { d,e,f,g,h,i,j,k, } }, l };
+DEFINE_PROPERTYKEY(PKEY_Device_FriendlyName, \
+	0xa45c254e, 0xdf1c, 0x4efd, 0x80, \
+	0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0, 14);
+
+#else
+
+#include <functiondiscoverykeys_devpkey.h>
+
+#endif
 
 #define APINAME "wasapi"
 #define APINAMEW TEXT(APINAME)
@@ -92,7 +109,7 @@ public:
 			return;
 
 		if (mPos > INT_MAX - len)
-			throw new std::exception("Too much data");
+			throw new std::runtime_error("Too much data");
 
 		if (mPos + len > mLen)
 		{
@@ -114,7 +131,7 @@ public:
 			return;
 
 		if(mPos > INT_MAX - len)
-			throw new std::exception("Too much data");
+			throw new std::runtime_error("Too much data");
 
 		if(mPos + len > mLen)
 		{

@@ -21,7 +21,9 @@
 #ifndef __PS2USB_H__
 #define __PS2USB_H__
 
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
+#include <string>
 
 #ifndef EXPORT_C_
 #ifdef _MSC_VER

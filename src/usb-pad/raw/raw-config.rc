@@ -87,7 +87,7 @@ END
 //
 // Dialog Info
 //
-
+#if !defined(__MINGW32__)
 IDD_RAWCONFIG DLGINIT
 BEGIN
     IDC_COMBO_FFB, 0x403, 10, 0
@@ -114,7 +114,7 @@ BEGIN
 0x0065, 
     0
 END
-
+#endif
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 

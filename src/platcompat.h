@@ -4,7 +4,7 @@
 // Annoying defines
 // ---------------------------------------------------------------------
 #ifdef _WIN32
-#include <Windows.h>
+#include <windows.h>
 #define wfopen _wfopen
 #define TSTDSTRING std::wstring
 
@@ -31,5 +31,41 @@
 #define TSTDSTRING std::string
 
 #endif //_WIN32
+
+#if __MINGW32__
+
+template <size_t size>  
+errno_t mbstowcs_s(  
+	size_t *pReturnValue,  
+	wchar_t (&wcstr)[size],  
+	const char *mbstr,  
+	size_t count
+)
+{
+	return mbstowcs_s(pReturnValue, wcstr, size, mbstr, count);
+}
+
+template <size_t size>  
+errno_t wcstombs_s(  
+	size_t *pReturnValue,  
+	char (&mbstr)[size],  
+	const wchar_t *wcstr,  
+	size_t count
+)
+{
+	return wcstombs_s(pReturnValue, mbstr, size, wcstr, count);
+}
+
+template <size_t size>  
+errno_t wcsncpy_s(  
+	wchar_t (&strDest)[size],  
+	const wchar_t *strSource,  
+	size_t count
+)
+{
+	return wcsncpy_s(strDest, size, strSource, count);
+}
+
+#endif //__MINGW32__
 
 #endif

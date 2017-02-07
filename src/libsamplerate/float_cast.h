@@ -121,7 +121,7 @@
 		return retval ;
 	} /* float2int */
 
-#elif (defined (WIN64) || defined(_WIN64))
+#elif (defined (WIN64) || defined(_WIN64)) && !defined(__MINGW32__)
 
 	/*	Win64 section should be places before Win32 one, because
 	**	most likely both WIN32 and WIN64 will be defined in 64-bit case.
@@ -147,7 +147,7 @@
 		return _mm_cvtss_si32(_mm_load_ss(&flt));
 	}
 
-#elif (defined (WIN32) || defined (_WIN32))
+#elif (defined (WIN32) || defined (_WIN32)) && !defined(__MINGW32__)
 
 	#undef		HAVE_LRINT_REPLACEMENT
 	#define		HAVE_LRINT_REPLACEMENT	1

@@ -186,6 +186,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	USAGE                usage[MAX_BUTTONS] = {0};
 	Mappings             *mapping = NULL;
 	MapVector::iterator  it;
+	int                  numberOfButtons;
 
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
 
@@ -227,7 +228,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	capsLength = Caps.NumberInputButtonCaps;
 	HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData);
 
-	int numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
+	numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
 	usageLength = numberOfButtons;
 	NTSTATUS stat;
 	if((stat = HidP_GetUsages(

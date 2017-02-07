@@ -145,7 +145,7 @@ END
 //
 // Dialog Info
 //
-
+#if !defined(__MINGW32__)
 IDD_CONFIG DLGINIT
 BEGIN
     IDC_COMBO1, 0x403, 10, 0
@@ -216,7 +216,7 @@ BEGIN
 0x0065, 
     0
 END
-
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 //

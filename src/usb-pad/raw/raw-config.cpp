@@ -4,7 +4,6 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <stdlib.h>
-#include <strsafe.h>
 
 #include <algorithm>
 #include <map>
@@ -12,6 +11,8 @@
 #include "../../configuration.h"
 #include "raw-config.h"
 #include "raw-config-res.h"
+
+#include <strsafe.h>
 
 extern HINSTANCE hInst;
 extern char *szIni;
@@ -141,7 +142,7 @@ void SaveMappings(MapVector& maps)
 
 /// Dialogs
 #define TXT(x) (#x)
-char *BTN2TXT[] = { 
+const char *BTN2TXT[] = { 
 	"Cross",
 	"Square",
 	"Circle",
@@ -156,7 +157,7 @@ char *BTN2TXT[] = {
 	"L3"
 };
 
-char *AXIS2TXT[] = { 
+const char *AXIS2TXT[] = { 
 	"Axis X",
 	"Axis Y",
 	"Axis Z",
@@ -506,7 +507,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 	{
 		if(it->hidPath == devName)
 		{
-			mapping = it._Ptr;
+			mapping = &(*it);
 			break;
 		}
 	}
