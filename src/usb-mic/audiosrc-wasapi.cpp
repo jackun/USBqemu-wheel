@@ -1027,15 +1027,13 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				for (int i = 0; i < 2; i++)
 				{
-					CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_WCHAR);
-					var.wstrValue = micDev[i];
+					CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, micDev[i]);
 					if (!SaveSetting(port, APINAME, var))
 						res = RESULT_FAILED;
 				}
 
 				{
-					CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
-					var.intValue = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
+					CONFIGVARIANT var(N_BUFFER_LEN, (int32_t)SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0));
 					if (!SaveSetting(port, APINAME, var))
 						res = RESULT_FAILED;
 				}
