@@ -82,123 +82,6 @@ LONGLONG GetQPCTime100NS()
 	return LONGLONG(timeVal);
 }
 
-template<typename T>
-class QueueBuffer
-{
-public:
-	QueueBuffer()
-	: mBuffer(NULL)
-	, mPos(0)
-	, mLen(1<<20)
-	, mPosPtr(0)
-	{
-		mBuffer = (T*)malloc(sizeof(T) * mLen);
-	}
-
-	~QueueBuffer()
-	{
-		free(mBuffer);
-	}
-
-	// Add silence
-	void Add(int32_t len)
-	{
-		assert(mPos < INT_MAX - len);
-
-		if (!len)
-			return;
-
-		if (mPos > INT_MAX - len)
-			throw new std::runtime_error("Too much data");
-
-		if (mPos + len > mLen)
-		{
-			mLen = mPos + (1<<20);
-			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
-		}
-
-		memset(mBuffer + mPos, 0, sizeof(T) * len);
-		mPos += len;
-	}
-
-	// Add actual data
-	void Add(T *ptr, int32_t len)
-	{
-		assert(ptr);
-		assert(mPos < INT_MAX - len);
-
-		if(!len)
-			return;
-
-		if(mPos > INT_MAX - len)
-			throw new std::runtime_error("Too much data");
-
-		if(mPos + len > mLen)
-		{
-			mLen = mPos + (1<<20);
-			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
-		}
-
-		memcpy(mBuffer + mPos, ptr, sizeof(T) * len);
-		mPos += len;
-	}
-
-	T* Ptr()
-	{
-		return mBuffer;// +mPosPtr;
-	}
-
-	void Remove(int32_t len)
-	{
-		//mPosPtr += len;
-		//return;
-		// Keep old buffer size, should have less memory fragmentation,
-		// but resize if it is larger than 1MB.
-		bool bRealloc = false;
-		if(len >= mLen)
-		{
-			mPos = 0;
-			if(mLen * sizeof(T) > (1<<20))
-			{
-				mLen = (1 << 20) / sizeof(T);
-				bRealloc = true;
-			}
-		}
-		else if(len > 0)
-		{
-			if(mLen * sizeof(T) > (1<<20))
-				bRealloc = true;
-			assert(mPos - len >= 0);
-			mPos = MAX(mPos - len, 0);
-			mLen -= len;
-			//mLen = MAX(mLen - len, 1<<20);
-			if (mLen * sizeof(T) < (1 << 20) && bRealloc)
-				bRealloc = true;
-			else
-				bRealloc = false;
-			memmove(mBuffer, mBuffer + len, mLen * sizeof(T));
-		}
-
-		if (bRealloc)
-		{
-			mLen = 1 << 20;
-			mBuffer = (T*)realloc(mBuffer, sizeof(T) * mLen);
-		}
-	}
-
-	uint32_t Capacity(){ return mLen; }
-	uint32_t Size(){ return mPos - mPosPtr; }
-	void Reset(){ Remove(mLen); }
-
-
-private:
-	T *mBuffer;
-	int32_t mPos;
-	int32_t mLen;
-	int32_t mPosPtr;
-
-};
-
 class MMAudioSource : public AudioSource
 {
 public:
@@ -916,8 +799,6 @@ private:
 	bool mQuit;
 	bool mPaused;
 	LONGLONG mLastGetBufferMS;
-
-	//QueueBuffer<float> mQBuffer;
 };
 
 static void RefreshAudioList(HWND hW, LRESULT idx)
