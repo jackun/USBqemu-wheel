@@ -1,7 +1,9 @@
 USBqemu-wheel
 =============
 
-Latest build is in [Release folder.](https://github.com/jackun/USBqemu-wheel/raw/master/dist/USBqemu-wheel.dll)
+
+[![Build status](https://ci.appveyor.com/api/projects/status/tg69jfcw5lllu8kl?svg=true)](https://ci.appveyor.com/project/jackun/USBqemu-wheel/branch/master)
+
 
 PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using usb host emulation code from qemu.
 
@@ -21,7 +23,7 @@ Mass storage device
 Now includes preliminary support for usb mass storage devices. Create a image file and format it.
 http://www.fysnet.net/mtools.htm or http://www.ltr-data.se/opencode.html/ might be of some help to windows users.
 
-A 256MB and 4GB image file is included in `Release` folder. 
+A 256MB and 4GB image file is included in `dist` folder.
 You should be able to access files in image file with 7-zip ( http://7-zip.org/ ).
 
 On linux:

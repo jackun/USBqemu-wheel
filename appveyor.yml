@@ -23,6 +23,6 @@ install:
  - set COMMIT_SHA=%APPVEYOR_REPO_COMMIT:~0,8%
 
 artifacts:
- - path: build\$(configuration)
+ - path: build\$(configuration)\*.dll
    name: 'USBqemu-wheel-v0.5.2-$(Date)-$(COMMIT_SHA)-$(configuration)'
    type: zip
