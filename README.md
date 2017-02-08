@@ -47,7 +47,7 @@ You can use 2 mono/stereo mics or one stereo mic with separate per-channel input
 
 Windows: Uses Core Audio API. As such, it needs Vista or newer.
 
-Linux: not supported yet, but one backend will be pulseaudio, atleast.
+Linux: PulseAudio only for now atleast.
 
 
 Building
@@ -62,11 +62,13 @@ Basically:
 
 CMake defines:
 
-* `PLUGIN_BUILD_RAW` (bool) for raw api
-* `PLUGIN_BUILD_DX` (bool) for dinput
-* `PLUGIN_BUILD_PULSE` (bool) for PulseAudio (singstar, linux)
-* `PLUGIN_BUILD_WITH_DXSDK` (bool) build with DX2010 SDK
-* `PLUGIN_FIND_WINSDK` (bool) to find newest installed windows platform toolset/sdk. Probably unnecessary when building with Visual Studio.
+* `PLUGIN_BUILD_RAW` (bool, TRUE) for raw api (windows)
+* `PLUGIN_BUILD_DX` (bool, TRUE) for dinput (windows)
+* `PLUGIN_BUILD_PULSE` (bool, TRUE) for PulseAudio (singstar) (linux)
+* `PLUGIN_BUILD_DYNLINK_PULSE` (bool, TRUE) dlopen PulseAudio or link to lib (linux)
+* `PLUGIN_BUILD_WITH_DXSDK` (bool, FALSE) build with DX2010 SDK (windows)
+* `PLUGIN_FIND_WINSDK` (bool, FALSE) to find newest installed windows platform toolset/sdk. Probably unnecessary when building with Visual Studio. (windows)
+* `PLUGIN_ENABLE_UNITY_BUILD` (bool, FALSE) concat source files into one huge one before building, WIP.
 
 DInput should be using Windows platform toolset/sdk now.
 
