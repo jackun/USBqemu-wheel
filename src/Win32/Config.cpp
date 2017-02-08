@@ -144,7 +144,7 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 		//case CONFIG_TYPE_DOUBLE:
 		//	return LoadSettingValue(ini, section.str(), var.name, var.doubleValue);
 	case CONFIG_TYPE_TCHAR:
-		return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
+		return LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
 	case CONFIG_TYPE_CHAR:
 		return LoadSettingValue(ini, section.str(), var.name, var.strValue);
 	case CONFIG_TYPE_WCHAR:
