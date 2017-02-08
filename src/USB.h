@@ -65,6 +65,11 @@ typedef struct _Config {
   std::string Port1; //player1
   int DFPPass; //[2]; //TODO per player
   int WheelType[2];
+
+  _Config(): Log(0), DFPPass(0)
+  {
+    memset(&WheelType, 0, sizeof(WheelType));
+  }
 } Config;
 
 extern Config conf;
