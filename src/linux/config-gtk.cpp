@@ -26,6 +26,9 @@
 
 #include "config.h"
 
+// src/USB.cpp
+extern bool configChanged;
+
 //TODO better way to access API comboboxes from "device changed" callback
 struct APICallback
 {
@@ -294,7 +297,10 @@ void CALLBACK USBconfigure() {
 		gtk_main_iteration_do (FALSE);
 
 	if (result == GTK_RESPONSE_OK)
+	{
 		SaveConfig();
+		configChanged = true;
+	}
 }
 
 void CALLBACK USBabout() {
