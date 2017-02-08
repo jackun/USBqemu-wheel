@@ -2,13 +2,17 @@
 #include <cstring>
 #include "../osdebugout.h"
 #include "audiosourceproxy.h"
-//#include <pulse/pulseaudio.h>
-#include "../dynlink/pulse.h"
 #include "../libsamplerate/samplerate.h"
 #include <typeinfo>
 //#include <thread>
 #include <mutex>
 #include <chrono>
+
+#ifndef DYNLINK_PULSE
+#include <pulse/pulseaudio.h>
+#else
+#include "../dynlink/pulse.h"
+#endif
 
 using hrc = std::chrono::high_resolution_clock;
 using ms = std::chrono::milliseconds;
@@ -408,11 +412,17 @@ public:
 
 	static bool AudioInit()
 	{
+#ifdef DYNLINK_PULSE
 		return DynLoadPulse();
+#else
+		return true;
+#endif
 	}
 	static void AudioDeinit()
 	{
+#ifdef DYNLINK_PULSE
 		DynUnloadPulse();
+#endif
 	}
 	static std::vector<CONFIGVARIANT> GetSettings()
 	{

@@ -28,7 +28,8 @@ IF(WIN32)
 	OPTION (PLUGIN_BUILD_WITH_DXSDK "Build with DX 2010 SDK" FALSE)
 	OPTION (PLUGIN_FIND_WINSDK "Find Windows SDK if your build tools don't include it automatically" FALSE)
 ELSE(WIN32)
-	OPTION (PLUGIN_BUILD_PULSE "Build with PulseAudio (dynamically loaded)" TRUE)
+	OPTION (PLUGIN_BUILD_PULSE "Build with PulseAudio" TRUE)
+	OPTION (PLUGIN_BUILD_DYNLINK_PULSE "Load PulseAudio dynamically" TRUE)
 	IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
 		ADD_DEFINITIONS(-D_DEBUG=1)
 	ENDIF()
@@ -276,14 +277,23 @@ IF(UNIX)
 	)
 
 	IF(PLUGIN_BUILD_PULSE)
-		LIST(APPEND HDRS_MIC
-			./src/dynlink/pulse.h
-		)
+
 		LIST(APPEND SRCS_MIC
 			./src/usb-mic/audiosrc-pulse.cpp
-			./src/dynlink/pulse.cpp
 		)
-		#LIST(APPEND LIBS pulse)
+
+		IF(PLUGIN_BUILD_DYNLINK_PULSE)
+			LIST(APPEND HDRS_MIC
+				./src/dynlink/pulse.h
+			)
+			LIST(APPEND SRCS_MIC
+				./src/dynlink/pulse.cpp
+			)
+			ADD_DEFINITIONS(-DDYNLINK_PULSE=1)
+		ELSE(PLUGIN_BUILD_DYNLINK_PULSE)
+			LIST(APPEND LIBS pulse)
+		ENDIF(PLUGIN_BUILD_DYNLINK_PULSE)
+
 	ENDIF(PLUGIN_BUILD_PULSE)
 
 	ADD_DEFINITIONS(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
