@@ -17,12 +17,12 @@ before_build:
  - cmake -G "Visual Studio 14" ..
 
 build_script:
- - cmake --build . --config Release -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+ - cmake --build . --config %configuration% -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
 
 install:
  - set COMMIT_SHA=%APPVEYOR_REPO_COMMIT:~0,8%
 
 artifacts:
- - path: build
-   name: 'USBqemu-wheel-v0.5.2-$(Date)-$(COMMIT_SHA)'
+ - path: build\$(configuration)
+   name: 'USBqemu-wheel-v0.5.2-$(Date)-$(COMMIT_SHA)-$(configuration)'
    type: zip
