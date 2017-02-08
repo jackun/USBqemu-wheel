@@ -7,6 +7,7 @@
 //#include <thread>
 #include <mutex>
 #include <chrono>
+#include <gtk/gtk.h>
 
 #ifndef DYNLINK_PULSE
 #include <pulse/pulseaudio.h>
@@ -28,6 +29,7 @@ static void pa_context_state_cb(pa_context *c, void *userdata)
 	int *pa_ready = (int *)userdata;
 
 	state = pa_context_get_state(c);
+	OSDebugOut("pa_context_get_state() %d\n", state);
 	switch (state) {
 		// There are just here for reference
 		case PA_CONTEXT_UNCONNECTED:
@@ -81,6 +83,7 @@ static int pa_get_devicelist(AudioDeviceInfoList& input)
 
 	pa_context_set_state_callback(pa_ctx, pa_context_state_cb, &pa_ready);
 
+	OSDebugOut("pa_get_devicelist\n");
 	for (;;) {
 
 		if (pa_ready == 0)
@@ -121,6 +124,98 @@ static int pa_get_devicelist(AudioDeviceInfoList& input)
 		}
 		pa_mainloop_iterate(pa_ml, 1, NULL);
 	}
+}
+
+// GTK+ config. dialog stuff
+GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
+static void populateDeviceWidget(GtkComboBox *widget, const std::string& devName, const AudioDeviceInfoList& devs)
+{
+	gtk_list_store_clear (GTK_LIST_STORE (gtk_combo_box_get_model (widget)));
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget), "None");
+	gtk_combo_box_set_active (GTK_COMBO_BOX (widget), 0);
+
+	int i = 1;
+	for (auto& dev: devs)
+	{
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget), dev.strName.c_str());
+		if (!devName.empty() && devName == dev.strID)
+			gtk_combo_box_set_active (GTK_COMBO_BOX (widget), i);
+		i++;
+	}
+}
+
+static void deviceChanged (GtkComboBox *widget, gpointer data)
+{
+	*(int*) data = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+}
+
+static int GtkConfigure(int port, void *data)
+{
+	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
+
+	int dev_idxs[] = {0, 0};
+
+	AudioDeviceInfoList devs;
+	if (pa_get_devicelist(devs) != 0)
+	{
+		OSDebugOut("pa_get_devicelist failed\n");
+		return RESULT_FAILED;
+	}
+
+	GtkWidget *dlg = gtk_dialog_new_with_buttons (
+		"PulseAudio Settings", GTK_WINDOW (data), GTK_DIALOG_MODAL,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		NULL);
+	gtk_window_set_position (GTK_WINDOW (dlg), GTK_WIN_POS_CENTER);
+	gtk_window_set_resizable (GTK_WINDOW (dlg), TRUE);
+	GtkWidget *dlg_area_box = gtk_dialog_get_content_area (GTK_DIALOG (dlg));
+
+	ro_frame = gtk_frame_new (NULL);
+	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 5);
+
+	GtkWidget *main_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_add (GTK_CONTAINER (ro_frame), main_vbox);
+
+	const char* labels[] = {"Select mic 2", "Select mic 1"};
+	for (int i=1; i>=0; i--)
+	{
+		std::string devName;
+		CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_CHAR);
+		if (LoadSetting(port, APINAME, var))
+			devName = var.strValue;
+
+		GtkWidget *cb = new_combobox(labels[i], main_vbox);
+		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
+		populateDeviceWidget (GTK_COMBO_BOX (cb), devName, devs);
+	}
+
+	gtk_widget_show_all (dlg);
+	gint result = gtk_dialog_run (GTK_DIALOG (dlg));
+
+	gtk_widget_destroy (dlg);
+
+	// Wait for all gtk events to be consumed ...
+	while (gtk_events_pending ())
+		gtk_main_iteration_do (FALSE);
+
+	if (result == GTK_RESPONSE_OK)
+	{
+		for (int i=0; i<2; i++)
+		{
+			int idx = dev_idxs[i];
+			CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, "");
+
+			if (idx > 0)
+				var.strValue = devs[idx - 1].strID;
+
+			if (!SaveSetting(port, APINAME, var))
+					return RESULT_FAILED;
+		}
+		return RESULT_OK;
+	}
+
+	return RESULT_CANCELED;
 }
 
 class PulseAudioSource : public AudioSource
@@ -402,7 +497,13 @@ public:
 
 	static int Configure(int port, void *data)
 	{
-		return RESULT_CANCELED;
+		int ret = RESULT_FAILED;
+		if (PulseAudioSource::AudioInit())
+		{
+			ret = GtkConfigure(port, data);
+			PulseAudioSource::AudioDeinit();
+		}
+		return ret;
 	}
 
 	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
