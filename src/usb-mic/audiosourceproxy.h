@@ -20,6 +20,8 @@ public:
 
 class AudioSourceProxyBase : public ProxyBase
 {
+	AudioSourceProxyBase(const AudioSourceProxyBase&) = delete;
+
 	public:
 	AudioSourceProxyBase(const std::string& name);
 	virtual AudioSource* CreateObject(int port, int mic) const = 0; //Can be generalized? Probably not
@@ -31,6 +33,8 @@ class AudioSourceProxyBase : public ProxyBase
 template <class T>
 class AudioSourceProxy : public AudioSourceProxyBase
 {
+	AudioSourceProxy(const AudioSourceProxy&) = delete;
+
 	public:
 	AudioSourceProxy(const std::string& name): AudioSourceProxyBase(name) {} //Why can't it automagically, ugh
 	AudioSource* CreateObject(int port, int mic) const
@@ -73,12 +77,17 @@ class AudioSourceProxy : public AudioSourceProxyBase
 
 class RegisterAudioSource
 {
+	RegisterAudioSource(const RegisterAudioSource&) = delete;
+	RegisterAudioSource() {}
+
 	public:
 	typedef std::map<std::string, AudioSourceProxyBase* > RegisterAudioSourceMap;
 	static RegisterAudioSource& instance() {
 		static RegisterAudioSource registerAudioSource;
 		return registerAudioSource;
 	}
+
+	~RegisterAudioSource() {}
 
 	void Add(const std::string name, AudioSourceProxyBase* creator)
 	{

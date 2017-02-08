@@ -36,7 +36,7 @@ void SelChangedAPI(HWND hW, int port)
 	if (devtype == 0)
 		return;
 	devtype--;
-	auto rd = RegisterDevice::instance();
+	auto& rd = RegisterDevice::instance();
 	auto devName = rd.Name(devtype);
 	auto apis = rd.Device(devtype)->APIs();
 	auto it = apis.begin();
@@ -52,7 +52,7 @@ void PopulateAPIs(HWND hW, int port)
 	if (devtype == 0)
 		return;
 	devtype--;
-	auto rd = RegisterDevice::instance();
+	auto& rd = RegisterDevice::instance();
 	auto dev = rd.Device(devtype);
 	auto devName = rd.Name(devtype);
 	auto apis = dev->APIs();
@@ -97,7 +97,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"None");
 
 			{
-				auto rd = RegisterDevice::instance();
+				auto& rd = RegisterDevice::instance();
 				int i = 0, p1 = 0, p2 = 0;
 				for (auto& name : rd.Names())
 				{
@@ -184,7 +184,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					conf.Log = IsDlgButtonChecked(hW, IDC_LOGGING);
 					conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
 					{
-						auto regInst = RegisterDevice::instance();
+						auto& regInst = RegisterDevice::instance();
 						int i;
 						//device type
 						i = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);

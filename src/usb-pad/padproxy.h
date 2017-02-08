@@ -18,6 +18,8 @@ public:
 
 class PadProxyBase : public ProxyBase
 {
+	PadProxyBase(const PadProxyBase&) = delete;
+
 	public:
 	PadProxyBase(const std::string& name);
 	virtual Pad* CreateObject(int port) const = 0;
@@ -26,6 +28,8 @@ class PadProxyBase : public ProxyBase
 template <class T>
 class PadProxy : public PadProxyBase
 {
+	PadProxy(const PadProxy&) = delete;
+
 	public:
 	PadProxy(const std::string& name): PadProxyBase(name) {}
 	Pad* CreateObject(int port) const
@@ -56,6 +60,9 @@ class PadProxy : public PadProxyBase
 
 class RegisterPad
 {
+	RegisterPad(const RegisterPad&) = delete;
+	RegisterPad() {}
+
 	public:
 	typedef std::map<std::string, PadProxyBase* > RegisterPadMap;
 	static RegisterPad& instance() {

@@ -7,6 +7,7 @@
 #include <list>
 #include <algorithm>
 #include <iterator>
+//#include <memory>
 #include "helpers.h"
 #include "proxybase.h"
 
@@ -99,12 +100,17 @@ class DeviceProxy : public DeviceProxyBase
 
 class RegisterDevice
 {
+	RegisterDevice(const RegisterDevice&) = delete;
+	RegisterDevice() {}
+
 	public:
 	typedef std::map<DeviceKey, DeviceProxyBase* > RegisterDeviceMap;
 	static RegisterDevice& instance() {
 		static RegisterDevice registerDevice;
 		return registerDevice;
 	}
+
+	~RegisterDevice() {}
 
 	void Add(const DeviceKey key, DeviceProxyBase* creator)
 	{
@@ -167,4 +173,5 @@ class RegisterDevice
 };
 
 #define REGISTER_DEVICE(idx,name,cls) DeviceProxy<cls> g##cls##Proxy(DeviceKey(idx, name))
+//#define REGISTER_DEVICE(idx,name,cls) static std::unique_ptr< DeviceProxy<cls> > g##cls##Proxy(new DeviceProxy<cls>(DeviceKey(idx, name)))
 #endif
