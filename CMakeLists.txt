@@ -334,9 +334,9 @@ ENDIF(CMAKE_SIZEOF_VOID_P MATCHES "8")
 # post-build copy for win32
 IF(WIN32 AND NOT MINGW)
 	ADD_CUSTOM_COMMAND( TARGET ${TargetName} PRE_BUILD
-		COMMAND if not exist \"${PROJECT_SOURCE_DIR}\"\\Release mkdir \"${PROJECT_SOURCE_DIR}\"\\Release )
+		COMMAND if not exist \"${PROJECT_SOURCE_DIR}\"\\dist mkdir \"${PROJECT_SOURCE_DIR}\"\\dist )
 	ADD_CUSTOM_COMMAND( TARGET ${TargetName} POST_BUILD
-		COMMAND copy \"$(TargetPath)\" \"${PROJECT_SOURCE_DIR}\"\\Release )
+		COMMAND copy \"$(TargetPath)\" \"${PROJECT_SOURCE_DIR}\"\\dist )
 ENDIF(WIN32 AND NOT MINGW)
 
 # set the executable output path for UNIX and MinGW instead of post-build copy

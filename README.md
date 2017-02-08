@@ -1,7 +1,7 @@
 USBqemu-wheel
 =============
 
-Latest build is in [Release folder.](https://github.com/jackun/USBqemu-wheel/raw/master/Release/USBqemu-wheel.dll)
+Latest build is in [Release folder.](https://github.com/jackun/USBqemu-wheel/raw/master/dist/USBqemu-wheel.dll)
 
 PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using usb host emulation code from qemu.
 
