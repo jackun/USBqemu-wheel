@@ -68,10 +68,12 @@ bool SaveSettingValue(const std::string& ini, const std::string& section, const 
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
-	OSDebugOut("USBqemu load \"%s\" from [%s %d]\n", var.name, key.c_str(), port);
-
+	bool ret = false;
 	if (key.empty())
+	{
+		OSDebugOut("Key is empty for '%s' on port %d\n", var.name, port);
 		return false;
+	}
 
 	std::stringstream section;
 	section << key << " " << port;
@@ -79,24 +81,31 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 	std::string ini(IniDir);
 	ini.append(iniFile);
 
+	OSDebugOut("[%s %d] '%s'=", key.c_str(), port, var.name);
 	switch(var.type)
 	{
 		case CONFIG_TYPE_INT:
-			return LoadSettingValue(ini, section.str(), var.name, var.intValue);
+			ret = LoadSettingValue(ini, section.str(), var.name, var.intValue);
+			OSDebugOut_noprfx("%d\n", var.intValue);
+			break;
 		//case CONFIG_TYPE_DOUBLE:
 		//	return LoadSettingValue(ini, section.str(), var.name, var.doubleValue);
 		case CONFIG_TYPE_TCHAR:
-			return LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
+			ret = LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
+			OSDebugOut_noprfx("'%s'\n", var.tstrValue.c_str());
+			break;
 		case CONFIG_TYPE_CHAR:
-			return LoadSettingValue(ini, section.str(), var.name, var.strValue);
+			ret = LoadSettingValue(ini, section.str(), var.name, var.strValue);
+			OSDebugOut_noprfx("'%s'\n", var.strValue.c_str());
+			break;
 		//case CONFIG_TYPE_WCHAR:
 		//	return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
 		break;
 		default:
-			OSDebugOut("Invalid config type %d for %s\n", var.type, var.name);
+			OSDebugOut("\nInvalid config type %d for %s\n", var.type, var.name);
 			break;
 	};
-	return false;
+	return ret;
 }
 
 /**
@@ -115,10 +124,12 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
  * */
 bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 {
-	OSDebugOut("USBqemu save \"%s\" to [%s %d]\n", var.name, key.c_str(), port);
-
+	bool ret = false;
 	if (key.empty())
+	{
+		OSDebugOut("Key is empty for '%s' on port %d\n", var.name, port);
 		return false;
+	}
 
 	std::stringstream section;
 	section << key << " " << port;
@@ -126,24 +137,31 @@ bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 	std::string ini(IniDir);
 	ini.append(iniFile);
 
+	OSDebugOut("[%s %d] '%s'=", key.c_str(), port, var.name);
 	switch(var.type)
 	{
 		case CONFIG_TYPE_INT:
-			return SaveSettingValue(ini, section.str(), var.name, var.intValue);
+			ret = SaveSettingValue(ini, section.str(), var.name, var.intValue);
+			OSDebugOut_noprfx("%d\n", var.intValue);
+			break;
 		case CONFIG_TYPE_TCHAR:
-			return LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
+			ret = LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
+			OSDebugOut_noprfx("'%s'\n", var.tstrValue.c_str());
+			break;
 		case CONFIG_TYPE_CHAR:
-			return SaveSettingValue(ini, section.str(), var.name, var.strValue);
+			ret = SaveSettingValue(ini, section.str(), var.name, var.strValue);
+			OSDebugOut_noprfx("'%s'\n", var.strValue.c_str());
+			break;
 		break;
 		default:
-			OSDebugOut("Invalid config type %d for %s\n", var.type, var.name);
+			OSDebugOut("\nInvalid config type %d for %s\n", var.type, var.name);
 			break;
 	};
-	return false;
+	return ret;
 }
 
 void SaveConfig() {
-	OSDebugOut("USB save config\n");
+	OSDebugOut("\n");
 	//char* envptr = getenv("HOME");
 	//if(envptr == NULL)
 	//	return;
@@ -155,16 +173,21 @@ void SaveConfig() {
 
 	//OSDebugOut("%s\n", path);
 
+	OSDebugOut("[%s %d] '%s'='%s'\n", N_DEVICES, 0, N_DEVICE_PORT0, conf.Port0.c_str());
 	INISaveString(path, N_DEVICES, N_DEVICE_PORT0, conf.Port0.c_str());
+
+	OSDebugOut("[%s %d] '%s'='%s'\n", N_DEVICES, 1, N_DEVICE_PORT1, conf.Port1.c_str());
 	INISaveString(path, N_DEVICES, N_DEVICE_PORT1, conf.Port1.c_str());
+
+	OSDebugOut("[%s %d] '%s'=%d\n", N_DEVICES, 0, N_WHEEL_TYPE0, conf.WheelType[0]);
 	INISaveUInt(path, N_DEVICES, N_WHEEL_TYPE0, conf.WheelType[0]);
+
+	OSDebugOut("[%s %d] '%s'=%d\n", N_DEVICES, 1, N_WHEEL_TYPE1, conf.WheelType[1]);
 	INISaveUInt(path, N_DEVICES, N_WHEEL_TYPE1, conf.WheelType[1]);
 
 	for (auto& k : changedAPIs)
 	{
-		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		var.strValue = k.second;
-		OSDebugOut("Save apis: %s %s\n", k.first.second.c_str(), k.second.c_str());
+		CONFIGVARIANT var(N_DEVICE_API, k.second);
 		SaveSetting(k.first.first, k.first.second, var);
 	}
 }
@@ -188,35 +211,30 @@ void LoadConfig() {
 	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE0, (u32*)&conf.WheelType[0]);
 	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE1, (u32*)&conf.WheelType[1]);
 
+	for (auto& pair: {std::make_pair(0, conf.Port0), std::make_pair(1, conf.Port1)})
 	{
-		auto instance = RegisterDevice::instance();
+		auto& instance = RegisterDevice::instance();
 		CONFIGVARIANT tmpVar(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		LoadSetting(0, conf.Port0, tmpVar);
+		LoadSetting(pair.first, pair.second, tmpVar);
 		std::string api = tmpVar.strValue;
-		auto dev = instance.Device(conf.Port0);
+		auto dev = instance.Device(pair.second);
 
-		if (dev && !dev->IsValidAPI(api))
+		if (dev)
 		{
-			auto apis = dev->APIs();
-			if (!apis.empty())
-				api = *apis.begin();
+			OSDebugOut("Checking device '%s' api: '%s'...\n", pair.second.c_str(), api.c_str());
+			if (!dev->IsValidAPI(api))
+			{
+				const auto& apis = dev->APIs();
+				if (!apis.empty())
+					api = *apis.begin();
+
+				OSDebugOut("Invalid! Defaulting to '%s'\n", api.c_str());
+			}
+			else
+				OSDebugOut("API OK\n");
 		}
 
 		if(api.size())
-			changedAPIs[std::make_pair(0, conf.Port0)] = api;
-
-		LoadSetting(1, conf.Port1, tmpVar);
-		api = tmpVar.strValue;
-
-		dev = instance.Device(conf.Port1);
-		if (dev && !dev->IsValidAPI(api))
-		{
-			auto apis = dev->APIs();
-			if (!apis.empty())
-				api = *apis.begin();
-		}
-
-		if(api.size())
-			changedAPIs[std::make_pair(1, conf.Port1)] = api;
+			changedAPIs[pair] = api;
 	}
 }

@@ -236,8 +236,7 @@ void SaveConfig()
 
 	for (auto &kp : changedAPIs)
 	{
-		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		var.strValue = kp.second;
+		CONFIGVARIANT var(N_DEVICE_API, kp.second);
 		SaveSetting(kp.first.first, kp.first.second, var);
 	}
 	changedAPIs.clear();
