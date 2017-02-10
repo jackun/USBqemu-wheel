@@ -379,7 +379,9 @@ EXPORT_C_(void) USBasync(u32 cycles)
 {
 	remaining += cycles;
 	clocks += remaining;
-	if(qemu_ohci->eof_timer>0)	{		while(remaining>=qemu_ohci->eof_timer)
+	if(qemu_ohci->eof_timer>0)
+	{
+		while(remaining>=qemu_ohci->eof_timer)
 		{
 			remaining-=qemu_ohci->eof_timer;
 			qemu_ohci->eof_timer=0;
