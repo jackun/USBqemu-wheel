@@ -38,9 +38,7 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 }
 
 #ifdef _DEBUG
-//Too many gibberish intellisense errors
-//#define OSDebugOut(psz_fmt, ...) _OSDebugOut( TEXT("[") TEXT(__FUNCTION__) TEXT("] ") psz_fmt, ##__VA_ARGS__)
-#define OSDebugOut(psz_fmt, ...) _OSDebugOut(psz_fmt, ##__VA_ARGS__)
+#define OSDebugOut(psz_fmt, ...) _OSDebugOut(TEXT("[USBqemu] [%s]\t") psz_fmt, TEXT(__FUNCTION__), ##__VA_ARGS__)
 #define OSDebugOut_noprfx(psz_fmt, ...) _OSDebugOut(psz_fmt, ##__VA_ARGS__)
 #else
 #define OSDebugOut(...) do{}while(0)
