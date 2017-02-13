@@ -579,7 +579,7 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		return;
 
 	auto dur = std::chrono::duration_cast<ms>(hrc::now() - src->mLastGetBuffer).count();
-	if (src->mPaused || dur > 50000) {
+	if (src->mPaused || dur > 5000) {
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
 			OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
