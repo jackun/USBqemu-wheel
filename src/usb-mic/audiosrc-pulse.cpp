@@ -605,9 +605,9 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 
 	SRC_DATA data;
 	memset(&data, 0, sizeof(SRC_DATA));
-	data.data_in = &src->mQBuffer[0];
+	data.data_in = src->mQBuffer.data();
 	data.input_frames = src->mQBuffer.size() / src->mSSpec.channels;
-	data.data_out = &rebuf[0];
+	data.data_out = rebuf.data();
 	data.output_frames = resampled / src->mSSpec.channels;
 	data.src_ratio = src->mResampleRatio * src->mTimeAdjust;
 
@@ -629,7 +629,7 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		}
 		else
 			src->mResampledBuffer.resize(size + len);
-		src_float_to_short_array(&rebuf[0], &(src->mResampledBuffer[size]), len);
+		src_float_to_short_array(rebuf.data(), &(src->mResampledBuffer[size]), len);
 	}
 
 //#if _DEBUG
