@@ -33,16 +33,6 @@
 
 static FILE *file = NULL;
 
-/* HID interface requests */
-#define GET_REPORT   0xa101
-#define GET_IDLE     0xa102
-#define GET_PROTOCOL 0xa103
-#define SET_IDLE     0x210a
-#define SET_PROTOCOL 0x210b
-
-#define USB_MOUSE  1
-#define USB_TABLET 2
-
 //#include "type.h"
 
 #include "usb.h"
@@ -71,40 +61,6 @@ enum usb_audio_altset {
     ALTSET_OFF  = 0x00,         /* No endpoint */
     ALTSET_ON   = 0x01,         /* Single endpoint */
 };
-
-/*
- * Class-specific control requests
- */
-#define CR_SET_CUR      0x01
-#define CR_GET_CUR      0x81
-#define CR_SET_MIN      0x02
-#define CR_GET_MIN      0x82
-#define CR_SET_MAX      0x03
-#define CR_GET_MAX      0x83
-#define CR_SET_RES      0x04
-#define CR_GET_RES      0x84
-#define CR_SET_MEM      0x05
-#define CR_GET_MEM      0x85
-#define CR_GET_STAT     0xff
-
-/*
- * Feature Unit Control Selectors
- */
-#define MUTE_CONTROL                    0x01
-#define VOLUME_CONTROL                  0x02
-#define BASS_CONTROL                    0x03
-#define MID_CONTROL                     0x04
-#define TREBLE_CONTROL                  0x05
-#define GRAPHIC_EQUALIZER_CONTROL       0x06
-#define AUTOMATIC_GAIN_CONTROL          0x07
-#define DELAY_CONTROL                   0x08
-#define BASS_BOOST_CONTROL              0x09
-#define LOUDNESS_CONTROL                0x0a
-
-#define USB_DEVICE_DESC_SIZE        18
-#define USB_CONFIGUARTION_DESC_SIZE 9
-#define USB_INTERFACE_DESC_SIZE     9
-#define USB_ENDPOINT_DESC_SIZE      7
 
 /*
  * buffering
@@ -374,11 +330,11 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
     int ret = USB_RET_STALL;
 
     switch (aid) {
-    case ATTRIB_ID(MUTE_CONTROL, CR_GET_CUR, 0x0300):
+    case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0300):
         data[0] = s->out.mute;
         ret = 1;
         break;
-    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_CUR, 0x0300):
+    case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0300):
         if (cn < 2) {
             //uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
             uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
@@ -387,7 +343,7 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
             ret = 2;
         }
         break;
-    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_MIN, 0x0300):
+    case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_MIN, 0x0300):
         if (cn < 2) {
             data[0] = 0x01;
             data[1] = 0x80;
@@ -396,7 +352,7 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
             ret = 2;
         }
         break;
-    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_MAX, 0x0300):
+    case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_MAX, 0x0300):
         if (cn < 2) {
             data[0] = 0x00;
             data[1] = 0x08;
@@ -405,7 +361,7 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
             ret = 2;
         }
         break;
-    case ATTRIB_ID(VOLUME_CONTROL, CR_GET_RES, 0x0300):
+    case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_RES, 0x0300):
         if (cn < 2) {
             data[0] = 0x88;
             data[1] = 0x00;
@@ -430,12 +386,12 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
     bool set_vol = false;
 
     switch (aid) {
-    case ATTRIB_ID(MUTE_CONTROL, CR_SET_CUR, 0x0300):
+    case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0300):
         s->out.mute = data[0] & 1;
         set_vol = true;
         ret = 0;
         break;
-    case ATTRIB_ID(VOLUME_CONTROL, CR_SET_CUR, 0x0300):
+    case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0300):
         if (cn < 2) {
             uint16_t vol = data[0] + (data[1] << 8);
 
@@ -486,7 +442,7 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
 	fprintf(stderr, "\n");*/
 
     switch (aid) {
-    case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, CR_SET_CUR, 0x81):
+    case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_SET_CUR, 0x81):
 		if( cn == 0xFF) {
 			s->srate[0] = data[0] | (data[1] << 8) | (data[2] << 16);
 			s->srate[1] = s->srate[0];
@@ -507,7 +463,7 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
 		}
         ret = 0;
         break;
-    case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, CR_GET_CUR, 0x81):
+    case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_GET_CUR, 0x81):
         data[0] = s->srate[0] & 0xFF;
 		data[1] = (s->srate[0] >> 8) & 0xFF;
 		data[2] = (s->srate[0] >> 16) & 0xFF;
@@ -530,10 +486,10 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
     /*
     * Audio device specific request
     */
-    case ClassInterfaceRequest | CR_GET_CUR:
-    case ClassInterfaceRequest | CR_GET_MIN:
-    case ClassInterfaceRequest | CR_GET_MAX:
-    case ClassInterfaceRequest | CR_GET_RES:
+    case ClassInterfaceRequest | AUDIO_REQUEST_GET_CUR:
+    case ClassInterfaceRequest | AUDIO_REQUEST_GET_MIN:
+    case ClassInterfaceRequest | AUDIO_REQUEST_GET_MAX:
+    case ClassInterfaceRequest | AUDIO_REQUEST_GET_RES:
         ret = usb_audio_get_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) {
@@ -544,10 +500,10 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         }
         break;
 
-    case ClassInterfaceOutRequest | CR_SET_CUR:
-    case ClassInterfaceOutRequest | CR_SET_MIN:
-    case ClassInterfaceOutRequest | CR_SET_MAX:
-    case ClassInterfaceOutRequest | CR_SET_RES:
+    case ClassInterfaceOutRequest | AUDIO_REQUEST_SET_CUR:
+    case ClassInterfaceOutRequest | AUDIO_REQUEST_SET_MIN:
+    case ClassInterfaceOutRequest | AUDIO_REQUEST_SET_MAX:
+    case ClassInterfaceOutRequest | AUDIO_REQUEST_SET_RES:
         ret = usb_audio_set_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) {
@@ -558,14 +514,14 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
         }
         break;
 
-    case ClassEndpointRequest | CR_GET_CUR:
-    case ClassEndpointRequest | CR_GET_MIN:
-    case ClassEndpointRequest | CR_GET_MAX:
-    case ClassEndpointRequest | CR_GET_RES:
-    case ClassEndpointOutRequest | CR_SET_CUR:
-    case ClassEndpointOutRequest | CR_SET_MIN:
-    case ClassEndpointOutRequest | CR_SET_MAX:
-    case ClassEndpointOutRequest | CR_SET_RES:
+    case ClassEndpointRequest | AUDIO_REQUEST_GET_CUR:
+    case ClassEndpointRequest | AUDIO_REQUEST_GET_MIN:
+    case ClassEndpointRequest | AUDIO_REQUEST_GET_MAX:
+    case ClassEndpointRequest | AUDIO_REQUEST_GET_RES:
+    case ClassEndpointOutRequest | AUDIO_REQUEST_SET_CUR:
+    case ClassEndpointOutRequest | AUDIO_REQUEST_SET_MIN:
+    case ClassEndpointOutRequest | AUDIO_REQUEST_SET_MAX:
+    case ClassEndpointOutRequest | AUDIO_REQUEST_SET_RES:
         ret = usb_audio_ep_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) goto fail;
@@ -866,7 +822,7 @@ static void singstar_mic_handle_close(USBDevice *dev)
 	}
 }
 
-int singstar_mic_handle_packet(USBDevice *s, int pid,
+static int singstar_mic_handle_packet(USBDevice *s, int pid,
                               uint8_t devaddr, uint8_t devep,
                               uint8_t *data, int len)
 {
