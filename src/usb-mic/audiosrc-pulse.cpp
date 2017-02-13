@@ -457,8 +457,7 @@ public:
 			goto error;
 
 		// Setup resampler
-		if (mResampler)
-			mResampler = src_delete(mResampler);
+		mResampler = src_delete(mResampler);
 
 		mResampler = src_new(SRC_SINC_FASTEST, mSSpec.channels, &ret);
 		if (!mResampler)
