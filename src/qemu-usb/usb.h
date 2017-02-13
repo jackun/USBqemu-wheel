@@ -124,6 +124,18 @@
 #define USB_DT_ENDPOINT			0x05
 #define USB_DT_CLASS			0x24
 
+/* HID interface requests */
+#define GET_REPORT   0xa101
+#define GET_IDLE     0xa102
+#define GET_PROTOCOL 0xa103
+#define SET_IDLE     0x210a
+#define SET_PROTOCOL 0x210b
+
+#define USB_DEVICE_DESC_SIZE        18
+#define USB_CONFIGUARTION_DESC_SIZE 9
+#define USB_INTERFACE_DESC_SIZE     9
+#define USB_ENDPOINT_DESC_SIZE      7
+
 typedef struct USBPort USBPort;
 typedef struct USBDevice USBDevice;
 
