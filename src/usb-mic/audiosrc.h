@@ -9,10 +9,14 @@
 #include <vector>
 #include <queue>
 
-#define S_AUDIO_DEVICE0	TEXT("Audio device 1")
-#define S_AUDIO_DEVICE1	TEXT("Audio device 2")
-#define N_AUDIO_DEVICE0	TEXT("audio_device_0")
-#define N_AUDIO_DEVICE1	TEXT("audio_device_1")
+#define S_AUDIO_SOURCE0	TEXT("Audio source 1")
+#define S_AUDIO_SOURCE1	TEXT("Audio source 2")
+#define S_AUDIO_SINK0	TEXT("Audio sink 1")
+#define S_AUDIO_SINK1	TEXT("Audio sink 2")
+#define N_AUDIO_SOURCE0	TEXT("audio_src_0")
+#define N_AUDIO_SOURCE1	TEXT("audio_src_1")
+#define N_AUDIO_SINK0	TEXT("audio_sink_0")
+#define N_AUDIO_SINK1	TEXT("audio_sink_1")
 #define S_BUFFER_LEN	TEXT("Buffer length")
 #define N_BUFFER_LEN	TEXT("buffer_len")
 

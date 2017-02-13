@@ -181,7 +181,7 @@ static int GtkConfigure(int port, void *data)
 	for (int i=1; i>=0; i--)
 	{
 		std::string devName;
-		CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
 		if (LoadSetting(port, APINAME, var))
 			devName = var.strValue;
 
@@ -204,7 +204,7 @@ static int GtkConfigure(int port, void *data)
 		for (int i=0; i<2; i++)
 		{
 			int idx = dev_idxs[i];
-			CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, "");
+			CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, "");
 
 			if (idx > 0)
 				var.strValue = devs[idx - 1].strID;
@@ -237,7 +237,7 @@ public:
 	, mResampler(nullptr)
 	, mOutSamples(0)
 	{
-		CONFIGVARIANT var(mic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(mic ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
 		if(LoadSetting(mPort, APINAME, var) && !var.strValue.empty())
 		{
 			mDevice = var.strValue;
@@ -364,7 +364,7 @@ public:
 			return MIC_MODE_SEPARATE;
 		}
 
-		CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE0 : N_AUDIO_DEVICE1, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(mMic ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_CHAR);
 		if(LoadSetting(mPort, APINAME, var) && var.strValue == mDevice)
 			return MIC_MODE_SHARED;
 

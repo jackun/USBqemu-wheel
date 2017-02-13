@@ -153,7 +153,7 @@ public:
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 
 		{
-			CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_WCHAR);
+			CONFIGVARIANT var(mMic ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
 			if (!LoadSetting(mPort, APINAME, var))
 			{
 				return false;
@@ -658,7 +658,7 @@ error:
 			return MIC_MODE_SEPARATE;
 		}
 
-		CONFIGVARIANT var(mMic ? N_AUDIO_DEVICE0 : N_AUDIO_DEVICE1, CONFIG_TYPE_WCHAR);
+		CONFIGVARIANT var(mMic ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_WCHAR);
 		if (LoadSetting(mPort, APINAME, var) && var.wstrValue == mDevID)
 			return MIC_MODE_SHARED;
 
@@ -854,7 +854,7 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			for (int i = 0; i < 2; i++)
 			{
-				CONFIGVARIANT var0(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, CONFIG_TYPE_WCHAR);
+				CONFIGVARIANT var0(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
 				if (LoadSetting(port, APINAME, var0))
 					micDev[i] = var0.wstrValue;
 			}
@@ -908,7 +908,7 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				for (int i = 0; i < 2; i++)
 				{
-					CONFIGVARIANT var(i ? N_AUDIO_DEVICE1 : N_AUDIO_DEVICE0, micDev[i]);
+					CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, micDev[i]);
 					if (!SaveSetting(port, APINAME, var))
 						res = RESULT_FAILED;
 				}
