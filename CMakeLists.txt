@@ -95,8 +95,8 @@ SET(SRCS_SAMPLERATE
 SET(HDRS_MIC
 	./src/usb-mic/audio.h
 	./src/usb-mic/usb.h
-	./src/usb-mic/audiosrc.h
-	./src/usb-mic/audiosourceproxy.h
+	./src/usb-mic/audiodev.h
+	./src/usb-mic/audiodeviceproxy.h
 	./src/usb-mic/usb-mic-singstar.h
 )
 
@@ -139,16 +139,17 @@ SET(SRCS_QEMU
 )
 
 SET(SRCS_PAD
-	./src/usb-pad/bitjuggling.cpp
+#	./src/usb-pad/bitjuggling.cpp
 	./src/usb-pad/usb-pad.cpp
 	./src/usb-pad/padproxy.cpp
 )
 
 SET(SRCS_MIC
-	./src/usb-mic/audiosourceproxy.cpp
+	./src/usb-mic/audiodeviceproxy.cpp
 	./src/usb-mic/usb-mic-singstar.cpp
 	./src/usb-mic/usb-mic-logitech.cpp
-	./src/usb-mic/audiosrc-noop.cpp
+	./src/usb-mic/usb-headset.cpp
+	./src/usb-mic/audiodev-noop.cpp
 	#./src/usb-eyetoy/usb-eyetoy.cpp
 )
 
@@ -169,7 +170,7 @@ IF(WIN32)
 	)
 	
 	LIST(APPEND SRCS_MIC
-		./src/usb-mic/audiosrc-wasapi.cpp
+		./src/usb-mic/audiodev-wasapi.cpp
 	)
 	
 	LIST(APPEND SRCS_QEMU
@@ -279,7 +280,7 @@ IF(UNIX)
 	IF(PLUGIN_BUILD_PULSE)
 
 		LIST(APPEND SRCS_MIC
-			./src/usb-mic/audiosrc-pulse.cpp
+			./src/usb-mic/audiodev-pulse.cpp
 		)
 
 		IF(PLUGIN_BUILD_DYNLINK_PULSE)

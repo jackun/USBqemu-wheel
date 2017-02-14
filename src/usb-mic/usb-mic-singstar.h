@@ -1,7 +1,7 @@
 #ifndef USBMICSINGSTAR_H
 #define USBMICSINGSTAR_H
 #include "../deviceproxy.h"
-#include "audiosourceproxy.h"
+#include "audiodeviceproxy.h"
 
 struct USBDevice;
 
@@ -17,11 +17,11 @@ public:
 	}
 	static std::list<std::string> APIs()
 	{
-		return RegisterAudioSource::instance().Names();
+		return RegisterAudioDevice::instance().Names();
 	}
 	static const TCHAR* LongAPIName(const std::string& name)
 	{
-		return RegisterAudioSource::instance().Proxy(name)->Name();
+		return RegisterAudioDevice::instance().Proxy(name)->Name();
 	}
 	static int Configure(int port, std::string api, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);

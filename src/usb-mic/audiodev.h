@@ -2,8 +2,8 @@
 // Types to shared by platforms and config. dialog.
 //
 
-#ifndef AUDIOSRC_H
-#define AUDIOSRC_H
+#ifndef AUDIODEV_H
+#define AUDIODEV_H
 
 #include <string>
 #include <vector>
@@ -29,6 +29,11 @@ enum MicMode {
 	MIC_MODE_SHARED
 };
 
+enum AudioDir {
+	AUDIODIR_SOURCE = 0,
+	AUDIODIR_SINK
+};
+
 //TODO sufficient for linux too?
 struct AudioDeviceInfoA
 {
@@ -50,12 +55,13 @@ struct AudioDeviceInfoW
 #define AudioDeviceInfo AudioDeviceInfoA
 #endif
 
-class AudioSource
+class AudioDevice
 {
 public:
-	virtual ~AudioSource() {}
+	virtual ~AudioDevice() {}
 	//get buffer, converted to 16bit int format
 	virtual uint32_t GetBuffer(int16_t *buff, uint32_t len) = 0;
+	virtual uint32_t SetBuffer(int16_t *buff, uint32_t len) = 0;
 	/*
 		Get how many frames has been recorded so that caller knows 
 		how much to allocated for 16-bit buffer.
@@ -67,7 +73,7 @@ public:
 	virtual void Start() {}
 	virtual void Stop() {}
 
-	virtual MicMode GetMicMode(AudioSource* compare) = 0;
+	virtual MicMode GetMicMode(AudioDevice* compare) = 0;
 
 	//Remember to add to your class
 	//static const wchar_t* GetName();

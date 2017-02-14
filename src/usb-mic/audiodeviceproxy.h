@@ -1,6 +1,6 @@
-#ifndef AUDIOSOURCEPROXY_H
-#define AUDIOSOURCEPROXY_H
-#include "audiosrc.h"
+#ifndef AUDIODEVICEPROXY_H
+#define AUDIODEVICEPROXY_H
+#include "audiodev.h"
 #include <string>
 #include <map>
 #include <list>
@@ -11,41 +11,41 @@
 #include "../proxybase.h"
 #include "../osdebugout.h"
 
-class AudioSourceError : public std::runtime_error
+class AudioDeviceError : public std::runtime_error
 {
 public:
-	AudioSourceError(const char* msg) : std::runtime_error(msg) {}
-	virtual ~AudioSourceError() throw () {}
+	AudioDeviceError(const char* msg) : std::runtime_error(msg) {}
+	virtual ~AudioDeviceError() throw () {}
 };
 
-class AudioSourceProxyBase : public ProxyBase
+class AudioDeviceProxyBase : public ProxyBase
 {
-	AudioSourceProxyBase(const AudioSourceProxyBase&) = delete;
+	AudioDeviceProxyBase(const AudioDeviceProxyBase&) = delete;
 
 	public:
-	AudioSourceProxyBase(const std::string& name);
-	virtual AudioSource* CreateObject(int port, int mic) const = 0; //Can be generalized? Probably not
+	AudioDeviceProxyBase(const std::string& name);
+	virtual AudioDevice* CreateObject(int port, int mic, AudioDir dir) const = 0; //Can be generalized? Probably not
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
 };
 
 template <class T>
-class AudioSourceProxy : public AudioSourceProxyBase
+class AudioDeviceProxy : public AudioDeviceProxyBase
 {
-	AudioSourceProxy(const AudioSourceProxy&) = delete;
+	AudioDeviceProxy(const AudioDeviceProxy&) = delete;
 
 	public:
-	AudioSourceProxy(const std::string& name): AudioSourceProxyBase(name) {} //Why can't it automagically, ugh
-	AudioSource* CreateObject(int port, int mic) const
+	AudioDeviceProxy(const std::string& name): AudioDeviceProxyBase(name) {} //Why can't it automagically, ugh
+	AudioDevice* CreateObject(int port, int mic, AudioDir dir) const
 	{
 		try
 		{
-			return new T(port, mic);
+			return new T(port, mic, dir);
 		}
-		catch(AudioSourceError& err)
+		catch(AudioDeviceError& err)
 		{
-			OSDebugOut(TEXT("AudioSource port %d mic %d: %") TEXT(SFMTs) TEXT("\n"), port, mic, err.what());
+			OSDebugOut(TEXT("AudioDevice port %d mic %d: %") TEXT(SFMTs) TEXT("\n"), port, mic, err.what());
 			return nullptr;
 		}
 	}
@@ -75,35 +75,35 @@ class AudioSourceProxy : public AudioSourceProxyBase
 	}
 };
 
-class RegisterAudioSource
+class RegisterAudioDevice
 {
-	RegisterAudioSource(const RegisterAudioSource&) = delete;
-	RegisterAudioSource() {}
+	RegisterAudioDevice(const RegisterAudioDevice&) = delete;
+	RegisterAudioDevice() {}
 
 	public:
-	typedef std::map<std::string, AudioSourceProxyBase* > RegisterAudioSourceMap;
-	static RegisterAudioSource& instance() {
-		static RegisterAudioSource registerAudioSource;
-		return registerAudioSource;
+	typedef std::map<std::string, AudioDeviceProxyBase* > RegisterAudioDeviceMap;
+	static RegisterAudioDevice& instance() {
+		static RegisterAudioDevice registerAudioDevice;
+		return registerAudioDevice;
 	}
 
-	~RegisterAudioSource() {}
+	~RegisterAudioDevice() {}
 
-	void Add(const std::string name, AudioSourceProxyBase* creator)
+	void Add(const std::string name, AudioDeviceProxyBase* creator)
 	{
-		registerAudioSourceMap[name] = creator;
+		registerAudioDeviceMap[name] = creator;
 	}
 
-	AudioSourceProxyBase* Proxy(std::string name)
+	AudioDeviceProxyBase* Proxy(std::string name)
 	{
-		return registerAudioSourceMap[name];
+		return registerAudioDeviceMap[name];
 	}
 	
 	std::list<std::string> Names() const
 	{
 		std::list<std::string> nameList;
 		std::transform(
-			registerAudioSourceMap.begin(), registerAudioSourceMap.end(),
+			registerAudioDeviceMap.begin(), registerAudioDeviceMap.end(),
 			std::back_inserter(nameList),
 			SelectKey());
 		return nameList;
@@ -111,21 +111,21 @@ class RegisterAudioSource
 
 	std::string Name(int idx) const
 	{
-		auto it = registerAudioSourceMap.begin();
+		auto it = registerAudioDeviceMap.begin();
 		std::advance(it, idx);
-		if (it != registerAudioSourceMap.end())
+		if (it != registerAudioDeviceMap.end())
 			return std::string(it->first);
 		return std::string();
 	}
 
-	const RegisterAudioSourceMap& Map() const
+	const RegisterAudioDeviceMap& Map() const
 	{
-		return registerAudioSourceMap;
+		return registerAudioDeviceMap;
 	}
 	
 private:
-	RegisterAudioSourceMap registerAudioSourceMap;
+	RegisterAudioDeviceMap registerAudioDeviceMap;
 };
 
-#define REGISTER_AUDIOSRC(name,cls) AudioSourceProxy<cls> g##cls##Proxy(name)
+#define REGISTER_AUDIODEV(name,cls) AudioDeviceProxy<cls> g##cls##Proxy(name)
 #endif

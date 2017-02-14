@@ -3,7 +3,7 @@
 #include "Config-win32.h"
 #include "../deviceproxy.h"
 #include "../usb-pad/padproxy.h"
-#include "../usb-mic/audiosourceproxy.h"
+#include "../usb-mic/audiodeviceproxy.h"
 #include "../configuration.h"
 
 extern HINSTANCE hInst;

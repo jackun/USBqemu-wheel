@@ -1,6 +1,6 @@
-#include "audiosourceproxy.h"
+#include "audiodeviceproxy.h"
 
-AudioSourceProxyBase::AudioSourceProxyBase(const std::string& name)
+AudioDeviceProxyBase::AudioDeviceProxyBase(const std::string& name)
 {
-	RegisterAudioSource::instance().Add(name, this);
+	RegisterAudioDevice::instance().Add(name, this);
 }

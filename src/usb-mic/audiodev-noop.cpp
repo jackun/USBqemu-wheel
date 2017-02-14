@@ -1,13 +1,13 @@
-#include "audiosourceproxy.h"
+#include "audiodeviceproxy.h"
 
 #define APINAME "noop"
 #define APINAMEW TEXT(APINAME)
 
-class NoopAudioSource : public AudioSource
+class NoopAudioDevice : public AudioDevice
 {
 public:
-	NoopAudioSource(int port, int mic) {}
-	~NoopAudioSource() {}
+	NoopAudioDevice(int port, int mic, AudioDir dir) {}
+	~NoopAudioDevice() {}
 	void Start() {}
 	void Stop() {}
 	virtual bool GetFrames(uint32_t *size)
@@ -18,13 +18,17 @@ public:
 	{
 		return outFrames;
 	}
+	virtual uint32_t SetBuffer(int16_t *inBuf, uint32_t inFrames)
+	{
+		return inFrames;
+	}
 	virtual void SetResampling(int samplerate) {}
 	virtual uint32_t GetChannels()
 	{
 		return 1;
 	}
 
-	virtual MicMode GetMicMode(AudioSource* compare)
+	virtual MicMode GetMicMode(AudioDevice* compare)
 	{
 		return MIC_MODE_SINGLE;
 	}
@@ -63,6 +67,6 @@ public:
 	}
 };
 
-REGISTER_AUDIOSRC(APINAME, NoopAudioSource);
+REGISTER_AUDIODEV(APINAME, NoopAudioDevice);
 #undef APINAME
 #undef APINAMEW

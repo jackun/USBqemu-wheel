@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstring>
 #include "../osdebugout.h"
-#include "audiosourceproxy.h"
+#include "audiodeviceproxy.h"
 #include "../libsamplerate/samplerate.h"
 #include <typeinfo>
 //#include <thread>
@@ -65,7 +65,22 @@ static void pa_sourcelist_cb(pa_context *c, const pa_source_info *l, int eol, vo
 	devicelist->push_back(dev);
 }
 
-static int pa_get_devicelist(AudioDeviceInfoList& input)
+static void pa_sinklist_cb(pa_context *c, const pa_sink_info *l, int eol, void *userdata)
+{
+	AudioDeviceInfoList *devicelist = static_cast<AudioDeviceInfoList *>(userdata);
+
+	if (eol > 0) {
+		return;
+	}
+
+	AudioDeviceInfo dev;
+	dev.strID = l->name;
+	dev.strName = l->description;
+	//dev.intID = l->index;
+	devicelist->push_back(dev);
+}
+
+static int pa_get_devicelist(AudioDeviceInfoList& list, AudioDir dir)
 {
 	pa_mainloop *pa_ml;
 	pa_mainloop_api *pa_mlapi;
@@ -104,9 +119,14 @@ static int pa_get_devicelist(AudioDeviceInfoList& input)
 		switch (state)
 		{
 			case 0:
-				pa_op = pa_context_get_source_info_list(pa_ctx,
+				if (dir == AUDIODIR_SOURCE)
+					pa_op = pa_context_get_source_info_list(pa_ctx,
 						pa_sourcelist_cb,
-						&input);
+						&list);
+				else
+					pa_op = pa_context_get_sink_info_list(pa_ctx,
+						pa_sinklist_cb,
+						&list);
 				state++;
 				break;
 			case 1:
@@ -153,10 +173,17 @@ static int GtkConfigure(int port, void *data)
 {
 	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
 
-	int dev_idxs[] = {0, 0};
+	int dev_idxs[] = {0, 0, 0, 0};
 
-	AudioDeviceInfoList devs;
-	if (pa_get_devicelist(devs) != 0)
+	AudioDeviceInfoList srcDevs;
+	if (pa_get_devicelist(srcDevs, AUDIODIR_SOURCE) != 0)
+	{
+		OSDebugOut("pa_get_devicelist failed\n");
+		return RESULT_FAILED;
+	}
+
+	AudioDeviceInfoList sinkDevs;
+	if (pa_get_devicelist(sinkDevs, AUDIODIR_SINK) != 0)
 	{
 		OSDebugOut("pa_get_devicelist failed\n");
 		return RESULT_FAILED;
@@ -177,8 +204,8 @@ static int GtkConfigure(int port, void *data)
 	GtkWidget *main_vbox = gtk_vbox_new (FALSE, 5);
 	gtk_container_add (GTK_CONTAINER (ro_frame), main_vbox);
 
-	const char* labels[] = {"Select mic 2", "Select mic 1"};
-	for (int i=1; i>=0; i--)
+	const char* labels[] = {"Source 1", "Source 2", "Sink 1", "Sink 2"};
+	for (int i=0; i<2; i++)
 	{
 		std::string devName;
 		CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
@@ -187,7 +214,19 @@ static int GtkConfigure(int port, void *data)
 
 		GtkWidget *cb = new_combobox(labels[i], main_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
-		populateDeviceWidget (GTK_COMBO_BOX (cb), devName, devs);
+		populateDeviceWidget (GTK_COMBO_BOX (cb), devName, srcDevs);
+	}
+
+	for (int i=2; i<4; i++)
+	{
+		std::string devName;
+		CONFIGVARIANT var(i-2 ? N_AUDIO_SINK1 : N_AUDIO_SINK0, CONFIG_TYPE_CHAR);
+		if (LoadSetting(port, APINAME, var))
+			devName = var.strValue;
+
+		GtkWidget *cb = new_combobox(labels[i], main_vbox);
+		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
+		populateDeviceWidget (GTK_COMBO_BOX (cb), devName, sinkDevs);
 	}
 
 	gtk_widget_show_all (dlg);
@@ -204,13 +243,26 @@ static int GtkConfigure(int port, void *data)
 		for (int i=0; i<2; i++)
 		{
 			int idx = dev_idxs[i];
-			CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, "");
+			{
+				CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, "");
 
-			if (idx > 0)
-				var.strValue = devs[idx - 1].strID;
+				if (idx > 0)
+					var.strValue = srcDevs[idx - 1].strID;
 
-			if (!SaveSetting(port, APINAME, var))
-					return RESULT_FAILED;
+				if (!SaveSetting(port, APINAME, var))
+						return RESULT_FAILED;
+			}
+
+			idx = dev_idxs[i+2];
+			{
+				CONFIGVARIANT var(i ? N_AUDIO_SINK1 : N_AUDIO_SINK0, "");
+
+				if (idx > 0)
+					var.strValue = sinkDevs[idx - 1].strID;
+
+				if (!SaveSetting(port, APINAME, var))
+						return RESULT_FAILED;
+			}
 		}
 		return RESULT_OK;
 	}
@@ -218,11 +270,11 @@ static int GtkConfigure(int port, void *data)
 	return RESULT_CANCELED;
 }
 
-class PulseAudioSource : public AudioSource
+class PulseAudioDevice : public AudioDevice
 {
 public:
-	PulseAudioSource(int port, int mic): mPort(port)
-	, mMic(mic)
+	PulseAudioDevice(int port, int device, AudioDir dir): mPort(port)
+	, mDevice(device)
 	, mBuffering(50)
 	, mPaused(true)
 	, mQuit(false)
@@ -236,15 +288,16 @@ public:
 	, mOutputSamplesPerSec(48000)
 	, mResampler(nullptr)
 	, mOutSamples(0)
+	, mAudioDir(dir)
 	{
-		CONFIGVARIANT var(mic ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
+		CONFIGVARIANT var(device ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
 		if(LoadSetting(mPort, APINAME, var) && !var.strValue.empty())
 		{
-			mDevice = var.strValue;
+			mDeviceName = var.strValue;
 			//TODO open device etc.
 		}
 		else
-			throw AudioSourceError(APINAME ": failed to load device settings");
+			throw AudioDeviceError(APINAME ": failed to load device settings");
 
 		{
 			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
@@ -253,17 +306,17 @@ public:
 		}
 
 		if (!AudioInit())
-			throw AudioSourceError(APINAME ": failed to bind pulseaudio library");
+			throw AudioDeviceError(APINAME ": failed to bind pulseaudio library");
 
 		mSSpec.format =  PA_SAMPLE_FLOAT32LE; //PA_SAMPLE_S16LE;
 		mSSpec.channels = 2;
 		mSSpec.rate = 48000;
 
 		if (!Init())
-			throw AudioSourceError(APINAME ": failed to init");
+			throw AudioDeviceError(APINAME ": failed to init");
 	}
 
-	~PulseAudioSource()
+	~PulseAudioDevice()
 	{
 		mQuit = true;
 		Uninit();
@@ -323,6 +376,11 @@ public:
 		return totalLen / mSSpec.channels;
 	}
 
+	uint32_t SetBuffer(int16_t *buff, uint32_t len)
+	{
+		return len;
+	}
+
 	bool GetFrames(uint32_t *size)
 	{
 		std::lock_guard<std::mutex> lk(mMutex);
@@ -351,21 +409,21 @@ public:
 
 	void Stop() { mPaused = true; }
 
-	virtual MicMode GetMicMode(AudioSource* compare)
+	virtual MicMode GetMicMode(AudioDevice* compare)
 	{
 		if(compare && typeid(compare) != typeid(this))
 			return MIC_MODE_SEPARATE; //atleast, if not single altogether
 
 		if (compare)
 		{
-			PulseAudioSource *src = dynamic_cast<PulseAudioSource *>(compare);
-			if (src && mDevice == src->mDevice)
+			PulseAudioDevice *src = dynamic_cast<PulseAudioDevice *>(compare);
+			if (src && mDeviceName == src->mDeviceName)
 				return MIC_MODE_SHARED;
 			return MIC_MODE_SEPARATE;
 		}
 
-		CONFIGVARIANT var(mMic ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_CHAR);
-		if(LoadSetting(mPort, APINAME, var) && var.strValue == mDevice)
+		CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_CHAR);
+		if(LoadSetting(mPort, APINAME, var) && var.strValue == mDeviceName)
 			return MIC_MODE_SHARED;
 
 		return MIC_MODE_SINGLE;
@@ -430,11 +488,6 @@ public:
 			NULL
 		);
 
-		pa_stream_set_read_callback(mStream,
-			stream_read_cb,
-			this
-		);
-
 		// Sets individual read callback fragsize but recording itself
 		// still "lags" ~1sec (read_cb is called in bursts) without
 		// PA_STREAM_ADJUST_LATENCY
@@ -446,13 +499,37 @@ public:
 		buffer_attr.fragsize = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
 		OSDebugOut("usec_to_bytes %zu\n", buffer_attr.fragsize);
 
-		ret = pa_stream_connect_record(mStream,
-			mDevice.c_str(),
-			&buffer_attr,
-			PA_STREAM_ADJUST_LATENCY
-		);
+		if (mAudioDir == AUDIODIR_SOURCE)
+		{
+			pa_stream_set_read_callback(mStream,
+				stream_read_cb,
+				this
+			);
 
-		OSDebugOut("pa_stream_connect_record %s\n", pa_strerror(ret));
+			ret = pa_stream_connect_record(mStream,
+				mDeviceName.c_str(),
+				&buffer_attr,
+				PA_STREAM_ADJUST_LATENCY
+			);
+			OSDebugOut("pa_stream_connect_record %s\n", pa_strerror(ret));
+		}
+		else
+		{
+			pa_stream_set_write_callback(mStream,
+				stream_write_cb,
+				this
+			);
+
+			ret = pa_stream_connect_playback(mStream,
+				mDeviceName.c_str(),
+				&buffer_attr,
+				PA_STREAM_ADJUST_LATENCY,
+				nullptr,
+				nullptr
+			);
+			OSDebugOut("pa_stream_connect_playback %s\n", pa_strerror(ret));
+		}
+
 		if (ret != PA_OK)
 			goto error;
 
@@ -497,17 +574,17 @@ public:
 	static int Configure(int port, void *data)
 	{
 		int ret = RESULT_FAILED;
-		if (PulseAudioSource::AudioInit())
+		if (PulseAudioDevice::AudioInit())
 		{
 			ret = GtkConfigure(port, data);
-			PulseAudioSource::AudioDeinit();
+			PulseAudioDevice::AudioDeinit();
 		}
 		return ret;
 	}
 
 	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
 	{
-		pa_get_devicelist(devices);
+		pa_get_devicelist(devices, AUDIODIR_SOURCE);
 	}
 
 	static bool AudioInit()
@@ -530,15 +607,17 @@ public:
 	}
 
 	static void stream_read_cb (pa_stream *p, size_t nbytes, void *userdata);
+	static void stream_write_cb (pa_stream *p, size_t nbytes, void *userdata);
 
 protected:
 	int mPort;
-	int mMic;
+	int mDevice;
 	int mChannels;
 	int mBuffering;
-	std::string mDevice;
+	std::string mDeviceName;
 	int mOutputSamplesPerSec;
 	pa_sample_spec mSSpec;
+	AudioDir mAudioDir;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
@@ -563,17 +642,17 @@ protected:
 	hrc::time_point mLastOut;
 };
 
-void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userdata)
+void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userdata)
 {
-	PulseAudioSource *src = (PulseAudioSource *) userdata;
+	PulseAudioDevice *src = (PulseAudioDevice *) userdata;
 	const void* padata = NULL;
 	if (src->mQuit)
 		return;
 
-	OSDebugOut("stream_read_callback %d bytes\n", nbytes);
+	//OSDebugOut("stream_read_callback %d bytes\n", nbytes);
 
 	int ret = pa_stream_peek(p, &padata, &nbytes);
-	OSDebugOut("pa_stream_peek %zu %s\n", nbytes, pa_strerror(ret));
+	//OSDebugOut("pa_stream_peek %zu %s\n", nbytes, pa_strerror(ret));
 
 	if (ret != PA_OK)
 		return;
@@ -582,7 +661,7 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	if (src->mPaused || dur > 5000) {
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
-			OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
+			OSDebugOut("pa_stream_drop %d: %s\n", ret, pa_strerror(ret));
 		return;
 	}
 
@@ -640,11 +719,15 @@ void PulseAudioSource::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	auto remSize = data.input_frames_used * src->mSSpec.channels;
 	src->mQBuffer.erase(src->mQBuffer.begin(), src->mQBuffer.begin() + remSize);
 
-	OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd\n",
-		data.input_frames, data.output_frames,
-		data.input_frames_used, data.output_frames_gen,
-		src->mResampledBuffer.size(), src->mQBuffer.size());
+	//OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd\n",
+		//data.input_frames, data.output_frames,
+		//data.input_frames_used, data.output_frames_gen,
+		//src->mResampledBuffer.size(), src->mQBuffer.size());
 }
 
-REGISTER_AUDIOSRC(APINAME, PulseAudioSource);
+void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userdata)
+{
+}
+
+REGISTER_AUDIODEV(APINAME, PulseAudioDevice);
 #undef APINAME

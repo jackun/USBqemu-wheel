@@ -1,8 +1,8 @@
 // Used OBS as example
 
 #include "../USB.h"
-//#include "audiosrc.h"
-#include "audiosourceproxy.h"
+//#include "audiodev.h"
+#include "audiodeviceproxy.h"
 #include "../libsamplerate/samplerate.h"
 #include "../Win32/Config-win32.h"
 #include "../Win32/resource.h"
@@ -82,12 +82,12 @@ LONGLONG GetQPCTime100NS()
 	return LONGLONG(timeVal);
 }
 
-class MMAudioSource : public AudioSource
+class MMAudioDevice : public AudioDevice
 {
 public:
-	MMAudioSource(int port, int mic)
+	MMAudioDevice(int port, int device, AudioDir dir)
 	: mPort(port)
-	, mMic(mic)
+	, mDevice(device)
 	, mmCapture(NULL)
 	, mmClient(NULL)
 	, mmDevice(NULL)
@@ -106,14 +106,15 @@ public:
 	, mPaused(true)
 	, mLastGetBufferMS(0)
 	, mBuffering(50)
+	, mAudioDir(dir)
 	{
 		mEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("ResamplerThread"));
 		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
 		if(!Init())
-			throw AudioSourceError("MMAudioSource:: WASAPI init failed!");
+			throw AudioDeviceError("MMAudioDevice:: WASAPI init failed!");
 	}
 
-	~MMAudioSource()
+	~MMAudioDevice()
 	{
 		mQuit = true;
 		if (mThread != INVALID_HANDLE_VALUE)
@@ -153,7 +154,7 @@ public:
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 
 		{
-			CONFIGVARIANT var(mMic ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
+			CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
 			if (!LoadSetting(mPort, APINAME, var))
 			{
 				return false;
@@ -171,11 +172,11 @@ public:
 		HRESULT err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
 		if(FAILED(err))
 		{
-			SysMessage(TEXT("MMAudioSource::Init(): Could not create IMMDeviceEnumerator = %08lX\n"), err);
+			SysMessage(TEXT("MMAudioDevice::Init(): Could not create IMMDeviceEnumerator = %08lX\n"), err);
 			return false;
 		}
 		//TODO Not starting thread here unnecesserily
-		//mThread = CreateThread(NULL, 0, MMAudioSource::Thread, this, 0, 0);
+		//mThread = CreateThread(NULL, 0, MMAudioDevice::Thread, this, 0, 0);
 		return Reinitialize();
 	}
 
@@ -199,7 +200,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost) 
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not create IMMDevice = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not create IMMDevice = %08lX\n"), err);
 			return false;
 		}
 
@@ -207,7 +208,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost) 
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not create IAudioClient = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not create IAudioClient = %08lX\n"), err);
 			return false;
 		}
 
@@ -235,7 +236,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not get mix format from audio client = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not get mix format from audio client = %08lX\n"), err);
 			return false;
 		}
 
@@ -249,7 +250,7 @@ public:
 			if(wfext->SubFormat != KSDATAFORMAT_SUBTYPE_IEEE_FLOAT)
 			{
 				if (!mDeviceLost)
-					SysMessage(TEXT("MMAudioSource::Reinitialize(): Unsupported wave format\n"));
+					SysMessage(TEXT("MMAudioDevice::Reinitialize(): Unsupported wave format\n"));
 				CoTaskMemFree(pwfx);
 				return false;
 			}
@@ -257,7 +258,7 @@ public:
 		else if(pwfx->wFormatTag != WAVE_FORMAT_IEEE_FLOAT)
 		{
 			if (!mDeviceLost)
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Unsupported wave format\n"));
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Unsupported wave format\n"));
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -283,7 +284,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not initialize audio client, result = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not initialize audio client, result = %08lX\n"), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -294,7 +295,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not get audio capture client, result = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not get audio capture client, result = %08lX\n"), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -303,7 +304,7 @@ public:
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				SysMessage(TEXT("MMAudioSource::Reinitialize(): Could not get audio capture clock, result = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not get audio capture clock, result = %08lX\n"), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
@@ -397,7 +398,7 @@ public:
 
 	static DWORD WINAPI Thread(LPVOID ptr)
 	{
-		MMAudioSource *src = (MMAudioSource*)ptr;
+		MMAudioDevice *src = (MMAudioDevice*)ptr;
 		std::vector<float> rebuf;
 		int ret = 1;
 		bool bThreadComInitialized = false;
@@ -534,7 +535,7 @@ error:
 
 		if(!mQuit && (mThread == INVALID_HANDLE_VALUE ||
 				WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0)) //Thread got killed prematurely
-			mThread = CreateThread(NULL, 0, MMAudioSource::Thread, this, 0, 0);
+			mThread = CreateThread(NULL, 0, MMAudioDevice::Thread, this, 0, 0);
 
 		SetEvent(mEvent);
 
@@ -572,6 +573,11 @@ error:
 		}
 
 		return totalLen / mInputChannels;
+	}
+
+	virtual uint32_t SetBuffer(int16_t *inBuf, uint32_t inFrames)
+	{
+		return inFrames;
 	}
 
 	/*
@@ -645,20 +651,20 @@ error:
 		return mInputChannels;
 	}
 
-	virtual MicMode GetMicMode(AudioSource* compare)
+	virtual MicMode GetMicMode(AudioDevice* compare)
 	{
 		if (compare && typeid(compare) != typeid(this))
 			return MIC_MODE_SEPARATE; //atleast, if not single altogether
 
 		if (compare)
 		{
-			MMAudioSource *src = dynamic_cast<MMAudioSource *>(compare);
+			MMAudioDevice *src = dynamic_cast<MMAudioDevice *>(compare);
 			if (src && mDevID == src->mDevID)
 				return MIC_MODE_SHARED;
 			return MIC_MODE_SEPARATE;
 		}
 
-		CONFIGVARIANT var(mMic ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_WCHAR);
+		CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_WCHAR);
 		if (LoadSetting(mPort, APINAME, var) && var.wstrValue == mDevID)
 			return MIC_MODE_SHARED;
 
@@ -783,9 +789,10 @@ private:
 	std::wstring mDevID;
 	bool mDeviceLost;
 	std::wstring mDeviceName;
-	int mMic;
+	int mDevice;
 	int mPort;
 	int mBuffering;
+	AudioDir mAudioDir;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
@@ -813,7 +820,7 @@ static void RefreshAudioList(HWND hW, LRESULT idx)
 	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
 	SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
 
-	MMAudioSource::AudioDevices(audioDevs);
+	MMAudioDevice::AudioDevices(audioDevs);
 	AudioDeviceInfoList::iterator it;
 	int i = 0;
 	for (it = audioDevs.begin(); it != audioDevs.end(); it++)
@@ -831,7 +838,7 @@ static void RefreshAudioList(HWND hW, LRESULT idx)
 
 static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	int tmp = 0, port = 0;
-	static auto audioProxyMap = RegisterAudioSource::instance().Map();
+	static auto audioProxyMap = RegisterAudioDevice::instance().Map();
 
 	switch (uMsg) {
 	case WM_CREATE:
@@ -933,6 +940,6 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 	return FALSE;
 }
 
-REGISTER_AUDIOSRC(APINAME, MMAudioSource);
+REGISTER_AUDIODEV(APINAME, MMAudioDevice);
 #undef APINAME
 #undef APINAMEW

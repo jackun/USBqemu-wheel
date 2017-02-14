@@ -22,7 +22,7 @@
 #include "../configuration.h"
 #include "../deviceproxy.h"
 #include "../usb-pad/padproxy.h"
-#include "../usb-mic/audiosourceproxy.h"
+#include "../usb-mic/audiodeviceproxy.h"
 
 #include "config.h"
 
