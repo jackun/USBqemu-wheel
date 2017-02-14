@@ -62,7 +62,7 @@ On Arch linux, basically:
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
-	cmake .. # optionally also `-DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake`
+	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib32/pcsx2 # optionally also `-DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake`
 
 On Ubuntu and derivatives, it is probably better to setup a virtual machine image or chroot as the 32bit dev packages may uninstall 64bit packages.
 
@@ -72,7 +72,7 @@ On 32bit OS:
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
-	cmake ..
+	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib/pcsx2
 
 On 64bit OS:
 
@@ -81,7 +81,7 @@ On 64bit OS:
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
-	cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake
+	cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake -DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
 
 CMake defines:
 
