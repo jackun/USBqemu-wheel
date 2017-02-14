@@ -41,6 +41,9 @@ FUNDEFDECL(pa_mainloop_new);
 FUNDEFDECL(pa_context_new);
 FUNDEFDECL(pa_mainloop_iterate);
 FUNDEFDECL(pa_mainloop_free);
+FUNDEFDECL(pa_context_get_sink_info_list);
+FUNDEFDECL(pa_stream_connect_playback);
+FUNDEFDECL(pa_stream_set_write_callback);
 
 static void* pulse_handle = nullptr;
 static std::atomic<int> refCntPulse (0);
@@ -50,6 +53,7 @@ bool DynLoadPulse()
 {
 	const char* error = nullptr;
 
+	refCntPulse++;
 	if (pulse_handle && pfn_pa_mainloop_free)
 		return true;
 
@@ -60,7 +64,6 @@ bool DynLoadPulse()
 		return false;
 	}
 
-	refCntPulse++;
 	FUN_LOAD(pulse_handle, pa_usec_to_bytes);
 	FUN_LOAD(pulse_handle, pa_bytes_per_second);
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_start);
@@ -88,6 +91,9 @@ bool DynLoadPulse()
 	FUN_LOAD(pulse_handle, pa_mainloop_new);
 	FUN_LOAD(pulse_handle, pa_context_new);
 	FUN_LOAD(pulse_handle, pa_mainloop_iterate);
+	FUN_LOAD(pulse_handle, pa_context_get_sink_info_list);
+	FUN_LOAD(pulse_handle, pa_stream_connect_playback);
+	FUN_LOAD(pulse_handle, pa_stream_set_write_callback);
 	FUN_LOAD(pulse_handle, pa_mainloop_free);
 	return true;
 }
@@ -127,6 +133,9 @@ void DynUnloadPulse()
 	FUN_UNLOAD(pa_mainloop_new);
 	FUN_UNLOAD(pa_context_new);
 	FUN_UNLOAD(pa_mainloop_iterate);
+	FUN_UNLOAD(pa_context_get_sink_info_list);
+	FUN_UNLOAD(pa_stream_connect_playback);
+	FUN_UNLOAD(pa_stream_set_write_callback);
 	FUN_UNLOAD(pa_mainloop_free);
 
 	dlclose(pulse_handle);
@@ -321,4 +330,27 @@ int pa_stream_connect_record(pa_stream *s, const char *dev, const pa_buffer_attr
 	if (pfn_pa_stream_connect_record)
 		return pfn_pa_stream_connect_record(s, dev, attr, flags);
 	return PA_ERR_NOTIMPLEMENTED;
+}
+
+pa_operation* pa_context_get_sink_info_list(pa_context * c, pa_sink_info_cb_t cb, void * userdata)
+{
+	if (pfn_pa_context_get_sink_info_list)
+		return pfn_pa_context_get_sink_info_list(c, cb, userdata);
+	return NULL;
+}
+
+int pa_stream_connect_playback(pa_stream *s, const char *dev,
+		const pa_buffer_attr *attr, pa_stream_flags_t flags,
+		const pa_cvolume *volume,
+		pa_stream *sync_stream)
+{
+	if (pfn_pa_stream_connect_playback)
+		return pfn_pa_stream_connect_playback(s, dev, attr, flags, volume, sync_stream);
+	return PA_ERR_NOTIMPLEMENTED;
+}
+
+void pa_stream_set_write_callback(pa_stream *p, pa_stream_request_cb_t cb, void *userdata)
+{
+	if (pfn_pa_stream_set_write_callback)
+		pfn_pa_stream_set_write_callback(p, cb, userdata);
 }
