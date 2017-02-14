@@ -55,12 +55,33 @@ Linux: PulseAudio only for now atleast.
 Building
 ==========
 
-Basically:
+Enable multilib and install gcc-multilib (and g++-multilib if it didn't already).
+
+On Arch linux, basically:
 
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
+	cmake .. # optionally also `-DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake`
+
+On Ubuntu and derivatives, it is probably better to setup a virtual machine image or chroot as the 32bit dev packages may uninstall 64bit packages.
+
+On 32bit OS:
+
+	sudo apt-get install gcc g++ libgtk2.0-dev libpulse-dev
+	cd some/where/USBqemu-wheel
+	mkdir build
+	cd build
 	cmake ..
+
+On 64bit OS:
+
+	sudo dpkg --add-architecture i386 # if needed
+	sudo apt-get install gcc-multilib g++-multilib libgtk2.0-dev:i386 libpulse-dev:i386 # you may need to manually specify the packages that cause unmet dependencies
+	cd some/where/USBqemu-wheel
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake
 
 CMake defines:
 
