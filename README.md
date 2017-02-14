@@ -66,6 +66,11 @@ On Arch linux, basically:
 
 On Ubuntu and derivatives, it is probably better to setup a virtual machine image or chroot as the 32bit dev packages may uninstall 64bit packages.
 
+See https://help.ubuntu.com/community/DebootstrapChroot
+
+	sudo apt-get install debootstrap schroot
+	sudo debootstrap --arch=i386 zesty  ~/zesty-i386
+
 On 32bit OS:
 
 	sudo apt-get install gcc g++ libgtk2.0-dev libpulse-dev
