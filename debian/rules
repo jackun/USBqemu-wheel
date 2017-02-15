@@ -16,7 +16,8 @@ debian/%: debian/%.in
 
 override_dh_auto_configure: $(autogen-files)
 	dh_auto_configure -- \
-		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE)
+		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
+		-DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
 
 override_dh_strip:
 	dh_strip -plibusbqemu-wheel-unstable --dbg-package=libusbqemu-wheel-unstable-dbg
