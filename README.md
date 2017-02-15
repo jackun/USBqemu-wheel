@@ -77,9 +77,9 @@ On 32bit OS:
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
-	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib/pcsx2
+	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
 
-On 64bit OS:
+On 64bit OS (This will probably kill your desktop!):
 
 	sudo dpkg --add-architecture i386 # if needed
 	sudo apt-get install gcc-multilib g++-multilib libgtk2.0-dev:i386 libpulse-dev:i386 # you may need to manually specify the packages that cause unmet dependencies
