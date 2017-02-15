@@ -1,0 +1,35 @@
+language: cpp
+
+sudo: required
+dist: trusty
+
+cache: ccache
+git:
+  depth: 3
+
+matrix:
+  include:
+    - env: VERSION=6 BITS=32
+      compiler: gcc
+      os: linux
+    - env: VERSION=5 BITS=32
+      compiler: gcc
+      os: linux
+    - env: VERSION=4.9 BITS=32
+      compiler: gcc
+      os: linux
+#    - env: VERSION=4.9 BITS=64
+#      compiler: gcc
+#      os: linux
+
+before_install:
+  - ./travis.sh before_install
+
+before_script:
+  - ./travis.sh before_script
+
+script:
+  - ./travis.sh script
+
+after_success:
+  - ./travis.sh after_success
