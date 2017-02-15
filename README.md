@@ -55,7 +55,21 @@ Linux: PulseAudio only for now atleast.
 Building
 ==========
 
-Enable multilib and install gcc-multilib (and g++-multilib if it didn't already).
+On Windows:
+
+	cd some/where/USBqemu-wheel
+	mkdir build
+	cd build
+	cmake .. -G"Visual Studio 14"
+	cmake --build . --config Release
+	cmake --build . --target install
+
+or optionally specify where PCSX2 plugin folder is
+
+	cmake -DCMAKE_INSTALL_PREFIX=some\where\pcsx2\plugins -P cmake_install.cmake
+
+
+On 64bit OSs, enable multilib and install gcc-multilib (and g++-multilib if it didn't already).
 
 On Arch linux, basically:
 
