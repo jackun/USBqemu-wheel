@@ -33,3 +33,14 @@ script:
 
 after_success:
   - ./travis.sh after_success
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "${GITHUB_KEY}"
+  skip_cleanup: true
+  file_glob: true
+  file: "../libusbqemu*deb"
+  on:
+    tags: true
+#    repo: jackun/USBqemu-wheel
