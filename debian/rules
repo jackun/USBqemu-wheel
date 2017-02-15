@@ -1,0 +1,31 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE=1
+
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	CMAKE_BUILD_TYPE=Debug
+else
+	CMAKE_BUILD_TYPE=RelWithDebInfo
+endif
+
+autogen-files := debian/install
+
+debian/%: debian/%.in
+	sed -e 's/$${DEB_HOST_MULTIARCH}/$(DEB_HOST_MULTIARCH)/g' $< > $@
+
+override_dh_auto_configure: $(autogen-files)
+	dh_auto_configure -- \
+		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE)
+
+override_dh_strip:
+	dh_strip -plibusbqemu-wheel-unstable --dbg-package=libusbqemu-wheel-unstable-dbg
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz
+
+clean:
+	dh_auto_clean
+	dh_clean
+%:
+	dh $@

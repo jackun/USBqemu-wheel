@@ -1,0 +1,5 @@
+version=3
+
+# Note: Upstream does not release prepackaged source files. 
+# It's adviced to get them from their git repository.
+# Source: https://github.com/jackun/USBqemu-wheel

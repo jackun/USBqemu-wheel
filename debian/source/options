@@ -1,0 +1,2 @@
+# Don't store changes on locales files
+extend-diff-ignore = "(^|/)(Makefile)$"

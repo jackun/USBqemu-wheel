@@ -1,0 +1,28 @@
+Source: libusbqemu-wheel
+Section: games
+Priority: optional
+Maintainer: jackun <jack.un@gmail.com>
+Build-Depends: cmake (>= 2.8.5),
+    debhelper (>= 8.9),
+    dpkg-dev (>= 1.15.7),
+    libgtk2.0-dev,
+    libpulse-dev
+Standards-Version: 3.9.3
+Homepage: http://github.com/jackun/USBqemu-wheel
+
+Package: libusbqemu-wheel-unstable
+Architecture: i386
+# -i686 allow to use SSE into libc6
+Depends: ${shlibs:Depends}, ${misc:Depends}, libc6-i686
+Description: Qemu-based usb plugin for PCSX2 Playstation 2 emulator
+ 
+Package: libusbqemu-wheel-unstable-dbg
+Section: debug
+Priority: extra
+Architecture: i386
+Depends: libusbqemu-wheel (= ${binary:Version})
+Description: Debug symbols for libusbqemu-wheel
+ Qemu-based usb plugin for PCSX2 Playstation 2 emulator.
+ .
+ This package contains the debug symbols for libusbqemu-wheel.
+
