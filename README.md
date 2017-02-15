@@ -79,6 +79,12 @@ On 32bit OS:
 	cd build
 	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
 
+or just use package builder:
+
+	cd some/where/USBqemu-wheel
+	dpkg-buildpackage -b -uc -us
+	sudo dpkg -i ../libusbqemu-wheel-unstable_*.deb
+
 On 64bit OS (This will probably kill your desktop!):
 
 	sudo dpkg --add-architecture i386 # if needed
