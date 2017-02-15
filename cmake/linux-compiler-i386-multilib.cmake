@@ -15,6 +15,9 @@ elseif(NOT "$ENV{CXX}" MATCHES "-m32")
     set(CMAKE_CXX_COMPILER $ENV{CXX} -m32)
 endif()
 
+#Use multilib-enabled objcopy
+set(CMAKE_OBJCOPY objcopy)
+
 # cmake 2.8.5 correctly sets CMAKE_LIBRARY_ARCHITECTURE for Debian multiarch.
 # Be really strict about what gets used.
 if(EXISTS /usr/lib/i386-linux-gnu)
