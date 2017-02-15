@@ -5,6 +5,7 @@ platform: x86
 clone_folder: C:\USBqemu-wheel
 clone_depth: 3
 test: off
+skip_non_tags: true
 
 configuration:
  - Release
