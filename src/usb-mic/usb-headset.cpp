@@ -219,6 +219,18 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iChannelNames */
   0x00,                                 /* iTerminal */
 
+  /* Audio Feature Unit */
+  AUDIO_FEATURE_UNIT_DESC_SZ(2,1),      /* bLength */
+  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+  AUDIO_CONTROL_FEATURE_UNIT,           /* bDescriptorSubtype */
+  0x05,                                 /* bUnitID */
+  0x04,                                 /* bSourceID */
+  0x01,                                 /* bControlSize */
+  0x01,                                 /* bmaControls(0) */ /* mute */
+  0x02,                                 /* bmaControls(1) */ /* volume */
+  0x02,                                 /* bmaControls(2) */ /* volume */
+  0x00,                                 /* iTerminal */
+
 /* Audio Output Terminal */
   AUDIO_OUTPUT_TERMINAL_DESC_SIZE,      /* bLength */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
