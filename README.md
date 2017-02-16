@@ -77,6 +77,8 @@ On Arch linux, basically:
 	mkdir build
 	cd build
 	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib32/pcsx2 # optionally also `-DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake`
+	make -j $(nproc)
+	sudo make install
 
 On Ubuntu and derivatives, it is probably better to setup a virtual machine image or chroot as the 32bit dev packages may uninstall 64bit packages.
 
@@ -92,6 +94,8 @@ On 32bit OS:
 	mkdir build
 	cd build
 	cmake .. -DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
+	make -j $(nproc)
+	sudo make install
 
 or just use package builder:
 
@@ -107,6 +111,8 @@ On 64bit OS (This will probably kill your desktop!):
 	mkdir build
 	cd build
 	cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake -DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
+	make -j $(nproc)
+	sudo make install
 
 CMake defines:
 
