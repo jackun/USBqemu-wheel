@@ -37,10 +37,9 @@ after_success:
 deploy:
   provider: releases
   api_key:
-    secure: "${GITHUB_KEY}"
+    secure: qxkdSZnInfhTGMOHoXr2w3ln3AAJWOZiY/jBj2761VjrFlRIehX3YNJKzTSjjJ3D8D8l4KNfMN880DipMqF9YSaMGAHT34sqn0IY9nHpx1wSGe9coekS46ZciBJqaOPDiLdlDGUQPjWjBB0l/w40SXWPFEM8ONz7d2vu7YOnkywsXyc8+4/AUvpHh7J5yaQuBPpDpqa5aPCamVye4SXzOcfZCI7q3/UlG6b784dnZ4GNbSgtGfKYzSrFF6BLYYsYYX5mtMpS7aIHkuho6Ka2wjTaNBzYK2/w3VM7mRezGRXB6qe0ZhjzRVsv3YGZjXB7TTSnW4h+nWRdIhmps96vV+rVhoIBzUrt2RL5qSCmEJihecU13sbLmEuFotTBwog1EaPX0TbcoeDGcv4FyGEVnraJYKX2jSQspV+OpdJx83T89pLsd1KHOEoC4eBCDEAvq31hAsbZgxKKjMVBwmC7lb5bGeAgKQ6J6UihMfMI5Qt2g0l9A3jW//O3GweS1/cIoplGR5+Gy/iWybDDqTuNCp2NWLbdPvEbxVFFnKM1d2GTa2Bj2TeKCwS2bvlFIsho4SSom8tAl4AxcZ8nmMp62JFnEzcKpPQh6X8wUxakeTiRsGx7L3XoOZNXgiitYnDEOmnQx5zEx/yQsUP+hgi2cHUhmIj1rUptjHPUBfeAwjI=
   skip_cleanup: true
   file_glob: true
   file: "../libusbqemu*deb"
   on:
     tags: true
-#    repo: jackun/USBqemu-wheel
