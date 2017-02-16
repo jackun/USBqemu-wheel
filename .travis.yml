@@ -7,6 +7,10 @@ cache: ccache
 git:
   depth: 3
 
+branches:
+  only:
+  - master
+
 matrix:
   include:
     - env: VERSION=6 BITS=32

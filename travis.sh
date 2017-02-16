@@ -44,8 +44,7 @@ linux_32_script() {
 	export PATH="${BUILD_TMP}:${PATH}"
 
 	export CC=${CC}-${VERSION} CXX=${CXX}-${VERSION}
-	dpkg-buildpackage -b -us -uc -ai386 && \
-	for file in ../*.deb; do mv -v "${file}" "${file%%.deb}-${CC}-${VERSION}.deb"; done
+	dpkg-buildpackage -b -us -uc -ai386
 }
 
 
@@ -80,6 +79,9 @@ linux_64_script() {
 }
 
 linux_after_success() {
+	for file in ../*.deb; do
+		mv -v "${file}" "${file%%.deb}-${CC}-{VERSION}.deb"
+	done
 	ccache -s
 }
 
