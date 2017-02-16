@@ -1,8 +1,10 @@
 USBqemu-wheel
 =============
 
-
-[![Build status](https://ci.appveyor.com/api/projects/status/tg69jfcw5lllu8kl?svg=true)](https://ci.appveyor.com/project/jackun/USBqemu-wheel/branch/master)
+**Build** | **Status**
+--------|--------
+Windows | [![Build status](https://ci.appveyor.com/api/projects/status/tg69jfcw5lllu8kl?svg=true)](https://ci.appveyor.com/project/jackun/USBqemu-wheel/branch/master)
+Linux | [![Build Status](https://travis-ci.org/jackun/USBqemu-wheel.svg?branch=master)](https://travis-ci.org/jackun/USBqemu-wheel)
 
 
 PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using usb host emulation code from qemu.
