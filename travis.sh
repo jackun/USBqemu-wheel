@@ -36,9 +36,15 @@ linux_32_before_install() {
 }
 
 linux_32_script() {
+	# TODO where are they?
+	BUILD_TMP=$(mktemp -d)
+	for i in objcopy strip; do
+		ln -sv /usr/bin/$i ${BUILD_TMP}/i686-linux-gnu-$i
+	done
+	export PATH="${BUILD_TMP}:${PATH}"
 
 	export CC=${CC}-${VERSION} CXX=${CXX}-${VERSION}
-	dpkg-buildpackage -b -us -uc -a i386
+	dpkg-buildpackage -b -us -uc -ai386
 }
 
 
