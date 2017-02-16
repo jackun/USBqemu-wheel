@@ -38,7 +38,7 @@ linux_32_before_install() {
 linux_32_script() {
 	# TODO where are they?
 	BUILD_TMP=$(mktemp -d)
-	for i in objcopy strip; do
+	for i in objcopy strip objdump; do
 		ln -sv /usr/bin/$i ${BUILD_TMP}/i686-linux-gnu-$i
 	done
 	export PATH="${BUILD_TMP}:${PATH}"
