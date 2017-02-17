@@ -136,6 +136,7 @@ SET(SRCS_QEMU
 	./src/qemu-usb/vl.cpp
 	./src/qemu-usb/usb-base.cpp
 	./src/qemu-usb/usb-msd.cpp
+	./src/qemu-usb/usb-msd-fat32.cpp
 	./src/qemu-usb/usb-ohci.cpp
 )
 

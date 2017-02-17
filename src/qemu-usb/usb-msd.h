@@ -37,4 +37,31 @@ public:
 		return params;
 	}
 };
+
+//TODO Merge, image and folder as separate "apis"
+class MsdDeviceFAT32 : public Device
+{
+public:
+	virtual ~MsdDeviceFAT32() {}
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Mass storage device (Folder)");
+	}
+	static std::list<std::string> APIs()
+	{
+		return std::list<std::string> { "cstdio_fat32" };
+	}
+	static const TCHAR* LongAPIName(const std::string& name)
+	{
+		return TEXT("cstdio_fat32");
+	}
+
+	static int Configure(int port, std::string api, void *data);
+	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api)
+	{
+		(void)api;
+		return std::vector<CONFIGVARIANT>();
+	}
+};
 #endif
