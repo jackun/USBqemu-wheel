@@ -32,8 +32,10 @@ typedef int32_t increment_t ;
 typedef float	coeff_t ;
 
 #include "fastest_coeffs.h"
+#ifndef LIBSRC_ONLY_FAST
 #include "mid_qual_coeffs.h"
 #include "high_qual_coeffs.h"
+#endif
 
 typedef struct
 {	int		sinc_magic_marker ;
@@ -188,7 +190,7 @@ sinc_set_converter (SRC_PRIVATE *psrc, int src_enum)
 				temp_filter.coeff_half_len = ARRAY_LEN (fastest_coeffs.coeffs) - 2 ;
 				temp_filter.index_inc = fastest_coeffs.increment ;
 				break ;
-
+#ifndef LIBSRC_ONLY_FAST
 		case SRC_SINC_MEDIUM_QUALITY :
 				temp_filter.coeffs = slow_mid_qual_coeffs.coeffs ;
 				temp_filter.coeff_half_len = ARRAY_LEN (slow_mid_qual_coeffs.coeffs) - 2 ;
@@ -200,7 +202,7 @@ sinc_set_converter (SRC_PRIVATE *psrc, int src_enum)
 				temp_filter.coeff_half_len = ARRAY_LEN (slow_high_qual_coeffs.coeffs) - 2 ;
 				temp_filter.index_inc = slow_high_qual_coeffs.increment ;
 				break ;
-
+#endif
 		default :
 				return SRC_ERR_BAD_CONVERTER ;
 		} ;
