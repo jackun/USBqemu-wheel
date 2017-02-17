@@ -1,19 +1,9 @@
 /*
-** Copyright (C) 2001-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (c) 2001-2016, Erik de Castro Lopo <erikd@mega-nerd.com>
+** All rights reserved.
 **
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU Lesser General Public License as published by
-** the Free Software Foundation; either version 2.1 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU Lesser General Public License for more details.
-**
-** You should have received a copy of the GNU Lesser General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+** This code is released under 2-clause BSD license. Please see the
+** file at : https://github.com/erikd/libsamplerate/blob/master/COPYING
 */
 
 /* Version 1.5 */
@@ -121,7 +111,7 @@
 		return retval ;
 	} /* float2int */
 
-#elif (defined (WIN64) || defined(_WIN64)) && !defined(__MINGW32__)
+#elif (defined (WIN64) || defined(_WIN64))
 
 	/*	Win64 section should be places before Win32 one, because
 	**	most likely both WIN32 and WIN64 will be defined in 64-bit case.
@@ -147,7 +137,7 @@
 		return _mm_cvtss_si32(_mm_load_ss(&flt));
 	}
 
-#elif (defined (WIN32) || defined (_WIN32)) && !defined(__MINGW32__)
+#elif (defined (WIN32) || defined (_WIN32))
 
 	#undef		HAVE_LRINT_REPLACEMENT
 	#define		HAVE_LRINT_REPLACEMENT	1
@@ -264,16 +254,16 @@
 	} /* lrint */
 
 #else
-	#include	<math.h>
-#if !defined(__GNUC__) && !defined(__llvm__)
 	#ifndef __sgi
 	#warning "Don't have the functions lrint() and lrintf()."
 	#warning "Replacing these functions with a standard C cast."
 	#endif
 
+	#include	<math.h>
+
 	#define	lrint(dbl)		((long) (dbl))
 	#define	lrintf(flt)		((long) (flt))
-#endif
+
 #endif
 
 

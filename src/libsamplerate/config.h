@@ -166,7 +166,7 @@
 #define PACKAGE_NAME "libsamplerate"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libsamplerate 0.1.8"
+#define PACKAGE_STRING "libsamplerate 0.1.9"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "libsamplerate"
@@ -175,7 +175,7 @@
 #define PACKAGE_URL "http://www.mega-nerd.com/libsamplerate/"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.1.8"
+#define PACKAGE_VERSION "0.1.9"
 
 /* The size of `double', as computed by sizeof. */
 #define SIZEOF_DOUBLE 8
@@ -193,7 +193,7 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "0.1.8"
+#define VERSION "0.1.9"
 
 
 
