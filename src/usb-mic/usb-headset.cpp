@@ -87,13 +87,14 @@ typedef struct HeadsetState {
         uint32_t srate;
         std::vector<int16_t> buffer;
         //struct streambuf buf;
-    } out;
+    } in; //in to device
 
     struct {
+        bool mute;
         uint8_t vol;
         uint32_t srate;
         std::vector<int16_t> buffer;
-    } in;
+    } out; //out from device
 
     /* properties */
     uint32_t debug;
@@ -129,7 +130,7 @@ static const uint8_t headset_dev_descriptor[] = {
     /* bDeviceClass        */ 0x00, //(0)
     /* bDeviceSubClass     */ 0x00, //(0)
     /* bDeviceProtocol     */ 0x00, //(0)
-    /* bMaxPacketSize0     */ 0x08, //(8)
+    /* bMaxPacketSize0     */ 0x40, //(64)
     /* idVendor            */ WBVAL(0x046d), //Logitech
     /* idProduct           */ WBVAL(0x0a01), //"USB headset" from usb.ids
     /* bcdDevice           */ WBVAL(0x0001), //(1)
@@ -144,7 +145,7 @@ static const uint8_t headset_config_descriptor[] = {
 /* Configuration 1 */
   0x09,   /* bLength */
   USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-  WBVAL(0x00f9),                        /* wTotalLength */
+  WBVAL(219),                           /* wTotalLength */
   0x04,                                 /* bNumInterfaces */
   0x01,                                 /* bConfigurationValue */
   0x00,                                 /* iConfiguration */
@@ -152,7 +153,7 @@ static const uint8_t headset_config_descriptor[] = {
   USB_CONFIG_POWER_MA(100),              /* bMaxPower */
 
 /* Interface 0, Alternate Setting 0, Audio Control */
-  USB_INTERFACE_DESC_SIZE,              /* bLength */
+  USB_INTERFACE_DESC_SIZE,              /* bLength : 9 */
   USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
   0x00,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
@@ -163,30 +164,29 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iInterface */
 
 /* Audio Control Interface */
-  AUDIO_CONTROL_INTERFACE_DESC_SZ(2),   /* bLength */
+  AUDIO_CONTROL_INTERFACE_DESC_SZ(2),   /* bLength : 8+n */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_HEADER,                 /* bDescriptorSubtype */
   WBVAL(0x0100), /* 1.00 */             /* bcdADC */
-  WBVAL(0x0048),                        /* wTotalLength */
+  WBVAL(0x0048),                        /* wTotalLength : this + following unit/terminal sizes */
   0x01,                                 /* bInCollection */
   0x01,                                 /* baInterfaceNr(0) */
   0x02,                                 /* baInterfaceNr(1) */
 
 /* Audio Input Terminal */
-  AUDIO_INPUT_TERMINAL_DESC_SIZE,       /* bLength */
+  AUDIO_INPUT_TERMINAL_DESC_SIZE,       /* bLength : 12 */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_INPUT_TERMINAL,         /* bDescriptorSubtype */
   0x01,                                 /* bTerminalID */
   WBVAL(AUDIO_TERMINAL_HEAD_MOUNTED_HANDSET), /* wTerminalType */
   0x06,                                 /* bAssocTerminal */
-  0x02,                                 /* bNrChannels */
-  WBVAL(AUDIO_CHANNEL_L
-       |AUDIO_CHANNEL_R),               /* wChannelConfig */
+  0x01,                                 /* bNrChannels */
+  WBVAL(0),               /* wChannelConfig */
   0x00,                                 /* iChannelNames */
   0x00,                                 /* iTerminal */
 
 /* Audio Feature Unit */
-  AUDIO_FEATURE_UNIT_DESC_SZ(2,1),      /* bLength */
+  AUDIO_FEATURE_UNIT_DESC_SZ(2,1),      /* bLength : f(ch,n) = 7 + (ch+1)*n */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_FEATURE_UNIT,           /* bDescriptorSubtype */
   0x02,                                 /* bUnitID */
@@ -198,7 +198,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iTerminal */
 
 /* Audio Output Terminal */
-  AUDIO_OUTPUT_TERMINAL_DESC_SIZE,      /* bLength */
+  AUDIO_OUTPUT_TERMINAL_DESC_SIZE,      /* bLength : 9 */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_OUTPUT_TERMINAL,        /* bDescriptorSubtype */
   0x03,                                 /* bTerminalID */
@@ -208,19 +208,19 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iTerminal */
 
 /* Audio Input Terminal */
-  AUDIO_INPUT_TERMINAL_DESC_SIZE,       /* bLength */
+  AUDIO_INPUT_TERMINAL_DESC_SIZE,       /* bLength : 12 */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_INPUT_TERMINAL,         /* bDescriptorSubtype */
   0x04,                                 /* bTerminalID */
   WBVAL(AUDIO_TERMINAL_USB_STREAMING),  /* wTerminalType */
   0x00,                                 /* bAssocTerminal */
   0x01,                                 /* bNrChannels */
-  WBVAL(AUDIO_CHANNEL_M),               /* wChannelConfig */
+  WBVAL(0),               /* wChannelConfig */
   0x00,                                 /* iChannelNames */
   0x00,                                 /* iTerminal */
 
   /* Audio Feature Unit */
-  AUDIO_FEATURE_UNIT_DESC_SZ(2,1),      /* bLength */
+  AUDIO_FEATURE_UNIT_DESC_SZ(2,1),      /* bLength : f(ch,n) = 7 + (ch+1)*n */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_FEATURE_UNIT,           /* bDescriptorSubtype */
   0x05,                                 /* bUnitID */
@@ -232,7 +232,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iTerminal */
 
 /* Audio Output Terminal */
-  AUDIO_OUTPUT_TERMINAL_DESC_SIZE,      /* bLength */
+  AUDIO_OUTPUT_TERMINAL_DESC_SIZE,      /* bLength : 9 */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_OUTPUT_TERMINAL,        /* bDescriptorSubtype */
   0x06,                                 /* bTerminalID */
@@ -242,7 +242,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iTerminal */
 
 /* Interface 1, Alternate Setting 0, Audio Streaming - Zero Bandwith */
-  USB_INTERFACE_DESC_SIZE,              /* bLength */
+  USB_INTERFACE_DESC_SIZE,              /* bLength : 9 */
   USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
   0x01,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
@@ -253,7 +253,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iInterface */
 
 /* Interface 1, Alternate Setting 1, Audio Streaming - Operational */
-  USB_INTERFACE_DESC_SIZE,              /* bLength */
+  USB_INTERFACE_DESC_SIZE,              /* bLength : 9 */
   USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
   0x01,                                 /* bInterfaceNumber */
   0x01,                                 /* bAlternateSetting */
@@ -264,7 +264,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* iInterface */
 
 /* Audio Streaming Interface */
-  AUDIO_STREAMING_INTERFACE_DESC_SIZE,  /* bLength */
+  AUDIO_STREAMING_INTERFACE_DESC_SIZE,  /* bLength : 7 */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_STREAMING_GENERAL,              /* bDescriptorSubtype */
   0x03,                                 /* bTerminalLink */
@@ -272,71 +272,7 @@ static const uint8_t headset_config_descriptor[] = {
   WBVAL(AUDIO_FORMAT_PCM),              /* wFormatTag */
 
 /* Audio Type I Format */
-  AUDIO_FORMAT_TYPE_I_DESC_SZ(5),       /* bLength */
-  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
-  AUDIO_STREAMING_FORMAT_TYPE,          /* bDescriptorSubtype */
-  AUDIO_FORMAT_TYPE_I,                  /* bFormatType */
-  0x02,                                 /* bNrChannels */
-  0x02,                                 /* bSubFrameSize */
-  0x10,                                 /* bBitResolution */
-  0x05,                                 /* bSamFreqType */
-  B3VAL(8000),                          /* tSamFreq 1 */
-  B3VAL(11025),                         /* tSamFreq 2 */
-  B3VAL(22050),                         /* tSamFreq 3 */
-  B3VAL(44100),                         /* tSamFreq 4 */
-  B3VAL(48000),                         /* tSamFreq 5 */
-
-/* Endpoint - Standard Descriptor */
-  AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
-  USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-  USB_ENDPOINT_OUT(0x81),               /* bEndpointAddress */
-  USB_ENDPOINT_TYPE_ISOCHRONOUS
-  | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
-  WBVAL(0x00c8),                        /* wMaxPacketSize */
-  0x01,                                 /* bInterval */
-  0x00,                                 /* bRefresh */
-  0x00,                                 /* bSynchAddress */
-
-/* Endpoint - Audio Streaming */
-  AUDIO_STREAMING_ENDPOINT_DESC_SIZE,   /* bLength */
-  AUDIO_ENDPOINT_DESCRIPTOR_TYPE,       /* bDescriptorType */
-  AUDIO_ENDPOINT_GENERAL,               /* bDescriptor */
-  0x01,                                 /* bmAttributes */
-  0x00,                                 /* bLockDelayUnits */
-  WBVAL(0x0000),                        /* wLockDelay */
-
-/* Interface 2, Alternate Setting 0 */
-  USB_INTERFACE_DESC_SIZE,              /* bLength */
-  USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  0x02,                                 /* bInterfaceNumber */
-  0x00,                                 /* bAlternateSetting */
-  0x00,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
-  AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
-  AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
-  0x00,                                 /* iInterface */
-
-/* Interface 2, Alternate Setting 1 */
-  USB_INTERFACE_DESC_SIZE,              /* bLength */
-  USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  0x02,                                 /* bInterfaceNumber */
-  0x01,                                 /* bAlternateSetting */
-  0x01,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
-  AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
-  AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
-  0x00,                                 /* iInterface */
-
-/* Audio Streaming Interface */
-  AUDIO_STREAMING_INTERFACE_DESC_SIZE,  /* bLength */
-  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
-  AUDIO_STREAMING_GENERAL,              /* bDescriptorSubtype */
-  0x04,                                 /* bTerminalLink */
-  0x03,                                 /* bDelay */
-  WBVAL(AUDIO_FORMAT_PCM),              /* wFormatTag */
-
-/* Audio Type I Format */
-  AUDIO_FORMAT_TYPE_I_DESC_SZ(5),       /* bLength */
+  AUDIO_FORMAT_TYPE_I_DESC_SZ(5),       /* bLength : 8 + (n*3) */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_STREAMING_FORMAT_TYPE,          /* bDescriptorSubtype */
   AUDIO_FORMAT_TYPE_I,                  /* bFormatType */
@@ -351,9 +287,73 @@ static const uint8_t headset_config_descriptor[] = {
   B3VAL(48000),                         /* tSamFreq 5 */
 
 /* Endpoint - Standard Descriptor */
-  AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
+  AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength : 9 */
   USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-  USB_ENDPOINT_OUT(0x81),               /* bEndpointAddress */
+  USB_ENDPOINT_IN(1),                  /* bEndpointAddress */
+  USB_ENDPOINT_TYPE_ISOCHRONOUS
+  | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
+  WBVAL(0x00c8),                        /* wMaxPacketSize */
+  0x01,                                 /* bInterval */
+  0x00,                                 /* bRefresh */
+  0x00,                                 /* bSynchAddress */
+
+/* Endpoint - Audio Streaming */
+  AUDIO_STREAMING_ENDPOINT_DESC_SIZE,   /* bLength : 7 */
+  AUDIO_ENDPOINT_DESCRIPTOR_TYPE,       /* bDescriptorType */
+  AUDIO_ENDPOINT_GENERAL,               /* bDescriptor */
+  0x01,                                 /* bmAttributes */
+  0x00,                                 /* bLockDelayUnits */
+  WBVAL(0x0000),                        /* wLockDelay */
+
+/* Interface 2, Alternate Setting 0 */
+  USB_INTERFACE_DESC_SIZE,              /* bLength : 9 */
+  USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  0x02,                                 /* bInterfaceNumber */
+  0x00,                                 /* bAlternateSetting */
+  0x00,                                 /* bNumEndpoints */
+  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
+  AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
+  0x00,                                 /* iInterface */
+
+/* Interface 2, Alternate Setting 1 */
+  USB_INTERFACE_DESC_SIZE,              /* bLength : 9 */
+  USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  0x02,                                 /* bInterfaceNumber */
+  0x01,                                 /* bAlternateSetting */
+  0x01,                                 /* bNumEndpoints */
+  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
+  AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
+  0x00,                                 /* iInterface */
+
+/* Audio Streaming Interface */
+  AUDIO_STREAMING_INTERFACE_DESC_SIZE,  /* bLength : 7 */
+  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+  AUDIO_STREAMING_GENERAL,              /* bDescriptorSubtype */
+  0x04,                                 /* bTerminalLink */
+  0x03,                                 /* bDelay */
+  WBVAL(AUDIO_FORMAT_PCM),              /* wFormatTag */
+
+/* Audio Type I Format */
+  AUDIO_FORMAT_TYPE_I_DESC_SZ(1),       /* bLength : 8+(n*3) */
+  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+  AUDIO_STREAMING_FORMAT_TYPE,          /* bDescriptorSubtype */
+  AUDIO_FORMAT_TYPE_I,                  /* bFormatType */
+  0x01,                                 /* bNrChannels */
+  0x02,                                 /* bSubFrameSize */
+  0x10,                                 /* bBitResolution */
+  0x05,                                 /* bSamFreqType */
+  B3VAL(8000),                          /* tSamFreq 1 */
+  B3VAL(11025),                         /* tSamFreq 2 */
+  B3VAL(22050),                         /* tSamFreq 3 */
+  B3VAL(44100),                         /* tSamFreq 4 */
+  B3VAL(48000),                         /* tSamFreq 5 */
+
+/* Endpoint - Standard Descriptor */
+  AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength : 9 */
+  USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
+  USB_ENDPOINT_OUT(1),                   /* bEndpointAddress */
   USB_ENDPOINT_TYPE_ISOCHRONOUS
   | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
   WBVAL(0x00c0),                        /* wMaxPacketSize */
@@ -362,11 +362,11 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* bSynchAddress */
 
 /* Endpoint - Audio Streaming */
-  AUDIO_STREAMING_ENDPOINT_DESC_SIZE,   /* bLength */
+  AUDIO_STREAMING_ENDPOINT_DESC_SIZE,   /* bLength : 7 */
   AUDIO_ENDPOINT_DESCRIPTOR_TYPE,       /* bDescriptorType */
   AUDIO_ENDPOINT_GENERAL,               /* bDescriptor */
   0x01,                                 /* bmAttributes */
-  0x01,                                 /* bLockDelayUnits 1ms */
+  0x01,                                 /* bLockDelayUnits ms */
   WBVAL(0x0004),                        /* wLockDelay 4ms (?) */
 
 /* Terminator */
@@ -409,7 +409,7 @@ static int usb_audio_get_control(HeadsetState *s, uint8_t attrib,
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0500):
         if (cn < 2) //TODO
         {
-            uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
+            uint16_t vol = (s->out.vol * 0x8800 + 127) / 255 + 0x8000;
             data[0] = (uint8_t)(vol & 0xFF);
             data[1] = vol >> 8;
             ret = 2;
@@ -445,7 +445,7 @@ static int usb_audio_get_control(HeadsetState *s, uint8_t attrib,
             ret = 2;
         }
         break;
-    case ATTRIB_ID(AUDIO_BASS_BOOST_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0500): //SOCOM II, but there is no bass control defined in descriptor...
+    case ATTRIB_ID(AUDIO_BASS_BOOST_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0500): //??? SOCOM II when in stereo, but there is no bass control defined in descriptor...
         //if (cn < 2) { //asks with cn == 2, meaning both channels? -1 is 'master'
             data[0] = 0; //bool
             ret = 1;
@@ -483,8 +483,8 @@ static int usb_audio_set_control(HeadsetState *s, uint8_t attrib,
                 vol = 255;
             }
 
-            if (s->out.vol[cn] != vol) {
-                s->out.vol[cn] = (uint8_t)vol;
+            if (s->out.vol != vol) {
+                s->out.vol = (uint8_t)vol;
                 set_vol = true;
             }
             ret = 0;
@@ -494,10 +494,8 @@ static int usb_audio_set_control(HeadsetState *s, uint8_t attrib,
 
     if (set_vol) {
         //if (s->debug) {
-            fprintf(stderr, "headset: mute %d, lvol %3d, rvol %3d\n",
-                    s->out.mute, s->out.vol[0], s->out.vol[1]);
-            OSDebugOut(TEXT("headset: mute %d, lvol %3d, rvol %3d\n"),
-                    s->out.mute, s->out.vol[0], s->out.vol[1]);
+            OSDebugOut(TEXT("headset: mute %d, vol %3d\n"),
+                    s->out.mute, s->out.vol);
         //}
         //AUD_set_volume_out(s->out.voice, s->out.mute,
         //                   s->out.vol[0], s->out.vol[1]);
@@ -516,7 +514,6 @@ static int usb_audio_ep_control(HeadsetState *s, uint8_t attrib,
     int ret = USB_RET_STALL;
 
     //cs 1 cn 0xFF, ep 0x81 attrib 1
-    fprintf(stderr, "headset: ep control cs %x, cn %X, %X %X data:", cs, cn, attrib, ep);
     OSDebugOut(TEXT("headset: ep control cs %x, cn %X, attr: %02X ep: %04X\n"), cs, cn, attrib, ep);
     /*for(int i=0; i<length; i++)
         fprintf(stderr, "%02X ", data[i]);
@@ -710,6 +707,7 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
         break;
     default:
     fail:
+		OSDebugOut(TEXT("Unhandled case\n"));
         ret = USB_RET_STALL;
         break;
     }
@@ -737,18 +735,17 @@ static int headset_handle_data(USBDevice *dev, int pid,
 
             memset(data, 0, len);
 
-            //TODO
-            int outChns = 1;
+            int outChns = 1; //TODO should use channel number from interface
             uint32_t outlen = 0, chn;
             int16_t *dst = (int16_t *)data;
-            //Divide 'len' bytes between 2 channels of 16 bits
-            uint32_t frames = len / (outChns * sizeof(uint16_t));
-            uint32_t maxFrames = s->in.buffer.size() / outChns;
+            //Divide 'len' bytes between n channels of 16 bits
+            uint32_t maxFrames = len / (outChns * sizeof(uint16_t)), frames = 0;
 
             if(s->audsrc &&
                 s->audsrc->GetFrames(&frames))
             {
-                frames = MIN(maxFrames, frames); //max 50 frames usually
+                frames = MIN(frames, maxFrames);
+                s->out.buffer.resize(frames * s->audsrc->GetChannels());
                 frames = s->audsrc->GetBuffer(s->out.buffer.data(), frames);
             }
 
@@ -757,10 +754,13 @@ static int headset_handle_data(USBDevice *dev, int pid,
             chn = s->audsrc->GetChannels();
 
             uint32_t i = 0;
-            for(; i < frames && i < maxFrames; i++)
+            for(; i < frames; i++)
             {
-                dst[i * outChns] = SetVolume(s->in.buffer[i /* * chn */], s->in.vol);
-                //dst[i * outChns + 1] = 0;
+                dst[i * outChns] = SetVolume(s->out.buffer[i * chn], s->out.vol);
+                //if (outChns > 1 && chn > 1)
+                //    dst[i * outChns + 1] = SetVolume(s->out.buffer[i * chn + 1], s->out.vol);
+                //else if (outChns > 1)
+                //    dst[i * outChns + 1] = 0;
             }
 
             ret = i;
@@ -769,7 +769,7 @@ static int headset_handle_data(USBDevice *dev, int pid,
             if (!file)
             {
                 char name[1024] = { 0 };
-                snprintf(name, sizeof(name), "headset_%dch_%dHz.raw", outChns, s->in.srate);
+                snprintf(name, sizeof(name), "headset_%dch_%dHz.raw", outChns, s->out.srate);
                 file = fopen(name, "wb");
             }
 
@@ -780,7 +780,6 @@ static int headset_handle_data(USBDevice *dev, int pid,
         }
         break;
     case USB_TOKEN_OUT:
-        printf("token out ep: %d\n", devep);
         OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, len);
     default:
     fail:
@@ -800,8 +799,8 @@ static void headset_handle_destroy(USBDevice *dev)
         s->audsrc->Stop();
         delete s->audsrc;
         s->audsrc = NULL;
-        //delete [] s->in.buffer[i];
-        s->in.buffer.clear();
+        //delete [] s->out.buffer[i];
+        s->out.buffer.clear();
     }
 
     if(s->audsink)
@@ -809,8 +808,8 @@ static void headset_handle_destroy(USBDevice *dev)
         s->audsink->Stop();
         delete s->audsink;
         s->audsink = NULL;
-        //delete [] s->out.buffer[i];
-        s->out.buffer.clear();
+        //delete [] s->in.buffer[i];
+        s->in.buffer.clear();
     }
 
     s->audsrcproxy->AudioDeinit();
@@ -911,12 +910,13 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->port = port;
 
     // set defaults
-    s->out.vol[0] = 240; /* 0 dB */
-    s->out.vol[1] = 240; /* 0 dB */
+    s->in.vol[0] = 240; /* 0 dB */
+    s->in.vol[0] = 240; /* 0 dB */
+    s->out.vol = 240; /* 0 dB */
     s->out.srate = 48000;
     s->in.srate = 48000;
 
-
+    //OSDebugOut(TEXT("headset_config_descriptor size: %d\n"), sizeof(headset_config_descriptor));
     strncpy(s->dev.devname, "USBMIC", sizeof(s->dev.devname));
 
     return (USBDevice *)s;
