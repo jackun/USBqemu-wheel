@@ -324,7 +324,7 @@ public:
 		mResampler = src_delete(mResampler);
 	}
 
-	uint32_t GetBuffer(int16_t *buff, uint32_t len)
+	uint32_t GetBuffer(int16_t *buff, uint32_t frames)
 	{
 		auto now = hrc::now();
 		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
@@ -343,37 +343,38 @@ public:
 		else
 			mLastGetBuffer = now;
 
+		//FIXME Can't use it like this. Some games only poll for data when needed.
 		// Something cocked up and game didn't poll usb over 5 secs
-		if (dur > 5000)
-			ResetBuffers();
-
-		mOutSamples += len;
+		//if (dur > 5000)
+		//	ResetBuffers();
 
 		// init time point
 		if (mLastOut.time_since_epoch().count() == 0)
 			mLastOut = now;
 
-		auto diff = std::chrono::duration_cast<us>(now-mLastOut).count();
+		//FIXME Can't use it like this. Some games only poll for data when needed.
+		//auto diff = std::chrono::duration_cast<us>(now-mLastOut).count();
+		//mOutSamples += frames;
 
-		if (diff >= int64_t(1e6))
-		{
-			mTimeAdjust = (mOutSamples / (diff / 1e6)) / mOutputSamplesPerSec;
-			//if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
-			OSDebugOut("timespan: %" PRId64 " sampling: %f adjust: %f\n", diff, float(mOutSamples) / diff * 1e6, mTimeAdjust);
-			mLastOut = now;
-			mOutSamples = 0;
-		}
+		//if (diff >= int64_t(1e6))
+		//{
+			//mTimeAdjust = (mOutSamples / (diff / 1e6)) / mOutputSamplesPerSec;
+			////if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
+			//OSDebugOut("timespan: %" PRId64 " sampling: %f adjust: %f\n", diff, float(mOutSamples) / diff * 1e6, mTimeAdjust);
+			//mLastOut = now;
+			//mOutSamples = 0;
+		//}
 
 		std::lock_guard<std::mutex> lk(mMutex);
-		uint32_t totalLen = MIN(len * mSSpec.channels, mResampledBuffer.size());
-		OSDebugOut("Resampled buffer size: %zd, copy: %zd\n", mResampledBuffer.size(), totalLen);
-		if (totalLen > 0)
+		uint32_t totalFrames = MIN(frames * mSSpec.channels, mResampledBuffer.size());//TODO double check, remove?
+		OSDebugOut("Resampled buffer size: %zd, sent: %zd\n", mResampledBuffer.size(), totalFrames / mSSpec.channels);
+		if (totalFrames > 0)
 		{
-			memcpy(buff, &mResampledBuffer[0], sizeof(short) * totalLen);
-			mResampledBuffer.erase(mResampledBuffer.begin(), mResampledBuffer.begin() + totalLen);
+			memcpy(buff, mResampledBuffer.data(), sizeof(short) * totalFrames);
+			mResampledBuffer.erase(mResampledBuffer.begin(), mResampledBuffer.begin() + totalFrames);
 		}
 
-		return totalLen / mSSpec.channels;
+		return totalFrames / mSSpec.channels;
 	}
 
 	uint32_t SetBuffer(int16_t *buff, uint32_t len)
@@ -658,7 +659,7 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		return;
 
 	auto dur = std::chrono::duration_cast<ms>(hrc::now() - src->mLastGetBuffer).count();
-	if (src->mPaused || dur > 5000) {
+	if (src->mPaused /*|| dur > 5000*/) {
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
 			OSDebugOut("pa_stream_drop %d: %s\n", ret, pa_strerror(ret));
