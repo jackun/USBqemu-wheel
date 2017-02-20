@@ -115,7 +115,7 @@ public:
     static USBDevice* CreateDevice(int port, const std::string& api);
     static const TCHAR* Name()
     {
-        return TEXT("Headset");
+        return TEXT("Logitech USB Headset");
     }
     static std::list<std::string> APIs()
     {
