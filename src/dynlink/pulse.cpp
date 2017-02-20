@@ -44,6 +44,18 @@ FUNDEFDECL(pa_mainloop_free);
 FUNDEFDECL(pa_context_get_sink_info_list);
 FUNDEFDECL(pa_stream_connect_playback);
 FUNDEFDECL(pa_stream_set_write_callback);
+FUNDEFDECL(pa_stream_begin_write);
+FUNDEFDECL(pa_stream_cancel_write);
+FUNDEFDECL(pa_stream_write);
+FUNDEFDECL(pa_stream_get_state);
+FUNDEFDECL(pa_stream_cork);
+FUNDEFDECL(pa_stream_is_corked);
+FUNDEFDECL(pa_stream_is_suspended);
+FUNDEFDECL(pa_stream_set_state_callback);
+FUNDEFDECL(pa_threaded_mainloop_lock);
+FUNDEFDECL(pa_threaded_mainloop_unlock);
+FUNDEFDECL(pa_threaded_mainloop_signal);
+FUNDEFDECL(pa_threaded_mainloop_wait);
 
 static void* pulse_handle = nullptr;
 static std::atomic<int> refCntPulse (0);
@@ -94,6 +106,18 @@ bool DynLoadPulse()
 	FUN_LOAD(pulse_handle, pa_context_get_sink_info_list);
 	FUN_LOAD(pulse_handle, pa_stream_connect_playback);
 	FUN_LOAD(pulse_handle, pa_stream_set_write_callback);
+	FUN_LOAD(pulse_handle, pa_stream_begin_write);
+	FUN_LOAD(pulse_handle, pa_stream_cancel_write);
+	FUN_LOAD(pulse_handle, pa_stream_write);
+	FUN_LOAD(pulse_handle, pa_stream_get_state);
+	FUN_LOAD(pulse_handle, pa_stream_cork);
+	FUN_LOAD(pulse_handle, pa_stream_is_corked);
+	FUN_LOAD(pulse_handle, pa_stream_is_suspended);
+	FUN_LOAD(pulse_handle, pa_stream_set_state_callback);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_lock);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_unlock);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_signal);
+	FUN_LOAD(pulse_handle, pa_threaded_mainloop_wait);
 	FUN_LOAD(pulse_handle, pa_mainloop_free);
 	return true;
 }
@@ -136,6 +160,18 @@ void DynUnloadPulse()
 	FUN_UNLOAD(pa_context_get_sink_info_list);
 	FUN_UNLOAD(pa_stream_connect_playback);
 	FUN_UNLOAD(pa_stream_set_write_callback);
+	FUN_UNLOAD(pa_stream_begin_write);
+	FUN_UNLOAD(pa_stream_cancel_write);
+	FUN_UNLOAD(pa_stream_write);
+	FUN_UNLOAD(pa_stream_get_state);
+	FUN_UNLOAD(pa_stream_cork);
+	FUN_UNLOAD(pa_stream_is_corked);
+	FUN_UNLOAD(pa_stream_is_suspended);
+	FUN_UNLOAD(pa_stream_set_state_callback);
+	FUN_UNLOAD(pa_threaded_mainloop_lock);
+	FUN_UNLOAD(pa_threaded_mainloop_unlock);
+	FUN_UNLOAD(pa_threaded_mainloop_signal);
+	FUN_UNLOAD(pa_threaded_mainloop_wait);
 	FUN_UNLOAD(pa_mainloop_free);
 
 	dlclose(pulse_handle);
@@ -315,7 +351,7 @@ int pa_stream_peek(pa_stream *p, const void **data, size_t *nbytes)
 {
 	if (pfn_pa_stream_peek)
 		return pfn_pa_stream_peek(p, data, nbytes);
-	return 0;
+	return -PA_ERR_NOTIMPLEMENTED;
 }
 
 pa_stream* pa_stream_new(pa_context *c, const char *name, const pa_sample_spec *ss, const pa_channel_map *map)
@@ -353,4 +389,83 @@ void pa_stream_set_write_callback(pa_stream *p, pa_stream_request_cb_t cb, void 
 {
 	if (pfn_pa_stream_set_write_callback)
 		pfn_pa_stream_set_write_callback(p, cb, userdata);
+}
+
+int pa_stream_begin_write(pa_stream *p, void **data, size_t *nbytes)
+{
+	if (pfn_pa_stream_begin_write)
+		return pfn_pa_stream_begin_write(p, data, nbytes);
+	return PA_ERR_NOTIMPLEMENTED;
+}
+
+int pa_stream_cancel_write(pa_stream *p)
+{
+	if (pfn_pa_stream_cancel_write)
+		return pfn_pa_stream_cancel_write(p);
+	return PA_ERR_NOTIMPLEMENTED;
+}
+
+int pa_stream_write(pa_stream *p, const void *data, size_t nbytes, pa_free_cb_t free_cb, int64_t offset, pa_seek_mode_t seek)
+{
+	if (pfn_pa_stream_write)
+		return pfn_pa_stream_write(p, data, nbytes, free_cb, offset, seek);
+	return PA_ERR_NOTIMPLEMENTED;
+}
+
+pa_stream_state_t pa_stream_get_state(pa_stream *p)
+{
+	if (pfn_pa_stream_get_state)
+		return pfn_pa_stream_get_state(p);
+	return PA_STREAM_UNCONNECTED;
+}
+
+pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, void *userdata)
+{
+	if (pfn_pa_stream_cork)
+		return pfn_pa_stream_cork(s, b, cb, userdata);
+	return NULL;
+}
+
+int pa_stream_is_corked(pa_stream *s)
+{
+	if (pfn_pa_stream_is_corked)
+		return pfn_pa_stream_is_corked (s);
+	return -PA_ERR_NOTIMPLEMENTED;
+}
+
+void pa_threaded_mainloop_lock(pa_threaded_mainloop *m)
+{
+	if (pfn_pa_threaded_mainloop_lock)
+		pfn_pa_threaded_mainloop_lock(m);
+}
+
+void pa_threaded_mainloop_unlock(pa_threaded_mainloop *m)
+{
+	if (pfn_pa_threaded_mainloop_unlock)
+		pfn_pa_threaded_mainloop_unlock(m);
+}
+
+void pa_threaded_mainloop_signal(pa_threaded_mainloop *m, int wait_for_accept)
+{
+	if (pfn_pa_threaded_mainloop_signal)
+		pfn_pa_threaded_mainloop_signal(m, wait_for_accept);
+}
+
+void pa_threaded_mainloop_wait(pa_threaded_mainloop *m)
+{
+	if (pfn_pa_threaded_mainloop_wait)
+		pfn_pa_threaded_mainloop_wait(m);
+}
+
+int pa_stream_is_suspended(pa_stream *s)
+{
+	if (pfn_pa_stream_is_suspended)
+		return pfn_pa_stream_is_suspended(s);
+	return -PA_ERR_NOTIMPLEMENTED;
+}
+
+void pa_stream_set_state_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *userdata)
+{
+	if (pfn_pa_stream_set_state_callback)
+		pfn_pa_stream_set_state_callback(s, cb, userdata);
 }
