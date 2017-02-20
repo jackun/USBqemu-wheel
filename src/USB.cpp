@@ -23,11 +23,9 @@
 #include "qemu-usb/vl.h"
 #include "USB.h"
 #include "deviceproxy.h"
+#include "version.h" //CMake generated
 
 const unsigned char version  = PS2E_USB_VERSION;
-const unsigned char revision = 0;
-const unsigned char build    = 5;    // increase that with each version
-const unsigned char fix      = 2;
 
 static char libraryName[256];
 
@@ -155,7 +153,7 @@ EXPORT_C_(char*) PS2EgetLibName() {
 }
 
 EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
-	return (version<<16) | (revision<<8) | build | (fix << 24);
+	return (version<<16) | ((char)VER_REV<<8) | (char)VER_BLD | ((char)VER_FIX << 24);
 }
 
 EXPORT_C_(s32) USBinit() {
@@ -166,7 +164,7 @@ EXPORT_C_(s32) USBinit() {
 	{
 		usbLog = fopen("logs/usbLog.txt", "w");
 		if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
-		USB_LOG("usbqemu wheel mod plugin version %d,%d\n",revision,build);
+		USB_LOG("usbqemu wheel mod plugin version %d.%d.%d\n", VER_REV, VER_BLD, VER_FIX);
 		USB_LOG("USBinit\n");
 	}
 
