@@ -22,8 +22,8 @@
 
 #pragma pack(1)
 
-#define WBVAL(x) (x & 0xFF),((x >> 8) & 0xFF)
-#define B3VAL(x) (x & 0xFF),((x >> 8) & 0xFF),((x >> 16) & 0xFF)
+#define WBVAL(x) ((x) & 0xFF),(((x) >> 8) & 0xFF)
+#define B3VAL(x) ((x) & 0xFF),(((x) >> 8) & 0xFF),(((x) >> 16) & 0xFF)
 
 /* bmRequestType.Dir */
 #define REQUEST_HOST_TO_DEVICE     0
