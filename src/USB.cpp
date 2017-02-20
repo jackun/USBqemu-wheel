@@ -79,7 +79,7 @@ void __Log(const char *fmt, ...) {
 void Reset()
 {
 	if(qemu_ohci)
-		ohci_reset(qemu_ohci);
+		ohci_hard_reset(qemu_ohci);
 }
 
 void DestroyDevices()
@@ -170,6 +170,9 @@ EXPORT_C_(s32) USBinit() {
 
 	qemu_ohci = ohci_create(0x1f801600,2);
 	if(!qemu_ohci) return 1;
+
+	clocks = 0;
+	remaining = 0;
 
 	return 0;
 }
