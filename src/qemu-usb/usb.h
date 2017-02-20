@@ -132,7 +132,7 @@
 #define SET_PROTOCOL 0x210b
 
 #define USB_DEVICE_DESC_SIZE        18
-#define USB_CONFIGUARTION_DESC_SIZE 9
+#define USB_CONFIGURATION_DESC_SIZE 9
 #define USB_INTERFACE_DESC_SIZE     9
 #define USB_ENDPOINT_DESC_SIZE      7
 
@@ -181,7 +181,7 @@ struct USBPort {
     usb_attachfn attach;
     void *opaque;
     int index; /* internal port index, may be used with the opaque */
-    struct USBPort *next; /* Used internally by qemu.  */
+    //struct USBPort *next; /* Used internally by qemu.  */
 };
 
 int usb_generic_handle_packet(USBDevice *s, int pid, 

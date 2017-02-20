@@ -13,7 +13,8 @@
 
 /* Number of Downstream Ports on the root hub.  */
 
-#define OHCI_MAX_PORTS 15
+#define OHCI_MAX_PORTS 15 // status regs from 0x0c54 but usb snooping
+                          // reg is at 0x0c80, so only 11 ports?
 
 extern int64_t usb_frame_time;
 extern int64_t usb_bit_time;
@@ -192,7 +193,7 @@ struct ohci_iso_td {
 #define OHCI_STATUS_CLF       (1<<1)
 #define OHCI_STATUS_BLF       (1<<2)
 #define OHCI_STATUS_OCR       (1<<3)
-#define OHCI_STATUS_SOC       ((1<<6)|(1<<7))
+#define OHCI_STATUS_SOC       ((1<<6)|(1<<7)) //TODO LSI has SOC at bits 16,17?
 
 #define OHCI_INTR_SO          (1U<<0) /* Scheduling overrun */
 #define OHCI_INTR_WD          (1U<<1) /* HcDoneHead writeback */
@@ -271,7 +272,7 @@ uint32_t ohci_mem_read(OHCIState *ohci, uint32_t addr );
 void ohci_mem_write(OHCIState *ohci, uint32_t addr, uint32_t value );
 void ohci_frame_boundary(void *opaque);
 
-void ohci_reset(OHCIState *ohci);
+void ohci_hard_reset(OHCIState *ohci);
 int ohci_bus_start(OHCIState *ohci);
 void ohci_bus_stop(OHCIState *ohci);
 #endif
