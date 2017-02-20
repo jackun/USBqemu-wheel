@@ -232,7 +232,7 @@ static const uint8_t singstar_mic_config_descriptor[] = {
 /* Endpoint - Standard Descriptor */
   AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
   USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-  USB_ENDPOINT_OUT(0x81),               /* bEndpointAddress */
+  USB_ENDPOINT_IN(1),                   /* bEndpointAddress */
   USB_ENDPOINT_TYPE_ISOCHRONOUS
   | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
   WBVAL(0x0064),                        /* wMaxPacketSize */
@@ -285,7 +285,7 @@ static const uint8_t singstar_mic_config_descriptor[] = {
 /* Endpoint - Standard Descriptor */
   AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
   USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-  USB_ENDPOINT_OUT(0x81),               /* bEndpointAddress */
+  USB_ENDPOINT_IN(1),                   /* bEndpointAddress */
   USB_ENDPOINT_TYPE_ISOCHRONOUS
   | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
   WBVAL(0x00c8),                        /* wMaxPacketSize */
@@ -907,8 +907,7 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 
 	if(!s->audsrc[0] && !s->audsrc[1])
 	{
-		s->audsrcproxy->AudioDeinit();
-		free(s);
+		singstar_mic_handle_destroy((USBDevice*)s);
 		return NULL;
 	}
 
