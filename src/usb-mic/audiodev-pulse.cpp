@@ -285,16 +285,23 @@ public:
 	, mPAready(0)
 	, mResampleRatio(1.0)
 	, mTimeAdjust(1.0)
-	, mOutputSamplesPerSec(48000)
+	, mSamplesPerSec(48000)
 	, mResampler(nullptr)
 	, mOutSamples(0)
 	, mAudioDir(dir)
 	{
-		CONFIGVARIANT var(device ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
+		int i = dir == AUDIODIR_SOURCE ? 0 : 2;
+		const char* var_names[] = {
+			N_AUDIO_SOURCE0,
+			N_AUDIO_SOURCE1,
+			N_AUDIO_SINK0,
+			N_AUDIO_SINK1
+		};
+
+		CONFIGVARIANT var(device ? var_names[i + 1] : var_names[i], CONFIG_TYPE_CHAR);
 		if(LoadSetting(mPort, APINAME, var) && !var.strValue.empty())
 		{
 			mDeviceName = var.strValue;
-			//TODO open device etc.
 		}
 		else
 			throw AudioDeviceError(APINAME ": failed to load device settings");
@@ -302,7 +309,7 @@ public:
 		{
 			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
 			if(LoadSetting(mPort, APINAME, var))
-				mBuffering = var.intValue;
+				mBuffering = MAX(25, var.intValue);
 		}
 
 		if (!AudioInit())
@@ -322,12 +329,18 @@ public:
 		Uninit();
 		AudioDeinit();
 		mResampler = src_delete(mResampler);
+		if (file) fclose(file);
 	}
 
 	uint32_t GetBuffer(int16_t *buff, uint32_t frames)
 	{
 		auto now = hrc::now();
 		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
+
+		// init time point
+		if (mLastOut.time_since_epoch().count() == 0)
+			mLastOut = now;
+
 		//Disconnected, try reconnect after every 1sec, hopefully game retries to read samples
 		if (mPAready == 3 && dur >= 1000)
 		{
@@ -337,6 +350,8 @@ public:
 				PA_CONTEXT_NOFLAGS,
 				NULL
 			);
+
+			//TODO reconnect stream as well?
 
 			OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
 		}
@@ -348,17 +363,12 @@ public:
 		//if (dur > 5000)
 		//	ResetBuffers();
 
-		// init time point
-		if (mLastOut.time_since_epoch().count() == 0)
-			mLastOut = now;
-
-		//FIXME Can't use it like this. Some games only poll for data when needed.
 		//auto diff = std::chrono::duration_cast<us>(now-mLastOut).count();
 		//mOutSamples += frames;
 
 		//if (diff >= int64_t(1e6))
 		//{
-			//mTimeAdjust = (mOutSamples / (diff / 1e6)) / mOutputSamplesPerSec;
+			//mTimeAdjust = (mOutSamples / (diff / 1e6)) / mSamplesPerSec;
 			////if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
 			//OSDebugOut("timespan: %" PRId64 " sampling: %f adjust: %f\n", diff, float(mOutSamples) / diff * 1e6, mTimeAdjust);
 			//mLastOut = now;
@@ -366,33 +376,79 @@ public:
 		//}
 
 		std::lock_guard<std::mutex> lk(mMutex);
-		uint32_t totalFrames = MIN(frames * mSSpec.channels, mResampledBuffer.size());//TODO double check, remove?
-		OSDebugOut("Resampled buffer size: %zd, sent: %zd\n", mResampledBuffer.size(), totalFrames / mSSpec.channels);
+		uint32_t totalFrames = MIN(frames * mSSpec.channels, mShortBuffer.size());//TODO double check, remove?
+		//OSDebugOut("Resampled buffer size: %zd, sent: %zd\n", mShortBuffer.size(), totalFrames / mSSpec.channels);
 		if (totalFrames > 0)
 		{
-			memcpy(buff, mResampledBuffer.data(), sizeof(short) * totalFrames);
-			mResampledBuffer.erase(mResampledBuffer.begin(), mResampledBuffer.begin() + totalFrames);
+			memcpy(buff, mShortBuffer.data(), sizeof(short) * totalFrames);
+			mShortBuffer.erase(mShortBuffer.begin(), mShortBuffer.begin() + totalFrames);
 		}
 
 		return totalFrames / mSSpec.channels;
 	}
 
-	uint32_t SetBuffer(int16_t *buff, uint32_t len)
+	uint32_t SetBuffer(int16_t *buff, uint32_t frames)
 	{
-		return len;
+		auto now = hrc::now();
+		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
+
+		// init time point
+		if (mLastOut.time_since_epoch().count() == 0)
+			mLastOut = now;
+
+		//Disconnected, try reconnect after every 1sec
+		if (mPAready == 3 && dur >= 1000)
+		{
+			mLastGetBuffer = now;
+			int ret = pa_context_connect (mPContext,
+				mServer,
+				PA_CONTEXT_NOFLAGS,
+				NULL
+			);
+
+			//TODO reconnect stream as well?
+
+			OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
+			if (ret != PA_OK)
+				return frames;
+		}
+		else
+			mLastGetBuffer = now;
+
+		std::lock_guard<std::mutex> lk(mMutex);
+		size_t old_size = mShortBuffer.size();
+		size_t nshort = frames * mSSpec.channels;
+		mShortBuffer.resize(old_size + nshort);
+		memcpy(mShortBuffer.data() + old_size, buff, nshort * sizeof(int16_t));
+
+#if 0
+		if (!file)
+		{
+			char name[1024] = { 0 };
+			snprintf(name, sizeof(name), "headset_out_s16le_%dch_%dHz.raw", mSSpec.channels, mSSpec.rate);
+			file = fopen(name, "wb");
+		}
+
+		if (file)
+			fwrite(mShortBuffer.data() + old_size, 1, nshort * sizeof(int16_t), file);
+#endif
+		return frames;
 	}
 
 	bool GetFrames(uint32_t *size)
 	{
 		std::lock_guard<std::mutex> lk(mMutex);
-		*size = mResampledBuffer.size() / mSSpec.channels;
+		*size = mShortBuffer.size() / mSSpec.channels;
 		return true;
 	}
 
 	void SetResampling(int samplerate)
 	{
-		mOutputSamplesPerSec = samplerate;
-		mResampleRatio = double(samplerate) / double(mSSpec.rate);
+		mSamplesPerSec = samplerate;
+		if (mAudioDir == AUDIODIR_SOURCE)
+			mResampleRatio = double(samplerate) / double(mSSpec.rate);
+		else
+			mResampleRatio = double(mSSpec.rate) / double(samplerate);
 		//mResample = true;
 		ResetBuffers();
 	}
@@ -406,9 +462,16 @@ public:
 	{
 		ResetBuffers();
 		mPaused = false;
+		if (mStream)
+			pa_stream_cork(mStream, 0, stream_success_cb, this);
 	}
 
-	void Stop() { mPaused = true; }
+	void Stop()
+	{
+		mPaused = true;
+		if (mStream)
+			pa_stream_cork(mStream, 1, stream_success_cb, this);
+	}
 
 	virtual MicMode GetMicMode(AudioDevice* compare)
 	{
@@ -453,11 +516,21 @@ public:
 	bool Init()
 	{
 		int ret = 0;
+		pa_operation* pa_op = nullptr;
 
 		mPMainLoop = pa_threaded_mainloop_new();
 		pa_mainloop_api *mlapi = pa_threaded_mainloop_get_api(mPMainLoop);
 
-		mPContext = pa_context_new (mlapi, "USBqemu-pulse");
+		mPContext = pa_context_new (mlapi, "USBqemu");
+
+		pa_context_set_state_callback(mPContext,
+			context_state_cb,
+			this
+		);
+
+		// Lock the mainloop so that it does not run and crash before the context is ready
+		pa_threaded_mainloop_lock(mPMainLoop);
+		pa_threaded_mainloop_start(mPMainLoop);
 
 		ret = pa_context_connect (mPContext,
 			mServer,
@@ -469,18 +542,12 @@ public:
 		if (ret != PA_OK)
 			goto error;
 
-		pa_context_set_state_callback(mPContext,
-			pa_context_state_cb,
-			&mPAready
-		);
-
-		pa_threaded_mainloop_start(mPMainLoop);
-
 		// wait for pa_context_state_cb
 		for(;;)
 		{
 			if(mPAready == 1) break;
 			if(mPAready == 2 || mQuit) goto error;
+			pa_threaded_mainloop_wait(mPMainLoop);
 		}
 
 		mStream = pa_stream_new(mPContext,
@@ -488,6 +555,11 @@ public:
 			&mSSpec,
 			NULL
 		);
+
+		if (!mStream)
+			goto error;
+
+		pa_stream_set_state_callback(mStream, stream_state_cb, this);
 
 		// Sets individual read callback fragsize but recording itself
 		// still "lags" ~1sec (read_cb is called in bursts) without
@@ -521,10 +593,20 @@ public:
 				this
 			);
 
+			buffer_attr.maxlength = pa_bytes_per_second(&mSSpec);
+			buffer_attr.prebuf = 0; // Don't stop on underrun but then
+									// stream also only starts manually with uncorking.
+			buffer_attr.tlength = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
+			pa_stream_flags_t flags = (pa_stream_flags_t)
+				(PA_STREAM_INTERPOLATE_TIMING |
+				PA_STREAM_NOT_MONOTONIC |
+				PA_STREAM_AUTO_TIMING_UPDATE |
+				PA_STREAM_ADJUST_LATENCY);
+
 			ret = pa_stream_connect_playback(mStream,
 				mDeviceName.c_str(),
 				&buffer_attr,
-				PA_STREAM_ADJUST_LATENCY,
+				flags,
 				nullptr,
 				nullptr
 			);
@@ -533,6 +615,20 @@ public:
 
 		if (ret != PA_OK)
 			goto error;
+
+		// Wait for the stream to be ready
+		for(;;) {
+			pa_stream_state_t stream_state = pa_stream_get_state(mStream);
+			assert(PA_STREAM_IS_GOOD(stream_state));
+			if (stream_state == PA_STREAM_READY) break;
+			pa_threaded_mainloop_wait(mPMainLoop);
+		}
+
+		pa_threaded_mainloop_unlock(mPMainLoop);
+
+		OSDebugOut("pa_stream_is_corked %d\n", pa_stream_is_corked(mStream));
+		OSDebugOut("pa_stream_is_suspended %d\n", pa_stream_is_suspended (mStream));
+		pa_stream_cork(mStream, 0, stream_success_cb, this);
 
 		// Setup resampler
 		mResampler = src_delete(mResampler);
@@ -547,6 +643,7 @@ public:
 		mLastGetBuffer = hrc::now();
 		return true;
 	error:
+		pa_threaded_mainloop_unlock(mPMainLoop);
 		Uninit();
 		return false;
 	}
@@ -555,15 +652,15 @@ public:
 	{
 		std::lock_guard<std::mutex> lk(mMutex);
 		pa_sample_spec ss(mSSpec);
-		ss.rate = mOutputSamplesPerSec;
+		ss.rate = mSamplesPerSec;
 
 		size_t bytes = pa_bytes_per_second(&mSSpec) * 5;
-		mQBuffer.resize(0);
-		mQBuffer.reserve(bytes);
+		mFloatBuffer.resize(0);
+		mFloatBuffer.reserve(bytes);
 
 		bytes = pa_bytes_per_second(&ss) * 5;
-		mResampledBuffer.resize(0);
-		mResampledBuffer.reserve(bytes);
+		mShortBuffer.resize(0);
+		mShortBuffer.reserve(bytes);
 		src_reset(mResampler);
 	}
 
@@ -607,8 +704,11 @@ public:
 		return std::vector<CONFIGVARIANT>();
 	}
 
+	static void context_state_cb(pa_context *c, void *userdata);
+	static void stream_state_cb(pa_stream *s, void *userdata);
 	static void stream_read_cb (pa_stream *p, size_t nbytes, void *userdata);
 	static void stream_write_cb (pa_stream *p, size_t nbytes, void *userdata);
+	static void stream_success_cb (pa_stream *p, int success, void *userdata) {}
 
 protected:
 	int mPort;
@@ -616,7 +716,7 @@ protected:
 	int mChannels;
 	int mBuffering;
 	std::string mDeviceName;
-	int mOutputSamplesPerSec;
+	int mSamplesPerSec;
 	pa_sample_spec mSSpec;
 	AudioDir mAudioDir;
 
@@ -624,8 +724,8 @@ protected:
 	double mResampleRatio;
 	// Speed up or slow down audio
 	double mTimeAdjust;
-	std::vector<short> mResampledBuffer;
-	std::vector<float> mQBuffer;
+	std::vector<short> mShortBuffer;
+	std::vector<float> mFloatBuffer;
 	//std::thread mThread;
 	//std::condition_variable mEvent;
 	std::mutex mMutex;
@@ -641,13 +741,48 @@ protected:
 
 	int mOutSamples;
 	hrc::time_point mLastOut;
+	FILE* file = nullptr;
 };
+
+void PulseAudioDevice::context_state_cb(pa_context *c, void *userdata)
+{
+	pa_context_state_t state;
+	PulseAudioDevice *padev = (PulseAudioDevice *)userdata;
+
+	state = pa_context_get_state(c);
+	OSDebugOut("pa_context_get_state %d\n", state);
+	switch (state) {
+		case PA_CONTEXT_CONNECTING:
+		case PA_CONTEXT_AUTHORIZING:
+		case PA_CONTEXT_SETTING_NAME:
+		default:
+			break;
+		case PA_CONTEXT_UNCONNECTED:
+			padev->mPAready = 3;
+			break;
+		case PA_CONTEXT_FAILED:
+		case PA_CONTEXT_TERMINATED:
+			padev->mPAready = 2;
+			break;
+		case PA_CONTEXT_READY:
+			padev->mPAready = 1;
+			break;
+	}
+
+	pa_threaded_mainloop_signal(padev->mPMainLoop, 0);
+}
+
+void PulseAudioDevice::stream_state_cb(pa_stream *s, void *userdata)
+{
+	PulseAudioDevice *padev = (PulseAudioDevice *)userdata;
+	pa_threaded_mainloop_signal(padev->mPMainLoop, 0);
+}
 
 void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userdata)
 {
-	PulseAudioDevice *src = (PulseAudioDevice *) userdata;
+	PulseAudioDevice *padev = (PulseAudioDevice *) userdata;
 	const void* padata = NULL;
-	if (src->mQuit)
+	if (padev->mQuit)
 		return;
 
 	//OSDebugOut("stream_read_callback %d bytes\n", nbytes);
@@ -658,8 +793,8 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	if (ret != PA_OK)
 		return;
 
-	auto dur = std::chrono::duration_cast<ms>(hrc::now() - src->mLastGetBuffer).count();
-	if (src->mPaused /*|| dur > 5000*/) {
+	auto dur = std::chrono::duration_cast<ms>(hrc::now() - padev->mLastGetBuffer).count();
+	if (padev->mPaused /*|| dur > 5000*/) {
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
 			OSDebugOut("pa_stream_drop %d: %s\n", ret, pa_strerror(ret));
@@ -667,67 +802,169 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	}
 
 	{
-		size_t old_size = src->mQBuffer.size();
+		size_t old_size = padev->mFloatBuffer.size();
 		size_t nfloats = nbytes / sizeof(float);
-		src->mQBuffer.resize(old_size + nfloats);
-		memcpy(&src->mQBuffer[old_size], padata, nbytes);
+		padev->mFloatBuffer.resize(old_size + nfloats);
+		memcpy(&padev->mFloatBuffer[old_size], padata, nbytes);
 		//if copy succeeded, drop samples at pulse's side
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
 			OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
 	}
 
-	size_t resampled = static_cast<size_t>(src->mQBuffer.size() * src->mResampleRatio * src->mTimeAdjust);// * src->mSSpec.channels;
+	size_t resampled = static_cast<size_t>(padev->mFloatBuffer.size() * padev->mResampleRatio * padev->mTimeAdjust);// * padev->mSSpec.channels;
 	if (resampled == 0)
-		resampled = src->mQBuffer.size();
+		resampled = padev->mFloatBuffer.size();
 
 	std::vector<float> rebuf(resampled);
 
 	SRC_DATA data;
 	memset(&data, 0, sizeof(SRC_DATA));
-	data.data_in = src->mQBuffer.data();
-	data.input_frames = src->mQBuffer.size() / src->mSSpec.channels;
+	data.data_in = padev->mFloatBuffer.data();
+	data.input_frames = padev->mFloatBuffer.size() / padev->mSSpec.channels;
 	data.data_out = rebuf.data();
-	data.output_frames = resampled / src->mSSpec.channels;
-	data.src_ratio = src->mResampleRatio * src->mTimeAdjust;
+	data.output_frames = resampled / padev->mSSpec.channels;
+	data.src_ratio = padev->mResampleRatio * padev->mTimeAdjust;
 
-	src_process(src->mResampler, &data);
+	src_process(padev->mResampler, &data);
 
-	std::lock_guard<std::mutex> lock(src->mMutex);
+	std::lock_guard<std::mutex> lock(padev->mMutex);
 
-	uint32_t len = data.output_frames_gen * src->mSSpec.channels;
-	size_t size = src->mResampledBuffer.size();
+	uint32_t len = data.output_frames_gen * padev->mSSpec.channels;
+	size_t size = padev->mShortBuffer.size();
 	if (len > 0)
 	{
 		//too long, drop samples, caused by saving/loading savestates and random stutters
-		int sizeInMS = (((src->mResampledBuffer.size() + len) * 1000 / src->mSSpec.channels) / src->mOutputSamplesPerSec);
-		int threshold = src->mBuffering > 25 ? src->mBuffering : 25;
+		int sizeInMS = (((padev->mShortBuffer.size() + len) * 1000 / padev->mSSpec.channels) / padev->mSamplesPerSec);
+		int threshold = padev->mBuffering > 25 ? padev->mBuffering : 25;
 		if (sizeInMS > threshold)
 		{
 			size = 0;
-			src->mResampledBuffer.resize(len);
+			padev->mShortBuffer.resize(len);
 		}
 		else
-			src->mResampledBuffer.resize(size + len);
-		src_float_to_short_array(rebuf.data(), &(src->mResampledBuffer[size]), len);
+			padev->mShortBuffer.resize(size + len);
+		src_float_to_short_array(rebuf.data(), &(padev->mShortBuffer[size]), len);
 	}
 
-//#if _DEBUG
-//	if (file && len)
-//		fwrite(&(src->mResampledBuffer[size]), sizeof(short), len, file);
-//#endif
-
-	auto remSize = data.input_frames_used * src->mSSpec.channels;
-	src->mQBuffer.erase(src->mQBuffer.begin(), src->mQBuffer.begin() + remSize);
+	auto remSize = data.input_frames_used * padev->mSSpec.channels;
+	if (remSize > 0)
+		padev->mFloatBuffer.erase(padev->mFloatBuffer.begin(), padev->mFloatBuffer.begin() + remSize);
 
 	//OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd\n",
 		//data.input_frames, data.output_frames,
 		//data.input_frames_used, data.output_frames_gen,
-		//src->mResampledBuffer.size(), src->mQBuffer.size());
+		//padev->mShortBuffer.size(), padev->mFloatBuffer.size());
 }
 
 void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userdata)
 {
+	void *pa_buffer = NULL;
+	size_t pa_bytes, old_size;
+	// The length of the data to write in bytes, must be in multiples of the stream's sample spec frame size
+	ssize_t remaining_bytes = nbytes;
+	size_t floats_written = 0;
+	int ret = PA_OK;
+	std::vector<float> float_samples;
+	SRC_DATA data;
+	memset(&data, 0, sizeof(SRC_DATA));
+
+	PulseAudioDevice *padev = (PulseAudioDevice *) userdata;
+	if (padev->mQuit)
+		return;
+
+	std::lock_guard<std::mutex> lock(padev->mMutex);
+
+	size_t resampled = static_cast<size_t>(padev->mShortBuffer.size() * padev->mResampleRatio * padev->mTimeAdjust);
+	if (resampled == 0)
+		resampled = padev->mShortBuffer.size() * (padev->mResampleRatio > 1.0 ? padev->mResampleRatio : 1.0);
+
+	old_size = padev->mFloatBuffer.size();
+	padev->mFloatBuffer.resize(old_size + resampled - resampled % padev->mSSpec.channels);
+
+	OSDebugOut("mFloatBuffer old size: %zu, new size: %zu resampled: %zu requested: %zu\n",
+			old_size, padev->mFloatBuffer.size(),
+			resampled, nbytes);
+
+	// Convert short samples to float and to final output sample rate
+	if (padev->mShortBuffer.size() > 0)
+	{
+		float_samples.resize(padev->mShortBuffer.size());
+		src_short_to_float_array(padev->mShortBuffer.data(),
+				float_samples.data(), padev->mShortBuffer.size());
+
+		data.data_in = float_samples.data();
+		data.input_frames = float_samples.size() / padev->mSSpec.channels;
+		data.data_out = padev->mFloatBuffer.data() + old_size;
+		data.output_frames = resampled / padev->mSSpec.channels;
+		data.src_ratio = padev->mResampleRatio * padev->mTimeAdjust;
+
+		src_process(padev->mResampler, &data);
+
+		uint32_t new_len = data.output_frames_gen * padev->mSSpec.channels;
+		padev->mFloatBuffer.resize(old_size + new_len);
+
+		auto remSize = data.input_frames_used * padev->mSSpec.channels;
+		if (remSize > 0)
+			padev->mShortBuffer.erase(padev->mShortBuffer.begin(), padev->mShortBuffer.begin() + remSize);
+	}
+
+	// Write converted float samples or silence to PulseAudio stream
+	while (remaining_bytes > 0)
+	{
+		pa_bytes = remaining_bytes;
+
+		ret = pa_stream_begin_write(padev->mStream, &pa_buffer, &pa_bytes);
+		if (ret != PA_OK)
+		{
+			OSDebugOut("pa_stream_begin_write %d: %s\n", ret, pa_strerror(ret));
+			goto exit;
+		}
+
+		//OSDebugOut("offset %zu %zd %zu\n", floats_written, remaining_bytes, pa_bytes);
+
+		size_t final_bytes = 0;
+		if (padev->mFloatBuffer.size() > 0)
+		{
+
+			final_bytes = MIN(pa_bytes, padev->mFloatBuffer.size() * sizeof(float));
+			memcpy(pa_buffer, padev->mFloatBuffer.data(), final_bytes);
+			floats_written += final_bytes / sizeof(float);
+#if 0
+			if (!padev->file)
+			{
+				char name[1024] = { 0 };
+				snprintf(name, sizeof(name), "headset_float32le_%dch_%dHz.raw", padev->mSSpec.channels, padev->mSSpec.rate);
+				padev->file = fopen(name, "wb");
+			}
+
+			if (padev->file)
+				fwrite(padev->mFloatBuffer.data(), 1, final_bytes, padev->file);
+#endif
+		}
+
+		if (pa_bytes > final_bytes)
+			memset((uint8_t*)pa_buffer + final_bytes, 0, pa_bytes - final_bytes);
+
+		ret = pa_stream_write(padev->mStream, pa_buffer, pa_bytes, NULL, 0LL, PA_SEEK_RELATIVE);
+		if (ret != PA_OK)
+		{
+			OSDebugOut("pa_stream_write %d: %s\n", ret, pa_strerror(ret));
+			pa_stream_cancel_write(padev->mStream); //TODO needed?
+			goto exit;
+		}
+
+		remaining_bytes -= pa_bytes;
+	}
+
+exit:
+	//OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd written: %zu\n",
+		//data.input_frames, data.output_frames,
+		//data.input_frames_used, data.output_frames_gen,
+		//padev->mShortBuffer.size(), padev->mFloatBuffer.size(), floats_written * 4);
+
+	if (floats_written > 0)
+		padev->mFloatBuffer.erase(padev->mFloatBuffer.begin(), padev->mFloatBuffer.begin() + floats_written);
 }
 
 REGISTER_AUDIODEV(APINAME, PulseAudioDevice);
