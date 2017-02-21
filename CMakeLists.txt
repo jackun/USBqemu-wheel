@@ -191,6 +191,13 @@ IF(WIN32)
 		./src/Win32/Config.cpp
 		./src/Win32/Config-win32.cpp
 	)
+
+	IF(MINGW)
+		LIST(APPEND SRCS_WIN32
+			./src/Win32/guid.cpp
+		)
+	ENDIF(MINGW)
+
 	LIST(APPEND SRCS_MIC
 		./src/usb-mic/audiodev-wasapi.cpp
 	)
