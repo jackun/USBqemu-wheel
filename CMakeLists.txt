@@ -61,8 +61,17 @@ ENDIF(CMAKE_SIZEOF_VOID_P MATCHES "8")
 # Ripped from cheind.wordpress.com
 function(enable_unity_build UB_SUFFIX SOURCE_VARIABLE_NAME)
 	set(files ${${SOURCE_VARIABLE_NAME}})
+	set(FILEEXT c)
+
+	foreach(source_file ${files} )
+		STRING(REGEX MATCH "\\.[cC][pP][pP]$" match "${source_file}")
+		IF(match)
+			set(FILEEXT "cpp")
+		ENDIF()
+	endforeach(source_file)
+
 	# Generate a unique filename for the unity build translation unit
-	set(unit_build_file ${CMAKE_CURRENT_BINARY_DIR}/ub_${UB_SUFFIX}.cpp)
+	set(unit_build_file ${CMAKE_CURRENT_BINARY_DIR}/ub_${UB_SUFFIX}.${FILEEXT})
 	# Exclude all translation units from compilation
 	set_source_files_properties(${files} PROPERTIES HEADER_FILE_ONLY true)
 	# Open the ub file
@@ -182,7 +191,6 @@ IF(WIN32)
 		./src/Win32/Config.cpp
 		./src/Win32/Config-win32.cpp
 	)
-	
 	LIST(APPEND SRCS_MIC
 		./src/usb-mic/audiodev-wasapi.cpp
 	)
