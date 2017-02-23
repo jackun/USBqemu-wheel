@@ -32,8 +32,6 @@
 
 #define DEVICENAME "headset"
 
-static FILE *file = NULL;
-
 #include "usb.h"
 #include "audio.h"
 
@@ -45,6 +43,10 @@ static FILE *file = NULL;
 #define USBAUDIO_PACKET_SIZE     200 //192
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
+
+namespace usb_headset {
+
+static FILE *file = NULL;
 
 /*
  * A USB audio device supports an arbitrary number of alternate
@@ -950,11 +952,11 @@ static int headset_handle_data(USBDevice *dev, int pid,
 
             ret = i;
 
-#if defined(_DEBUG) && _MSC_VER > 1800
+#if 0 //defined(_DEBUG) && _MSC_VER > 1800
             if (!file)
             {
                 char name[1024] = { 0 };
-                snprintf(name, sizeof(name), "headset_%dch_%dHz.raw", outChns, s->in.srate);
+                snprintf(name, sizeof(name), "headset_s16le_%dch_%dHz.raw", outChns, s->in.srate);
                 file = fopen(name, "wb");
             }
 
@@ -1165,5 +1167,7 @@ int HeadsetDevice::Configure(int port, std::string api, void *data)
         return proxy->Configure(port, data);
     return RESULT_CANCELED;
 }
+
 REGISTER_DEVICE(4, DEVICENAME, HeadsetDevice);
+};
 #undef DEVICENAME

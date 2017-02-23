@@ -49,6 +49,8 @@ static FILE *file = NULL;
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
 
+namespace usb_mic_singstar {
+
 /*
  * A USB audio device supports an arbitrary number of alternate
  * interface settings for each interface.  Each corresponds to a block
@@ -949,5 +951,7 @@ int SingstarDevice::Configure(int port, std::string api, void *data)
 		return proxy->Configure(port, data);
 	return RESULT_CANCELED;
 }
+
 REGISTER_DEVICE(2, DEVICENAME, SingstarDevice);
+};
 #undef DEVICENAME

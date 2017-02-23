@@ -4,12 +4,8 @@
 
 #define DEVICENAME "logitech_usbmic"
 
-#define USB_DEVICE_DESC_SIZE        18
-#define USB_CONFIGUARTION_DESC_SIZE 9
-#define USB_INTERFACE_DESC_SIZE     9
-#define USB_ENDPOINT_DESC_SIZE      7
+namespace usb_mic_singstar {
 
-/* descriptor dumped from a real singstar MIC adapter */
 static const uint8_t logitech_mic_dev_descriptor[] = {
     /* bLength             */ 0x12, //(18)
     /* bDescriptorType     */ 0x01, //(1)
@@ -143,7 +139,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
                                           /* Endpoint - Standard Descriptor */
     AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
     USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-    USB_ENDPOINT_OUT(0x81),               /* bEndpointAddress */
+    USB_ENDPOINT_IN(1),                   /* bEndpointAddress */
     USB_ENDPOINT_TYPE_ISOCHRONOUS
     | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
     WBVAL(0x0064),                        /* wMaxPacketSize */
@@ -196,7 +192,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
                                           /* Endpoint - Standard Descriptor */
     AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
     USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-    USB_ENDPOINT_OUT(0x81),               /* bEndpointAddress */
+    USB_ENDPOINT_IN(1),                   /* bEndpointAddress */
     USB_ENDPOINT_TYPE_ISOCHRONOUS
     | USB_ENDPOINT_SYNC_ASYNCHRONOUS,     /* bmAttributes */
     WBVAL(0x00c8),                        /* wMaxPacketSize */
@@ -301,4 +297,5 @@ public:
 };
 
 REGISTER_DEVICE(3, DEVICENAME, LogitechMicDevice);
+};
 #undef DEVICENAME

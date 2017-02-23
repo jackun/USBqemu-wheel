@@ -5,6 +5,7 @@
 
 struct USBDevice;
 
+namespace usb_mic_singstar {
 class SingstarDevice : public Device
 {
 public:
@@ -26,5 +27,5 @@ public:
 	static int Configure(int port, std::string api, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
-
+};
 #endif
