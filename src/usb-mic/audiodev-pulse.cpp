@@ -465,14 +465,32 @@ public:
 		ResetBuffers();
 		mPaused = false;
 		if (mStream)
-			pa_stream_cork(mStream, 0, stream_success_cb, this);
+		{
+			pa_threaded_mainloop_lock(mPMainLoop);
+			if (pa_stream_is_corked(mStream) > 0)
+			{
+				pa_operation *op = pa_stream_cork(mStream, 0, stream_success_cb, this);
+				if (op)
+					pa_operation_unref(op);
+			}
+			pa_threaded_mainloop_unlock(mPMainLoop);
+		}
 	}
 
 	void Stop()
 	{
 		mPaused = true;
 		if (mStream)
-			pa_stream_cork(mStream, 1, stream_success_cb, this);
+		{
+			pa_threaded_mainloop_lock(mPMainLoop);
+			if (!pa_stream_is_corked(mStream))
+			{
+				pa_operation *op = pa_stream_cork(mStream, 1, stream_success_cb, this);
+				if (op)
+					pa_operation_unref(op);
+			}
+			pa_threaded_mainloop_unlock(mPMainLoop);
+		}
 	}
 
 	virtual MicMode GetMicMode(AudioDevice* compare)
@@ -628,11 +646,13 @@ public:
 			pa_threaded_mainloop_wait(mPMainLoop);
 		}
 
-		pa_threaded_mainloop_unlock(mPMainLoop);
-
 		OSDebugOut("pa_stream_is_corked %d\n", pa_stream_is_corked(mStream));
 		OSDebugOut("pa_stream_is_suspended %d\n", pa_stream_is_suspended (mStream));
-		pa_stream_cork(mStream, 0, stream_success_cb, this);
+		pa_op = pa_stream_cork(mStream, 0, stream_success_cb, this);
+		if (pa_op)
+			pa_operation_unref(pa_op);
+
+		pa_threaded_mainloop_unlock(mPMainLoop);
 
 		// Setup resampler
 		mResampler = src_delete(mResampler);
