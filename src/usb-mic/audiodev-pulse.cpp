@@ -517,9 +517,14 @@ public:
 	{
 		int ret;
 		if (mStream) {
+			pa_threaded_mainloop_lock(mPMainLoop);
 			ret = pa_stream_disconnect(mStream);
-			pa_stream_unref(mStream); //needed?
+			pa_stream_unref(mStream);
 			mStream = nullptr;
+			pa_threaded_mainloop_unlock(mPMainLoop);
+		}
+		if (mPMainLoop) {
+			pa_threaded_mainloop_stop(mPMainLoop);
 		}
 		if (mPContext) {
 			pa_context_disconnect(mPContext);
@@ -527,7 +532,6 @@ public:
 			mPContext = nullptr;
 		}
 		if (mPMainLoop) {
-			pa_threaded_mainloop_stop(mPMainLoop);
 			pa_threaded_mainloop_free(mPMainLoop);
 			mPMainLoop = nullptr;
 		}
