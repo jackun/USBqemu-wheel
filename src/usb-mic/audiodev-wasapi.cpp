@@ -12,30 +12,15 @@
 #include <audioclient.h>
 #include <propsys.h>
 #include <typeinfo>
-
-// Is in header but missing from libuuid?
-#ifdef __MINGW32__
-
-#ifdef DEFINE_PROPERTYKEY
-#undef DEFINE_PROPERTYKEY
-#endif
-#define DEFINE_PROPERTYKEY(id, a, b, c, d, e, f, g, h, i, j, k, l) \
-	const PROPERTYKEY id = { { a,b,c, { d,e,f,g,h,i,j,k, } }, l };
-DEFINE_PROPERTYKEY(PKEY_Device_FriendlyName, \
-	0xa45c254e, 0xdf1c, 0x4efd, 0x80, \
-	0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0, 14);
-
-#else
-
 #include <functiondiscoverykeys_devpkey.h>
-
-#endif
 
 #define APINAME "wasapi"
 #define APINAMEW TEXT(APINAME)
 
 #define SafeRelease(x) if(x){x->Release(); x = NULL;}
 #define ConvertMSTo100NanoSec(ms) (ms*1000*10) //1000 microseconds, then 10 "100nanosecond" segments
+
+namespace audiodev_wasapi {
 
 static FILE* file = nullptr;
 static AudioDeviceInfoList audioDevs;
@@ -941,5 +926,6 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 }
 
 REGISTER_AUDIODEV(APINAME, MMAudioDevice);
+};
 #undef APINAME
 #undef APINAMEW
