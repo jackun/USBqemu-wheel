@@ -8,10 +8,9 @@
 #include <mutex>
 #include <chrono>
 #include <gtk/gtk.h>
-
-#ifndef DYNLINK_PULSE
 #include <pulse/pulseaudio.h>
-#else
+
+#ifdef DYNLINK_PULSE
 #include "../dynlink/pulse.h"
 #endif
 
@@ -21,7 +20,11 @@ using us = std::chrono::microseconds;
 using ns = std::chrono::nanoseconds;
 using sec = std::chrono::seconds;
 
+GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
+
 #define APINAME "pulse"
+
+namespace audiodev_pulse {
 
 static void pa_context_state_cb(pa_context *c, void *userdata)
 {
@@ -147,7 +150,6 @@ static int pa_get_devicelist(AudioDeviceInfoList& list, AudioDir dir)
 }
 
 // GTK+ config. dialog stuff
-GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
 static void populateDeviceWidget(GtkComboBox *widget, const std::string& devName, const AudioDeviceInfoList& devs)
 {
 	gtk_list_store_clear (GTK_LIST_STORE (gtk_combo_box_get_model (widget)));
@@ -601,6 +603,7 @@ public:
 				(PA_STREAM_INTERPOLATE_TIMING |
 				PA_STREAM_NOT_MONOTONIC |
 				PA_STREAM_AUTO_TIMING_UPDATE |
+				//PA_STREAM_VARIABLE_RATE |
 				PA_STREAM_ADJUST_LATENCY);
 
 			ret = pa_stream_connect_playback(mStream,
@@ -621,6 +624,7 @@ public:
 			pa_stream_state_t stream_state = pa_stream_get_state(mStream);
 			assert(PA_STREAM_IS_GOOD(stream_state));
 			if (stream_state == PA_STREAM_READY) break;
+			if (stream_state == PA_STREAM_FAILED) goto error;
 			pa_threaded_mainloop_wait(mPMainLoop);
 		}
 
@@ -882,9 +886,8 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 	old_size = padev->mFloatBuffer.size();
 	padev->mFloatBuffer.resize(old_size + resampled - resampled % padev->mSSpec.channels);
 
-	OSDebugOut("mFloatBuffer old size: %zu, new size: %zu resampled: %zu requested: %zu\n",
-			old_size, padev->mFloatBuffer.size(),
-			resampled, nbytes);
+	//OSDebugOut("buffer old size: %zu, new size: %zu resampled: %zu requested: %zu\n",
+	//	old_size, padev->mFloatBuffer.size(), resampled, nbytes);
 
 	// Convert short samples to float and to final output sample rate
 	if (padev->mShortBuffer.size() > 0)
@@ -968,4 +971,5 @@ exit:
 }
 
 REGISTER_AUDIODEV(APINAME, PulseAudioDevice);
+};
 #undef APINAME

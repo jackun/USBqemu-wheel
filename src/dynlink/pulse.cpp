@@ -1,4 +1,5 @@
 #include "pulse.h"
+#include <pulse/pulseaudio.h>
 #include <dlfcn.h>
 #include <iostream>
 #include <atomic>
