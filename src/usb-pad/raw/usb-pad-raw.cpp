@@ -4,6 +4,8 @@
 #include "../../Win32/Config-win32.h"
 #include "raw-config.h"
 
+namespace usb_pad_raw {
+
 static bool sendCrap = false;
 
 class RawInputPad : public Pad
@@ -414,14 +416,6 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 	}
 }
 
-static void ParseRawInput(PRAWINPUT pRawInput)
-{
-	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
-		ParseRawInputKB(pRawInput);
-	else
-		ParseRawInputHID(pRawInput);
-}
-
 int RawInputPad::Open()
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
@@ -476,12 +470,21 @@ int RawInputPad::Close()
 	this->usbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
+};
 
 HWND msgWindow = NULL;
 WNDPROC eatenWndProc = NULL;
 HWND eatenWnd = NULL;
 HHOOK hHook = NULL, hHookKB = NULL;
 extern HINSTANCE hInst;
+
+static void ParseRawInput(PRAWINPUT pRawInput)
+{
+	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
+		usb_pad_raw::ParseRawInputKB(pRawInput);
+	else
+		usb_pad_raw::ParseRawInputHID(pRawInput);
+}
 
 void RegisterRaw(HWND hWnd, DWORD flags)
 {
@@ -597,7 +600,7 @@ void UninitWindow()
 // ---------
 #include "raw-config-res.h"
 BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
-int RawInputPad::Configure(int port, void *data)
+int usb_pad_raw::RawInputPad::Configure(int port, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_FAILED;
@@ -609,5 +612,6 @@ int RawInputPad::Configure(int port, void *data)
 	return res;
 }
 
+namespace usb_pad_raw {
 REGISTER_PAD(APINAME, RawInputPad);
-#undef APINAME
+};
