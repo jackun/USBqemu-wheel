@@ -318,7 +318,7 @@ static void set_sense(void *opaque, uint32_t sense, uint8_t extra)
 	//s->sense_buf[13] = 0x0; //Additional sense code qualifier
 }
 
-static void send_command(void *opaque, struct usb_msd_cbw *cbw, uint8_t *data, uint32_t len)
+static void send_command(void *opaque, struct usb_msd_cbw *cbw)
 {
 	MSDState *s = (MSDState *)opaque;
 	DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x\n", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
@@ -609,7 +609,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             }
             DPRINTF("Command tag 0x%x flags %08x len %d data %d\n",
                     s->tag, cbw.flags, cbw.cmd_len, s->data_len);
-			send_command(s, &cbw, data, len);
+			send_command(s, &cbw);
             ret = len;
             break;
 
