@@ -564,13 +564,13 @@ public:
 
 		OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
 		if (ret != PA_OK)
-			goto error;
+			goto unlock_and_fail;
 
 		// wait for pa_context_state_cb
 		for(;;)
 		{
 			if(mPAready == 1) break;
-			if(mPAready == 2 || mQuit) goto error;
+			if(mPAready == 2 || mQuit) goto unlock_and_fail;
 			pa_threaded_mainloop_wait(mPMainLoop);
 		}
 
@@ -581,7 +581,7 @@ public:
 		);
 
 		if (!mStream)
-			goto error;
+			goto unlock_and_fail;
 
 		pa_stream_set_state_callback(mStream, stream_state_cb, this);
 
@@ -639,19 +639,20 @@ public:
 		}
 
 		if (ret != PA_OK)
-			goto error;
+			goto unlock_and_fail;
 
 		// Wait for the stream to be ready
 		for(;;) {
 			pa_stream_state_t stream_state = pa_stream_get_state(mStream);
 			assert(PA_STREAM_IS_GOOD(stream_state));
 			if (stream_state == PA_STREAM_READY) break;
-			if (stream_state == PA_STREAM_FAILED) goto error;
+			if (stream_state == PA_STREAM_FAILED) goto unlock_and_fail;
 			pa_threaded_mainloop_wait(mPMainLoop);
 		}
 
 		OSDebugOut("pa_stream_is_corked %d\n", pa_stream_is_corked(mStream));
 		OSDebugOut("pa_stream_is_suspended %d\n", pa_stream_is_suspended (mStream));
+
 		pa_op = pa_stream_cork(mStream, 0, stream_success_cb, this);
 		if (pa_op)
 			pa_operation_unref(pa_op);
@@ -670,8 +671,9 @@ public:
 
 		mLastGetBuffer = hrc::now();
 		return true;
-	error:
+	unlock_and_fail:
 		pa_threaded_mainloop_unlock(mPMainLoop);
+	error:
 		Uninit();
 		return false;
 	}
