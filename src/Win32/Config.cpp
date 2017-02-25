@@ -36,7 +36,7 @@ void GetIniFile(std::wstring &iniFile)
 		GetModuleFileName(GetModuleHandle((LPWSTR)hInst), tmp, MAX_PATH);
 
 		std::wstring path(tmp);
-		unsigned last = path.find_last_of(L"\\");
+		unsigned last = path.find_last_of(L'\\');
 		iniFile = path.substr(0, last);
 		iniFile.append(L"\\inis");
 		CreateDirectory(iniFile.c_str(), NULL);
@@ -216,10 +216,10 @@ void SaveConfig()
 	} else
 		fclose(f);
 
-	swprintf_s(szValue,L"%u",Conf1->Log);
+	swprintf_s(szValue,L"%d",Conf1->Log);
 	WritePrivateProfileStringW(L"Interface", L"Logging", szValue, szIniFile.c_str());
 
-	swprintf_s(szValue,L"%u",Conf1->DFPPass);
+	swprintf_s(szValue,L"%d",Conf1->DFPPass);
 	WritePrivateProfileStringW(N_DEVICES, L"DFP Passthrough", szValue, szIniFile.c_str());
 
 	swprintf_s(szValue,L"%S",Conf1->Port0.c_str());
@@ -228,10 +228,10 @@ void SaveConfig()
 	swprintf_s(szValue,L"%S",Conf1->Port1.c_str());
 	WritePrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, szValue, szIniFile.c_str());
 
-	swprintf_s(szValue,L"%u",Conf1->WheelType[0]);
+	swprintf_s(szValue,L"%d",Conf1->WheelType[0]);
 	WritePrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE0, szValue, szIniFile.c_str());
 
-	swprintf_s(szValue,L"%u",Conf1->WheelType[1]);
+	swprintf_s(szValue,L"%d",Conf1->WheelType[1]);
 	WritePrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE1, szValue, szIniFile.c_str());
 
 	for (auto &kp : changedAPIs)
