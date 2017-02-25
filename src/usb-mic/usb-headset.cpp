@@ -127,7 +127,7 @@ public:
     {
         return RegisterAudioDevice::instance().Proxy(name)->Name();
     }
-    static int Configure(int port, std::string api, void *data);
+    static int Configure(int port, const std::string& api, void *data);
     static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
 
@@ -916,13 +916,13 @@ static int headset_handle_data(USBDevice *dev, int pid,
                                uint8_t devep, uint8_t *data, int len)
 {
     HeadsetState *s = (HeadsetState *)dev;
-    int ret = 0;
+    int ret = USB_RET_STALL;
 
     switch(pid) {
     case USB_TOKEN_IN:
         //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
         OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
-        if (devep == 4 && s->altset[2]) {
+        if (devep == 4 && s->altset[2] && s->audsrc) {
 
             memset(data, 0, len);
 
@@ -932,8 +932,7 @@ static int headset_handle_data(USBDevice *dev, int pid,
             //Divide 'len' bytes between n channels of 16 bits
             uint32_t maxFrames = len / (outChns * sizeof(int16_t)), frames = 0;
 
-            if(s->audsrc &&
-                s->audsrc->GetFrames(&frames))
+            if(s->audsrc->GetFrames(&frames))
             {
                 frames = MIN(frames, maxFrames);
                 s->in.buffer.resize(frames * inChns);
@@ -1101,7 +1100,6 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
 {
     HeadsetState *s;
     AudioDeviceInfo info;
-    TSTDSTRING devs[2];
 
     s = (HeadsetState *)qemu_mallocz(sizeof(HeadsetState));
     if (!s)
@@ -1160,7 +1158,7 @@ std::vector<CONFIGVARIANT> HeadsetDevice::GetSettings(const std::string &api)
     return std::vector<CONFIGVARIANT>();
 }
 
-int HeadsetDevice::Configure(int port, std::string api, void *data)
+int HeadsetDevice::Configure(int port, const std::string& api, void *data)
 {
     auto proxy = RegisterAudioDevice::instance().Proxy(api);
     if (proxy)
