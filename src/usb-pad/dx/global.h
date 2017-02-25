@@ -27,8 +27,7 @@ static std::atomic<int> refCount (0);
 DWORD LOG = 0;
 DWORD INVERTFORCES[2] = { 0 };
 DWORD BYPASSCAL = 0;
- //logfile
-FILE* fl = NULL;
+
 TCHAR	*pStr, strPath[255], strTemp[255];
 static bool useRamp = false;
 
@@ -44,7 +43,6 @@ HWND hWin = NULL;
 DWORD pid = 0;
 DWORD old = 0;
 
-bool tw = false;
 HWND hKey;
 HWND hWnd;
 TCHAR text[1024];

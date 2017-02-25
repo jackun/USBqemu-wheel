@@ -427,18 +427,6 @@ INT_PTR CALLBACK StaticProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return TRUE;
 }
 
-INT_PTR CALLBACK HotKeyProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch(uMsg)
-	{
-		case WM_CLOSE:
-			DestroyWindow(hKey);
-			tw = false;
-			break;
-	}
-	return FALSE;
-}
-
 void InitDialog(int port)
 {
 	hFont = CreateFont(18,
@@ -554,7 +542,6 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 {
 	int port;
 	//return false;
-	if(tw)return false;
 	switch(uMsg)
 	{
 		case WM_CREATE:
@@ -598,15 +585,6 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
 			switch(LOWORD(wParam))
 			{
-				case IDC_BUTTON31:
-					{
-						hKey = CreateDialogParam(NULL, MAKEINTRESOURCE(IDD_DIALOG2), 0, HotKeyProc, 0);
-						SetWindowText(GetDlgItem(hKey, IDC_TEXT), TEXT("NUMPAD * = Enable Camera Control\nNUMPAD / = Disable Camera Control\n\nNUMPAD 0 = Toggle Mouse\nNUMPAD 9 = Toggle Free-Look\nNUMPAD 1 = Next Preset\nNUMPAD 3 = Toggle TrackIR\n\nNUMPAD 8 = Move Up\nNUMPAD 2 = Move Down\nNUMPAD 4 = Move Left\nNUMPAD 6 = Move Right\nNUMPAD + = Move Forward\nNUMPAD - = Move Backward\n[ = Decrease FOV\n] = Increase FOV\n\nALT+#(0-9) = Save Preset\nCTRL+#(0-9) = Load Preset\n"));
-						ShowWindow(hKey, SW_SHOW);
-						tw = true;
-						break;
-					}
-
 				case IDC_COMBO1:
 					switch(HIWORD(wParam))
 					{

@@ -70,12 +70,12 @@ class RegisterPad
 		return registerPad;
 	}
 
-	void Add(const std::string name, PadProxyBase* creator)
+	void Add(const std::string& name, PadProxyBase* creator)
 	{
 		registerPadMap[name] = creator;
 	}
 
-	PadProxyBase* Proxy(std::string name)
+	PadProxyBase* Proxy(const std::string& name)
 	{
 		return registerPadMap[name];
 	}

@@ -17,6 +17,7 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -204,15 +205,6 @@ BEGIN
     LTEXT           "FORCE MULTI",IDC_STATIC,456,228,48,8
 END
 
-IDD_DIALOG2 DIALOGEX 0, 0, 160, 185
-STYLE DS_SYSMODAL | DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-EXSTYLE WS_EX_TOOLWINDOW
-CAPTION "Camera Control HotKeys"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    LTEXT           "",IDC_TEXT,6,6,150,168
-END
-
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -229,14 +221,6 @@ BEGIN
         TOPMARGIN, 7
         BOTTOMMARGIN, 302
     END
-
-    IDD_DIALOG2, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 153
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 178
-    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -249,28 +233,6 @@ END
 IDB_BITMAP1             BITMAP                  "EC_Sim_Hardwarer.bmp"
 IDB_BITMAP2             BITMAP                  "EC_Sim_ShopR.bmp"
 IDB_BITMAP3             BITMAP                  "toca.bmp"
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Dialog Info
-//
-#if !defined(__MINGW32__)
-IDD_DIALOG1 DLGINIT
-BEGIN
-    IDC_COMBO4, 0x403, 10, 0
-0x6f4e, 0x4420, 0x7665, 0x6369, 0x0065, 
-    IDC_COMBO4, 0x403, 9, 0
-0x654b, 0x6279, 0x616f, 0x6472, "\000" 
-    IDC_COMBO4, 0x403, 6, 0
-0x6f4d, 0x7375, 0x0065, 
-    IDC_COMBO4, 0x403, 14, 0
-0x7945, 0x7465, 0x796f, 0x4320, 0x6d61, 0x7265, 0x0061, 
-    IDC_COMBO4, 0x403, 20, 0
-0x6953, 0x676e, 0x7473, 0x7261, 0x4d20, 0x6369, 0x6f72, 0x6870, 0x6e6f, 
-0x0065, 
-    0
-END
-#endif
 
 /////////////////////////////////////////////////////////////////////////////
 //

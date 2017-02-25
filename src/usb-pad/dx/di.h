@@ -11,6 +11,9 @@ LPDIRECTINPUTDEVICE8 g_pKeyboard = NULL;
 LPDIRECTINPUTDEVICE8 g_pMouse	 = NULL;
 LPDIRECTINPUTDEVICE8 g_pJoysticks[10] = {NULL};
 
+DWORD rgdwAxes[2] = { DIJOFS_X,DIJOFS_Y };
+LONG  rglDirection[2] = { 1, 0 }; // {1,0} from Logitech SDK sample, maybe {0,0} is enough, DIEP_AXES|DIEP_DIRECTION isn't set anyway
+
 //only two effect (constant force, spring)
 bool FFB[2] = { false };
 int FFBindex[2] = { -1 };
@@ -852,8 +855,6 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 					AutoCenter(i, false);  //just keep it off for all wheels
 
 					//create the constant force effect
-					DWORD           rgdwAxes[2]     = { DIJOFS_X,DIJOFS_Y };
-					LONG            rglDirection[2] = { 1, 0 }; // {1,0} from Logitech SDK sample, maybe {0,0} is enough, DIEP_AXES|DIEP_DIRECTION isn't set anyway
 					ZeroMemory( &eff, sizeof(eff) );
 					ZeroMemory( &effSpring, sizeof(effSpring) );
 					ZeroMemory( &effFriction, sizeof(effFriction) );

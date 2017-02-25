@@ -3,8 +3,8 @@ extern HINSTANCE hInst;
 
 std::wstring strMySystemFile;
 
-static void GetIniFile(std::wstring &iniFile)
-{
+void GetIniFile(std::wstring &iniFile);
+/*{
 	iniFile.clear();
 	if(!IniDir.length()) {
 		TCHAR tmp[MAX_PATH] = {0};
@@ -18,7 +18,7 @@ static void GetIniFile(std::wstring &iniFile)
 		iniFile.append(IniDir);
 		iniFile.append(L"USBqemu-DIwheel.ini");
 	}
-}
+}*/
 
 static int WriteToFile(const TCHAR * strFileSection, const TCHAR * strKey, const TCHAR* strValue)
 {
@@ -31,7 +31,7 @@ static int WriteToFile(const TCHAR * strFileSection, const TCHAR * strKey, const
 template <size_t _Size>
 static int ReadFromFile(const TCHAR * strFileSection, const TCHAR * strKey, TCHAR (&strOut)[_Size])
 {
-	TCHAR strValue[255];
+	TCHAR strValue[MAX_PATH];
 	int lngRtn=0;
 	//memset(strOut, 0, _Size);
 
