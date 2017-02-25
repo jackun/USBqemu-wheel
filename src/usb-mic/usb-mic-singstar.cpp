@@ -756,7 +756,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			if (!file)
 			{
 				char name[1024] = { 0 };
-				snprintf(name, sizeof(name), "singstar_%dch_%dHz.raw", outChns, s->srate[0]);
+				snprintf(name, sizeof(name), "singstar_%dch_%uHz.raw", outChns, s->srate[0]);
 				file = fopen(name, "wb");
 			}
 
@@ -847,7 +847,6 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 {
     SINGSTARMICState *s;
     AudioDeviceInfo info;
-    TSTDSTRING devs[2];
 
     s = (SINGSTARMICState *)qemu_mallocz(sizeof(SINGSTARMICState));
     if (!s)
@@ -944,7 +943,7 @@ std::vector<CONFIGVARIANT> SingstarDevice::GetSettings(const std::string &api)
 	return std::vector<CONFIGVARIANT>();
 }
 
-int SingstarDevice::Configure(int port, std::string api, void *data)
+int SingstarDevice::Configure(int port, const std::string& api, void *data)
 {
 	auto proxy = RegisterAudioDevice::instance().Proxy(api);
 	if (proxy)
