@@ -23,16 +23,21 @@
 namespace audiodev_wasapi {
 
 static FILE* file = nullptr;
-static AudioDeviceInfoList audioDevs;
+
 //Config dlg temporaries
-static std::wstring micDev[2];
-static std::string micApi[2];
-static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
+struct WASAPISettings
+{
+	int port;
+	AudioDeviceInfoList sourceDevs;
+	AudioDeviceInfoList sinkDevs;
+	std::wstring selectedDev[3];
+};
+
+static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 LARGE_INTEGER clockFreq = { 0 };
 __declspec(thread) LONGLONG lastQPCTime = 0;
-LONGLONG lastTimeMS = 0;
-LONGLONG lastTimeNS = 0;
+
 LONGLONG GetQPCTimeMS()
 {
 	LARGE_INTEGER currentTime;
@@ -74,6 +79,7 @@ public:
 	: mPort(port)
 	, mDevice(device)
 	, mmCapture(NULL)
+	, mmRender(NULL)
 	, mmClient(NULL)
 	, mmDevice(NULL)
 	, mmClock(NULL)
@@ -82,7 +88,7 @@ public:
 	, mDeviceLost(false)
 	, mResample(false)
 	, mFirstSamples(true)
-	, mOutputSamplesPerSec(48000)
+	, mSamplesPerSec(48000)
 	, mResampleRatio(1.0)
 	, mTimeAdjust(1.0)
 	, mThread(INVALID_HANDLE_VALUE)
@@ -127,6 +133,7 @@ public:
 	void FreeData()
 	{
 		SafeRelease(mmCapture);
+		SafeRelease(mmRender);
 		SafeRelease(mmClient);
 		SafeRelease(mmDevice);
 		SafeRelease(mmClock);
@@ -138,8 +145,18 @@ public:
 		const IID IID_IMMDeviceEnumerator    = __uuidof(IMMDeviceEnumerator);
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 
+		if (mAudioDir == AUDIODIR_SOURCE)
 		{
 			CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
+			if (!LoadSetting(mPort, APINAME, var))
+			{
+				return false;
+			}
+			mDevID = var.wstrValue;
+		}
+		else
+		{
+			CONFIGVARIANT var(mDevice ? N_AUDIO_SINK1 : N_AUDIO_SINK0, CONFIG_TYPE_WCHAR);
 			if (!LoadSetting(mPort, APINAME, var))
 			{
 				return false;
@@ -161,7 +178,7 @@ public:
 			return false;
 		}
 		//TODO Not starting thread here unnecesserily
-		//mThread = CreateThread(NULL, 0, MMAudioDevice::Thread, this, 0, 0);
+		//mThread = CreateThread(NULL, 0, MMAudioDevice::CaptureThread, this, 0, 0);
 		return Reinitialize();
 	}
 
@@ -169,15 +186,16 @@ public:
 	{
 		const IID IID_IAudioClient           = __uuidof(IAudioClient);
 		const IID IID_IAudioCaptureClient    = __uuidof(IAudioCaptureClient);
+		const IID IID_IAudioRenderClient     = __uuidof(IAudioRenderClient);
 		HRESULT err;
 
 		if(!mDeviceLost && mmClock)
 			return true;
 		else
 		{
-			if (GetQPCTimeMS() - lastTimeMS < 1000)
+			if (GetQPCTimeMS() - mLastTimeMS < 1000)
 				return false;
-			lastTimeMS = GetQPCTimeMS();
+			mLastTimeMS = GetQPCTimeMS();
 		}
 
 		err = mmEnumerator->GetDevice(mDevID.c_str(), &mmDevice);
@@ -248,11 +266,11 @@ public:
 			return false;
 		}
 
-		mFloat                 = true;
-		mInputChannels         = pwfx->nChannels;
-		mInputBitsPerSample    = 32;
-		mInputBlockSize        = pwfx->nBlockAlign;
-		mInputSamplesPerSec    = pwfx->nSamplesPerSec;
+		mFloat            = true;
+		mDeviceChannels         = pwfx->nChannels;
+		mDeviceBitsPerSample    = 32;
+		mDeviceBlockSize        = pwfx->nBlockAlign;
+		mDeviceSamplesPerSec    = pwfx->nSamplesPerSec;
 		//sampleWindowSize      = (inputSamplesPerSec/100);
 
 		DWORD flags = 0;//useInputDevice ? 0 : AUDCLNT_STREAMFLAGS_LOOPBACK;
@@ -275,17 +293,22 @@ public:
 		}
 
 		// acquire services
+		if (mAudioDir == AUDIODIR_SOURCE)
+			err = mmClient->GetService(IID_IAudioCaptureClient, (void**)&mmCapture);
+		else
+			err = mmClient->GetService(IID_IAudioRenderClient, (void**)&mmRender);
 
-		err = mmClient->GetService(IID_IAudioCaptureClient, (void**)&mmCapture);
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
-				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not get audio capture client, result = %08lX\n"), err);
+				SysMessage(TEXT("MMAudioDevice::Reinitialize(): Could not get audio %s client, result = %08lX\n"),
+					(mAudioDir == AUDIODIR_SOURCE ? TEXT("capture") : TEXT("render")), err);
 			CoTaskMemFree(pwfx);
 			return false;
 		}
 
 		err = mmClient->GetService(__uuidof(IAudioClock), (void**)&mmClock);
+
 		if(FAILED(err))
 		{
 			if (!mDeviceLost)
@@ -300,10 +323,9 @@ public:
 		int converterType = SRC_SINC_FASTEST;
 		int errVal = 0;
 
-		if (mResampler)
-			mResampler = src_delete(mResampler);
+		mResampler = src_delete(mResampler);
+		mResampler = src_new(converterType, mDeviceChannels, &errVal);
 
-		mResampler = src_new(converterType, mInputChannels, &errVal);
 		if(!mResampler)
 		{
 			OSDebugOut(TEXT("Failed to create resampler: error %08lX\n"), errVal);
@@ -314,8 +336,8 @@ public:
 		}
 
 		//random, reserve enough memory for 5 seconds
-		mQBuffer.reserve(mInputChannels * mInputSamplesPerSec * 5);
-		mResampledBuffer.reserve(mInputChannels * mOutputSamplesPerSec * 5);
+		mFloatBuffer.reserve(mDeviceChannels * mDeviceSamplesPerSec * 5);
+		mShortBuffer.reserve(mDeviceChannels * mSamplesPerSec * 5);
 
 		if (mDeviceLost && !mFirstSamples) //TODO really lost and just first run. Call Start() from ctor always anyway?
 			this->Start();
@@ -344,12 +366,12 @@ public:
 	void ResetBuffers()
 	{
 		WaitForSingleObject(mMutex, INFINITE);
-		mQBuffer.resize(0);
-		mResampledBuffer.resize(0);
+		mFloatBuffer.resize(0);
+		mShortBuffer.resize(0);
 		ReleaseMutex(mMutex);
 	}
 
-	//TODO or just return samples count in mResampledBuffer?
+	//TODO or just return samples count in mShortBuffer?
 	virtual bool GetFrames(uint32_t *size)
 	{
 		UINT32 pkSize = 0;
@@ -374,14 +396,14 @@ public:
 
 		//TODO
 		WaitForSingleObject(mMutex, INFINITE);
-		pkSize += mResampledBuffer.size() / mInputChannels;
+		pkSize += mShortBuffer.size() / mDeviceChannels;
 		ReleaseMutex(mMutex);
 
 		*size = pkSize;
 		return true;
 	}
 
-	static DWORD WINAPI Thread(LPVOID ptr)
+	static DWORD WINAPI CaptureThread(LPVOID ptr)
 	{
 		MMAudioDevice *src = (MMAudioDevice*)ptr;
 		std::vector<float> rebuf;
@@ -399,6 +421,8 @@ public:
 		if (hr != RPC_E_CHANGED_MODE)
 			bThreadComInitialized = true;
 
+		src->ResetBuffers(); //reset, maybe thread died previously
+
 		if (WaitForSingleObject(src->mEvent, INFINITE) != WAIT_OBJECT_0)
 		{
 			OSDebugOut(TEXT("Failed to for event: %08X\n"), GetLastError());
@@ -409,12 +433,11 @@ public:
 		if (!file)
 		{
 			char name[1024] = { 0 };
-			sprintf_s(name, "audiosrc_output_%dch_%dHz.raw", src->mInputChannels, src->mOutputSamplesPerSec);
+			sprintf_s(name, "audiosrc_output_%dch_%dHz.raw", src->mDeviceChannels, src->mSamplesPerSec);
 			fopen_s(&file, name, "wb");
 		}
 #endif
 		//Call mmClient->Start() here instead?
-		src->ResetBuffers(); //reset, maybe thread died previously
 		src->mLastGetBufferMS = GetQPCTimeMS(); //fall through first time check
 
 		while (!src->mQuit)
@@ -434,65 +457,62 @@ public:
 			}
 
 			src->GetMMBuffer();
-			if (src->mQBuffer.size())
+			if (src->mFloatBuffer.size())
 			{
-				size_t resampled = static_cast<size_t>(src->mQBuffer.size() * src->mResampleRatio * src->mTimeAdjust) * src->mInputChannels;
+				size_t resampled = static_cast<size_t>(src->mFloatBuffer.size() * src->mResampleRatio * src->mTimeAdjust);
 				if (resampled == 0)
-					resampled = src->mQBuffer.size();
+					resampled = src->mFloatBuffer.size();
 				rebuf.resize(resampled);
 
-				OSDebugOut(TEXT("--------------------------\n"));
-				OSDebugOut(TEXT("Resampled size: %zd\n"), resampled);
+				SRC_DATA srcData;
+				memset(&srcData, 0, sizeof(SRC_DATA));
+				srcData.data_in = src->mFloatBuffer.data();
+				srcData.input_frames = src->mFloatBuffer.size() / src->mDeviceChannels;
+				srcData.data_out = rebuf.data();
+				srcData.output_frames = rebuf.size() / src->mDeviceChannels;
+				srcData.src_ratio = src->mResampleRatio * src->mTimeAdjust;
 
-				SRC_DATA data;
-				memset(&data, 0, sizeof(SRC_DATA));
-				data.data_in = &src->mQBuffer[0];
-				data.input_frames = src->mQBuffer.size() / src->mInputChannels;
-				data.data_out = &rebuf[0];
-				data.output_frames = resampled / src->mInputChannels;
-				data.src_ratio = src->mResampleRatio * src->mTimeAdjust;
+				src_process(src->mResampler, &srcData);
 
-				src_process(src->mResampler, &data);
-
-				DWORD resMutex = WaitForSingleObject(src->mMutex, INFINITE);
+				DWORD resMutex = WaitForSingleObject(src->mMutex, 30000);
 				if (resMutex != WAIT_OBJECT_0)
 				{
 					OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
 					goto error;
 				}
 
-				uint32_t len = data.output_frames_gen * src->mInputChannels;
-				size_t size = src->mResampledBuffer.size();
+				uint32_t len = srcData.output_frames_gen * src->mDeviceChannels;
+				size_t size = src->mShortBuffer.size();
 				if (len > 0)
 				{
 					//too long, drop samples, caused by saving/loading savestates and random stutters
-					int sizeInMS = (((src->mResampledBuffer.size() + len) * 1000 / src->mInputChannels) / src->mOutputSamplesPerSec);
+					int sizeInMS = (((src->mShortBuffer.size() + len) * 1000 / src->mDeviceChannels) / src->mSamplesPerSec);
 					int threshold = src->mBuffering > 25 ? src->mBuffering : 25;
 					if (sizeInMS > threshold)
 					{
 						size = 0;
-						src->mResampledBuffer.resize(len);
+						src->mShortBuffer.resize(len);
 					}
 					else
-						src->mResampledBuffer.resize(size + len);
-					src_float_to_short_array(&rebuf[0], &(src->mResampledBuffer[size]), len);
+						src->mShortBuffer.resize(size + len);
+					src_float_to_short_array(&rebuf[0], &(src->mShortBuffer[size]), len);
 				}
 
 				OSDebugOut(TEXT("Resampler: in %d out %d used %d gen %d, rb: %zd\n"),
-					data.input_frames, data.output_frames,
-					data.input_frames_used, data.output_frames_gen, src->mResampledBuffer.size());
+					srcData.input_frames, srcData.output_frames,
+					srcData.input_frames_used, srcData.output_frames_gen, src->mShortBuffer.size());
 
 #if _DEBUG
 				if (file && len)
-					fwrite(&(src->mResampledBuffer[size]), sizeof(short), len, file);
+					fwrite(&(src->mShortBuffer[size]), sizeof(short), len, file);
 #endif
 
-				uint32_t sizeBefore = src->mQBuffer.size();
-				auto remSize = data.input_frames_used * src->mInputChannels;
-				src->mQBuffer.erase(src->mQBuffer.begin(), src->mQBuffer.begin() + remSize);
+				uint32_t sizeBefore = src->mFloatBuffer.size();
+				auto remSize = srcData.input_frames_used * src->mDeviceChannels;
+				src->mFloatBuffer.erase(src->mFloatBuffer.begin(), src->mFloatBuffer.begin() + remSize);
 
 				OSDebugOut(TEXT("Sample Queue size: %zd - %d -> %zd\n"),
-					sizeBefore, remSize, src->mQBuffer.size());
+					sizeBefore, remSize, src->mFloatBuffer.size());
 
 				if (!ReleaseMutex(src->mMutex))
 				{
@@ -512,44 +532,192 @@ error:
 		return ret;
 	}
 
+	static DWORD WINAPI RenderThread(LPVOID ptr)
+	{
+		MMAudioDevice *src = (MMAudioDevice*)ptr;
+		std::vector<float> buffer;
+		UINT32 bufferFrameCount, numFramesPadding, numFramesAvailable;
+		BYTE *pData;
+		SRC_DATA srcData;
+		int ret = 1;
+		HRESULT hr = 0;
+		bool bThreadComInitialized = false;
+
+		//TODO APARTMENTTHREADED instead?
+		hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+		if ((S_OK != hr) && (S_FALSE != hr) /* already inited */ && (hr != RPC_E_CHANGED_MODE))
+		{
+			OSDebugOut(TEXT("Com initialization failed with %d\n"), hr);
+			return 1;
+		}
+
+		if (hr != RPC_E_CHANGED_MODE)
+			bThreadComInitialized = true;
+
+		src->ResetBuffers(); //reset, maybe thread died previously
+
+		if (WaitForSingleObject(src->mEvent, INFINITE) != WAIT_OBJECT_0)
+		{
+			OSDebugOut(TEXT("Failed to for event: %08X\n"), GetLastError());
+			goto error;
+		}
+
+#if _DEBUG
+		if (!file)
+		{
+			char name[1024] = { 0 };
+			sprintf_s(name, "audiosink_%dch_%dHz.raw", src->mDeviceChannels, src->mDeviceSamplesPerSec);
+			fopen_s(&file, name, "wb");
+		}
+#endif
+		//Call mmClient->Start() here instead?
+		src->mLastGetBufferMS = GetQPCTimeMS(); //fall through first time check
+
+		while (!src->mQuit)
+		{
+			while (src->mPaused)
+			{
+				Sleep(100);
+				if (src->mQuit)
+					goto quit;
+			}
+
+			if (src->mDeviceLost && !src->Reinitialize())
+			{
+				Sleep(1000);
+				continue;
+			}
+
+			DWORD resMutex = WaitForSingleObject(src->mMutex, 5000);
+			if (resMutex != WAIT_OBJECT_0)
+			{
+				OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
+				goto error;
+			}
+
+			hr = src->mmClient->GetBufferSize(&bufferFrameCount);
+			if (FAILED(hr))
+				goto device_error;
+
+			hr = src->mmClient->GetCurrentPadding(&numFramesPadding);
+			if (FAILED(hr))
+				goto device_error;
+
+			numFramesAvailable = bufferFrameCount - numFramesPadding;
+
+			if (src->mShortBuffer.size())
+			{
+				buffer.resize(src->mShortBuffer.size());
+				src_short_to_float_array(src->mShortBuffer.data(), buffer.data(), buffer.size());
+
+				if (numFramesAvailable > 0)
+				{
+					hr = src->mmRender->GetBuffer(numFramesAvailable, &pData);
+					if (FAILED(hr))
+						goto device_error;
+
+					memset(&srcData, 0, sizeof(SRC_DATA));
+					srcData.data_in = buffer.data();
+					srcData.input_frames = buffer.size() / src->mDeviceChannels;
+					srcData.data_out = (float*)pData;
+					srcData.output_frames = numFramesAvailable;
+					srcData.src_ratio = src->mResampleRatio * src->mTimeAdjust;
+
+					src_process(src->mResampler, &srcData);
+
+					auto frames_used = srcData.input_frames_used * src->mDeviceChannels;
+					if (frames_used > 0)
+						src->mShortBuffer.erase(src->mShortBuffer.begin(), src->mShortBuffer.begin() + frames_used);
+
+#if _DEBUG
+					uint32_t len = srcData.output_frames_gen * src->mDeviceChannels;
+					if (file && len)
+						fwrite(pData, sizeof(float), len, file);
+#endif
+
+					hr = src->mmRender->ReleaseBuffer(srcData.output_frames_gen, 0);
+					if (FAILED(hr))
+						goto device_error;
+
+					OSDebugOut(TEXT("Resampler: in %d out %d used %d gen %d, rb: %zd\n"),
+						srcData.input_frames, srcData.output_frames,
+						srcData.input_frames_used, srcData.output_frames_gen, src->mShortBuffer.size());
+				}
+			}
+			else
+			{
+				hr = src->mmRender->GetBuffer(numFramesAvailable, &pData);
+				if (FAILED(hr))
+					goto device_error;
+				hr = src->mmRender->ReleaseBuffer(numFramesAvailable, AUDCLNT_BUFFERFLAGS_SILENT);
+			}
+
+		device_error:
+			if (!ReleaseMutex(src->mMutex))
+			{
+				OSDebugOut(TEXT("Mutex release failed\n"));
+				goto error;
+			}
+
+			if (FAILED(hr)) {
+				if (hr == AUDCLNT_E_DEVICE_INVALIDATED) {
+					src->mDeviceLost = true;
+					OSDebugOut(TEXT("Audio device has been lost, attempting to reinitialize\n"));
+				}
+				else
+					goto error;
+			}
+
+			Sleep(src->mDeviceLost ? 1000 : 1);
+
+		}
+
+	quit:
+		ret = 0;
+	error:
+		if (bThreadComInitialized == true)
+			CoUninitialize();
+
+		return ret;
+	}
+
 	virtual uint32_t GetBuffer(int16_t *outBuf, uint32_t outFrames)
 	{
 		mLastGetBufferMS = GetQPCTimeMS();
-		static LONGLONG time = 0;
-		static int samples = 0;
 
-		if(!mQuit && (mThread == INVALID_HANDLE_VALUE ||
-				WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0)) //Thread got killed prematurely
-			mThread = CreateThread(NULL, 0, MMAudioDevice::Thread, this, 0, 0);
-
+		if (!mQuit && (mThread == INVALID_HANDLE_VALUE ||
+			WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0)) //Thread got killed prematurely
+		{
+			mThread = CreateThread(NULL, 0, MMAudioDevice::CaptureThread, this, 0, 0);
+		}
 		SetEvent(mEvent);
 
-		DWORD resMutex = WaitForSingleObject(mMutex, INFINITE);
+		DWORD resMutex = WaitForSingleObject(mMutex, 1000);
 		if (resMutex != WAIT_OBJECT_0)
 		{
 			OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
 			return 0;
 		}
 
-		samples += outFrames;
-		time = GetQPCTime100NS();
-		if (lastTimeNS == 0) lastTimeNS = time;
-		LONGLONG diff = time - lastTimeNS;
+		mSamples += outFrames;
+		mTime = GetQPCTime100NS();
+		if (mLastTimeNS == 0) mLastTimeNS = mTime;
+		LONGLONG diff = mTime - mLastTimeNS;
 		if (diff >= LONGLONG(1e7))
 		{
-			mTimeAdjust = (samples / (diff / 1e7)) / mOutputSamplesPerSec;
+			mTimeAdjust = (mSamples / (diff / 1e7)) / mSamplesPerSec;
 			//if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
-			OSDebugOut(TEXT("timespan: %") TEXT(PRId64) TEXT(" sampling: %f adjust: %f\n"), diff, float(samples) / diff * 1e7, mTimeAdjust);
-			lastTimeNS = time;
-			samples = 0;
+			OSDebugOut(TEXT("timespan: %") TEXT(PRId64) TEXT(" sampling: %f adjust: %f\n"), diff, float(mSamples) / diff * 1e7, mTimeAdjust);
+			mLastTimeNS = mTime;
+			mSamples = 0;
 		}
 
-		uint32_t totalLen = MIN(outFrames * mInputChannels, mResampledBuffer.size());
-		OSDebugOut(TEXT("Resampled buffer size: %zd, copy: %zd\n"), mResampledBuffer.size(), totalLen);
+		uint32_t totalLen = MIN(outFrames * mDeviceChannels, mShortBuffer.size());
+		OSDebugOut(TEXT("Resampled buffer size: %zd, copy: %zd\n"), mShortBuffer.size(), totalLen);
 		if (totalLen > 0)
 		{
-			memcpy(outBuf, &mResampledBuffer[0], sizeof(short) * totalLen);
-			mResampledBuffer.erase(mResampledBuffer.begin(), mResampledBuffer.begin() + totalLen);
+			memcpy(outBuf, &mShortBuffer[0], sizeof(short) * totalLen);
+			mShortBuffer.erase(mShortBuffer.begin(), mShortBuffer.begin() + totalLen);
 		}
 
 		if (!ReleaseMutex(mMutex))
@@ -557,11 +725,37 @@ error:
 			OSDebugOut(TEXT("Mutex release failed\n"));
 		}
 
-		return totalLen / mInputChannels;
+		return totalLen / mDeviceChannels;
 	}
 
 	virtual uint32_t SetBuffer(int16_t *inBuf, uint32_t inFrames)
 	{
+		mLastGetBufferMS = GetQPCTimeMS();
+
+		if (!mQuit && (mThread == INVALID_HANDLE_VALUE ||
+			WaitForSingleObject(mThread, 0) == WAIT_OBJECT_0)) //Thread got killed prematurely
+		{
+			mThread = CreateThread(NULL, 0, MMAudioDevice::RenderThread, this, 0, 0);
+		}
+		SetEvent(mEvent);
+
+		DWORD resMutex = WaitForSingleObject(mMutex, 1000);
+		if (resMutex != WAIT_OBJECT_0)
+		{
+			OSDebugOut(TEXT("Mutex wait failed: %d\n"), resMutex);
+			return 0;
+		}
+
+		size_t old_size = mShortBuffer.size();
+		size_t nshort = inFrames * mDeviceChannels;
+		mShortBuffer.resize(old_size + nshort);
+		memcpy(mShortBuffer.data() + old_size, inBuf, nshort * sizeof(int16_t));
+
+		if (!ReleaseMutex(mMutex))
+		{
+			OSDebugOut(TEXT("Mutex release failed\n"));
+		}
+
 		return inFrames;
 	}
 
@@ -606,11 +800,11 @@ error:
 
 		if (SUCCEEDED(mmCapture->GetBuffer(&captureBuffer, &numFramesRead, &dwFlags, &devPosition, &qpcTimestamp)))
 		{
-			UINT totalLen = numFramesRead * mInputChannels;
+			UINT totalLen = numFramesRead * mDeviceChannels;
 			if (dwFlags & AUDCLNT_BUFFERFLAGS_SILENT)
-				mQBuffer.resize(mQBuffer.size() + totalLen);
+				mFloatBuffer.resize(mFloatBuffer.size() + totalLen);
 			else
-				mQBuffer.assign((float*)captureBuffer, (float*)captureBuffer + totalLen);
+				mFloatBuffer.assign((float*)captureBuffer, (float*)captureBuffer + totalLen);
 
 			mmCapture->ReleaseBuffer(numFramesRead);
 		}
@@ -620,20 +814,23 @@ error:
 
 	virtual void SetResampling(int samplerate)
 	{
-		if(mInputSamplesPerSec == samplerate)
+		if(mDeviceSamplesPerSec == samplerate)
 		{
 			mResample = false;
 			return;
 		}
-		mOutputSamplesPerSec = samplerate;
-		mResampleRatio = double(samplerate) / double(mInputSamplesPerSec);
+		mSamplesPerSec = samplerate;
+		if (mAudioDir == AUDIODIR_SOURCE)
+			mResampleRatio = double(samplerate) / double(mDeviceSamplesPerSec);
+		else
+			mResampleRatio = double(mDeviceSamplesPerSec) / double(samplerate);
 		mResample = true;
 		ResetBuffers();
 	}
 
 	virtual uint32_t GetChannels()
 	{
-		return mInputChannels;
+		return mDeviceChannels;
 	}
 
 	virtual MicMode GetMicMode(AudioDevice* compare)
@@ -671,7 +868,7 @@ error:
 	{
 	}
 
-	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
+	static void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir dir)
 	{
 		const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 		const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
@@ -686,7 +883,7 @@ error:
 		}
 
 		IMMDeviceCollection *collection;
-		EDataFlow audioDeviceType = eCapture;
+		EDataFlow audioDeviceType = (dir == AUDIODIR_SOURCE ? eCapture : eRender);
 		DWORD flags = DEVICE_STATE_ACTIVE;
 		//if (!bConnectedOnly)
 		flags |= DEVICE_STATE_UNPLUGGED;
@@ -742,10 +939,13 @@ error:
 	static int Configure(int port, void *data)
 	{
 		Win32Handles h = *(Win32Handles*)data;
+		WASAPISettings settings;
+		settings.port = port;
+
 		return DialogBoxParam(h.hInst,
-			MAKEINTRESOURCE(IDD_DLGMIC),
+			MAKEINTRESOURCE(IDD_DLGWASAPI),
 			h.hWnd,
-			(DLGPROC)MicDlgProc, port);
+			(DLGPROC)WASAPIDlgProc, (LPARAM)&settings);
 	}
 
 	static std::vector<CONFIGVARIANT> GetSettings()
@@ -759,16 +959,17 @@ private:
 	IMMDevice           *mmDevice;
 	IAudioClient        *mmClient;
 	IAudioCaptureClient *mmCapture;
+	IAudioRenderClient  *mmRender;
 	IAudioClock         *mmClock;
 
 	bool  mResample;
 	bool  mFloat;
 	bool  mFirstSamples; //On the first call, empty the buffer to lower latency
-	UINT  mInputChannels;
-	UINT  mInputSamplesPerSec;
-	UINT  mOutputSamplesPerSec;
-	UINT  mInputBitsPerSample;
-	UINT  mInputBlockSize;
+	UINT  mDeviceChannels;
+	UINT  mDeviceSamplesPerSec;
+	UINT  mSamplesPerSec;
+	UINT  mDeviceBitsPerSample;
+	UINT  mDeviceBlockSize;
 	DWORD mInputChannelMask;
 
 	std::wstring mDevID;
@@ -783,46 +984,74 @@ private:
 	double mResampleRatio;
 	// Speed up or slow down audio
 	double mTimeAdjust;
-	std::vector<short> mResampledBuffer;
-	std::vector<float> mQBuffer;
+	std::vector<short> mShortBuffer;
+	std::vector<float> mFloatBuffer;
 	HANDLE mThread;
 	HANDLE mEvent;
 	HANDLE mMutex;
 	bool mQuit;
 	bool mPaused;
 	LONGLONG mLastGetBufferMS;
+
+	LONGLONG mTime = 0;
+	int mSamples = 0;
+	LONGLONG mLastTimeMS = 0;
+	LONGLONG mLastTimeNS = 0;
 };
 
-static void RefreshAudioList(HWND hW, LRESULT idx)
+static void RefreshInputAudioList(HWND hW, LRESULT idx, WASAPISettings *settings)
 {
-	audioDevs.clear();
+	settings->sourceDevs.clear();
 
-	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_RESETCONTENT, 0, 0);
+	SendDlgItemMessage(hW, IDC_COMBO1, CB_RESETCONTENT, 0, 0);
+	SendDlgItemMessage(hW, IDC_COMBO2, CB_RESETCONTENT, 0, 0);
 
-	SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)L"None");
-	SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)L"None");
+	SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)L"None");
+	SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)L"None");
 
-	SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, 0, 0);
-	SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, 0, 0);
+	SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, 0, 0);
+	SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, 0, 0);
 
-	MMAudioDevice::AudioDevices(audioDevs);
+	MMAudioDevice::AudioDevices(settings->sourceDevs, AUDIODIR_SOURCE);
 	AudioDeviceInfoList::iterator it;
 	int i = 0;
-	for (it = audioDevs.begin(); it != audioDevs.end(); it++)
+	for (it = settings->sourceDevs.begin(); it != settings->sourceDevs.end(); it++)
 	{
-		SendDlgItemMessageW(hW, IDC_COMBOMIC1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
-		SendDlgItemMessageW(hW, IDC_COMBOMIC2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+		SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+		SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
 
 		i++;
-		if (it->strID == micDev[0])
-			SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_SETCURSEL, i, i);
-		if (it->strID == micDev[1])
-			SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_SETCURSEL, i, i);
+		if (it->strID == settings->selectedDev[0])
+			SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, i, i);
+		if (it->strID == settings->selectedDev[1])
+			SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, i, i);
 	}
 }
 
-static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	int tmp = 0, port = 0;
+static void RefreshOutputAudioList(HWND hW, LRESULT idx, WASAPISettings *settings)
+{
+	settings->sinkDevs.clear();
+
+	SendDlgItemMessage(hW, IDC_COMBO3, CB_RESETCONTENT, 0, 0);
+	SendDlgItemMessageW(hW, IDC_COMBO3, CB_ADDSTRING, 0, (LPARAM)L"None");
+	SendDlgItemMessage(hW, IDC_COMBO3, CB_SETCURSEL, 0, 0);
+
+	MMAudioDevice::AudioDevices(settings->sinkDevs, AUDIODIR_SINK);
+	AudioDeviceInfoList::iterator it;
+	int i = 0;
+	for (it = settings->sinkDevs.begin(); it != settings->sinkDevs.end(); it++)
+	{
+		SendDlgItemMessageW(hW, IDC_COMBO3, CB_ADDSTRING, 0, (LPARAM)it->strName.c_str());
+
+		i++;
+		if (it->strID == settings->selectedDev[2])
+			SendDlgItemMessage(hW, IDC_COMBO3, CB_SETCURSEL, i, i);
+	}
+}
+
+static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	int tmp = 0;
+	WASAPISettings *s;
 	static auto audioProxyMap = RegisterAudioDevice::instance().Map();
 
 	switch (uMsg) {
@@ -831,34 +1060,41 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 		break;
 	case WM_INITDIALOG:
 	{
-		port = (int)lParam;
+		s = (WASAPISettings *)lParam;
 		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 		int buffering = 20;
 		{
 			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
-			if (LoadSetting(port, APINAME, var))
+			if (LoadSetting(s->port, APINAME, var))
 				buffering = var.intValue;
 		}
-		SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMIN, TRUE, 1);
-		SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETRANGEMAX, TRUE, 1000);
-		SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, buffering);
-		SetDlgItemInt(hW, IDC_MICBUF, buffering, FALSE);
+		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETRANGEMIN, TRUE, 1);
+		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETRANGEMAX, TRUE, 1000);
+		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETPOS, TRUE, buffering);
+		SetDlgItemInt(hW, IDC_BUFFER1, buffering, FALSE);
 		{
 			for (int i = 0; i < 2; i++)
 			{
 				CONFIGVARIANT var0(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
-				if (LoadSetting(port, APINAME, var0))
-					micDev[i] = var0.wstrValue;
+				if (LoadSetting(s->port, APINAME, var0))
+					s->selectedDev[i] = var0.wstrValue;
+			}
+
+			{
+				CONFIGVARIANT var1(N_AUDIO_SINK0, CONFIG_TYPE_WCHAR);
+				if (LoadSetting(s->port, APINAME, var1))
+					s->selectedDev[2] = var1.wstrValue;
 			}
 		}
-		RefreshAudioList(hW, -1);
+		RefreshInputAudioList(hW, -1, s);
+		RefreshOutputAudioList(hW, -1, s);
 		return TRUE;
 	}
 	case WM_HSCROLL:
-		if ((HWND)lParam == GetDlgItem(hW, IDC_MICSLIDER))
+		if ((HWND)lParam == GetDlgItem(hW, IDC_SLIDER1))
 		{
-			int pos = SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0);
-			SetDlgItemInt(hW, IDC_MICBUF, pos, FALSE);
+			int pos = SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0);
+			SetDlgItemInt(hW, IDC_BUFFER1, pos, FALSE);
 			break;
 		}
 		break;
@@ -870,9 +1106,9 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			switch (LOWORD(wParam))
 			{
-			case IDC_MICBUF:
-				CHECKED_SET_MAX_INT(tmp, hW, IDC_MICBUF, FALSE, 1, 1000);
-				SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_SETPOS, TRUE, tmp);
+			case IDC_BUFFER1:
+				CHECKED_SET_MAX_INT(tmp, hW, IDC_BUFFER1, FALSE, 1, 1000);
+				SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETPOS, TRUE, tmp);
 				break;
 			}
 		}
@@ -882,32 +1118,32 @@ static BOOL CALLBACK MicDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 			switch (LOWORD(wParam)) {
 			case IDOK:
 			{
-				int p1, p2;
+				int p[3];
+				s = (WASAPISettings *)GetWindowLong(hW, GWL_USERDATA);
 				INT_PTR res = RESULT_OK;
-				p1 = SendDlgItemMessage(hW, IDC_COMBOMIC1, CB_GETCURSEL, 0, 0);
-				p2 = SendDlgItemMessage(hW, IDC_COMBOMIC2, CB_GETCURSEL, 0, 0);
+				p[0] = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
+				p[1] = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
+				p[2] = SendDlgItemMessage(hW, IDC_COMBO3, CB_GETCURSEL, 0, 0);
 
-				if (p1 > 0)
-					micDev[0] = (audioDevs.begin() + p1 - 1)->strID;
-				else
-					micDev[0] = L"";
-				if (p2 > 0)
-					micDev[1] = (audioDevs.begin() + p2 - 1)->strID;
-				else
-					micDev[1] = L"";
-
-				port = (int)GetWindowLong(hW, GWL_USERDATA);
-
-				for (int i = 0; i < 2; i++)
+				for (int i = 0; i < 3; i++)
 				{
-					CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, micDev[i]);
-					if (!SaveSetting(port, APINAME, var))
+					s->selectedDev[i] = L"";
+
+					if (p[i] > 0)
+						s->selectedDev[i] = ((i < 2 ? s->sourceDevs.begin() : s->sinkDevs.begin()) + p[i] - 1)->strID;
+				}
+
+				const wchar_t *n[] = { N_AUDIO_SOURCE0, N_AUDIO_SOURCE1, N_AUDIO_SINK0 };
+				for (int i = 0; i < 3; i++)
+				{
+					CONFIGVARIANT var(n[i], s->selectedDev[i]);
+					if (!SaveSetting(s->port, APINAME, var))
 						res = RESULT_FAILED;
 				}
 
 				{
-					CONFIGVARIANT var(N_BUFFER_LEN, (int32_t)SendDlgItemMessage(hW, IDC_MICSLIDER, TBM_GETPOS, 0, 0));
-					if (!SaveSetting(port, APINAME, var))
+					CONFIGVARIANT var(N_BUFFER_LEN, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0));
+					if (!SaveSetting(s->port, APINAME, var))
 						res = RESULT_FAILED;
 				}
 
