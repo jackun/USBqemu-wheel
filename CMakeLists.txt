@@ -142,12 +142,14 @@ SET(HDRS_PLG
 	./src/configuration.h
 	./src/platcompat.h
 	./src/osdebugout.h
+	./src/ringbuffer.h
 )
 
 SET(SRCS_PLG
 	./src/USB.cpp
 	./src/deviceproxy.cpp
 	./src/configuration.cpp
+	./src/ringbuffer.cpp
 )
 
 SET(SRCS_QEMU
@@ -174,6 +176,7 @@ SET(SRCS_MIC
 	#./src/usb-eyetoy/usb-eyetoy.cpp
 )
 
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
 ADD_DEFINITIONS(-DLIBSRC_ONLY_FAST -DHAVE_LRINT=1 -DHAVE_LRINTF=1)
 ADD_DEFINITIONS(-DHAVE_LIBM=1 -DHAVE_INTTYPES_H=1 -DHAVE_DLFCN_H=1)
 ADD_DEFINITIONS(-DGCC_MAJOR_VERSION=6)
