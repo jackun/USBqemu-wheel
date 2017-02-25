@@ -57,6 +57,8 @@ FUNDEFDECL(pa_threaded_mainloop_lock);
 FUNDEFDECL(pa_threaded_mainloop_unlock);
 FUNDEFDECL(pa_threaded_mainloop_signal);
 FUNDEFDECL(pa_threaded_mainloop_wait);
+FUNDEFDECL(pa_sample_size);
+FUNDEFDECL(pa_frame_size);
 
 static void* pulse_handle = nullptr;
 static std::atomic<int> refCntPulse (0);
@@ -119,6 +121,8 @@ bool DynLoadPulse()
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_unlock);
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_signal);
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_wait);
+	FUN_LOAD(pulse_handle, pa_sample_size);
+	FUN_LOAD(pulse_handle, pa_frame_size);
 	FUN_LOAD(pulse_handle, pa_mainloop_free);
 	return true;
 }
@@ -173,6 +177,8 @@ void DynUnloadPulse()
 	FUN_UNLOAD(pa_threaded_mainloop_unlock);
 	FUN_UNLOAD(pa_threaded_mainloop_signal);
 	FUN_UNLOAD(pa_threaded_mainloop_wait);
+	FUN_UNLOAD(pa_sample_size);
+	FUN_UNLOAD(pa_frame_size);
 	FUN_UNLOAD(pa_mainloop_free);
 
 	dlclose(pulse_handle);
@@ -469,4 +475,18 @@ void pa_stream_set_state_callback(pa_stream *s, pa_stream_notify_cb_t cb, void *
 {
 	if (pfn_pa_stream_set_state_callback)
 		pfn_pa_stream_set_state_callback(s, cb, userdata);
+}
+
+size_t pa_sample_size(const pa_sample_spec *spec)
+{
+	if (pfn_pa_sample_size)
+		return pfn_pa_sample_size(spec);
+	return 0;
+}
+
+size_t pa_frame_size(const pa_sample_spec *spec)
+{
+	if (pfn_pa_frame_size)
+		return pfn_pa_frame_size(spec);
+	return 0;
 }
