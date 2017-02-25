@@ -25,7 +25,7 @@ class AudioDeviceProxyBase : public ProxyBase
 	public:
 	AudioDeviceProxyBase(const std::string& name);
 	virtual AudioDevice* CreateObject(int port, int mic, AudioDir dir) const = 0; //Can be generalized? Probably not
-	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const = 0;
+	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
 };
@@ -46,6 +46,7 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 		catch(AudioDeviceError& err)
 		{
 			OSDebugOut(TEXT("AudioDevice port %d mic %d: %") TEXT(SFMTs) TEXT("\n"), port, mic, err.what());
+			(void)err;
 			return nullptr;
 		}
 	}
@@ -57,9 +58,9 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 	{
 		return T::Configure(port, data);
 	}
-	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices) const
+	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir dir) const
 	{
-		T::AudioDevices(devices);
+		T::AudioDevices(devices, dir);
 	}
 	virtual bool AudioInit()
 	{
@@ -89,12 +90,12 @@ class RegisterAudioDevice
 
 	~RegisterAudioDevice() {}
 
-	void Add(const std::string name, AudioDeviceProxyBase* creator)
+	void Add(const std::string& name, AudioDeviceProxyBase* creator)
 	{
 		registerAudioDeviceMap[name] = creator;
 	}
 
-	AudioDeviceProxyBase* Proxy(std::string name)
+	AudioDeviceProxyBase* Proxy(const std::string& name)
 	{
 		return registerAudioDeviceMap[name];
 	}

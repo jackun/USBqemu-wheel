@@ -47,7 +47,7 @@ public:
 	{
 	}
 
-	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
+	static void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir )
 	{
 		AudioDeviceInfo info;
 		info.strID = TEXT("silence");
