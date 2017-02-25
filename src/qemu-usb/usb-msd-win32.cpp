@@ -42,7 +42,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				ofn.lpstrInitialDir = NULL;
 				ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
-				if (GetOpenFileName(&ofn) == TRUE) {
+				if (GetOpenFileName(&ofn)) {
 					SetWindowText(GetDlgItem(hW, IDC_EDIT1), ofn.lpstrFile);
 				}
 				break;

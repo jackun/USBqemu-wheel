@@ -373,7 +373,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
     const char *str = NULL;
 #endif
     int pid;
-    int ret;
+    int ret = -1;
     int i;
     USBDevice *dev;
     //USBEndpoint *ep;

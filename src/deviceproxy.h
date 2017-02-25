@@ -112,7 +112,7 @@ class RegisterDevice
 
 	~RegisterDevice() {}
 
-	void Add(const DeviceKey key, DeviceProxyBase* creator)
+	void Add(const DeviceKey& key, DeviceProxyBase* creator)
 	{
 		registerDeviceMap[key] = creator;
 	}
