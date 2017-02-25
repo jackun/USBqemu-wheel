@@ -287,6 +287,11 @@ IF(WIN32)
 	
 	FILE(GLOB RCS ./src/Win32/*.rc)
 	FILE(GLOB DEF ./src/Win32/*.def)
+
+	IF(MSVC)
+		MESSAGE("Adding parallel build flag to CMAKE_CXX_FLAGS")
+		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+	ENDIF()
 ENDIF(WIN32)
 
 IF(UNIX)
