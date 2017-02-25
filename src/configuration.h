@@ -58,8 +58,8 @@ struct CONFIGVARIANT
 	std::wstring wstrValue;
 	TSTDSTRING tstrValue;
 
-	CONFIGVARIANT() : type(CONFIG_TYPE_EMPTY), ptrValue(0) {}
-	CONFIGVARIANT(const TCHAR* n, CONFIG_VARIANT_TYPE t) : name(n), type(t), ptrValue(0) {}
+	CONFIGVARIANT() : type(CONFIG_TYPE_EMPTY), ptrValue(0), desc(nullptr), name(nullptr) {}
+	CONFIGVARIANT(const TCHAR* n, CONFIG_VARIANT_TYPE t) : name(n), type(t), ptrValue(0), desc(nullptr) {}
 	CONFIGVARIANT(const TCHAR* d, const TCHAR* n, CONFIG_VARIANT_TYPE t)
 		: desc(d), name(n), type(t), ptrValue(0) {}
 
