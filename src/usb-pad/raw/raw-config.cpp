@@ -286,6 +286,8 @@ void populate(HWND hW)
 		SetupDiGetDeviceInterfaceDetail(devInfo, &diData, 0, 0, &needed, 0);
 
 		didData = (PSP_DEVICE_INTERFACE_DETAIL_DATA)malloc(needed);
+		if (!didData)
+			break;
 		didData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 		if(!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)){
 			free(didData);
