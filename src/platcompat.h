@@ -4,6 +4,7 @@
 // Annoying defines
 // ---------------------------------------------------------------------
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #define wfopen _wfopen
 #define TSTDSTRING std::wstring
