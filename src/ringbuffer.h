@@ -57,6 +57,12 @@ public:
 	char* front(){ return m_data + m_begin; }
 	char* back(){ return m_data + m_end; }
 
+	template<typename T>
+	T* front() { return (T*)(m_data + m_begin); }
+
+	template<typename T>
+	T* back() { return (T*)(m_data + m_end); }
+
 private:
 	bool overrun;
 	size_t m_begin, m_end, m_capacity;
