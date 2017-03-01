@@ -710,9 +710,9 @@ public:
 		return ret;
 	}
 
-	static void AudioDevices(std::vector<AudioDeviceInfo> &devices)
+	static void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir& dir)
 	{
-		pa_get_devicelist(devices, AUDIODIR_SOURCE);
+		pa_get_devicelist(devices, dir);
 	}
 
 	static bool AudioInit()
