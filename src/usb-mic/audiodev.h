@@ -19,6 +19,8 @@
 #define N_AUDIO_SINK1	TEXT("audio_sink_1")
 #define S_BUFFER_LEN	TEXT("Buffer length")
 #define N_BUFFER_LEN	TEXT("buffer_len")
+#define N_BUFFER_LEN_SRC	TEXT("buffer_len_src")
+#define N_BUFFER_LEN_SINK	TEXT("buffer_len_sink")
 
 enum MicMode {
 	MIC_MODE_NONE,
