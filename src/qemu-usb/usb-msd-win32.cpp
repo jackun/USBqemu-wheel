@@ -67,7 +67,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	return FALSE;
 }
 
-int MsdDevice::Configure(int port, std::string api, void *data)
+int MsdDevice::Configure(int port, const std::string& api, void *data)
 {
 	Win32Handles handles = *(Win32Handles*)data;
 	return DialogBoxParam(handles.hInst,

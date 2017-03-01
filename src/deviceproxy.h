@@ -51,7 +51,7 @@ class DeviceProxyBase
 	virtual ~DeviceProxyBase() {}
 	virtual USBDevice* CreateDevice(int port) = 0;
 	virtual const TCHAR* Name() const = 0;
-	virtual int Configure(int port, std::string api, void *data) = 0;
+	virtual int Configure(int port, const std::string& api, void *data) = 0;
 	virtual std::list<std::string> APIs() = 0;
 	virtual const TCHAR* LongAPIName(const std::string& name) = 0;
 	virtual std::vector<CONFIGVARIANT> GetSettings(const std::string &api) = 0;
@@ -80,7 +80,7 @@ class DeviceProxy : public DeviceProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, std::string api, void *data)
+	virtual int Configure(int port, const std::string& api, void *data)
 	{
 		return T::Configure(port, api, data);
 	}

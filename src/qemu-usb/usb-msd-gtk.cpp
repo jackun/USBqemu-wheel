@@ -41,7 +41,7 @@ static void fileChooser( GtkWidget *widget, gpointer data)
 	gtk_widget_destroy (dialog);
 }
 
-int MsdDevice::Configure(int port, std::string api, void *data)
+int MsdDevice::Configure(int port, const std::string& api, void *data)
 {
 	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
 

@@ -21,7 +21,7 @@ public:
 	{
 		return RegisterPad::instance().Proxy(name)->Name();
 	}
-	static int Configure(int port, std::string api, void *data);
+	static int Configure(int port, const std::string& api, void *data);
 	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
 
@@ -457,7 +457,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 	}
 }
 
-int PadDevice::Configure(int port, std::string api, void *data)
+int PadDevice::Configure(int port, const std::string& api, void *data)
 {
 	auto proxy = RegisterPad::instance().Proxy(api);
 	if (proxy)
