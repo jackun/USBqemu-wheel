@@ -153,7 +153,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				case IDC_CONFIGURE1:
 				case IDC_CONFIGURE2:
 				{
-					int devtype, apitype;
+					LRESULT devtype, apitype;
 					port = (LOWORD(wParam) == IDC_CONFIGURE1) ? 1 : 0;
 					devtype = SendDlgItemMessage(hW, port ? IDC_COMBO1 : IDC_COMBO2, CB_GETCURSEL, 0, 0);
 					apitype = SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_GETCURSEL, 0, 0);
