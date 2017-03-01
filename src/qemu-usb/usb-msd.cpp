@@ -1,4 +1,4 @@
-/* 
+/*
  * USB Mass Storage Device emulation
  *
  * Copyright (c) 2006 CodeSourcery.
@@ -60,86 +60,86 @@ enum USBMSDMode {
 };
 
 typedef struct MSDState {
-	USBDevice	dev;
+    USBDevice   dev;
 
-	enum USBMSDMode mode;
-	int32_t data_len;
-	uint32_t tag;
-	FILE *hfile;
-	//char fn[MAX_PATH+1]; //TODO Could use with open/close, 
-							//but error recovery currently can't deal with file suddenly
-							//becoming not accessible
-	int result;
+    enum USBMSDMode mode;
+    int32_t data_len;
+    uint32_t tag;
+    FILE *hfile;
+    //char fn[MAX_PATH+1]; //TODO Could use with open/close,
+                            //but error recovery currently can't deal with file suddenly
+                            //becoming not accessible
+    int result;
 
-	uint32_t off; //buffer offset
-	uint8_t buf[4096];//random length right now
-	uint8_t sense_buf[18];
-	uint8_t last_cmd;
+    uint32_t off; //buffer offset
+    uint8_t buf[4096];//random length right now
+    uint8_t sense_buf[18];
+    uint8_t last_cmd;
 } MSDState;
 
 static const uint8_t qemu_msd_dev_descriptor[] = {
-	0x12,       /*  u8 bLength; */
-	0x01,       /*  u8 bDescriptorType; Device */
-	0x10, 0x00, /*  u16 bcdUSB; v1.0 */
+    0x12,       /*  u8 bLength; */
+    0x01,       /*  u8 bDescriptorType; Device */
+    0x10, 0x00, /*  u16 bcdUSB; v1.0 */
 
-	0x00,	    /*  u8  bDeviceClass; */
-	0x00,	    /*  u8  bDeviceSubClass; */
-	0x00,       /*  u8  bDeviceProtocol; [ low/full speeds only ] */
-	0x08,       /*  u8  bMaxPacketSize0; 8 Bytes */
+    0x00,       /*  u8  bDeviceClass; */
+    0x00,       /*  u8  bDeviceSubClass; */
+    0x00,       /*  u8  bDeviceProtocol; [ low/full speeds only ] */
+    0x08,       /*  u8  bMaxPacketSize0; 8 Bytes */
 
         /* Vendor and product id are arbitrary.  */
-	0x00, 0x00, /*  u16 idVendor; */
- 	0x00, 0x00, /*  u16 idProduct; */
-	0x00, 0x00, /*  u16 bcdDevice */
+    0x00, 0x00, /*  u16 idVendor; */
+    0x00, 0x00, /*  u16 idProduct; */
+    0x00, 0x00, /*  u16 bcdDevice */
 
-	0x01,       /*  u8  iManufacturer; */
-	0x02,       /*  u8  iProduct; */
-	0x03,       /*  u8  iSerialNumber; */
-	0x01        /*  u8  bNumConfigurations; */
+    0x01,       /*  u8  iManufacturer; */
+    0x02,       /*  u8  iProduct; */
+    0x03,       /*  u8  iSerialNumber; */
+    0x01        /*  u8  bNumConfigurations; */
 };
 
 static const uint8_t qemu_msd_config_descriptor[] = {
 
-	/* one configuration */
-	0x09,       /*  u8  bLength; */
-	0x02,       /*  u8  bDescriptorType; Configuration */
-	0x20, 0x00, /*  u16 wTotalLength; */
-	0x01,       /*  u8  bNumInterfaces; (1) */
-	0x01,       /*  u8  bConfigurationValue; */
-	0x00,       /*  u8  iConfiguration; */
-	0xc0,       /*  u8  bmAttributes; 
-				 Bit 7: must be set,
-				     6: Self-powered,
-				     5: Remote wakeup,
-				     4..0: resvd */
-	0x00,       /*  u8  MaxPower; */
-      
-	/* one interface */
-	0x09,       /*  u8  if_bLength; */
-	0x04,       /*  u8  if_bDescriptorType; Interface */
-	0x00,       /*  u8  if_bInterfaceNumber; */
-	0x00,       /*  u8  if_bAlternateSetting; */
-	0x02,       /*  u8  if_bNumEndpoints; */
-	0x08,       /*  u8  if_bInterfaceClass; MASS STORAGE */
-	0x06,       /*  u8  if_bInterfaceSubClass; SCSI */
-	0x50,       /*  u8  if_bInterfaceProtocol; Bulk Only */
-	0x00,       /*  u8  if_iInterface; */
-     
-	/* Bulk-In endpoint */
-	0x07,       /*  u8  ep_bLength; */
-	0x05,       /*  u8  ep_bDescriptorType; Endpoint */
-	0x81,       /*  u8  ep_bEndpointAddress; IN Endpoint 1 */
- 	0x02,       /*  u8  ep_bmAttributes; Bulk */
- 	0x40, 0x00, /*  u16 ep_wMaxPacketSize; */
-	0x00,       /*  u8  ep_bInterval; */
+    /* one configuration */
+    0x09,       /*  u8  bLength; */
+    0x02,       /*  u8  bDescriptorType; Configuration */
+    0x20, 0x00, /*  u16 wTotalLength; */
+    0x01,       /*  u8  bNumInterfaces; (1) */
+    0x01,       /*  u8  bConfigurationValue; */
+    0x00,       /*  u8  iConfiguration; */
+    0xc0,       /*  u8  bmAttributes;
+                 Bit 7: must be set,
+                     6: Self-powered,
+                     5: Remote wakeup,
+                     4..0: resvd */
+    0x00,       /*  u8  MaxPower; */
 
-	/* Bulk-Out endpoint */
-	0x07,       /*  u8  ep_bLength; */
-	0x05,       /*  u8  ep_bDescriptorType; Endpoint */
-	0x02,       /*  u8  ep_bEndpointAddress; OUT Endpoint 2 */
- 	0x02,       /*  u8  ep_bmAttributes; Bulk */
- 	0x00, 0x02, /*  u16 ep_wMaxPacketSize; */
-	0x00        /*  u8  ep_bInterval; */
+    /* one interface */
+    0x09,       /*  u8  if_bLength; */
+    0x04,       /*  u8  if_bDescriptorType; Interface */
+    0x00,       /*  u8  if_bInterfaceNumber; */
+    0x00,       /*  u8  if_bAlternateSetting; */
+    0x02,       /*  u8  if_bNumEndpoints; */
+    0x08,       /*  u8  if_bInterfaceClass; MASS STORAGE */
+    0x06,       /*  u8  if_bInterfaceSubClass; SCSI */
+    0x50,       /*  u8  if_bInterfaceProtocol; Bulk Only */
+    0x00,       /*  u8  if_iInterface; */
+
+    /* Bulk-In endpoint */
+    0x07,       /*  u8  ep_bLength; */
+    0x05,       /*  u8  ep_bDescriptorType; Endpoint */
+    0x81,       /*  u8  ep_bEndpointAddress; IN Endpoint 1 */
+    0x02,       /*  u8  ep_bmAttributes; Bulk */
+    0x40, 0x00, /*  u16 ep_wMaxPacketSize; */
+    0x00,       /*  u8  ep_bInterval; */
+
+    /* Bulk-Out endpoint */
+    0x07,       /*  u8  ep_bLength; */
+    0x05,       /*  u8  ep_bDescriptorType; Endpoint */
+    0x02,       /*  u8  ep_bEndpointAddress; OUT Endpoint 2 */
+    0x02,       /*  u8  ep_bmAttributes; Bulk */
+    0x00, 0x02, /*  u16 ep_wMaxPacketSize; */
+    0x00        /*  u8  ep_bInterval; */
 };
 
 
@@ -302,149 +302,149 @@ static void usb_msd_handle_reset(USBDevice *dev)
 
 static void set_sense(void *opaque, uint32_t sense, uint8_t extra)
 {
-	MSDState *s = (MSDState *)opaque;
-	memset(s->sense_buf, 0, sizeof(s->sense_buf));
-	//SENSE request
-	s->sense_buf[0] = 0x70;//0x70 - current sense
-	//s->sense_buf[1] = 0x00;
-	s->sense_buf[2] = sense;//ILLEGAL_REQUEST;
-	//sense information like LBA where error occured
-	//s->sense_buf[3] = 0x00;
-	//s->sense_buf[4] = 0x00;
-	//s->sense_buf[5] = 0x00;
-	//s->sense_buf[6] = 0x00;
-	s->sense_buf[7] = extra ? 0x0a : 0x00; //Additional sense length (10 bytes if any)
-	s->sense_buf[12] = extra; //Additional sense code
-	//s->sense_buf[13] = 0x0; //Additional sense code qualifier
+    MSDState *s = (MSDState *)opaque;
+    memset(s->sense_buf, 0, sizeof(s->sense_buf));
+    //SENSE request
+    s->sense_buf[0] = 0x70;//0x70 - current sense
+    //s->sense_buf[1] = 0x00;
+    s->sense_buf[2] = sense;//ILLEGAL_REQUEST;
+    //sense information like LBA where error occured
+    //s->sense_buf[3] = 0x00;
+    //s->sense_buf[4] = 0x00;
+    //s->sense_buf[5] = 0x00;
+    //s->sense_buf[6] = 0x00;
+    s->sense_buf[7] = extra ? 0x0a : 0x00; //Additional sense length (10 bytes if any)
+    s->sense_buf[12] = extra; //Additional sense code
+    //s->sense_buf[13] = 0x0; //Additional sense code qualifier
 }
 
 static void send_command(void *opaque, struct usb_msd_cbw *cbw)
 {
-	MSDState *s = (MSDState *)opaque;
-	DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x\n", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
+    MSDState *s = (MSDState *)opaque;
+    DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x\n", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
 
-	uint32_t lba;
-	uint32_t xfer_len;
-	s->last_cmd = cbw->cmd[0];
+    uint32_t lba;
+    uint32_t xfer_len;
+    s->last_cmd = cbw->cmd[0];
 
-	switch(cbw->cmd[0])
-	{
-	case TEST_UNIT_READY:
-		//Do something?
-		s->result = GOOD;
-		set_sense(s, NO_SENSE, 0);
-		/* If error */
-		//s->result = CHECK_CONDITION;
-		//set_sense(s, NOT_READY, 0);
-		break;
-	case REQUEST_SENSE: //device shall keep old sense data
-		s->result = GOOD;
-		//memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf)); //not on !WINDOWS
-		memcpy(s->buf, s->sense_buf, 
-			/* TODO or error out instead? */
-			s->data_len < sizeof(s->sense_buf) ? s->data_len : sizeof(s->sense_buf));
-		break;
-	case INQUIRY:
-		set_sense(s, NO_SENSE, 0);
-		memset(s->buf, 0, sizeof(s->buf));
-		s->off = 0;
-		s->buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
-		s->buf[1] = 1 << 7; //removable
-		s->buf[3] = 1; //UFI response data format
-		//inq data len can be zero
-		strncpy((char*)&s->buf[8], "QEMU", 8); //8 bytes vendor
-		strncpy((char*)&s->buf[16], "USB Drive", 16); //16 bytes product
-		strncpy((char*)&s->buf[32], "1", 4); //4 bytes product revision
-		s->result = 0;
-		break;
+    switch(cbw->cmd[0])
+    {
+    case TEST_UNIT_READY:
+        //Do something?
+        s->result = GOOD;
+        set_sense(s, NO_SENSE, 0);
+        /* If error */
+        //s->result = CHECK_CONDITION;
+        //set_sense(s, NOT_READY, 0);
+        break;
+    case REQUEST_SENSE: //device shall keep old sense data
+        s->result = GOOD;
+        //memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf)); //not on !WINDOWS
+        memcpy(s->buf, s->sense_buf,
+            /* TODO or error out instead? */
+            s->data_len < sizeof(s->sense_buf) ? s->data_len : sizeof(s->sense_buf));
+        break;
+    case INQUIRY:
+        set_sense(s, NO_SENSE, 0);
+        memset(s->buf, 0, sizeof(s->buf));
+        s->off = 0;
+        s->buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
+        s->buf[1] = 1 << 7; //removable
+        s->buf[3] = 1; //UFI response data format
+        //inq data len can be zero
+        strncpy((char*)&s->buf[8], "QEMU", 8); //8 bytes vendor
+        strncpy((char*)&s->buf[16], "USB Drive", 16); //16 bytes product
+        strncpy((char*)&s->buf[32], "1", 4); //4 bytes product revision
+        s->result = 0;
+        break;
 
-	case READ_CAPACITY:
-		long cur_tell, end_tell;
-		uint32_t *last_lba, *blk_len;
+    case READ_CAPACITY:
+        long cur_tell, end_tell;
+        uint32_t *last_lba, *blk_len;
 
-		set_sense(s, NO_SENSE, 0);
-		memset(s->buf, 0, sizeof(s->buf));
-		s->off = 0;
+        set_sense(s, NO_SENSE, 0);
+        memset(s->buf, 0, sizeof(s->buf));
+        s->off = 0;
 
-		cur_tell = ftell(s->hfile);
-		fseek(s->hfile, 0, SEEK_END);
-		end_tell = ftell(s->hfile);
-		fseek(s->hfile, cur_tell, SEEK_SET);
+        cur_tell = ftell(s->hfile);
+        fseek(s->hfile, 0, SEEK_END);
+        end_tell = ftell(s->hfile);
+        fseek(s->hfile, cur_tell, SEEK_SET);
 
-		last_lba = (uint32_t*)&s->buf[0];
-		blk_len = (uint32_t*)&s->buf[4]; //in bytes
-		//right?
-		*blk_len = LBA_BLOCK_SIZE;//descriptor is currently max 64 bytes for bulk though
-		*last_lba = end_tell / *blk_len;
+        last_lba = (uint32_t*)&s->buf[0];
+        blk_len = (uint32_t*)&s->buf[4]; //in bytes
+        //right?
+        *blk_len = LBA_BLOCK_SIZE;//descriptor is currently max 64 bytes for bulk though
+        *last_lba = end_tell / *blk_len;
 
-		DPRINTF("read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
+        DPRINTF("read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
 
-		*last_lba = bswap32(*last_lba);
-		*blk_len = bswap32(*blk_len);
-		s->result = GOOD;
-		break;
+        *last_lba = bswap32(*last_lba);
+        *blk_len = bswap32(*blk_len);
+        s->result = GOOD;
+        break;
 
-	case READ_12:
-	case READ_10:
-		s->result = GOOD;
-		s->off = 0;
-		set_sense(s, NO_SENSE, 0);
+    case READ_12:
+    case READ_10:
+        s->result = GOOD;
+        s->off = 0;
+        set_sense(s, NO_SENSE, 0);
 
-		lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
-		if(cbw->cmd[0] == READ_10)
-			xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
-		else
-			xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
+        lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
+        if(cbw->cmd[0] == READ_10)
+            xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
+        else
+            xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
 
-		DPRINTF("read lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+        DPRINTF("read lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
-		if(xfer_len == 0) //TODO nothing to do
-			break;
+        if(xfer_len == 0) //TODO nothing to do
+            break;
 
-		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
-			s->result = 0x2;//PHASE_ERROR
-			set_sense(s, MEDIUM_ERROR, 0);
-			return;
-		}
+        if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
+            s->result = 0x2;//PHASE_ERROR
+            set_sense(s, MEDIUM_ERROR, 0);
+            return;
+        }
 
-		memset(s->buf, 0, sizeof(s->buf));
-		//Or do actual reading in USB_MSDM_DATAIN?
-		//TODO probably dont set data_len to read length
-		if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile))) {
-			s->result = 0x2;//PHASE_ERROR
-			set_sense(s, MEDIUM_ERROR, 0);
-		}
-		break;
+        memset(s->buf, 0, sizeof(s->buf));
+        //Or do actual reading in USB_MSDM_DATAIN?
+        //TODO probably dont set data_len to read length
+        if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile))) {
+            s->result = 0x2;//PHASE_ERROR
+            set_sense(s, MEDIUM_ERROR, 0);
+        }
+        break;
 
-	case WRITE_12:
-	case WRITE_10:
-		s->result = GOOD;//everything is fine
-		s->off = 0;
-		set_sense(s, NO_SENSE, 0);
+    case WRITE_12:
+    case WRITE_10:
+        s->result = GOOD;//everything is fine
+        s->off = 0;
+        set_sense(s, NO_SENSE, 0);
 
-		lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
-		if(cbw->cmd[0] == WRITE_10)
-			xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
-		else
-			xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
-		DPRINTF("write lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+        lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
+        if(cbw->cmd[0] == WRITE_10)
+            xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
+        else
+            xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
+        DPRINTF("write lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
-		//if(xfer_len == 0) //nothing to do
-		//	break;
-		if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
-			s->result = 0x2;//PHASE_ERROR
-			set_sense(s, MEDIUM_ERROR, 0);
-			return;
-		}
-		s->data_len = xfer_len * LBA_BLOCK_SIZE;
-		//Actual write comes with next command in USB_MSDM_DATAOUT
-		break;
-	default:
-		OSDebugOut(TEXT("usb-msd: invalid command %d\n"), cbw->cmd[0]);
-		s->result = 0x1; //COMMAND_FAILED
-		set_sense(s, ILLEGAL_REQUEST, INVALID_COMMAND_OPERATION);
-		break;
-	}
+        //if(xfer_len == 0) //nothing to do
+        //  break;
+        if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
+            s->result = 0x2;//PHASE_ERROR
+            set_sense(s, MEDIUM_ERROR, 0);
+            return;
+        }
+        s->data_len = xfer_len * LBA_BLOCK_SIZE;
+        //Actual write comes with next command in USB_MSDM_DATAOUT
+        break;
+    default:
+        OSDebugOut(TEXT("usb-msd: invalid command %d\n"), cbw->cmd[0]);
+        s->result = 0x1; //COMMAND_FAILED
+        set_sense(s, ILLEGAL_REQUEST, INVALID_COMMAND_OPERATION);
+        break;
+    }
 }
 
 static int usb_msd_handle_control(USBDevice *dev, int request, int value,
@@ -483,12 +483,12 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
     case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
         switch(value >> 8) {
         case USB_DT_DEVICE:
-            memcpy(data, qemu_msd_dev_descriptor, 
+            memcpy(data, qemu_msd_dev_descriptor,
                    sizeof(qemu_msd_dev_descriptor));
             ret = sizeof(qemu_msd_dev_descriptor);
             break;
         case USB_DT_CONFIG:
-            memcpy(data, qemu_msd_config_descriptor, 
+            memcpy(data, qemu_msd_config_descriptor,
                    sizeof(qemu_msd_config_descriptor));
             ret = sizeof(qemu_msd_config_descriptor);
             break;
@@ -526,7 +526,7 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
         data[0] = 1;
         ret = 1;
         break;
-	case InterfaceOutRequest | USB_REQ_SET_INTERFACE: //better place?
+    case InterfaceOutRequest | USB_REQ_SET_INTERFACE: //better place?
     case DeviceOutRequest | USB_REQ_SET_CONFIGURATION:
         ret = 0;
         break;
@@ -609,15 +609,15 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             }
             DPRINTF("Command tag 0x%x flags %08x len %d data %d\n",
                     s->tag, cbw.flags, cbw.cmd_len, s->data_len);
-			send_command(s, &cbw);
+            send_command(s, &cbw);
             ret = len;
             break;
 
         case USB_MSDM_DATAOUT:
             DPRINTF("Data out %d/%d\n", len, s->data_len);
-			//len == 0x1f falls into here on write error :S. 
-			//Forcing mode to CBW in fail label
-			//USB_RET_STALL is correct?
+            //len == 0x1f falls into here on write error :S.
+            //Forcing mode to CBW in fail label
+            //USB_RET_STALL is correct?
             if (len > s->data_len)
                 goto fail;
 
@@ -661,11 +661,11 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             if (len > s->data_len)
                 len = s->data_len;
 
-			if(s->off + len > sizeof(s->buf))
-				goto fail;
+            if(s->off + len > sizeof(s->buf))
+                goto fail;
 
-			memcpy(data, &s->buf[s->off], len);
-			s->off += len;
+            memcpy(data, &s->buf[s->off], len);
+            s->off += len;
 
             s->data_len -= len;
             if (s->data_len == 0)
@@ -683,7 +683,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
         DPRINTF("Bad token\n");
     fail:
         ret = USB_RET_STALL;
-		s->mode = USB_MSDM_CBW;
+        s->mode = USB_MSDM_CBW;
         break;
     }
 
@@ -692,54 +692,54 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 
 static void usb_msd_handle_destroy(USBDevice *dev)
 {
-	MSDState *s = (MSDState *)dev;
-	if (s)
-	{
-		if(s->hfile)
-			fclose(s->hfile);
-		s->hfile = NULL;
-	}
-	free(s);
+    MSDState *s = (MSDState *)dev;
+    if (s)
+    {
+        if(s->hfile)
+            fclose(s->hfile);
+        s->hfile = NULL;
+    }
+    free(s);
 }
 
 USBDevice *MsdDevice::CreateDevice(int port)
 {
-	MSDState *s = (MSDState *)qemu_mallocz(sizeof(MSDState));
-	if (!s)
-		return NULL;
+    MSDState *s = (MSDState *)qemu_mallocz(sizeof(MSDState));
+    if (!s)
+        return NULL;
 
-	//CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	//LoadSetting(port, DEVICENAME, varApi);
-	std::string api = *MsdDevice::APIs().begin();
+    //CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
+    //LoadSetting(port, DEVICENAME, varApi);
+    std::string api = *MsdDevice::APIs().begin();
 
-	CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
+    CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
 
-	if(!LoadSetting(port, api, var))
-	{
-		fprintf(stderr, "usb-msd: Could not load settings\n");
-		return NULL;
-	}
+    if(!LoadSetting(port, api, var))
+    {
+        fprintf(stderr, "usb-msd: Could not load settings\n");
+        return NULL;
+    }
 
-	s->hfile = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
-	if (!s->hfile) {
-		fprintf(stderr, "usb-msd: Could not open image file\n");
-		return NULL;
-	}
+    s->hfile = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
+    if (!s->hfile) {
+        fprintf(stderr, "usb-msd: Could not open image file\n");
+        return NULL;
+    }
 
-	s->last_cmd = -1;
-	s->dev.speed = USB_SPEED_FULL;
-	s->dev.handle_packet = usb_generic_handle_packet;
+    s->last_cmd = -1;
+    s->dev.speed = USB_SPEED_FULL;
+    s->dev.handle_packet = usb_generic_handle_packet;
 
-	s->dev.handle_reset = usb_msd_handle_reset;
-	s->dev.handle_control = usb_msd_handle_control;
-	s->dev.handle_data = usb_msd_handle_data;
-	s->dev.handle_destroy = usb_msd_handle_destroy;
+    s->dev.handle_reset = usb_msd_handle_reset;
+    s->dev.handle_control = usb_msd_handle_control;
+    s->dev.handle_data = usb_msd_handle_data;
+    s->dev.handle_destroy = usb_msd_handle_destroy;
 
-	sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
-			 ""/*filename*/);
+    sprintf(s->dev.devname, "QEMU USB MSD(%.16s)",
+             ""/*filename*/);
 
-	usb_msd_handle_reset((USBDevice *)s);
-	return (USBDevice *)s;
+    usb_msd_handle_reset((USBDevice *)s);
+    return (USBDevice *)s;
 }
 
 REGISTER_DEVICE(1, DEVICENAME, MsdDevice);
