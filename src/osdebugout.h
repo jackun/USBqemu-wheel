@@ -3,8 +3,7 @@
 #include <cstdio>
 
 #ifdef _WIN32
-#include <windows.h>
-#include <windowsx.h>
+#include "platcompat.h"
 
 #include <vector>
 static int rateLimit = 0;

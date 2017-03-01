@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <limits.h>
 
 #ifndef EXPORT_C_
 #ifdef _MSC_VER
@@ -34,20 +35,6 @@
 #endif
 
 #include "platcompat.h"
-
-#ifdef _WIN32
-
-#include <windows.h>
-#include <windowsx.h>
-
-#else //_WIN32
-
-//#include <gtk/gtk.h>
-#include <limits.h>
-#include <string>
-
-#endif //_WIN32
-
 #include "osdebugout.h"
 
 // ---------------------------------------------------------------------
