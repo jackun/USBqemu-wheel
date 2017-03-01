@@ -173,8 +173,8 @@ public:
 	static std::vector<CONFIGVARIANT> GetSettings();
 
 protected:
-	PS2WheelTypes mType;
-	wheel_data_t mWheelData;
+	PS2WheelTypes mType = PS2WheelTypes::WT_GENERIC;
+	wheel_data_t mWheelData = { 0 };
 	ff_state mFFstate;
 	int mPort;
 };
