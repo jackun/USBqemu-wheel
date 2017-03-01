@@ -7,6 +7,8 @@
 #define NOMINMAX
 #include <windows.h>
 #define wfopen _wfopen
+#define fseeko64 _fseeki64
+#define ftello64 _ftelli64
 #define TSTDSTRING std::wstring
 
 //FIXME narrow string fmt
@@ -34,7 +36,7 @@
 #endif //_WIN32
 
 #if __MINGW32__
-
+#define DBL_EPSILON 2.2204460492503131e-16
 template <size_t size>  
 errno_t mbstowcs_s(  
 	size_t *pReturnValue,  
