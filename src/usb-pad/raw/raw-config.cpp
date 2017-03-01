@@ -1,4 +1,4 @@
-#define _WIN32_WINNT  0x0501 //Why are you on XP?
+#define _WIN32_WINNT  0x0502
 #include <stdio.h>
 #include <windows.h>
 #include <windowsx.h>
@@ -88,12 +88,12 @@ void LoadMappings(MapVector& maps)
 	if (LoadSetting(0, APINAME, var))
 		player_joys[0] = var.wstrValue;
 	else
-		player_joys[0] = L"";
+		player_joys[0].clear();
 
 	if (LoadSetting(1, APINAME, var))
 		player_joys[1] = var.wstrValue;
 	else
-		player_joys[1] = L"";
+		player_joys[1].clear();
 
 	return;
 }
@@ -101,7 +101,6 @@ void LoadMappings(MapVector& maps)
 void SaveMappings(MapVector& maps)
 {
 	std::wstring szIniFile;
-	char szValue[256] = {0};
 
 	GetIniFile(szIniFile);
 
@@ -110,7 +109,7 @@ void SaveMappings(MapVector& maps)
 	{
 		WCHAR dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
 
-		swprintf_s(dev, L"RAW DEVICE %d", numDevice++);
+		swprintf_s(dev, L"RAW DEVICE %u", numDevice++);
 		WritePrivateProfileStringW(dev, L"HID", it.hidPath.c_str(), szIniFile.c_str());
 
 		//writing everything separately, then string lengths are more predictable
@@ -362,7 +361,7 @@ void populateMappings(HWND hW)
 	TCHAR tmp[256];
 	int m[3];
 
-	for(it = mapVector.begin(); it != mapVector.end(); it++)
+	for(it = mapVector.begin(); it != mapVector.end(); ++it)
 	{
 		//TODO feels a bit hacky
 		bool isKB = (it->devName == TEXT("Keyboard"));
@@ -504,7 +503,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 		std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
 	}
 	
-	for(it = mapVector.begin(); it != mapVector.end(); it++)
+	for(it = mapVector.begin(); it != mapVector.end(); ++it)
 	{
 		if(it->hidPath == devName)
 		{
@@ -829,7 +828,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON20://rz
 				case IDC_BUTTON21://hat
 					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
-					swprintf_s(buf, TEXT("Capturing for axis %d, press ESC to cancel"), axisCapturing);
+					swprintf_s(buf, TEXT("Capturing for axis %u, press ESC to cancel"), axisCapturing);
 					SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
 					return TRUE;
 				case IDC_BUTTON13:

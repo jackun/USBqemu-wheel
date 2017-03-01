@@ -94,7 +94,7 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 	int copied = 0;
 	//TODO fix the logics, also Config.cpp
 	MapVector::iterator it = mapVector.begin();
-	for(; it!=mapVector.end(); it++)
+	for(; it!=mapVector.end(); ++it)
 	{
 
 		if (data_summed.steering < (*it).data[ply].steering)
@@ -195,7 +195,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	devName = name;
 	std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
 
-	for(it = mapVector.begin(); it != mapVector.end(); it++)
+	for(it = mapVector.begin(); it != mapVector.end(); ++it)
 	{
 		if((*it).hidPath == devName)
 		{
@@ -367,7 +367,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 	Mappings			*mapping = NULL;
 	MapVector::iterator	it;
 
-	for(it = mapVector.begin(); it != mapVector.end(); it++)
+	for(it = mapVector.begin(); it != mapVector.end(); ++it)
 	{
 		if(!it->hidPath.compare(TEXT("Keyboard")))
 		{
@@ -555,7 +555,7 @@ LRESULT CALLBACK HookProc(INT code, WPARAM wParam, LPARAM lParam)
 
 LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
 {
-	fprintf(stderr, "kb hook: %d, %d, %d\n", code, wParam, lParam);
+	fprintf(stderr, "kb hook: %d, %u, %d\n", code, wParam, lParam);
 	KBDLLHOOKSTRUCT *kb = (KBDLLHOOKSTRUCT*) lParam;
 	//if(code == HC_ACTION)
 	//	RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
