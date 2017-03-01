@@ -137,7 +137,7 @@ void ListenForControl(int port)
 	}
 
 	if(listening){
-		swprintf_s(text, L"Listening... %i", GetListenTimeout()/1000+1);
+		swprintf_s(text, L"Listening... %u", GetListenTimeout()/1000+1);
 		SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 	}else{
 		swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][CID], INVERT[port][CID], HALF[port][CID], BUTTON[port][CID]);

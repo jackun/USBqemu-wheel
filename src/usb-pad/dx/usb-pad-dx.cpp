@@ -131,24 +131,24 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 		if(GetControl(mPort, L3))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_L3);
 
 		//diagonal
-		if(GetControl(mPort, HATUP, true)  && GetControl(mPort, HATRIGHT, true))
+		if(GetControl(mPort, HATUP, true) > DBL_EPSILON && GetControl(mPort, HATRIGHT, true) > DBL_EPSILON)
 			mWheelData.hatswitch = 1;
-		if(GetControl(mPort, HATRIGHT, true) && GetControl(mPort, HATDOWN, true))
+		if(GetControl(mPort, HATRIGHT, true) > DBL_EPSILON && GetControl(mPort, HATDOWN, true) > DBL_EPSILON)
 			mWheelData.hatswitch = 3;
-		if(GetControl(mPort, HATDOWN, true) && GetControl(mPort, HATLEFT, true))
+		if(GetControl(mPort, HATDOWN, true) > DBL_EPSILON && GetControl(mPort, HATLEFT, true) > DBL_EPSILON)
 			mWheelData.hatswitch = 5;
-		if(GetControl(mPort, HATLEFT, true) && GetControl(mPort, HATUP, true))
+		if(GetControl(mPort, HATLEFT, true) > DBL_EPSILON && GetControl(mPort, HATUP, true) > DBL_EPSILON)
 			mWheelData.hatswitch = 7;
 
 		//regular
 		if(mWheelData.hatswitch==0x8){
-			if(GetControl(mPort, HATUP, true))
+			if(GetControl(mPort, HATUP, true) > DBL_EPSILON)
 				mWheelData.hatswitch = 0;
-			if(GetControl(mPort, HATRIGHT, true))
+			if(GetControl(mPort, HATRIGHT, true) > DBL_EPSILON)
 				mWheelData.hatswitch = 2;
-			if(GetControl(mPort, HATDOWN, true))
+			if(GetControl(mPort, HATDOWN, true) > DBL_EPSILON)
 				mWheelData.hatswitch = 4;
-			if(GetControl(mPort, HATLEFT, true))
+			if(GetControl(mPort, HATLEFT, true) > DBL_EPSILON)
 				mWheelData.hatswitch = 6;
 		}
 

@@ -327,7 +327,8 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 	if(v>1.0f)v=1.0f;
 
 	//clamp negdead
-	if(v==-d)v=0.0;
+	//if(v==-d)v=0.0;
+	if (fabs(v + d) < DBL_EPSILON) v = 0.0;
 
 	//possibilities
 	float c1 = float(v - (1.0 - (pow((double)(1.0 - v) , (double)(1.0 / hs)))));
@@ -459,29 +460,29 @@ bool AxisDown(LONG axisid, LONG & inverted, LONG & initial)
 			LONG lSlider1diff = js[i].rglSlider[0] - jso[i].rglSlider[0];
 			LONG lSlider2diff = js[i].rglSlider[1] - jso[i].rglSlider[1];
 
-			if(axisid % 8 == 0 && lXdiff > detectrange) { initial = jsi[i].lX; inverted = true; return true;}
-			if(axisid % 8 == 0 && lXdiff < -detectrange) {initial = jsi[i].lX; inverted = false; return true;}
+			if(axisid % 8 == 0 && lXdiff > detectrange) { initial = jsi[i].lX; inverted = TRUE; return true;}
+			if(axisid % 8 == 0 && lXdiff < -detectrange) {initial = jsi[i].lX; inverted = FALSE; return true;}
 
-			if(axisid % 8 == 1 && lYdiff > detectrange) { initial = jsi[i].lY;inverted = true; return true;}
-			if(axisid % 8 == 1 && lYdiff < -detectrange) { initial = jsi[i].lY;inverted = false; return true;}
+			if(axisid % 8 == 1 && lYdiff > detectrange) { initial = jsi[i].lY;inverted = TRUE; return true;}
+			if(axisid % 8 == 1 && lYdiff < -detectrange) { initial = jsi[i].lY;inverted = FALSE; return true;}
 
-			if(axisid % 8 == 2 && lZdiff > detectrange) { initial = jsi[i].lZ;inverted = true; return true;}
-			if(axisid % 8 == 2 && lZdiff < -detectrange) { initial = jsi[i].lZ;inverted = false; return true;}
+			if(axisid % 8 == 2 && lZdiff > detectrange) { initial = jsi[i].lZ;inverted = TRUE; return true;}
+			if(axisid % 8 == 2 && lZdiff < -detectrange) { initial = jsi[i].lZ;inverted = FALSE; return true;}
 
-			if(axisid % 8 == 3 && lRxdiff > detectrange) { initial = jsi[i].lRx;inverted = true; return true;}
-			if(axisid % 8 == 3 && lRxdiff < -detectrange) {initial = jsi[i].lRx; inverted = false; return true;}
+			if(axisid % 8 == 3 && lRxdiff > detectrange) { initial = jsi[i].lRx;inverted = TRUE; return true;}
+			if(axisid % 8 == 3 && lRxdiff < -detectrange) {initial = jsi[i].lRx; inverted = FALSE; return true;}
 
-			if(axisid % 8 == 4 && lRydiff > detectrange) { initial = jsi[i].lRy;inverted = true; return true;}
-			if(axisid % 8 == 4 && lRydiff < -detectrange) { initial = jsi[i].lRy;inverted = false; return true;}
+			if(axisid % 8 == 4 && lRydiff > detectrange) { initial = jsi[i].lRy;inverted = TRUE; return true;}
+			if(axisid % 8 == 4 && lRydiff < -detectrange) { initial = jsi[i].lRy;inverted = FALSE; return true;}
 
-			if(axisid % 8 == 5 && lRzdiff > detectrange) { initial = jsi[i].lRz;inverted = true; return true;}
-			if(axisid % 8 == 5 && lRzdiff < -detectrange) { initial = jsi[i].lRz;inverted = false; return true;}
+			if(axisid % 8 == 5 && lRzdiff > detectrange) { initial = jsi[i].lRz;inverted = TRUE; return true;}
+			if(axisid % 8 == 5 && lRzdiff < -detectrange) { initial = jsi[i].lRz;inverted = FALSE; return true;}
 
-			if(axisid % 8 == 6 && lSlider1diff > detectrange) { initial = jsi[i].rglSlider[0];inverted = true; return true;}
-			if(axisid % 8 == 6 && lSlider1diff < -detectrange) { initial = jsi[i].rglSlider[0];inverted = false; return true;}
+			if(axisid % 8 == 6 && lSlider1diff > detectrange) { initial = jsi[i].rglSlider[0];inverted = TRUE; return true;}
+			if(axisid % 8 == 6 && lSlider1diff < -detectrange) { initial = jsi[i].rglSlider[0];inverted = FALSE; return true;}
 
-			if(axisid % 8 == 7 && lSlider2diff > detectrange) { initial = jsi[i].rglSlider[1];inverted = true; return true;}
-			if(axisid % 8 == 7 && lSlider2diff < -detectrange) { initial = jsi[i].rglSlider[1];inverted = false; return true;}
+			if(axisid % 8 == 7 && lSlider2diff > detectrange) { initial = jsi[i].rglSlider[1];inverted = TRUE; return true;}
+			if(axisid % 8 == 7 && lSlider2diff < -detectrange) { initial = jsi[i].rglSlider[1];inverted = FALSE; return true;}
 		}
 	}
 	return false;
@@ -821,7 +822,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
 
-	refCount++;
+	++refCount;
 
 	//loop through all attached joysticks
 	for(DWORD i=0; i<numj; i++){

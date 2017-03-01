@@ -140,13 +140,13 @@ void SaveMain(int port)
 {
 	GetIniFile(strMySystemFile);
 
-	swprintf_s(strTemp, L"%i", LOG);WriteToFile(L"MAIN", L"LOG", strTemp);
-	swprintf_s(strTemp, L"%i", BYPASSCAL);WriteToFile(L"MAIN", L"BYPASSCAL", strTemp);
+	swprintf_s(strTemp, L"%u", LOG);WriteToFile(L"MAIN", L"LOG", strTemp);
+	swprintf_s(strTemp, L"%u", BYPASSCAL);WriteToFile(L"MAIN", L"BYPASSCAL", strTemp);
 
 	wchar_t section[128];
 	swprintf_s(section, L"CONTROLS %d", port);
 
-	swprintf_s(strTemp, L"%i", INVERTFORCES[port]); WriteToFile(section, L"INVERTFORCES", strTemp);
+	swprintf_s(strTemp, L"%u", INVERTFORCES[port]); WriteToFile(section, L"INVERTFORCES", strTemp);
 
 	for(int i=0; i<numc;i++){
 		swprintf_s(text, L"AXISID%i", i);swprintf_s(strTemp, L"%i", AXISID[port][i]);WriteToFile(section, text, strTemp);
@@ -236,7 +236,7 @@ void InitDI(int port)
 	InitDirectInput(hWin, port);
 }
 
-float GetControl(int port, int id,  bool axisbutton=false)
+float GetControl(int port, int id,  bool axisbutton)
 {
 	if(id==0) //steering uses two inputs
 	{
@@ -266,14 +266,17 @@ float GetControl(int port, int id,  bool axisbutton=false)
 		}else{
 			if(AXISID[port][id+1] > -1){return ReadAxisFiltered(port, id+1);}
 		}
-
-
-		if(BUTTON[port][id+1] > -1){
-			if(KeyDown(BUTTON[port][id+1]))
-				return 1.0;
-			else
-				return 0.0;
-		}
 	}
 	return 0.f;
+}
+
+bool GetControl(int port, int id)
+{
+	if (BUTTON[port][id + 1] > -1) {
+		if (KeyDown(BUTTON[port][id + 1]))
+			return true;
+		else
+			return false;
+	}
+	return false;
 }
