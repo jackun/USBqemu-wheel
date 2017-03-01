@@ -4,11 +4,10 @@
 #include "osdebugout.h"
 #include "platcompat.h"
 
-#undef min //msvc, wut
-
 RingBuffer::RingBuffer()
 	: m_begin(0)
 	, m_end(0)
+	, m_capacity(0)
 	, m_data(nullptr)
 	, overrun(false)
 {
