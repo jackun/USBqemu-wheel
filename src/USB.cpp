@@ -22,6 +22,7 @@
 
 #include "qemu-usb/vl.h"
 #include "USB.h"
+#include "osdebugout.h"
 #include "deviceproxy.h"
 #include "version.h" //CMake generated
 
@@ -407,7 +408,7 @@ EXPORT_C_(s32) USBtest() {
 	return 0;
 }
 
-void cpu_physical_memory_rw(u32 addr, u8 *buf, int len, int is_write)
+void cpu_physical_memory_rw(u32 addr, u8 *buf, size_t len, int is_write)
 {
 	//OSDebugOut(TEXT("%s addr %08X, len %d\n"), is_write ? TEXT("write") : TEXT("read "), addr, len);
 	if(is_write)
