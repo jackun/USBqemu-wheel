@@ -64,7 +64,7 @@ public:
 	T* back() { return (T*)(m_data + m_end); }
 
 private:
-	bool overrun;
+	bool m_overrun;
 	size_t m_begin, m_end, m_capacity;
 	char *m_data;
 };

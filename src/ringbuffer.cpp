@@ -9,7 +9,7 @@ RingBuffer::RingBuffer()
 	, m_end(0)
 	, m_capacity(0)
 	, m_data(nullptr)
-	, overrun(false)
+	, m_overrun(false)
 {
 }
 
@@ -37,7 +37,7 @@ size_t RingBuffer::size() const
 	size_t size = 0;
 	if (m_begin == m_end)
 	{
-		if (overrun)
+		if (m_overrun)
 			size = m_capacity;
 		else
 			size = 0;
@@ -101,7 +101,7 @@ size_t RingBuffer::peek_read() const
 	size_t peek = 0;
 	if (m_begin == m_end)
 	{
-		if (overrun)
+		if (m_overrun)
 			peek = m_capacity - m_begin;
 		else
 			peek = 0;
@@ -155,7 +155,7 @@ void RingBuffer::write(size_t bytes)
 	if ((m_end < m_begin && m_end + bytes > m_begin) ||
 			m_end + bytes > m_begin + m_capacity)
 	{
-		overrun = true;
+		m_overrun = true;
 		m_begin = (m_end + bytes) % m_capacity;
 		m_end   = m_begin;
 	}
@@ -170,7 +170,7 @@ void RingBuffer::read(size_t bytes)
 	assert( bytes <= size() );
 
 	size_t before = m_begin;
-	overrun = false;
+	m_overrun = false;
 	if ((m_begin < m_end && m_begin + bytes > m_end) ||
 		m_begin + bytes > m_end + m_capacity)
 	{
