@@ -63,9 +63,6 @@ extern Config conf;
 extern u8 *ram;
 
 // ---------------------------------------------------------------------
-#include "qemu-usb/USBinternal.h"
-
-#define PSXCLK	36864000	/* 36.864 Mhz */
 
 extern USBcallback _USBirq;
 void USBirq(int);
@@ -90,11 +87,6 @@ void SysMessageA(const char *fmt, ...);
 #endif
 #endif
 s64 get_clock();
-
-USBDevice *usb_hub_init(int nb_ports);
-USBDevice *usb_msd_init(const TCHAR *filename);
-USBDevice *eyetoy_init(void);
-USBDevice *usb_mouse_init(void);
 
 /* usb-pad-raw.cpp */
 #if _WIN32

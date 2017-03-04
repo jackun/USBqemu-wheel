@@ -29,8 +29,12 @@
 //typedef CPUReadMemoryFunc
 
 #include "vl.h"
-#include "../USB.h"
+#include "USBinternal.h"
 #include "../osdebugout.h"
+
+#define PSXCLK	36864000	/* 36.864 Mhz */
+extern void USBirq(int);
+extern int64_t get_clock();
 
 uint32_t bits = 0;
 uint32_t need_interrupt = 0;

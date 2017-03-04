@@ -278,7 +278,7 @@ public:
 		//Random limit of 1ms to 1 seconds
 		if(mBuffering == 0)
 			mBuffering = 50;
-		mBuffering = MIN(MAX(mBuffering, 1), 1000);
+		mBuffering = std::min(std::max(mBuffering, 1), 1000);
 		OSDebugOut(TEXT("Mic buffering: %d\n"), mBuffering);
 
 		err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(mBuffering), 0, pwfx, NULL);
@@ -707,12 +707,12 @@ error:
 		{
 			mTimeAdjust = (mSamples / (diff / 1e7)) / mSamplesPerSec;
 			//if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
-			OSDebugOut(TEXT("timespan: %") TEXT(PRId64) TEXT(" sampling: %f adjust: %f\n"), diff, float(mSamples) / diff * 1e7, mTimeAdjust);
+			OSDebugOut(TEXT("timespan: %I64d sampling: %f adjust: %f\n"), diff, float(mSamples) / diff * 1e7, mTimeAdjust);
 			mLastTimeNS = mTime;
 			mSamples = 0;
 		}
 
-		uint32_t totalLen = MIN(outFrames * mDeviceChannels, mShortBuffer.size());
+		uint32_t totalLen = std::min(outFrames * mDeviceChannels, mShortBuffer.size());
 		OSDebugOut(TEXT("Resampled buffer size: %zd, copy: %zd\n"), mShortBuffer.size(), totalLen);
 		if (totalLen > 0)
 		{

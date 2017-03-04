@@ -10,6 +10,7 @@
 //#include <memory>
 #include "helpers.h"
 #include "proxybase.h"
+#include "qemu-usb/USBinternal.h"
 
 struct DeviceKey
 {
