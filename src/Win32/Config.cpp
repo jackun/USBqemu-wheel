@@ -50,8 +50,7 @@ void GetIniFile(std::wstring &iniFile)
 bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::string& value)
 {
 	wchar_t tmp[4096] = { 0 };
-	if (!GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str()))
-		return false;
+	GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str());
 	if (GetLastError() == ERROR_FILE_NOT_FOUND)
 		return false;
 
@@ -65,8 +64,7 @@ bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, cons
 bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::wstring& value)
 {
 	wchar_t tmp[4096] = { 0 };
-	if (!GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str()))
-		return false;
+	GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str());
 	if (GetLastError() == ERROR_FILE_NOT_FOUND)
 		return false;
 	value = tmp;
