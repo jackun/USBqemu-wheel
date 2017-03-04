@@ -1144,8 +1144,6 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->out.srate = 48000;
     s->in.srate = 48000;
 
-    strncpy(s->dev.devname, "USBMIC", sizeof(s->dev.devname));
-
     return (USBDevice *)s;
 
 }

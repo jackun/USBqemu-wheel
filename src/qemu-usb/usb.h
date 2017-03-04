@@ -162,7 +162,6 @@ struct USBDevice {
     int (*handle_data)(USBDevice *dev, int pid, uint8_t devep,
                        uint8_t *data, int len);
     uint8_t addr;
-    char devname[32];
     
     int state;
     uint8_t setup_buf[8];

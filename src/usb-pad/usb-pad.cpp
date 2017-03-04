@@ -368,9 +368,6 @@ USBDevice *PadDevice::CreateDevice(int port)
 	s->dev.close = pad_close;
 	s->port = port;
 
-	// GT4 doesn't seem to care for a proper name?
-	strncpy(s->dev.devname, "Driving Force Pro", sizeof(s->dev.devname));
-
 	return (USBDevice *)s;
 
 }

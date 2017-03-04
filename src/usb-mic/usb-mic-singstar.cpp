@@ -928,9 +928,6 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
     s->srate[0] = 48000;
     s->srate[1] = 48000;
 
-
-    strncpy(s->dev.devname, "USBMIC", sizeof(s->dev.devname));
-
     return (USBDevice *)s;
 
 }
