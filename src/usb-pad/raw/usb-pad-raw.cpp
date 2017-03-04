@@ -525,8 +525,8 @@ LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		pRawInput = (PRAWINPUT)malloc(bufferSize);
 		if(!pRawInput)
 			break;
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER));
-		ParseRawInput(pRawInput);
+		if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0)
+			ParseRawInput(pRawInput);
 		free(pRawInput);
 		break;
 		}
@@ -606,7 +606,8 @@ int usb_pad_raw::RawInputPad::Configure(int port, void *data)
 	INT_PTR res = RESULT_FAILED;
 	if (InitWindow(h->hWnd))
 	{
-		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, port);
+		RawDlgConfig config(port);
+		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
 		UninitWindow();
 	}
 	return res;

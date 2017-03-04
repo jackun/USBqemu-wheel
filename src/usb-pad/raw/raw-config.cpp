@@ -16,7 +16,6 @@
 extern HINSTANCE hInst;
 extern char *szIni;
 extern std::wstring szIniDir;
-static std::wstring player_joys[2];
 extern void GetIniFile(std::wstring &iniFile);
 #define MSG_PRESS_ESC(wnd) SendDlgItemMessageW(wnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel")
 
@@ -83,18 +82,6 @@ void LoadMappings(MapVector& maps)
 			}
 		}
 	}
-
-	CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
-	if (LoadSetting(0, APINAME, var))
-		player_joys[0] = var.wstrValue;
-	else
-		player_joys[0].clear();
-
-	if (LoadSetting(1, APINAME, var))
-		player_joys[1] = var.wstrValue;
-	else
-		player_joys[1].clear();
-
 	return;
 }
 
@@ -210,7 +197,7 @@ PS2Buttons btnCapturing  = PAD_BUTTON_COUNT;
 PS2Axis    axisCapturing = PAD_AXIS_COUNT;
 PS2HatSwitch hatCapturing = PAD_HAT_COUNT;
 
-void populate(HWND hW)
+void populate(HWND hW, RawDlgConfig *cfg)
 {
 	//mappings.clear();
 	//joysName.clear();
@@ -324,12 +311,12 @@ void populate(HWND hW)
 				SendDlgItemMessageW(hW, IDC_COMBO_FFB, CB_ADDSTRING, 0, (LPARAM)str);
 			}
 
-			if(player_joys[0] == strPath)
+			if(cfg->player_joys[0] == strPath)
 			{
 				SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, sel_idx, 0);
 				selectedJoy[0] = sel_idx;
 			}
-			else if(player_joys[1] == strPath)
+			else if(cfg->player_joys[1] == strPath)
 			{
 				selectedJoy[1] = sel_idx;
 			}
@@ -683,6 +670,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	TCHAR buf[256];
 	LVITEM lv;
+	RawDlgConfig *cfg = nullptr;
 
 	switch(uMsg) {
 		case WM_INITDIALOG:
@@ -713,10 +701,24 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			}
 
 			//LoadConfig();
+			cfg = (RawDlgConfig *)lParam;
+			{
+				CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
+				if (LoadSetting(PLAYER_ONE_PORT, APINAME, var))
+					cfg->player_joys[0] = var.wstrValue;
+				else
+					cfg->player_joys[0].clear();
+
+				if (LoadSetting(PLAYER_TWO_PORT, APINAME, var))
+					cfg->player_joys[1] = var.wstrValue;
+				else
+					cfg->player_joys[1].clear();
+			}
+
 			LoadMappings(mapVector);
 			//if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
 			//CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
-			populate(hW);
+			populate(hW, cfg);
 			resetState(hW);
 			return TRUE;
 
@@ -732,8 +734,8 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			pRawInput = (PRAWINPUT)malloc(bufferSize);
 			if(!pRawInput)
 				break;
-			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER));
-			ParseRawInput(pRawInput, hW);
+			if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0)
+				ParseRawInput(pRawInput, hW);
 			free(pRawInput);
 
 			if(axisCapturing == PAD_AXIS_COUNT && 
@@ -855,15 +857,16 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 					EndDialog(hW, FALSE);
 					return TRUE;
 				case IDOK:
+					cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
 					//conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
-					player_joys[0] = *(joysDev.begin() + selectedJoy[0]);
-					player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
+					cfg->player_joys[0] = *(joysDev.begin() + selectedJoy[0]);
+					cfg->player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
 
 					INT_PTR res = RESULT_OK;
-					CONFIGVARIANT var(N_JOYSTICK, player_joys[0]);
+					CONFIGVARIANT var(N_JOYSTICK, cfg->player_joys[0]);
 					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
 						res = RESULT_FAILED;
-					var.wstrValue = player_joys[1];
+					var.wstrValue = cfg->player_joys[1];
 					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
 						res = RESULT_FAILED;
 					SaveMappings(mapVector);

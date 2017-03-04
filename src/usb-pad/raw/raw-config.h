@@ -38,6 +38,13 @@ struct Mappings {
 #endif
 };
 
+struct RawDlgConfig
+{
+	int port;
+	std::wstring player_joys[2];
+	RawDlgConfig(int p) : port(p) {}
+};
+
 typedef std::vector<Mappings> MapVector;
 static MapVector mapVector;
 
