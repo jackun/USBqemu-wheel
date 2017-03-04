@@ -4,6 +4,12 @@
 #include "osdebugout.h"
 #include "platcompat.h"
 
+#if 0
+#define DPRINTF OSDebugOut
+#else
+#define DPRINTF(...) do{}while(0)
+#endif
+
 RingBuffer::RingBuffer()
 	: m_begin(0)
 	, m_end(0)
@@ -29,7 +35,7 @@ void RingBuffer::reserve(size_t capacity)
 	m_data = new char[capacity];
 	memset(m_data, 0, capacity);
 	m_capacity = capacity;
-	OSDebugOut(TEXT("RingBuffer %p m_data %p\n"), this, m_data);
+	DPRINTF(TEXT("RingBuffer %p m_data %p\n"), this, m_data);
 }
 
 size_t RingBuffer::size() const
@@ -47,7 +53,7 @@ size_t RingBuffer::size() const
 	else
 		size = m_capacity - m_begin + m_end; // [...e   b...]
 
-	OSDebugOut(TEXT("size %zu\n"), size);
+	DPRINTF(TEXT("size %zu\n"), size);
 	return size;
 }
 
@@ -92,7 +98,7 @@ size_t RingBuffer::peek_write(bool overwrite) const
 	else
 		peek = m_begin;    // [   b.......e]
 
-	OSDebugOut(TEXT("peek_write %zu\n"), peek);
+	DPRINTF(TEXT("peek_write %zu\n"), peek);
 	return peek;
 }
 
@@ -113,7 +119,7 @@ size_t RingBuffer::peek_read() const
 	else
 		peek = m_end;    // [...e      b]
 
-	OSDebugOut(TEXT("peek_read %zu\n"), peek);
+	DPRINTF(TEXT("peek_read %zu\n"), peek);
 	return peek;
 }
 
@@ -162,7 +168,7 @@ void RingBuffer::write(size_t bytes)
 	else
 		m_end = (m_end + bytes) % m_capacity;
 
-	OSDebugOut(TEXT("write %zu begin %zu end %zu -> %zu\n"), bytes, m_begin, before, m_end);
+	DPRINTF(TEXT("write %zu begin %zu end %zu -> %zu\n"), bytes, m_begin, before, m_end);
 }
 
 void RingBuffer::read(size_t bytes)
@@ -179,5 +185,5 @@ void RingBuffer::read(size_t bytes)
 	}
 
 	m_begin = (m_begin + bytes) % m_capacity;
-	OSDebugOut(TEXT("read %zu begin %zu -> %zu end %zu\n"), bytes, before, m_begin, m_end);
+	DPRINTF(TEXT("read %zu begin %zu -> %zu end %zu\n"), bytes, before, m_begin, m_end);
 }
