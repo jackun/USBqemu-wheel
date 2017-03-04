@@ -30,6 +30,7 @@
 
 #include "vl.h"
 #include "USBinternal.h"
+#include "platcompat.h"
 #include "../osdebugout.h"
 
 #define PSXCLK	36864000	/* 36.864 Mhz */
