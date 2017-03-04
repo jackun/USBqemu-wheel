@@ -102,6 +102,8 @@ public:
 		mEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("ResamplerThread"));
 		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
 		if(!Init())
+			throw AudioDeviceError("MMAudioDevice:: device name is empty, skipping");
+		if(!Reinitialize())
 			throw AudioDeviceError("MMAudioDevice:: WASAPI init failed!");
 	}
 
@@ -150,7 +152,7 @@ public:
 			CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
 			if (!LoadSetting(mPort, APINAME, var))
 			{
-				return false;
+				throw AudioDeviceError("MMAudioDevice:: failed to load source from ini!");
 			}
 			mDevID = var.wstrValue;
 		}
@@ -159,15 +161,18 @@ public:
 			CONFIGVARIANT var(mDevice ? N_AUDIO_SINK1 : N_AUDIO_SINK0, CONFIG_TYPE_WCHAR);
 			if (!LoadSetting(mPort, APINAME, var))
 			{
-				return false;
+				throw AudioDeviceError("MMAudioDevice:: failed to load sink from ini!");
 			}
 			mDevID = var.wstrValue;
 		}
 
+		if (!mDevID.length())
+			return false;
+
 		{
-			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
+			CONFIGVARIANT var(mAudioDir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK, CONFIG_TYPE_INT);
 			if (LoadSetting(mPort, APINAME, var))
-				mBuffering = var.intValue;
+				mBuffering = std::min(1000, std::max(1, var.intValue));
 		}
 
 
@@ -179,7 +184,7 @@ public:
 		}
 		//TODO Not starting thread here unnecesserily
 		//mThread = CreateThread(NULL, 0, MMAudioDevice::CaptureThread, this, 0, 0);
-		return Reinitialize();
+		return true;
 	}
 
 	bool Reinitialize()
