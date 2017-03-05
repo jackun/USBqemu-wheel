@@ -38,19 +38,11 @@ struct usb_msd_csw {
 
 #define LBA_BLOCK_SIZE 512
 
-#if _DEBUG
-#define DEBUG_MSD
-#endif
-
-#ifdef DEBUG_MSD
 #define DPRINTF(fmt, ...) OSDebugOut(TEXT(fmt), ##__VA_ARGS__)
-#else
-#define DPRINTF(fmt, ...)
-#endif
 
 /* USB requests.  */
-#define MassStorageReset  0x21ff
-#define GetMaxLun         0xa1fe
+#define MassStorageReset  0xff
+#define GetMaxLun         0xfe
 
 enum USBMSDMode {
     USB_MSDM_CBW, /* Command Block.  */
@@ -63,9 +55,11 @@ typedef struct MSDState {
     USBDevice   dev;
 
     enum USBMSDMode mode;
-    int32_t data_len;
+    uint32_t data_len;
+    uint32_t residue;
     uint32_t tag;
-    FILE *hfile;
+    uint32_t file_op_tag; // read from file or buf
+    FILE *file;
     //char fn[MAX_PATH+1]; //TODO Could use with open/close,
                             //but error recovery currently can't deal with file suddenly
                             //becoming not accessible
@@ -269,13 +263,83 @@ static const uint8_t qemu_msd_config_descriptor[] = {
 /* Additional sense codes */
 #define INVALID_COMMAND_OPERATION 0x20
 
-static void usb_msd_command_complete(void *opaque, uint32_t tag, int fail)
-{
-    MSDState *s = (MSDState *)opaque;
+/* CSW status codes */
+#define COMMAND_PASSED      0x00 // GOOD
+#define COMMAND_FAILED      0x01
+#define PHASE_ERROR         0x02
 
-    DPRINTF("Command complete\n");
-    s->result = fail;
-    s->mode = USB_MSDM_CSW;
+typedef struct SCSISense {
+    uint8_t key;
+    uint8_t asc;
+    uint8_t ascq;
+} SCSISense;
+
+#define SENSE_CODE(x) sense_code_ ## x
+
+/*
+ * Predefined sense codes
+ */
+
+/* No sense data available */
+const struct SCSISense sense_code_NO_SENSE = {
+    NO_SENSE , 0x00 , 0x00
+};
+
+/* LUN not ready, Manual intervention required */
+const struct SCSISense sense_code_LUN_NOT_READY = {
+    NOT_READY, 0x04, 0x03
+};
+
+/* LUN not ready, Medium not present */
+const struct SCSISense sense_code_NO_MEDIUM = {
+    NOT_READY, 0x3a, 0x00
+};
+
+const struct SCSISense sense_code_UNKNOWN_ERROR = {
+    NOT_READY , 0xFF , 0xFF
+};
+
+const struct SCSISense sense_code_NO_SEEK_COMPLETE = {
+    MEDIUM_ERROR, 0x02, 0x00
+};
+
+const struct SCSISense sense_code_WRITE_FAULT = {
+    MEDIUM_ERROR, 0x03, 0x00
+};
+
+const struct SCSISense sense_code_UNRECOVERED_READ_ERROR = {
+    MEDIUM_ERROR, 0x11, 0x00
+};
+
+const struct SCSISense sense_code_INVALID_OPCODE = {
+    ILLEGAL_REQUEST, 0x20, 0x00
+};
+
+/* Illegal request, Invalid Transfer Tag */
+//const struct SCSISense sense_code_INVALID_TAG = {
+//    .key = ILLEGAL_REQUEST, .asc = 0x4b, .ascq = 0x01
+//};
+
+static int64_t get_file_size(FILE *file)
+{
+    int fd;
+
+#if defined(_WIN32)
+    struct _stat64 buf;
+    fd = _fileno(file);
+    if (_fstat64(fd, &buf) != 0)
+        return -1;
+    return buf.st_size;
+#elif defined(__GNUC__)
+    struct stat64 buf;
+    fd = fileno(file);
+    if (fstat64(fd, &buf) != 0)
+        return -1;
+    return buf.st_size;
+#else
+    #error Unknown platform
+#endif
+
 }
 
 static void usb_msd_handle_reset(USBDevice *dev)
@@ -300,22 +364,22 @@ static void usb_msd_handle_reset(USBDevice *dev)
 #define bswap16(x) ( (((x)>>8)&0xff) | (((x)<<8)&0xff00) )
 #endif
 
-static void set_sense(void *opaque, uint32_t sense, uint8_t extra)
+static void set_sense(void *opaque, SCSISense sense)
 {
     MSDState *s = (MSDState *)opaque;
     memset(s->sense_buf, 0, sizeof(s->sense_buf));
     //SENSE request
-    s->sense_buf[0] = 0x70;//0x70 - current sense
+    s->sense_buf[0] = 0x70;//0x70 - current sense, 0x80 - set Valid bit if got sense information
     //s->sense_buf[1] = 0x00;
-    s->sense_buf[2] = sense;//ILLEGAL_REQUEST;
-    //sense information like LBA where error occured
-    //s->sense_buf[3] = 0x00;
+    s->sense_buf[2] = sense.key;//ILLEGAL_REQUEST;
+    //sense information, like LBA where error occured
+    //s->sense_buf[3] = 0x00; //MSB
     //s->sense_buf[4] = 0x00;
     //s->sense_buf[5] = 0x00;
-    //s->sense_buf[6] = 0x00;
-    s->sense_buf[7] = extra ? 0x0a : 0x00; //Additional sense length (10 bytes if any)
-    s->sense_buf[12] = extra; //Additional sense code
-    //s->sense_buf[13] = 0x0; //Additional sense code qualifier
+    //s->sense_buf[6] = 0x00; //LSB
+    s->sense_buf[7] = sense.asc ? 0x0a : 0x00; //Additional sense length (10 bytes if any)
+    s->sense_buf[12] = sense.asc; //Additional sense code
+    s->sense_buf[13] = sense.ascq; //Additional sense code qualifier
 }
 
 static void send_command(void *opaque, struct usb_msd_cbw *cbw)
@@ -331,21 +395,22 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
     {
     case TEST_UNIT_READY:
         //Do something?
-        s->result = GOOD;
-        set_sense(s, NO_SENSE, 0);
+        s->result = COMMAND_PASSED;
+        set_sense(s, SENSE_CODE(NO_SENSE));
         /* If error */
-        //s->result = CHECK_CONDITION;
-        //set_sense(s, NOT_READY, 0);
+        //s->result = COMMAND_FAILED;
+        //set_sense(s, SENSE_CODE(LUN_NOT_READY));
         break;
     case REQUEST_SENSE: //device shall keep old sense data
-        s->result = GOOD;
-        //memcpy_s(s->buf, s->data_len, s->sense_buf, sizeof(s->sense_buf)); //not on !WINDOWS
+        s->result = COMMAND_PASSED;
+        DPRINTF("REQUEST_SENSE allocation length: %d\n", (int)cbw->cmd[4]);
         memcpy(s->buf, s->sense_buf,
-            /* TODO or error out instead? */
-            s->data_len < sizeof(s->sense_buf) ? s->data_len : sizeof(s->sense_buf));
+            /* XXX the UFI device shall return only the number of bytes requested, as is */
+            cbw->cmd[4] < sizeof(s->sense_buf) ? (size_t)cbw->cmd[4] : sizeof(s->sense_buf));
         break;
     case INQUIRY:
-        set_sense(s, NO_SENSE, 0);
+        s->result = COMMAND_PASSED;
+        set_sense(s, SENSE_CODE(NO_SENSE));
         memset(s->buf, 0, sizeof(s->buf));
         s->off = 0;
         s->buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
@@ -355,40 +420,43 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
         strncpy((char*)&s->buf[8], "QEMU", 8); //8 bytes vendor
         strncpy((char*)&s->buf[16], "USB Drive", 16); //16 bytes product
         strncpy((char*)&s->buf[32], "1", 4); //4 bytes product revision
-        s->result = 0;
         break;
 
     case READ_CAPACITY:
-        long cur_tell, end_tell;
+        int64_t fsize;
         uint32_t *last_lba, *blk_len;
 
-        set_sense(s, NO_SENSE, 0);
+        s->result = COMMAND_PASSED;
+        set_sense(s, SENSE_CODE(NO_SENSE));
         memset(s->buf, 0, sizeof(s->buf));
         s->off = 0;
 
-        cur_tell = ftell(s->hfile);
-        fseek(s->hfile, 0, SEEK_END);
-        end_tell = ftell(s->hfile);
-        fseek(s->hfile, cur_tell, SEEK_SET);
+        fsize = get_file_size(s->file);
+
+        if (fsize == -1) //TODO
+        {
+            s->result = COMMAND_FAILED;
+            set_sense(s, SENSE_CODE(UNKNOWN_ERROR));
+            break;
+        }
 
         last_lba = (uint32_t*)&s->buf[0];
         blk_len = (uint32_t*)&s->buf[4]; //in bytes
         //right?
         *blk_len = LBA_BLOCK_SIZE;//descriptor is currently max 64 bytes for bulk though
-        *last_lba = end_tell / *blk_len;
+        *last_lba = fsize / *blk_len;
 
         DPRINTF("read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
 
         *last_lba = bswap32(*last_lba);
         *blk_len = bswap32(*blk_len);
-        s->result = GOOD;
         break;
 
     case READ_12:
     case READ_10:
-        s->result = GOOD;
+        s->result = COMMAND_PASSED;
         s->off = 0;
-        set_sense(s, NO_SENSE, 0);
+        set_sense(s, SENSE_CODE(NO_SENSE));
 
         lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
         if(cbw->cmd[0] == READ_10)
@@ -396,31 +464,34 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
         else
             xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
 
+        s->data_len = xfer_len * LBA_BLOCK_SIZE;
+        s->file_op_tag = s->tag;
+
         DPRINTF("read lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
-        if(xfer_len == 0) //TODO nothing to do
+        if(xfer_len == 0) // nothing to do
             break;
 
-        if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
-            s->result = 0x2;//PHASE_ERROR
-            set_sense(s, MEDIUM_ERROR, 0);
+        if(fseeko64(s->file, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
+            s->result = COMMAND_FAILED;
+            set_sense(s, SENSE_CODE(NO_SEEK_COMPLETE));
             return;
         }
 
-        memset(s->buf, 0, sizeof(s->buf));
+        //memset(s->buf, 0, sizeof(s->buf));
         //Or do actual reading in USB_MSDM_DATAIN?
         //TODO probably dont set data_len to read length
-        if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->hfile))) {
-            s->result = 0x2;//PHASE_ERROR
-            set_sense(s, MEDIUM_ERROR, 0);
-        }
+        //if(!(s->data_len = fread(s->buf, 1, /*s->data_len*/ xfer_len * LBA_BLOCK_SIZE, s->file))) {
+        //  s->result = PHASE_ERROR;
+        //  set_sense(s, SENSE_CODE(UNRECOVERED_READ_ERROR));
+        //}
         break;
 
     case WRITE_12:
     case WRITE_10:
-        s->result = GOOD;//everything is fine
+        s->result = COMMAND_PASSED;
         s->off = 0;
-        set_sense(s, NO_SENSE, 0);
+        set_sense(s, SENSE_CODE(NO_SENSE));
 
         lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
         if(cbw->cmd[0] == WRITE_10)
@@ -429,20 +500,24 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
             xfer_len = bswap32(*(uint32_t *)&cbw->cmd[6]);
         DPRINTF("write lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
-        //if(xfer_len == 0) //nothing to do
-        //  break;
-        if(fseek(s->hfile, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
-            s->result = 0x2;//PHASE_ERROR
-            set_sense(s, MEDIUM_ERROR, 0);
+        s->data_len = xfer_len * LBA_BLOCK_SIZE;
+        s->file_op_tag = s->tag;
+
+        if(xfer_len == 0) //nothing to do
+          break;
+        if(fseeko64(s->file, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
+            s->result = COMMAND_FAILED;
+            set_sense(s, SENSE_CODE(NO_SEEK_COMPLETE));
             return;
         }
-        s->data_len = xfer_len * LBA_BLOCK_SIZE;
+
         //Actual write comes with next command in USB_MSDM_DATAOUT
         break;
     default:
-        OSDebugOut(TEXT("usb-msd: invalid command %d\n"), cbw->cmd[0]);
-        s->result = 0x1; //COMMAND_FAILED
-        set_sense(s, ILLEGAL_REQUEST, INVALID_COMMAND_OPERATION);
+        DPRINTF("usb-msd: invalid command %d\n", cbw->cmd[0]);
+        s->result = COMMAND_FAILED;
+        set_sense(s, SENSE_CODE(INVALID_OPCODE));
+        s->mode = USB_MSDM_CSW; //TODO
         break;
     }
 }
@@ -544,12 +619,13 @@ static int usb_msd_handle_control(USBDevice *dev, int request, int value,
         ret = 0;
         break;
         /* Class specific requests.  */
-    case MassStorageReset:
+    case ClassInterfaceOutRequest | MassStorageReset:
         /* Reset state ready for the next CBW.  */
+        DPRINTF("Resetting msd...\n");
         s->mode = USB_MSDM_CBW;
         ret = 0;
         break;
-    case GetMaxLun:
+    case ClassInterfaceRequest | GetMaxLun:
         data[0] = 0;
         ret = 1;
         break;
@@ -567,6 +643,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 {
     MSDState *s = (MSDState *)dev;
     int ret = 0;
+    size_t file_ret = 0;
     struct usb_msd_cbw cbw;
     struct usb_msd_csw csw;
 
@@ -614,15 +691,25 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             break;
 
         case USB_MSDM_DATAOUT:
-            DPRINTF("Data out %d/%d\n", len, s->data_len);
-            //len == 0x1f falls into here on write error :S.
-            //Forcing mode to CBW in fail label
-            //USB_RET_STALL is correct?
+            DPRINTF("Data out: write %d bytes of %d remaining\n", len, s->data_len);
+            //TODO check if CBW still falls into here on write error a.k.a s->mode is set wrong
             if (len > s->data_len)
                 goto fail;
 
-            if (!fwrite(data, 1, len, s->hfile))
+            if (len == 0) //TODO send status?
+                goto send_csw;
+            else if (s->tag != s->file_op_tag) //TODO check tags?
+            {
+                DPRINTF("Tag: 0x%08X != 0x%08X\n", s->tag, s->file_op_tag);
                 goto fail;
+            }
+            else if ((file_ret = fwrite(data, 1, len, s->file)) < len)
+            {
+                DPRINTF("Write failed: %d!=%d\n", len, file_ret);
+                s->result = COMMAND_FAILED; //PHASE_ERROR;
+                set_sense(s, SENSE_CODE(WRITE_FAULT));
+                goto fail;
+            }
 
             s->data_len -= len;
             if (s->data_len == 0)
@@ -631,7 +718,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             break;
 
         default:
-            DPRINTF("Unexpected write (len %d)\n", len);
+            DPRINTF("Unexpected write (len %d, mode %d)\n", len, s->mode);
             goto fail;
         }
         break;
@@ -642,6 +729,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 
         switch (s->mode) {
         case USB_MSDM_CSW:
+        send_csw:
             DPRINTF("Command status %d tag 0x%x, len %d\n",
                     s->result, s->tag, len);
             if (len < 13)
@@ -649,7 +737,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 
             csw.sig = cpu_to_le32(0x53425355);
             csw.tag = cpu_to_le32(s->tag);
-            csw.residue = 0;
+            csw.residue = cpu_to_le32(s->data_len);
             csw.status = s->result;
             memcpy(data, &csw, 13);
             ret = 13;
@@ -657,24 +745,45 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
             break;
 
         case USB_MSDM_DATAIN:
-            DPRINTF("Data in %d/%d\n", len, s->data_len);
+            //if (len == 13) goto send_csw;
+            DPRINTF("Data in: reading %d bytes of %d bytes remaining\n", len, s->data_len);
             if (len > s->data_len)
-                len = s->data_len;
-
-            if(s->off + len > sizeof(s->buf))
+            {
+                //len = s->data_len;
+                s->result = COMMAND_FAILED; //PHASE_ERROR;
+                set_sense(s, SENSE_CODE(UNRECOVERED_READ_ERROR));
                 goto fail;
+            }
 
-            memcpy(data, &s->buf[s->off], len);
-            s->off += len;
+            if (s->tag == s->file_op_tag) //TODO do check tags?
+            {
+                if((file_ret = fread(data, 1, len, s->file)) < len) {
+                    s->result = COMMAND_FAILED;
+                    set_sense(s, SENSE_CODE(UNRECOVERED_READ_ERROR));
+                    goto fail;
+                }
+            }
+            else if(s->off + len > sizeof(s->buf)) //TODO possible case?
+            {
+                //len = s->data_len;
+                s->result = COMMAND_FAILED;
+                set_sense(s, SENSE_CODE(UNRECOVERED_READ_ERROR));
+                goto fail;
+            }
+            else
+            {
+                memcpy(data, &s->buf[s->off], len);
+                s->off += len;
+            }
 
             s->data_len -= len;
-            if (s->data_len == 0)
+            if (s->data_len <= 0)
                 s->mode = USB_MSDM_CSW;
             ret = len;
             break;
 
         default:
-            DPRINTF("Unexpected read (len %d)\n", len);
+            DPRINTF("Unexpected read (len %d, mode %d)\n", len, s->mode);
             goto fail;
         }
         break;
@@ -683,7 +792,7 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
         DPRINTF("Bad token\n");
     fail:
         ret = USB_RET_STALL;
-        s->mode = USB_MSDM_CBW;
+        s->mode = USB_MSDM_CSW;
         break;
     }
 
@@ -693,11 +802,10 @@ static int usb_msd_handle_data(USBDevice *dev, int pid, uint8_t devep,
 static void usb_msd_handle_destroy(USBDevice *dev)
 {
     MSDState *s = (MSDState *)dev;
-    if (s)
+    if (s && s->file)
     {
-        if(s->hfile)
-            fclose(s->hfile);
-        s->hfile = NULL;
+        fclose(s->file);
+        s->file = NULL;
     }
     free(s);
 }
@@ -714,15 +822,15 @@ USBDevice *MsdDevice::CreateDevice(int port)
 
     CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
 
-    if(!LoadSetting(port, api, var))
+    if (!LoadSetting(port, api, var))
     {
         fprintf(stderr, "usb-msd: Could not load settings\n");
         return NULL;
     }
 
-    s->hfile = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
-    if (!s->hfile) {
-        fprintf(stderr, "usb-msd: Could not open image file\n");
+    s->file = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
+    if (!s->file) {
+        fprintf(stderr, "usb-msd: Could not open image file '%" SFMTs"'\n", var.tstrValue.c_str());
         return NULL;
     }
 
@@ -739,7 +847,7 @@ USBDevice *MsdDevice::CreateDevice(int port)
     return (USBDevice *)s;
 }
 
-REGISTER_DEVICE(1, DEVICENAME, MsdDevice);
+REGISTER_DEVICE(DEVTYPE_MSD, DEVICENAME, MsdDevice);
 #undef DPRINTF
 #undef DEVICENAME
 #undef APINAME
