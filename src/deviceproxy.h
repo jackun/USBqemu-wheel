@@ -12,6 +12,15 @@
 #include "proxybase.h"
 #include "qemu-usb/USBinternal.h"
 
+enum DeviceType
+{
+	DEVTYPE_PAD = 0,
+	DEVTYPE_MSD,
+	DEVTYPE_SINGSTAR,
+	DEVTYPE_LOGITECH_MIC,
+	DEVTYPE_LOGITECH_HEADSET,
+};
+
 struct DeviceKey
 {
 	DeviceKey(int i, std::string name): index(i), name(name) {}
