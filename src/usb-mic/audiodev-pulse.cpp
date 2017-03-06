@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstring>
+#include "ringbuffer.h"
 #include "../osdebugout.h"
 #include "audiodeviceproxy.h"
 #include "../libsamplerate/samplerate.h"
@@ -200,11 +201,15 @@ static int GtkConfigure(int port, void *data)
 	gtk_window_set_resizable (GTK_WINDOW (dlg), TRUE);
 	GtkWidget *dlg_area_box = gtk_dialog_get_content_area (GTK_DIALOG (dlg));
 
-	ro_frame = gtk_frame_new (NULL);
-	gtk_box_pack_start (GTK_BOX (dlg_area_box), ro_frame, TRUE, FALSE, 5);
 
 	GtkWidget *main_vbox = gtk_vbox_new (FALSE, 5);
-	gtk_container_add (GTK_CONTAINER (ro_frame), main_vbox);
+	gtk_box_pack_start (GTK_BOX (dlg_area_box), main_vbox, TRUE, FALSE, 5);
+
+	ro_frame = gtk_frame_new ("Audio Devices");
+	gtk_box_pack_start (GTK_BOX (main_vbox), ro_frame, TRUE, FALSE, 5);
+
+	GtkWidget *frame_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_add (GTK_CONTAINER (ro_frame), frame_vbox);
 
 	const char* labels[] = {"Source 1", "Source 2", "Sink 1", "Sink 2"};
 	for (int i=0; i<2; i++)
@@ -214,25 +219,69 @@ static int GtkConfigure(int port, void *data)
 		if (LoadSetting(port, APINAME, var))
 			devName = var.strValue;
 
-		GtkWidget *cb = new_combobox(labels[i], main_vbox);
+		GtkWidget *cb = new_combobox(labels[i], frame_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
 		populateDeviceWidget (GTK_COMBO_BOX (cb), devName, srcDevs);
 	}
 
-	for (int i=2; i<4; i++)
+	//TODO only one for now
+	for (int i=2; i<3 /*4*/; i++)
 	{
 		std::string devName;
 		CONFIGVARIANT var(i-2 ? N_AUDIO_SINK1 : N_AUDIO_SINK0, CONFIG_TYPE_CHAR);
 		if (LoadSetting(port, APINAME, var))
 			devName = var.strValue;
 
-		GtkWidget *cb = new_combobox(labels[i], main_vbox);
+		GtkWidget *cb = new_combobox(labels[i], frame_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
 		populateDeviceWidget (GTK_COMBO_BOX (cb), devName, sinkDevs);
 	}
 
+	ro_frame = gtk_frame_new ("Buffer lengths");
+	gtk_box_pack_start (GTK_BOX (main_vbox), ro_frame, TRUE, FALSE, 5);
+
+	frame_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_add (GTK_CONTAINER (ro_frame), frame_vbox);
+
+	const char *labels_buff[] = {"Sources", "Sinks"};
+	const char *buff_var_name[] = {N_BUFFER_LEN_SRC, N_BUFFER_LEN_SINK};
+	GtkWidget *scales[2];
+
+	GtkWidget* table = gtk_table_new (2, 2, true);
+	gtk_container_add (GTK_CONTAINER (frame_vbox), table);
+	gtk_table_set_homogeneous (GTK_TABLE (table), FALSE);
+	GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
+
+	for (int i=0; i<2; i++)
+	{
+		GtkWidget *label = gtk_label_new (labels_buff[i]);
+		gtk_table_attach (GTK_TABLE (table), label,
+					0, 1,
+					0 + i, 1 + i,
+					GTK_SHRINK, GTK_SHRINK, 5, 1);
+
+		//scales[i] = gtk_scale_new_with_range (GTK_ORIENTATION_HORIZONTAL, 1, 1000, 1);
+		scales[i] = gtk_hscale_new_with_range (1, 1000, 1);
+		gtk_table_attach (GTK_TABLE (table), scales[i],
+					1, 2,
+					0 + i, 1 + i,
+					opt, opt, 5, 1);
+
+		CONFIGVARIANT var(buff_var_name[i], CONFIG_TYPE_INT);
+		if (LoadSetting(port, APINAME, var))
+			gtk_range_set_value (GTK_RANGE (scales[i]), var.intValue);
+		else
+			gtk_range_set_value (GTK_RANGE (scales[i]), 50);
+	}
+
 	gtk_widget_show_all (dlg);
 	gint result = gtk_dialog_run (GTK_DIALOG (dlg));
+
+	int scale_vals[2];
+	for (int i=0; i<2; i++)
+	{
+		scale_vals[i] = gtk_range_get_value (GTK_RANGE (scales[i]));
+	}
 
 	gtk_widget_destroy (dlg);
 
@@ -240,8 +289,10 @@ static int GtkConfigure(int port, void *data)
 	while (gtk_events_pending ())
 		gtk_main_iteration_do (FALSE);
 
+	int ret = RESULT_CANCELED;
 	if (result == GTK_RESPONSE_OK)
 	{
+		ret = RESULT_OK;
 		for (int i=0; i<2; i++)
 		{
 			int idx = dev_idxs[i];
@@ -252,7 +303,7 @@ static int GtkConfigure(int port, void *data)
 					var.strValue = srcDevs[idx - 1].strID;
 
 				if (!SaveSetting(port, APINAME, var))
-						return RESULT_FAILED;
+					ret = RESULT_FAILED;
 			}
 
 			idx = dev_idxs[i+2];
@@ -263,13 +314,19 @@ static int GtkConfigure(int port, void *data)
 					var.strValue = sinkDevs[idx - 1].strID;
 
 				if (!SaveSetting(port, APINAME, var))
-						return RESULT_FAILED;
+					ret = RESULT_FAILED;
+			}
+
+			// Save buffer lengths
+			{
+				CONFIGVARIANT var(buff_var_name[i], scale_vals[i]);
+				if (!SaveSetting(port, APINAME, var))
+					ret = RESULT_FAILED;
 			}
 		}
-		return RESULT_OK;
 	}
 
-	return RESULT_CANCELED;
+	return ret;
 }
 
 class PulseAudioDevice : public AudioDevice
@@ -309,9 +366,9 @@ public:
 			throw AudioDeviceError(APINAME ": failed to load device settings");
 
 		{
-			CONFIGVARIANT var(N_BUFFER_LEN, CONFIG_TYPE_INT);
+			CONFIGVARIANT var(dir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK, CONFIG_TYPE_INT);
 			if(LoadSetting(mPort, APINAME, var))
-				mBuffering = MAX(25, var.intValue);
+				mBuffering = MIN(1000, MAX(1, var.intValue));
 		}
 
 		if (!AudioInit())
@@ -334,7 +391,7 @@ public:
 		if (file) fclose(file);
 	}
 
-	uint32_t GetBuffer(int16_t *buff, uint32_t frames)
+	uint32_t GetBuffer(short *buff, uint32_t frames)
 	{
 		auto now = hrc::now();
 		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
@@ -360,36 +417,23 @@ public:
 		else
 			mLastGetBuffer = now;
 
-		//FIXME Can't use it like this. Some games only poll for data when needed.
-		// Something cocked up and game didn't poll usb over 5 secs
-		//if (dur > 5000)
-		//	ResetBuffers();
-
-		//auto diff = std::chrono::duration_cast<us>(now-mLastOut).count();
-		//mOutSamples += frames;
-
-		//if (diff >= int64_t(1e6))
-		//{
-			//mTimeAdjust = (mOutSamples / (diff / 1e6)) / mSamplesPerSec;
-			////if(mTimeAdjust > 1.0) mTimeAdjust = 1.0; //If game is in 'turbo mode', just return zero samples or...?
-			//OSDebugOut("timespan: %" PRId64 " sampling: %f adjust: %f\n", diff, float(mOutSamples) / diff * 1e6, mTimeAdjust);
-			//mLastOut = now;
-			//mOutSamples = 0;
-		//}
-
 		std::lock_guard<std::mutex> lk(mMutex);
-		uint32_t totalFrames = MIN(frames * mSSpec.channels, mShortBuffer.size());//TODO double check, remove?
-		//OSDebugOut("Resampled buffer size: %zd, sent: %zd\n", mShortBuffer.size(), totalFrames / mSSpec.channels);
-		if (totalFrames > 0)
-		{
-			memcpy(buff, mShortBuffer.data(), sizeof(short) * totalFrames);
-			mShortBuffer.erase(mShortBuffer.begin(), mShortBuffer.begin() + totalFrames);
-		}
+		ssize_t samples_to_read = frames * GetChannels();
+		short *pDst = (short *) buff;
+		assert(samples_to_read <= mOutBuffer.size<short>());
 
-		return totalFrames / mSSpec.channels;
+		while (samples_to_read > 0)
+		{
+			ssize_t samples = std::min(samples_to_read, (ssize_t)mOutBuffer.peek_read<short>());
+			memcpy(pDst, mOutBuffer.front(), samples * sizeof(short));
+			mOutBuffer.read<short>(samples);
+			pDst += samples;
+			samples_to_read -= samples;
+		}
+		return (frames - samples_to_read * GetChannels());
 	}
 
-	uint32_t SetBuffer(int16_t *buff, uint32_t frames)
+	uint32_t SetBuffer(short *buff, uint32_t frames)
 	{
 		auto now = hrc::now();
 		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
@@ -418,29 +462,16 @@ public:
 			mLastGetBuffer = now;
 
 		std::lock_guard<std::mutex> lk(mMutex);
-		size_t old_size = mShortBuffer.size();
-		size_t nshort = frames * mSSpec.channels;
-		mShortBuffer.resize(old_size + nshort);
-		memcpy(mShortBuffer.data() + old_size, buff, nshort * sizeof(int16_t));
+		size_t nbytes = frames * sizeof(short) * GetChannels();
+		mInBuffer.write((uint8_t *) buff, nbytes);
 
-#if 0
-		if (!file)
-		{
-			char name[1024] = { 0 };
-			snprintf(name, sizeof(name), "headset_out_s16le_%dch_%dHz.raw", mSSpec.channels, mSSpec.rate);
-			file = fopen(name, "wb");
-		}
-
-		if (file)
-			fwrite(mShortBuffer.data() + old_size, 1, nshort * sizeof(int16_t), file);
-#endif
 		return frames;
 	}
 
 	bool GetFrames(uint32_t *size)
 	{
 		std::lock_guard<std::mutex> lk(mMutex);
-		*size = mShortBuffer.size() / mSSpec.channels;
+		*size = mOutBuffer.size<short>() / GetChannels();
 		return true;
 	}
 
@@ -455,7 +486,7 @@ public:
 		ResetBuffers();
 	}
 
-	uint32_t GetChannels()
+	inline uint32_t GetChannels()
 	{
 		return mSSpec.channels;
 	}
@@ -662,7 +693,7 @@ public:
 		// Setup resampler
 		mResampler = src_delete(mResampler);
 
-		mResampler = src_new(SRC_SINC_FASTEST, mSSpec.channels, &ret);
+		mResampler = src_new(SRC_SINC_FASTEST, GetChannels(), &ret);
 		if (!mResampler)
 		{
 			OSDebugOut("Failed to create resampler: error %08X\n", ret);
@@ -680,17 +711,32 @@ public:
 
 	void ResetBuffers()
 	{
+		size_t bytes;
 		std::lock_guard<std::mutex> lk(mMutex);
 		pa_sample_spec ss(mSSpec);
 		ss.rate = mSamplesPerSec;
 
-		size_t bytes = pa_bytes_per_second(&mSSpec) * 5;
-		mFloatBuffer.resize(0);
-		mFloatBuffer.reserve(bytes);
+		if (mAudioDir == AUDIODIR_SOURCE)
+		{
+			bytes = pa_bytes_per_second(&mSSpec) * mBuffering / 1000;
+			bytes += bytes % pa_frame_size(&mSSpec); //align just in case
+			mInBuffer.reserve(bytes);
 
-		bytes = pa_bytes_per_second(&ss) * 5;
-		mShortBuffer.resize(0);
-		mShortBuffer.reserve(bytes);
+			bytes = pa_bytes_per_second(&ss) * mBuffering / 1000;
+			bytes += bytes % pa_frame_size(&ss);
+			mOutBuffer.reserve(bytes);
+		}
+		else
+		{
+			bytes = pa_bytes_per_second(&mSSpec) * mBuffering / 1000;
+			bytes += bytes % pa_frame_size(&mSSpec);
+			mOutBuffer.reserve(bytes);
+
+			bytes = pa_bytes_per_second(&ss) * mBuffering / 1000;
+			bytes += bytes % pa_frame_size(&ss);
+			mInBuffer.reserve(bytes);
+		}
+
 		src_reset(mResampler);
 	}
 
@@ -754,8 +800,8 @@ protected:
 	double mResampleRatio;
 	// Speed up or slow down audio
 	double mTimeAdjust;
-	std::vector<short> mShortBuffer;
-	std::vector<float> mFloatBuffer;
+	RingBuffer mOutBuffer;
+	RingBuffer mInBuffer;
 	//std::thread mThread;
 	//std::condition_variable mEvent;
 	std::mutex mMutex;
@@ -810,8 +856,11 @@ void PulseAudioDevice::stream_state_cb(pa_stream *s, void *userdata)
 
 void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userdata)
 {
+	std::vector<float> rebuf;
+	SRC_DATA data;
 	PulseAudioDevice *padev = (PulseAudioDevice *) userdata;
 	const void* padata = NULL;
+
 	if (padev->mQuit)
 		return;
 
@@ -831,60 +880,53 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		return;
 	}
 
-	{
-		size_t old_size = padev->mFloatBuffer.size();
-		size_t nfloats = nbytes / sizeof(float);
-		padev->mFloatBuffer.resize(old_size + nfloats);
-		memcpy(&padev->mFloatBuffer[old_size], padata, nbytes);
-		//if copy succeeded, drop samples at pulse's side
-		ret = pa_stream_drop(p);
-		if (ret != PA_OK)
-			OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
-	}
+	padev->mInBuffer.write((uint8_t *) padata, nbytes);
 
-	size_t resampled = static_cast<size_t>(padev->mFloatBuffer.size() * padev->mResampleRatio * padev->mTimeAdjust);// * padev->mSSpec.channels;
+	//if copy succeeded, drop samples at pulse's side
+	ret = pa_stream_drop(p);
+	if (ret != PA_OK)
+		OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
+
+	size_t resampled = static_cast<size_t>(padev->mInBuffer.size<float>() * padev->mResampleRatio * padev->mTimeAdjust);
 	if (resampled == 0)
-		resampled = padev->mFloatBuffer.size();
+		resampled = padev->mInBuffer.size<float>();
+	rebuf.resize(resampled);
 
-	std::vector<float> rebuf(resampled);
+	size_t output_frames = 0;
+	float *pBegin = rebuf.data();
+	float *pEnd   = pBegin + rebuf.size();
 
-	SRC_DATA data;
 	memset(&data, 0, sizeof(SRC_DATA));
-	data.data_in = padev->mFloatBuffer.data();
-	data.input_frames = padev->mFloatBuffer.size() / padev->mSSpec.channels;
-	data.data_out = rebuf.data();
-	data.output_frames = resampled / padev->mSSpec.channels;
-	data.src_ratio = padev->mResampleRatio * padev->mTimeAdjust;
 
-	src_process(padev->mResampler, &data);
+	while (padev->mInBuffer.peek_read() > 0)
+	{
+		data.data_in       = (const float *) padev->mInBuffer.front();
+		data.input_frames  = padev->mInBuffer.peek_read<float>() / padev->GetChannels();
+		data.data_out      = pBegin;
+		data.output_frames = (pEnd - pBegin) / padev->GetChannels();
+		data.src_ratio     = padev->mResampleRatio * padev->mTimeAdjust;
+
+		src_process(padev->mResampler, &data);
+		output_frames += data.output_frames_gen;
+		pBegin += data.output_frames_gen * padev->GetChannels();
+
+		size_t samples = data.input_frames_used * padev->GetChannels();
+		if (!samples) break; //TODO happens?
+		padev->mInBuffer.read<float>(samples);
+	}
 
 	std::lock_guard<std::mutex> lock(padev->mMutex);
 
-	uint32_t len = data.output_frames_gen * padev->mSSpec.channels;
-	size_t size = padev->mShortBuffer.size();
-	if (len > 0)
+	size_t len = output_frames * padev->GetChannels();
+	float *pSrc = rebuf.data();
+	while (len > 0)
 	{
-		//too long, drop samples, caused by saving/loading savestates and random stutters
-		int sizeInMS = (((padev->mShortBuffer.size() + len) * 1000 / padev->mSSpec.channels) / padev->mSamplesPerSec);
-		int threshold = padev->mBuffering > 25 ? padev->mBuffering : 25;
-		if (sizeInMS > threshold)
-		{
-			size = 0;
-			padev->mShortBuffer.resize(len);
-		}
-		else
-			padev->mShortBuffer.resize(size + len);
-		src_float_to_short_array(rebuf.data(), &(padev->mShortBuffer[size]), len);
+		size_t samples = std::min(len, padev->mOutBuffer.peek_write<short>(true));
+		src_float_to_short_array(pSrc, padev->mOutBuffer.back<short>(), samples);
+		padev->mOutBuffer.write<short>(samples);
+		len -= samples;
+		pSrc += samples;
 	}
-
-	auto remSize = data.input_frames_used * padev->mSSpec.channels;
-	if (remSize > 0)
-		padev->mFloatBuffer.erase(padev->mFloatBuffer.begin(), padev->mFloatBuffer.begin() + remSize);
-
-	//OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd\n",
-		//data.input_frames, data.output_frames,
-		//data.input_frames_used, data.output_frames_gen,
-		//padev->mShortBuffer.size(), padev->mFloatBuffer.size());
 }
 
 void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userdata)
@@ -893,9 +935,8 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 	size_t pa_bytes, old_size;
 	// The length of the data to write in bytes, must be in multiples of the stream's sample spec frame size
 	ssize_t remaining_bytes = nbytes;
-	size_t floats_written = 0;
 	int ret = PA_OK;
-	std::vector<float> float_samples;
+	std::vector<float> inFloats;
 	SRC_DATA data;
 	memset(&data, 0, sizeof(SRC_DATA));
 
@@ -903,39 +944,45 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 	if (padev->mQuit)
 		return;
 
-	std::lock_guard<std::mutex> lock(padev->mMutex);
-
-	size_t resampled = static_cast<size_t>(padev->mShortBuffer.size() * padev->mResampleRatio * padev->mTimeAdjust);
-	if (resampled == 0)
-		resampled = padev->mShortBuffer.size() * (padev->mResampleRatio > 1.0 ? padev->mResampleRatio : 1.0);
-
-	old_size = padev->mFloatBuffer.size();
-	padev->mFloatBuffer.resize(old_size + resampled - resampled % padev->mSSpec.channels);
-
-	//OSDebugOut("buffer old size: %zu, new size: %zu resampled: %zu requested: %zu\n",
-	//	old_size, padev->mFloatBuffer.size(), resampled, nbytes);
-
-	// Convert short samples to float and to final output sample rate
-	if (padev->mShortBuffer.size() > 0)
 	{
-		float_samples.resize(padev->mShortBuffer.size());
-		src_short_to_float_array(padev->mShortBuffer.data(),
-				float_samples.data(), padev->mShortBuffer.size());
+		std::lock_guard<std::mutex> lock(padev->mMutex);
+		// Convert short samples to float and to final output sample rate
+		if (padev->mInBuffer.size() > 0)
+		{
+			inFloats.resize(padev->mInBuffer.size<short>());
+			float *pDst = inFloats.data();
 
-		data.data_in = float_samples.data();
-		data.input_frames = float_samples.size() / padev->mSSpec.channels;
-		data.data_out = padev->mFloatBuffer.data() + old_size;
-		data.output_frames = resampled / padev->mSSpec.channels;
-		data.src_ratio = padev->mResampleRatio * padev->mTimeAdjust;
+			while (padev->mInBuffer.peek_read() > 0)
+			{
+				size_t samples = padev->mInBuffer.peek_read<short>();
+				src_short_to_float_array(
+						(const short *)padev->mInBuffer.front(),
+						pDst, samples);
+				pDst += samples;
+				padev->mInBuffer.read<short>(samples);
+			}
 
-		src_process(padev->mResampler, &data);
+			size_t input_frames_used = 0;
+			size_t in_offset = 0;
+			while (padev->mOutBuffer.peek_write<float>() > 0)
+			{
+				data.data_in       = inFloats.data() + in_offset;
+				data.input_frames  = (inFloats.size() - in_offset) / padev->GetChannels();
+				data.data_out      = padev->mOutBuffer.back<float>();
+				data.output_frames = padev->mOutBuffer.peek_write<float>() / padev->GetChannels();
+				data.src_ratio     = padev->mResampleRatio * padev->mTimeAdjust;
 
-		uint32_t new_len = data.output_frames_gen * padev->mSSpec.channels;
-		padev->mFloatBuffer.resize(old_size + new_len);
+				src_process(padev->mResampler, &data);
 
-		auto remSize = data.input_frames_used * padev->mSSpec.channels;
-		if (remSize > 0)
-			padev->mShortBuffer.erase(padev->mShortBuffer.begin(), padev->mShortBuffer.begin() + remSize);
+				input_frames_used += data.input_frames_used;
+				in_offset = input_frames_used * padev->GetChannels();
+
+				padev->mOutBuffer.write<float>(data.output_frames_gen * padev->GetChannels());
+
+				if (inFloats.size() <= in_offset || data.output_frames_gen == 0)
+					break;
+			}
+		}
 	}
 
 	// Write converted float samples or silence to PulseAudio stream
@@ -950,26 +997,17 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 			goto exit;
 		}
 
-		//OSDebugOut("offset %zu %zd %zu\n", floats_written, remaining_bytes, pa_bytes);
-
-		size_t final_bytes = 0;
-		if (padev->mFloatBuffer.size() > 0)
+		ssize_t final_bytes = 0;
+		// read twice because possible wrap
+		while (padev->mOutBuffer.size() > 0)
 		{
+			ssize_t read = std::min((ssize_t)pa_bytes - final_bytes, (ssize_t)padev->mOutBuffer.peek_read());
+			if (read <= 0)
+				break;
 
-			final_bytes = MIN(pa_bytes, padev->mFloatBuffer.size() * sizeof(float));
-			memcpy(pa_buffer, padev->mFloatBuffer.data(), final_bytes);
-			floats_written += final_bytes / sizeof(float);
-#if 0
-			if (!padev->file)
-			{
-				char name[1024] = { 0 };
-				snprintf(name, sizeof(name), "headset_float32le_%dch_%dHz.raw", padev->mSSpec.channels, padev->mSSpec.rate);
-				padev->file = fopen(name, "wb");
-			}
-
-			if (padev->file)
-				fwrite(padev->mFloatBuffer.data(), 1, final_bytes, padev->file);
-#endif
+			memcpy((uint8_t*)pa_buffer + final_bytes, padev->mOutBuffer.front(), read);
+			final_bytes += read;
+			padev->mOutBuffer.read(read);
 		}
 
 		if (pa_bytes > final_bytes)
@@ -987,13 +1025,8 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 	}
 
 exit:
-	//OSDebugOut("Resampler: in %ld out %ld used %ld gen %ld, rb: %zd, qb: %zd written: %zu\n",
-		//data.input_frames, data.output_frames,
-		//data.input_frames_used, data.output_frames_gen,
-		//padev->mShortBuffer.size(), padev->mFloatBuffer.size(), floats_written * 4);
 
-	if (floats_written > 0)
-		padev->mFloatBuffer.erase(padev->mFloatBuffer.begin(), padev->mFloatBuffer.begin() + floats_written);
+	return;
 }
 
 REGISTER_AUDIODEV(APINAME, PulseAudioDevice);
