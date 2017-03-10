@@ -220,10 +220,10 @@ void SaveConfig()
 	swprintf_s(szValue,L"%d",Conf1->DFPPass);
 	WritePrivateProfileStringW(N_DEVICES, L"DFP Passthrough", szValue, szIniFile.c_str());
 
-	swprintf_s(szValue,L"%S",Conf1->Port0.c_str());
+	swprintf_s(szValue,L"%S",Conf1->Port[0].c_str());
 	WritePrivateProfileStringW(N_DEVICES, N_DEVICE_PORT0, szValue, szIniFile.c_str());
 
-	swprintf_s(szValue,L"%S",Conf1->Port1.c_str());
+	swprintf_s(szValue,L"%S",Conf1->Port[1].c_str());
 	WritePrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, szValue, szIniFile.c_str());
 
 	swprintf_s(szValue,L"%d",Conf1->WheelType[0]);
@@ -268,11 +268,11 @@ void LoadConfig() {
 
 	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT0, NULL, szValue, ARRAYSIZE(szValue), szIniFile.c_str());
 	wcstombs_s(&num, tmpA, szValue, sizeof(tmpA));//TODO error-check
-	Conf1->Port0 = tmpA;
+	Conf1->Port[0] = tmpA;
 
 	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, NULL, szValue, ARRAYSIZE(szValue), szIniFile.c_str());
 	wcstombs_s(&num, tmpA, szValue, sizeof(tmpA));//TODO error-check
-	Conf1->Port1 = tmpA;
+	Conf1->Port[1] = tmpA;
 
 	GetPrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE0, NULL, szValue, 20, szIniFile.c_str());
 	Conf1->WheelType[0] = wcstoul(szValue, NULL, 10);

@@ -173,11 +173,11 @@ void SaveConfig() {
 
 	//OSDebugOut("%s\n", path);
 
-	OSDebugOut("[%s %d] '%s'='%s'\n", N_DEVICES, 0, N_DEVICE_PORT0, conf.Port0.c_str());
-	INISaveString(path, N_DEVICES, N_DEVICE_PORT0, conf.Port0.c_str());
+	OSDebugOut("[%s %d] '%s'='%s'\n", N_DEVICES, 0, N_DEVICE_PORT0, conf.Port[0].c_str());
+	INISaveString(path, N_DEVICES, N_DEVICE_PORT0, conf.Port[0].c_str());
 
-	OSDebugOut("[%s %d] '%s'='%s'\n", N_DEVICES, 1, N_DEVICE_PORT1, conf.Port1.c_str());
-	INISaveString(path, N_DEVICES, N_DEVICE_PORT1, conf.Port1.c_str());
+	OSDebugOut("[%s %d] '%s'='%s'\n", N_DEVICES, 1, N_DEVICE_PORT1, conf.Port[1].c_str());
+	INISaveString(path, N_DEVICES, N_DEVICE_PORT1, conf.Port[1].c_str());
 
 	OSDebugOut("[%s %d] '%s'=%d\n", N_DEVICES, 0, N_WHEEL_TYPE0, conf.WheelType[0]);
 	INISaveUInt(path, N_DEVICES, N_WHEEL_TYPE0, conf.WheelType[0]);
@@ -205,23 +205,23 @@ void LoadConfig() {
 	const char *path = iniPath.c_str();
 
 	INILoadString(path, N_DEVICES, N_DEVICE_PORT0, tmp);
-	conf.Port0 = tmp;
+	conf.Port[0] = tmp;
 	INILoadString(path, N_DEVICES, N_DEVICE_PORT1, tmp);
-	conf.Port1 = tmp;
+	conf.Port[1] = tmp;
 	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE0, (u32*)&conf.WheelType[0]);
 	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE1, (u32*)&conf.WheelType[1]);
 
-	for (auto& pair: {std::make_pair(0, conf.Port0), std::make_pair(1, conf.Port1)})
+	for (int i=0; i<2; i++)
 	{
 		auto& instance = RegisterDevice::instance();
 		CONFIGVARIANT tmpVar(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		LoadSetting(pair.first, pair.second, tmpVar);
+		LoadSetting(i, conf.Port[i], tmpVar);
 		std::string api = tmpVar.strValue;
-		auto dev = instance.Device(pair.second);
+		auto dev = instance.Device(conf.Port[i]);
 
 		if (dev)
 		{
-			OSDebugOut("Checking device '%s' api: '%s'...\n", pair.second.c_str(), api.c_str());
+			OSDebugOut("Checking device '%s' api: '%s'...\n", conf.Port[i].c_str(), api.c_str());
 			if (!dev->IsValidAPI(api))
 			{
 				const auto& apis = dev->APIs();
@@ -235,6 +235,6 @@ void LoadConfig() {
 		}
 
 		if(api.size())
-			changedAPIs[pair] = api;
+			changedAPIs[std::make_pair(i, conf.Port[i])] = api;
 	}
 }

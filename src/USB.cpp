@@ -110,18 +110,18 @@ void CreateDevices()
 	if(!qemu_ohci) return; //No USBinit yet ie. called from config. dialog
 	DestroyDevices();
 
-	if (!conf.Port1.empty())
+	if (!conf.Port[1].empty())
 	{
-		devProxy = RegisterDevice::instance().Device(conf.Port1);
+		devProxy = RegisterDevice::instance().Device(conf.Port[1]);
 		if (devProxy)
 			usb_device1 = devProxy->CreateDevice(PLAYER_ONE_PORT);
 		else
 			SysMessage(TEXT("Device 1: Unknown device type"));
 	}
 
-	if (!conf.Port0.empty())
+	if (!conf.Port[0].empty())
 	{
-		devProxy = RegisterDevice::instance().Device(conf.Port0);
+		devProxy = RegisterDevice::instance().Device(conf.Port[0]);
 		if (devProxy)
 			usb_device2 = devProxy->CreateDevice(PLAYER_TWO_PORT);
 		else

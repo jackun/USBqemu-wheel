@@ -48,8 +48,7 @@
 
 typedef struct _Config {
   int Log;
-  std::string Port0; //player2
-  std::string Port1; //player1
+  std::string Port[2];
   int DFPPass; //[2]; //TODO per player
   int WheelType[2];
 

@@ -43,10 +43,10 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	//if(data)
 	{
-		uint8_t ply = MIN((unsigned)data, 1);
+		uint8_t port = MIN((unsigned)data, 1);
 
-		conf.WheelType[ply] = idx;
-		OSDebugOut("Selected wheel type, player %d idx: %d\n", ply, idx);
+		conf.WheelType[port] = idx;
+		OSDebugOut("Selected wheel type, port %d idx: %d\n", port, idx);
 	}
 }
 
@@ -104,9 +104,9 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 	populateApiWidget(apiCallback[player].combo, player, s);
 
 	if(player == 0)
-		conf.Port1 = s;
+		conf.Port[1] = s;
 	else
-		conf.Port0 = s;
+		conf.Port[0] = s;
 
 	OSDebugOut("Selected player %d idx: %d [%s]\n", player, active, s.c_str());
 }
@@ -221,7 +221,7 @@ void CALLBACK USBconfigure() {
 	/*** Device type ***/
 	vbox = new_frame("Select device type:", main_vbox);
 
-	std::string devs[2] = { conf.Port1, conf.Port0 };
+	std::string devs[2] = { conf.Port[1], conf.Port[0] };
 	/*** Devices' Comboboxes ***/
 	for(int ply = 0; ply < 2; ply++)
 	{
@@ -272,6 +272,7 @@ void CALLBACK USBconfigure() {
 
 	for(int ply = 0; ply < 2; ply++)
 	{
+		int port = 1 - ply;
 		rs_cb = new_combobox (ports[ply], vbox);
 
 		sel_idx = 0;
@@ -279,11 +280,11 @@ void CALLBACK USBconfigure() {
 		for (int i = 0; i < ARRAYSIZE(wt); i++)
 		{
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), wt[i]);
-			if(conf.WheelType[ply] == i)
+			if(conf.WheelType[port] == i)
 				sel_idx = i;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)ply);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)port);
 	}
 
 	gtk_widget_show_all (dlg);

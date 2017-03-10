@@ -107,10 +107,10 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)dev->Name());
 
 					//Port 1 aka device/player 1
-					if (conf.Port1 == name)
+					if (conf.Port[1] == name)
 						p1 = i;
 					//Port 0 aka device/player 2
-					if (conf.Port0 == name)
+					if (conf.Port[0] == name)
 						p2 = i;
 				}
 				SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, p1, 0);
@@ -188,9 +188,9 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						int i;
 						//device type
 						i = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
-						conf.Port1 = regInst.Name(i - 1);
+						conf.Port[1] = regInst.Name(i - 1);
 						i = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
-						conf.Port0 = regInst.Name(i - 1);
+						conf.Port[0] = regInst.Name(i - 1);
 					}
 					//wheel type
 					conf.WheelType[0] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_GETCURSEL, 0, 0);
