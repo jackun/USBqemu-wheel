@@ -224,7 +224,7 @@ void LoadConfig() {
 			OSDebugOut("Checking device '%s' api: '%s'...\n", conf.Port[i].c_str(), api.c_str());
 			if (!dev->IsValidAPI(api))
 			{
-				const auto& apis = dev->APIs();
+				const auto& apis = dev->ListAPIs();
 				if (!apis.empty())
 					api = *apis.begin();
 

@@ -16,7 +16,11 @@ public:
 	{
 		return TEXT("Singstar");
 	}
-	static std::list<std::string> APIs()
+	static const char* TypeName()
+	{
+		return "singstar";
+	}
+	static std::list<std::string> ListAPIs()
 	{
 		return RegisterAudioDevice::instance().Names();
 	}

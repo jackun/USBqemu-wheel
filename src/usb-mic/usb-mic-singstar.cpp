@@ -948,6 +948,6 @@ int SingstarDevice::Configure(int port, const std::string& api, void *data)
 	return RESULT_CANCELED;
 }
 
-REGISTER_DEVICE(2, DEVICENAME, SingstarDevice);
+REGISTER_DEVICE(DEVTYPE_SINGSTAR, DEVICENAME, SingstarDevice);
 };
 #undef DEVICENAME

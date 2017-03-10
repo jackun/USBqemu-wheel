@@ -290,12 +290,16 @@ public:
 		dev->handle_control = logitech_mic_handle_control;
 		return dev;
 	}
+	static const char* TypeName()
+	{
+		return DEVICENAME;
+	}
 	static const TCHAR* Name()
 	{
 		return TEXT("Logitech USB Mic");
 	}
 };
 
-REGISTER_DEVICE(3, DEVICENAME, LogitechMicDevice);
+REGISTER_DEVICE(DEVTYPE_LOGITECH_MIC, DEVICENAME, LogitechMicDevice);
 };
 #undef DEVICENAME

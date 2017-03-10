@@ -818,7 +818,7 @@ USBDevice *MsdDevice::CreateDevice(int port)
 
     //CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
     //LoadSetting(port, DEVICENAME, varApi);
-    std::string api = *MsdDevice::APIs().begin();
+    std::string api = *MsdDevice::ListAPIs().begin();
 
     CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
 
@@ -845,6 +845,11 @@ USBDevice *MsdDevice::CreateDevice(int port)
 
     usb_msd_handle_reset((USBDevice *)s);
     return (USBDevice *)s;
+}
+
+const char* MsdDevice::TypeName()
+{
+    return DEVICENAME;
 }
 
 REGISTER_DEVICE(DEVTYPE_MSD, DEVICENAME, MsdDevice);

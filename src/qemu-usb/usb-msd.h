@@ -12,11 +12,12 @@ class MsdDevice : public Device
 public:
 	virtual ~MsdDevice() {}
 	static USBDevice* CreateDevice(int port);
+	static const char* TypeName();
 	static const TCHAR* Name()
 	{
 		return TEXT("Mass storage device");
 	}
-	static std::list<std::string> APIs()
+	static std::list<std::string> ListAPIs()
 	{
 		return std::list<std::string> { "cstdio" };
 	}

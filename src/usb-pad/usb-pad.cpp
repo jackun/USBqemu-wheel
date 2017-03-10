@@ -13,7 +13,11 @@ public:
 	{
 		return TEXT("Pad/Wheel device");
 	}
-	static std::list<std::string> APIs()
+	static const char* TypeName()
+	{
+		return DEVICENAME;
+	}
+	static std::list<std::string> ListAPIs()
 	{
 		return RegisterPad::instance().Names();
 	}
@@ -470,5 +474,5 @@ std::vector<CONFIGVARIANT> PadDevice::GetSettings(const std::string &api)
 	return std::vector<CONFIGVARIANT>();
 }
 
-REGISTER_DEVICE(0, DEVICENAME, PadDevice);
+REGISTER_DEVICE(DEVTYPE_PAD, DEVICENAME, PadDevice);
 #undef DEVICENAME

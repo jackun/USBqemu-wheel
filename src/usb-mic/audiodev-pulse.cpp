@@ -385,6 +385,7 @@ public:
 	~PulseAudioDevice()
 	{
 		mQuit = true;
+		std::lock_guard<std::mutex> lock(mMutex);
 		Uninit();
 		AudioDeinit();
 		mResampler = src_delete(mResampler);
@@ -738,6 +739,11 @@ public:
 		}
 
 		src_reset(mResampler);
+	}
+
+	static const char* TypeName()
+	{
+		return APINAME;
 	}
 
 	static const TCHAR* Name()

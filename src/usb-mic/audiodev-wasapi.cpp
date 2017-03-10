@@ -821,6 +821,11 @@ error:
 		return MIC_MODE_SINGLE;
 	}
 
+	static const char* TypeName()
+	{
+		return APINAME;
+	}
+
 	static const TCHAR* Name()
 	{
 		return L"WASAPI";

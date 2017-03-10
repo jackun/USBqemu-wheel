@@ -115,11 +115,15 @@ public:
     virtual ~HeadsetDevice() {}
     static USBDevice* CreateDevice(int port);
     static USBDevice* CreateDevice(int port, const std::string& api);
+    static const char* TypeName()
+    {
+        return DEVICENAME;
+    }
     static const TCHAR* Name()
     {
         return TEXT("Logitech USB Headset");
     }
-    static std::list<std::string> APIs()
+    static std::list<std::string> ListAPIs()
     {
         return RegisterAudioDevice::instance().Names();
     }
@@ -1164,6 +1168,6 @@ int HeadsetDevice::Configure(int port, const std::string& api, void *data)
     return RESULT_CANCELED;
 }
 
-REGISTER_DEVICE(4, DEVICENAME, HeadsetDevice);
+REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, DEVICENAME, HeadsetDevice);
 };
 #undef DEVICENAME

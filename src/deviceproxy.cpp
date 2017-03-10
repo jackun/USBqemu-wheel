@@ -1,7 +1,7 @@
 #include "deviceproxy.h"
 
-DeviceProxyBase::DeviceProxyBase(DeviceKey key)
+DeviceProxyBase::DeviceProxyBase(DeviceType key)
 {
-	OSDebugOut("ctor (%" TEXT(SFMTs) ")\n", key.name.c_str());
+	OSDebugOut("ctor (type %d)\n", key);
 	RegisterDevice::instance().Add(key, this);
 }

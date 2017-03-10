@@ -75,7 +75,7 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 		OSDebugOut("Current api: %s\n", api.c_str());
 		apiCallback[player].api = api;
 		int i = 0;
-		for(auto& it : dev->APIs())
+		for(auto& it : dev->ListAPIs())
 		{
 			auto name = dev->LongAPIName(it);
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget), name);
@@ -121,7 +121,7 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 	auto dev = RegisterDevice::instance().Device( name );
 	if (dev)
 	{
-		auto apis = dev->APIs();
+		auto apis = dev->ListAPIs();
 		auto it = apis.begin();
 		std::advance(it, active);
 		if (it != apis.end())
@@ -156,7 +156,7 @@ static void configureApi (GtkWidget *widget, gpointer data)
 	{
 		GtkWidget *dlg = GTK_WIDGET (g_object_get_data (G_OBJECT(widget), "dlg"));
 		int res = dev->Configure(port, api, dlg);
-		OSDebugOut("Configure(...) returned %d\n", res);
+		OSDebugOut("Configure returned %d\n", res);
 	}
 }
 

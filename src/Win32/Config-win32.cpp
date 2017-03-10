@@ -38,7 +38,7 @@ void SelChangedAPI(HWND hW, int port)
 	devtype--;
 	auto& rd = RegisterDevice::instance();
 	auto devName = rd.Name(devtype);
-	auto apis = rd.Device(devtype)->APIs();
+	auto apis = rd.Device(devtype)->ListAPIs();
 	auto it = apis.begin();
 	std::advance(it, sel);
 	changedAPIs[std::make_pair(port, devName)] = *it;
@@ -55,7 +55,7 @@ void PopulateAPIs(HWND hW, int port)
 	auto& rd = RegisterDevice::instance();
 	auto dev = rd.Device(devtype);
 	auto devName = rd.Name(devtype);
-	auto apis = dev->APIs();
+	auto apis = dev->ListAPIs();
 
 	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
@@ -103,8 +103,8 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				{
 					i++; //jump over "None"
 					auto dev = rd.Device(name);
-					SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)dev->Name());
-					SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)dev->Name());
+					SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)dev->TypeName());
+					SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)dev->TypeName());
 
 					//Port 1 aka device/player 1
 					if (conf.Port[1] == name)
@@ -164,7 +164,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						auto device = RegisterDevice::instance().Device(devtype);
 						if (device)
 						{
-							auto list = device->APIs();
+							auto list = device->ListAPIs();
 							auto it = list.begin();
 							std::advance(it, apitype);
 							if (it == list.end())
