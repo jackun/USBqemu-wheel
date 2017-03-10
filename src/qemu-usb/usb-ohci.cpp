@@ -898,15 +898,6 @@ void ohci_frame_boundary(void *opaque)
         int n;
 
         n = ohci->frame_number & 0x1f;
-        //HACK !!! remove me
-		if (le32_to_cpu(hcca.intr[n]) == 0x400d)
-		{
-			OSDebugOut(TEXT("Crap detected. soft resetting\n"));
-			// Seems to be enough
-			ohci->ctl = (ohci->ctl & OHCI_CTL_IR) | OHCI_USB_SUSPEND;
-			ohci->old_ctl = 0;
-			return;
-		}
         ohci_service_ed_list(ohci, le32_to_cpu(hcca.intr[n]));
     }
 
