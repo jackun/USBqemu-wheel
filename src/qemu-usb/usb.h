@@ -42,6 +42,9 @@
 #define USB_SPEED_FULL  1
 #define USB_SPEED_HIGH  2
 
+#define USB_SPEED_MASK_LOW   (1 << USB_SPEED_LOW)
+#define USB_SPEED_MASK_FULL  (1 << USB_SPEED_FULL)
+
 #define USB_STATE_NOTATTACHED 0
 #define USB_STATE_ATTACHED    1
 //#define USB_STATE_POWERED     2
@@ -141,7 +144,7 @@ typedef struct USBDevice USBDevice;
 
 /* definition of a USB device */
 struct USBDevice {
-    void *opaque;
+    USBPort *port;
     int (*handle_packet)(USBDevice *dev, int pid, 
                          uint8_t devaddr, uint8_t devep,
                          uint8_t *data, int len);
@@ -172,12 +175,27 @@ struct USBDevice {
     int setup_index;
 };
 
-typedef void (*usb_attachfn)(USBPort *port, USBDevice *dev);
+typedef struct USBPortOps {
+    void (*attach)(USBPort *port, USBDevice *dev);
+    //void (*detach)(USBPort *port);
+    /*
+     * This gets called when a device downstream from the device attached to
+     * the port (iow attached through a hub) gets detached.
+     */
+    //void (*child_detach)(USBPort *port, USBDevice *child);
+    void (*wakeup)(USBPort *port);
+    /*
+     * Note that port->dev will be different then the device from which
+     * the packet originated when a hub is involved.
+     */
+    //void (*complete)(USBPort *port, USBPacket *p);
+} USBPortOps;
 
 /* USB port on which a device can be connected */
 struct USBPort {
     USBDevice *dev;
-    usb_attachfn attach;
+    int speedmask;
+    USBPortOps *ops;
     void *opaque;
     int index; /* internal port index, may be used with the opaque */
     //struct USBPort *next; /* Used internally by qemu.  */

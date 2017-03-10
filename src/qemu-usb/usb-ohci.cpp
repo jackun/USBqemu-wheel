@@ -33,6 +33,9 @@
 #include "platcompat.h"
 #include "../osdebugout.h"
 
+int64_t last_cycle = 0;
+#define MIN_IRQ_INTERVAL 64 /* hack */
+
 #define PSXCLK	36864000	/* 36.864 Mhz */
 extern void USBirq(int);
 extern int64_t get_clock();
@@ -65,11 +68,15 @@ static inline void ohci_intr_update(OHCIState *ohci)
 		reason_add(OHCI_INTR_RHSC,"Root hub status change");
 		reason_add(OHCI_INTR_OC,"Ownership change");
 		*/
-		if((ohci->ctl & OHCI_CTL_HCFS)==OHCI_USB_OPERATIONAL)
-		{
-			USBirq(1);
-			//OSDebugOut(TEXT("usb-ohci: Interrupt Called. Reason(s): %s\n",reasons);
-		}
+        if( (get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
+        {
+            if((ohci->ctl & OHCI_CTL_HCFS)==OHCI_USB_OPERATIONAL)
+            {
+                USBirq(1);
+                //OSDebugOut(TEXT("usb-ohci: Interrupt Called. Reason(s): %s\n",reasons);
+            }
+            last_cycle = get_clock();
+        }
 	}
 }
 
@@ -92,11 +99,6 @@ static void ohci_die(OHCIState *ohci)
     //             PCI_STATUS_DETECTED_PARITY);
 }
 
-static void usb_attach(USBPort *port, USBDevice *dev)
-{
-	port->attach(port,dev);
-}
-
 /* Attach or detach a device on a root hub port.  */
 static void ohci_attach(USBPort *port1, USBDevice *dev)
 {
@@ -106,7 +108,7 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
 
     if (dev) {
         if (port->port.dev) {
-            usb_attach(port1, NULL);
+            ohci_attach(port1, NULL);
         }
         /* set connect status */
         port->ctrl |= OHCI_PORT_CCS | OHCI_PORT_CSC;
@@ -144,6 +146,31 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
 
     if (old_state != port->ctrl)
         ohci_set_interrupt(s, OHCI_INTR_RHSC);
+}
+
+static void ohci_wakeup(USBPort *port1)
+{
+    OHCIState *s = (OHCIState *)port1->opaque;
+    OHCIPort *port = (OHCIPort *)&s->rhport[port1->index];
+    uint32_t intr = 0;
+    if (port->ctrl & OHCI_PORT_PSS) {
+        //trace_usb_ohci_port_wakeup(port1->index);
+        port->ctrl |= OHCI_PORT_PSSC;
+        port->ctrl &= ~OHCI_PORT_PSS;
+        intr = OHCI_INTR_RHSC;
+    }
+    /* Note that the controller can be suspended even if this port is not */
+    if ((s->ctl & OHCI_CTL_HCFS) == OHCI_USB_SUSPEND) {
+        //trace_usb_ohci_remote_wakeup(s->name);
+        /* This is the one state transition the controller can do by itself */
+        s->ctl &= ~OHCI_CTL_HCFS;
+        s->ctl |= OHCI_USB_RESUME;
+        /* In suspend mode only ResumeDetected is possible, not RHSC:
+         * see the OHCI spec 5.1.2.3.
+         */
+        intr = OHCI_INTR_RD;
+    }
+    ohci_set_interrupt(s, intr);
 }
 
 //TODO no devices using this yet
@@ -1360,6 +1387,14 @@ void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
     }
 }
 
+static USBPortOps ohci_port_ops = {
+    /*.attach =*/ ohci_attach,
+    //.detach = ohci_detach,
+    //.child_detach = ohci_child_detach,
+    /*.wakeup =*/ ohci_wakeup,
+    //.complete = ohci_async_complete_packet,
+};
+
 OHCIState *ohci_create(uint32_t base, int ports)
 {
 	OHCIState *ohci=(OHCIState*)malloc(sizeof(OHCIState));
@@ -1393,7 +1428,8 @@ OHCIState *ohci_create(uint32_t base, int ports)
 		memset(&(ohci->rhport[i].port), 0, sizeof(USBPort));
 		ohci->rhport[i].port.opaque = ohci;
 		ohci->rhport[i].port.index = i;
-		ohci->rhport[i].port.attach = ohci_attach;
+		ohci->rhport[i].port.speedmask = USB_SPEED_MASK_LOW | USB_SPEED_MASK_FULL;
+		ohci->rhport[i].port.ops = &ohci_port_ops;
     }
 
     ohci_hard_reset(ohci);

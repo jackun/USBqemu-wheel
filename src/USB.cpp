@@ -129,8 +129,8 @@ void CreateDevices()
 	}
 
 	//No need for NULL check. NULL device means detach port.
-	qemu_ohci->rhport[PLAYER_ONE_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
-	qemu_ohci->rhport[PLAYER_TWO_PORT].port.attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
+	qemu_ohci->rhport[PLAYER_ONE_PORT].port.ops->attach(&(qemu_ohci->rhport[PLAYER_ONE_PORT].port), usb_device1);
+	qemu_ohci->rhport[PLAYER_TWO_PORT].port.ops->attach(&(qemu_ohci->rhport[PLAYER_TWO_PORT].port), usb_device2);
 }
 
 EXPORT_C_(u32) PS2EgetLibType() {
