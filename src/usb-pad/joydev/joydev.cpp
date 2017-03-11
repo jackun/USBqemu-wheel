@@ -561,12 +561,5 @@ int JoyDevPad::Close()
 	return 0;
 }
 
-std::vector<CONFIGVARIANT> JoyDevPad::GetSettings()
-{
-	std::vector<CONFIGVARIANT> params;
-	params.push_back(CONFIGVARIANT(S_CONFIG_JOY, N_JOYSTICK, CONFIG_TYPE_CHAR));
-	return params;
-}
-
 REGISTER_PAD(APINAME, JoyDevPad);
 #undef APINAME

@@ -59,12 +59,6 @@ public:
 	{
 		return RESULT_OK;
 	}
-
-	static std::vector<CONFIGVARIANT> GetSettings()
-	{
-		//TODO GetSettings()
-		return std::vector<CONFIGVARIANT>();
-	}
 };
 
 REGISTER_AUDIODEV(APINAME, NoopAudioDevice);

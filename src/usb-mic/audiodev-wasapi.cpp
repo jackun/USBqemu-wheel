@@ -921,11 +921,6 @@ error:
 			(DLGPROC)WASAPIDlgProc, (LPARAM)&settings);
 	}
 
-	static std::vector<CONFIGVARIANT> GetSettings()
-	{
-		//TODO GetSettings()
-		return std::vector<CONFIGVARIANT>();
-	}
 private:
 	IMMDeviceEnumerator *mmEnumerator;
 

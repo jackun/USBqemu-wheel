@@ -74,7 +74,6 @@ public:
 	}
 
 	static int Configure(int port, void *data);
-	static std::vector<CONFIGVARIANT> GetSettings();
 protected:
 	bool FindPad();
 

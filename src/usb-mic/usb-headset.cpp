@@ -132,7 +132,6 @@ public:
         return RegisterAudioDevice::instance().Proxy(name)->Name();
     }
     static int Configure(int port, const std::string& api, void *data);
-    static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
 
 static const uint8_t headset_dev_descriptor[] = {
@@ -1150,14 +1149,6 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
 
     return (USBDevice *)s;
 
-}
-
-std::vector<CONFIGVARIANT> HeadsetDevice::GetSettings(const std::string &api)
-{
-    auto proxy = RegisterAudioDevice::instance().Proxy(api);
-    if (proxy)
-        return proxy->GetSettings();
-    return std::vector<CONFIGVARIANT>();
 }
 
 int HeadsetDevice::Configure(int port, const std::string& api, void *data)

@@ -52,10 +52,6 @@ class PadProxy : public PadProxyBase
 	{
 		return T::Configure(port, data);
 	}
-	virtual std::vector<CONFIGVARIANT> GetSettings()
-	{
-		return T::GetSettings();
-	}
 };
 
 class RegisterPad

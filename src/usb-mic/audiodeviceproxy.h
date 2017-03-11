@@ -70,10 +70,6 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 	{
 		T::AudioDeinit();
 	}
-	virtual std::vector<CONFIGVARIANT> GetSettings()
-	{
-		return T::GetSettings();
-	}
 };
 
 class RegisterAudioDevice

@@ -932,14 +932,6 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 
 }
 
-std::vector<CONFIGVARIANT> SingstarDevice::GetSettings(const std::string &api)
-{
-	auto proxy = RegisterAudioDevice::instance().Proxy(api);
-	if (proxy)
-		return proxy->GetSettings();
-	return std::vector<CONFIGVARIANT>();
-}
-
 int SingstarDevice::Configure(int port, const std::string& api, void *data)
 {
 	auto proxy = RegisterAudioDevice::instance().Proxy(api);

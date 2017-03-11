@@ -52,7 +52,6 @@ class DeviceProxyBase
 	virtual int Configure(int port, const std::string& api, void *data) = 0;
 	virtual std::list<std::string> ListAPIs() = 0;
 	virtual const TCHAR* LongAPIName(const std::string& name) = 0;
-	virtual std::vector<CONFIGVARIANT> GetSettings(const std::string &api) = 0;
 
 	virtual bool IsValidAPI(const std::string& api)
 	{
@@ -93,10 +92,6 @@ class DeviceProxy : public DeviceProxyBase
 	virtual const TCHAR* LongAPIName(const std::string& name)
 	{
 		return T::LongAPIName(name);
-	}
-	virtual std::vector<CONFIGVARIANT> GetSettings(const std::string &api)
-	{
-		return T::GetSettings(api);
 	}
 };
 

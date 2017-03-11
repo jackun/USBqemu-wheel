@@ -781,10 +781,6 @@ public:
 		DynUnloadPulse();
 #endif
 	}
-	static std::vector<CONFIGVARIANT> GetSettings()
-	{
-		return std::vector<CONFIGVARIANT>();
-	}
 
 	static void context_state_cb(pa_context *c, void *userdata);
 	static void stream_state_cb(pa_stream *s, void *userdata);

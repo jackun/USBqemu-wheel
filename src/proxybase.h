@@ -6,5 +6,4 @@ class ProxyBase
 	virtual ~ProxyBase() {}
 	virtual const TCHAR* Name() const = 0;
 	virtual int Configure(int port, void *data) = 0;
-	virtual std::vector<CONFIGVARIANT> GetSettings() = 0;
 };

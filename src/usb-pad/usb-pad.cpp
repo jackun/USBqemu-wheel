@@ -26,7 +26,6 @@ public:
 		return RegisterPad::instance().Proxy(name)->Name();
 	}
 	static int Configure(int port, const std::string& api, void *data);
-	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
 
 #ifdef _DEBUG
@@ -464,14 +463,6 @@ int PadDevice::Configure(int port, const std::string& api, void *data)
 	if (proxy)
 		return proxy->Configure(port, data);
 	return RESULT_CANCELED;
-}
-
-std::vector<CONFIGVARIANT> PadDevice::GetSettings(const std::string &api)
-{
-	auto proxy = RegisterPad::instance().Proxy(api);
-	if (proxy)
-		return proxy->GetSettings();
-	return std::vector<CONFIGVARIANT>();
 }
 
 REGISTER_DEVICE(DEVTYPE_PAD, DEVICENAME, PadDevice);

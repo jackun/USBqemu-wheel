@@ -31,11 +31,6 @@ public:
 	}
 
 	static int Configure(int port, void *data);
-	static std::vector<CONFIGVARIANT> GetSettings()
-	{
-		//TODO GetSettings()
-		return std::vector<CONFIGVARIANT>();
-	}
 protected:
 	HIDP_CAPS caps;
 	HIDD_ATTRIBUTES attr;

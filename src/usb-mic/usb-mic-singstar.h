@@ -29,7 +29,6 @@ public:
 		return RegisterAudioDevice::instance().Proxy(name)->Name();
 	}
 	static int Configure(int port, const std::string& api, void *data);
-	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api);
 };
 };
 #endif

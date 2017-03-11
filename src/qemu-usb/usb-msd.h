@@ -25,17 +25,6 @@ public:
 	{
 		return TEXT("cstdio");
 	}
-
-//	static bool LoadSettings(int port, std::vector<CONFIGVARIANT>& params);
-//	static bool SaveSettings(int port, std::vector<CONFIGVARIANT>& params);
-
 	static int Configure(int port, const std::string& api, void *data);
-	static std::vector<CONFIGVARIANT> GetSettings(const std::string &api)
-	{
-		(void)api;
-		std::vector<CONFIGVARIANT> params;
-		params.push_back(CONFIGVARIANT(S_CONFIG_PATH, N_CONFIG_PATH, CONFIG_TYPE_TCHAR));
-		return params;
-	}
 };
 #endif

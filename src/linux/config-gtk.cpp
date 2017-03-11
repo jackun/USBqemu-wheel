@@ -136,8 +136,6 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 			apiCallback[player].api = *it;
 
 			OSDebugOut("selected api: %s\napi settings:\n", it->c_str());
-			for(auto& p : dev->GetSettings(*it))
-				OSDebugOut("\t[%s] %s = %s (%d)\n", it->c_str(), p.name, p.desc, p.type);
 		}
 	}
 }

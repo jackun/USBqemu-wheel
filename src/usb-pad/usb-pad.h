@@ -170,8 +170,6 @@ public:
 	virtual int Port() { return mPort; }
 	virtual void Port(int port) { mPort = port; }
 
-	static std::vector<CONFIGVARIANT> GetSettings();
-
 protected:
 	PS2WheelTypes mType = PS2WheelTypes::WT_GENERIC;
 	wheel_data_t mWheelData = { 0 };
