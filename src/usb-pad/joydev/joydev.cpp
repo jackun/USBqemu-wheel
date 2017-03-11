@@ -1,7 +1,7 @@
 #include "joydev.h"
 #include "../../USB.h"
 #include "../../osdebugout.h"
-#include <assert.h>
+#include <cassert>
 #include <sstream>
 
 #define APINAME "joydev"
@@ -12,7 +12,6 @@ static bool sendCrap = false;
 
 #define NORM(x, n) (((uint32_t)(32767 + x) * n)/0xFFFE)
 #define NORM2(x, n) (((uint32_t)(32767 + x) * n)/0x7FFF)
-#define testBit(bit, array) ( (((uint8_t*)(array))[(bit) / 8] >> ((bit) % 8)) & 1 )
 
 static inline int range_max(PS2WheelTypes type)
 {
@@ -260,7 +259,6 @@ bool JoyDevPad::FindPad()
 	mButtonCount = 0;
 	mHandle = -1;
 	mHandleFF = -1;
-	mEffConstant.id = -1;
 
 	std::string joypath;
 	{
@@ -368,58 +366,13 @@ bool JoyDevPad::FindPad()
 					break;
 				}
 			}
+
 			if ((mHandleFF = open(event.str().c_str(), /*O_WRONLY*/ O_RDWR)) < 0)
 			{
 				OSDebugOut(APINAME ": Cannot open '%s'\n", event.str().c_str());
 			}
 			else
-			{
-				unsigned char features[BITS_TO_UCHAR(FF_MAX)];
-				if (ioctl(mHandleFF, EVIOCGBIT(EV_FF, sizeof(features)), features) < 0)
-				{
-					OSDebugOut(APINAME ": Get features failed: %s\n", strerror(errno));
-				}
-				int effects = 0;
-				if (ioctl(mHandleFF, EVIOCGEFFECTS, &effects) < 0)
-				{
-					OSDebugOut(APINAME ": Get effects failed: %s\n", strerror(errno));
-				}
-
-				if (!testBit(FF_CONSTANT, features))
-				{
-					fprintf(stderr, APINAME ": joystick does not support FF_CONSTANT\n");
-				}
-
-				if (!testBit(FF_GAIN, features))
-				{
-					fprintf(stderr, APINAME ": joystick does not support FF_GAIN\n");
-				}
-
-				if (!testBit(FF_AUTOCENTER, features))
-				{
-					fprintf(stderr, APINAME ": joystick does not support FF_AUTOCENTER\n");
-				}
-
-				// TODO check features and do FF_RUMBLE instead if gamepad?
-				// XXX linux status (hid-lg4ff.c) - only constant and autocenter are implemented
-				mEffConstant.type = FF_CONSTANT;
-				mEffConstant.id = -1;
-				mEffConstant.u.constant.level = 0;	/* Strength : 0x2000 == 25 % */
-				// Logitech wheels' force vs turn direction: 255 - left, 127/128 - neutral, 0 - right
-				// left direction
-				mEffConstant.direction = 0x4000;
-				mEffConstant.u.constant.envelope.attack_length = 0;//0x100;
-				mEffConstant.u.constant.envelope.attack_level = 0;
-				mEffConstant.u.constant.envelope.fade_length = 0;//0x100;
-				mEffConstant.u.constant.envelope.fade_level = 0;
-				mEffConstant.trigger.button = 0;
-				mEffConstant.trigger.interval = 0;
-				mEffConstant.replay.length = 0x7FFFUL;  /* mseconds */
-				mEffConstant.replay.delay = 0;
-
-				SetGain(75);
-				SetAutoCenter(0);
-			}
+				mEvdevFF = new EvdevFF(mHandleFF);
 			return true;
 		}
 	}
@@ -429,65 +382,6 @@ quit:
 	return false;
 }
 
-void JoyDevPad::SetConstantForce(int force)
-{
-	mEffConstant.u.constant.level = -(127-force) * 0x8000 / 127;
-	OSDebugOut("force: %d, level: %d\n", force, mEffConstant.u.constant.level);
-
-	if (ioctl(mHandleFF, EVIOCSFF, &(mEffConstant)) < 0) {
-		OSDebugOut(APINAME ": Failed to upload effect\n");
-	}
-
-	struct input_event play;
-	play.type = EV_FF;
-	play.code = mEffConstant.id;
-	play.value = 1;
-	if (write(mHandleFF, (const void*) &play, sizeof(play)) == -1) {
-		OSDebugOut(APINAME ": Play effect failed\n");
-	}
-
-}
-
-void JoyDevPad::DisableConstantForce()
-{
-	struct input_event play;
-	play.type = EV_FF;
-	play.code = mEffConstant.id;
-	play.value = 0;
-	if (write(mHandleFF, (const void*) &play, sizeof(play)) == -1) {
-		OSDebugOut(APINAME ":stop effect failed\n");
-	}
-}
-
-void JoyDevPad::SetSpringForce(int force)
-{
-
-}
-
-void JoyDevPad::SetAutoCenter(int value)
-{
-	struct input_event ie;
-
-	ie.type = EV_FF;
-	ie.code = FF_AUTOCENTER;
-	ie.value = value * 0xFFFFUL / 100;
-
-	if (write(mHandleFF, &ie, sizeof(ie)) == -1)
-		OSDebugOut(APINAME ": Failed to set autocenter\n");
-}
-
-void JoyDevPad::SetGain(int gain /* between 0 and 100 */)
-{
-	struct input_event ie;
-
-	ie.type = EV_FF;
-	ie.code = FF_GAIN;
-	ie.value = 0xFFFFUL * gain / 100;
-
-	if (write(mHandleFF, &ie, sizeof(ie)) == -1)
-		OSDebugOut("Failed to set gain\n");
-}
-
 int JoyDevPad::TokenOut(const uint8_t *data, int len)
 {
 	ff_data *ffdata = (ff_data*)data;
@@ -495,6 +389,8 @@ int JoyDevPad::TokenOut(const uint8_t *data, int len)
 	OSDebugOut(TEXT("FFB %02X, %02X, %02X, %02X : %02X, %02X, %02X, %02X\n"),
 		ffdata->cmdslot, ffdata->type, ffdata->u.params[0], ffdata->u.params[1],
 		ffdata->u.params[2], ffdata->u.params[3], ffdata->u.params[4], ffdata->padd0);
+
+	if (!mEvdevFF) return len;
 
 	bool hires = (mType == WT_DRIVING_FORCE_PRO);
 	if (ffdata->cmdslot != CMD_EXTENDED_CMD)
@@ -527,24 +423,24 @@ int JoyDevPad::TokenOut(const uint8_t *data, int len)
 			switch (ffdata->type)
 			{
 			case FTYPE_CONSTANT:
-					SetConstantForce(ffdata->u.params[2]); //DF/GTF and GT3
+				mEvdevFF->SetConstantForce(ffdata->u.params[2]); //DF/GTF and GT3
 				break;
 			//case FTYPE_SPRING:
 			//case FTYPE_HIGH_RESOLUTION_SPRING:
-				//SetSpringForce(NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, hires);
+				//mEvdevFF->SetSpringForce(NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, hires);
 				//break;
 			case FTYPE_VARIABLE: //Ramp-like
-					//SetRampVariable(ffdata->u.variable);
-					SetConstantForce(ffdata->u.params[0]);
+				//mEvdevFF->SetRampVariable(ffdata->u.variable);
+				mEvdevFF->SetConstantForce(ffdata->u.params[0]);
 				break;
 			//case FTYPE_FRICTION:
-				//SetFrictionForce(ffdata->u.friction);
+				//mEvdevFF->SetFrictionForce(ffdata->u.friction);
 				//break;
 			//case FTYPE_DAMPER:
-				//SetDamper(ffdata->u.damper, false);
+				//mEvdevFF->SetDamper(ffdata->u.damper, false);
 				//break;
 			//case FTYPE_HIGH_RESOLUTION_DAMPER:
-				//SetDamper(ffdata->u.damper, hires);
+				//mEvdevFF->SetDamper(ffdata->u.damper, hires);
 				//break;
 			default:
 				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
@@ -556,8 +452,8 @@ int JoyDevPad::TokenOut(const uint8_t *data, int len)
 		{
 			if (slots == 0x0F) //disable all effects, usually on startup
 			{
-				DisableConstantForce();
-				//SetSpringForce(DI_FFNOMINALMAX + 1, spring { 0 }, hires);
+				mEvdevFF->DisableConstantForce();
+				//mEvdevFF->SetSpringForce(DI_FFNOMINALMAX + 1, spring { 0 }, hires);
 			}
 			else
 			{
@@ -568,25 +464,25 @@ int JoyDevPad::TokenOut(const uint8_t *data, int len)
 						switch (mFFstate.slot_type[i])
 						{
 						case FTYPE_CONSTANT:
-							DisableConstantForce();
+							mEvdevFF->DisableConstantForce();
 							break;
 						case FTYPE_VARIABLE:
-							//DisableRamp();
-							DisableConstantForce();
+							//mEvdevFF->DisableRamp();
+							mEvdevFF->DisableConstantForce();
 							break;
 						//case FTYPE_SPRING:
 						//case FTYPE_HIGH_RESOLUTION_SPRING:
-							//DisableSpring();
+							//mEvdevFF->DisableSpring();
 							//break;
 						//case FTYPE_AUTO_CENTER_SPRING:
-							//DisableSpring();
+							//mEvdevFF->DisableSpring();
 							//break;
 						//case FTYPE_FRICTION:
-							//DisableFriction();
+							//mEvdevFF->DisableFriction();
 							//break;
 						//case FTYPE_DAMPER:
 						//case FTYPE_HIGH_RESOLUTION_DAMPER:
-							//DisableDamper();
+							//mEvdevFF->DisableDamper();
 							//break;
 						default:
 							OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
@@ -604,7 +500,7 @@ int JoyDevPad::TokenOut(const uint8_t *data, int len)
 		{
 			if (slots == 0x0F) {
 				//just release force
-				SetConstantForce(127);
+				mEvdevFF->SetConstantForce(127);
 			}
 			else
 			{
@@ -652,17 +548,13 @@ int JoyDevPad::Open()
 
 int JoyDevPad::Close()
 {
+	delete mEvdevFF;
+	mEvdevFF = nullptr;
+
 	if(mHandle != -1)
 		close(mHandle);
-
 	if(mHandleFF != -1)
-	{
-		if (mEffConstant.id != -1 && ioctl(mHandleFF, EVIOCRMFF, mEffConstant.id) == -1)
-		{
-			OSDebugOut(APINAME ": Failed to unload FF effect.\n");
-		}
 		close(mHandleFF);
-	}
 
 	mHandle = -1;
 	mHandleFF = -1;

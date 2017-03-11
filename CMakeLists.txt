@@ -303,9 +303,14 @@ IF(UNIX)
 	LIST(APPEND SRCS_QEMU
 		./src/qemu-usb/usb-msd-gtk.cpp
 	)
+	LIST(APPEND HDRS_PAD
+		./src/usb-pad/joydev/joydev.h
+		./src/usb-pad/evdev/evdev-ff.h
+	)
 	LIST(APPEND SRCS_PAD
 		./src/usb-pad/joydev/joydev.cpp
 		./src/usb-pad/joydev/joydev-gtk.cpp
+		./src/usb-pad/evdev/evdev-ff.cpp
 	)
 	LIST(APPEND SRCS
 		./src/linux/config.cpp

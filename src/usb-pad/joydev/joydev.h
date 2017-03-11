@@ -1,11 +1,9 @@
 #pragma once
 #include "../padproxy.h"
 #include "../../configuration.h"
+#include "../evdev/evdev-ff.h"
 #include <linux/joystick.h>
 #include <unistd.h>
-
-#define BITS_TO_UCHAR(x) \
-	(((x) + 8 * sizeof (unsigned char) - 1) / (8 * sizeof (unsigned char)))
 
 // Keep in sync with PS2Buttons enum
 enum JoyDevMap
@@ -59,6 +57,7 @@ public:
 	JoyDevPad(int port): Pad(port)
 	, mIsGamepad(false)
 	, mIsDualAnalog(false)
+	, mEvdevFF(nullptr)
 	{
 	}
 
@@ -78,15 +77,10 @@ public:
 	static std::vector<CONFIGVARIANT> GetSettings();
 protected:
 	bool FindPad();
-	void SetConstantForce(int force);
-	void SetSpringForce(int force);
-	void SetAutoCenter(int value);
-	void SetGain(int gain);
-	void DisableConstantForce();
 
 	int mHandle;
 	int mHandleFF;
-	struct ff_effect mEffConstant;
+	EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
 	uint8_t  mAxisMap[ABS_MAX + 1];
 	uint16_t mBtnMap[KEY_MAX + 1];
