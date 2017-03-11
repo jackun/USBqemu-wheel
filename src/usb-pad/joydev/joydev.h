@@ -42,10 +42,10 @@ static const char* JoyDevMapNames [] = {
 	"start",
 	"r3",
 	"l3",
+	"down",
 	"left",
 	"up",
 	"right",
-	"down",
 	"steering",
 	"throttle",
 	"brake"
