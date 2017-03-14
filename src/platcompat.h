@@ -4,7 +4,9 @@
 // Annoying defines
 // ---------------------------------------------------------------------
 #ifdef _WIN32
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #define wfopen _wfopen
 #define fseeko64 _fseeki64
