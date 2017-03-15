@@ -1040,6 +1040,17 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETPOS, TRUE, buffering);
 		SetDlgItemInt(hW, IDC_BUFFER1, buffering, FALSE);
 
+		buffering = 50;
+		{
+			CONFIGVARIANT var(N_BUFFER_LEN_SINK, CONFIG_TYPE_INT);
+			if (LoadSetting(s->port, APINAME, var))
+				buffering = var.intValue;
+		}
+		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETRANGEMIN, TRUE, 1);
+		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETRANGEMAX, TRUE, 1000);
+		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETPOS, TRUE, buffering);
+		SetDlgItemInt(hW, IDC_BUFFER2, buffering, FALSE);
+
 		for (int i = 0; i < 2; i++)
 		{
 			CONFIGVARIANT var0(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
@@ -1064,6 +1075,12 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 			SetDlgItemInt(hW, IDC_BUFFER1, pos, FALSE);
 			break;
 		}
+		else if ((HWND)lParam == GetDlgItem(hW, IDC_SLIDER2))
+		{
+			int pos = SendDlgItemMessage(hW, IDC_SLIDER2, TBM_GETPOS, 0, 0);
+			SetDlgItemInt(hW, IDC_BUFFER2, pos, FALSE);
+			break;
+		}
 		break;
 
 	case WM_COMMAND:
@@ -1076,6 +1093,10 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 			case IDC_BUFFER1:
 				CHECKED_SET_MAX_INT(tmp, hW, IDC_BUFFER1, FALSE, 1, 1000);
 				SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETPOS, TRUE, tmp);
+				break;
+			case IDC_BUFFER2:
+				CHECKED_SET_MAX_INT(tmp, hW, IDC_BUFFER2, FALSE, 1, 1000);
+				SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETPOS, TRUE, tmp);
 				break;
 			}
 		}
@@ -1110,6 +1131,12 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 				{
 					CONFIGVARIANT var(N_BUFFER_LEN_SRC, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0));
+					if (!SaveSetting(s->port, APINAME, var))
+						res = RESULT_FAILED;
+				}
+
+				{
+					CONFIGVARIANT var(N_BUFFER_LEN_SINK, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER2, TBM_GETPOS, 0, 0));
 					if (!SaveSetting(s->port, APINAME, var))
 						res = RESULT_FAILED;
 				}
