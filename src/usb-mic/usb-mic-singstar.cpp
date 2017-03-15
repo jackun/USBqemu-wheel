@@ -59,45 +59,31 @@ namespace usb_mic_singstar {
  * block diagrams.  Alternative setting 0 is always the null block diagram,
  * which is used by a disabled device.
  */
-enum usb_audio_altset {
+enum usb_audio_altset : int8_t {
     ALTSET_OFF  = 0x00,         /* No endpoint */
     ALTSET_ON   = 0x01,         /* Single endpoint */
 };
 
-/*
- * buffering
- */
-
-struct streambuf {
-    uint8_t *data;
-    uint32_t size;
-    uint32_t prod;
-    uint32_t cons;
-};
-
 typedef struct SINGSTARMICState {
     USBDevice dev;
-    int port;
-    int intf;
     AudioDevice *audsrc[2];
     AudioDeviceProxyBase *audsrcproxy;
-    MicMode mode;
 
-    /* state */
-    struct {
+    struct freeze {
+        int port;
+        int intf;
+        MicMode mode;
+
         enum usb_audio_altset altset;
         bool mute;
         uint8_t vol[2];
-        //struct streambuf buf;
-    } out;
+        uint32_t srate[2]; //TODO can it have different rates?
+    } f; //freezable
 
     /* properties */
     uint32_t debug;
-    //uint32_t buffer;
-    int16_t *buffer[2];
-    uint32_t srate[2]; //two mics
+    std::vector<int16_t> buffer[2];
     //uint8_t  fifo[2][200]; //on-chip 400byte fifo
-    //streambuf fifo[2];
 } SINGSTARMICState;
 
 /* descriptor dumped from a real singstar MIC adapter */
@@ -333,13 +319,13 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0300):
-        data[0] = s->out.mute;
+        data[0] = s->f.mute;
         ret = 1;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0300):
         if (cn < 2) {
-            //uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
-            uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
+            //uint16_t vol = (s->f.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
+            uint16_t vol = (s->f.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
             data[0] = (uint8_t)(vol & 0xFF);
             data[1] = vol >> 8;
             ret = 2;
@@ -389,7 +375,7 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0300):
-        s->out.mute = data[0] & 1;
+        s->f.mute = data[0] & 1;
         set_vol = true;
         ret = 0;
         break;
@@ -404,8 +390,8 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
                 vol = 255;
             }
 
-            if (s->out.vol[cn] != vol) {
-				s->out.vol[cn] = (uint8_t)vol;
+            if (s->f.vol[cn] != vol) {
+				s->f.vol[cn] = (uint8_t)vol;
 				set_vol = true;
 			}
             ret = 0;
@@ -416,12 +402,10 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
     if (set_vol) {
         //if (s->debug) {
             fprintf(stderr, "singstar: mute %d, lvol %3d, rvol %3d\n",
-                    s->out.mute, s->out.vol[0], s->out.vol[1]);
+                    s->f.mute, s->f.vol[0], s->f.vol[1]);
 			OSDebugOut(TEXT("singstar: mute %d, lvol %3d, rvol %3d\n"),
-                    s->out.mute, s->out.vol[0], s->out.vol[1]);
+                    s->f.mute, s->f.vol[0], s->f.vol[1]);
         //}
-        //AUD_set_volume_out(s->out.voice, s->out.mute,
-        //                   s->out.vol[0], s->out.vol[1]);
     }
 
     return ret;
@@ -446,29 +430,29 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
     switch (aid) {
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_SET_CUR, 0x81):
 		if( cn == 0xFF) {
-			s->srate[0] = data[0] | (data[1] << 8) | (data[2] << 16);
-			s->srate[1] = s->srate[0];
+			s->f.srate[0] = data[0] | (data[1] << 8) | (data[2] << 16);
+			s->f.srate[1] = s->f.srate[0];
 
 			if(s->audsrc[0])
-				s->audsrc[0]->SetResampling(s->srate[0]);
+				s->audsrc[0]->SetResampling(s->f.srate[0]);
 
 			if(s->audsrc[1])
-				s->audsrc[1]->SetResampling(s->srate[1]);
+				s->audsrc[1]->SetResampling(s->f.srate[1]);
 
-			OSDebugOut(TEXT("singstar: set sampling to %d\n"), s->srate[0]);
+			OSDebugOut(TEXT("singstar: set sampling to %d\n"), s->f.srate[0]);
 		} else if( cn < 2) {
 
-			s->srate[cn] = data[0] | (data[1] << 8) | (data[2] << 16);
-			OSDebugOut(TEXT("singstar: set cn %d sampling to %d\n"), cn, s->srate[cn]);
+			s->f.srate[cn] = data[0] | (data[1] << 8) | (data[2] << 16);
+			OSDebugOut(TEXT("singstar: set cn %d sampling to %d\n"), cn, s->f.srate[cn]);
 			if(s->audsrc[cn])
-				s->audsrc[cn]->SetResampling(s->srate[cn]);
+				s->audsrc[cn]->SetResampling(s->f.srate[cn]);
 		}
         ret = 0;
         break;
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_GET_CUR, 0x81):
-        data[0] = s->srate[0] & 0xFF;
-		data[1] = (s->srate[0] >> 8) & 0xFF;
-		data[2] = (s->srate[0] >> 16) & 0xFF;
+        data[0] = s->f.srate[0] & 0xFF;
+		data[1] = (s->f.srate[0] >> 8) & 0xFF;
+		data[2] = (s->f.srate[0] >> 16) & 0xFF;
         ret = 3;
         break;
     }
@@ -586,7 +570,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                 break;
             case 3:// TODO iSerial = 0 (unused according to specs)
                 /* serial number */
-                ret = set_usb_string(data, "3X0420811");
+                ret = set_usb_string(data, "310420811");
                 break;
             case 2:
                 /* product description */
@@ -611,15 +595,14 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
     case DeviceOutRequest | USB_REQ_SET_CONFIGURATION:
         ret = 0;
         break;
-    case DeviceRequest | USB_REQ_GET_INTERFACE:
-		OSDebugOut(TEXT("Get interface, len :%d\n"), length);
-        data[0] = s->intf;
+    case InterfaceRequest | USB_REQ_GET_INTERFACE:
+        OSDebugOut(TEXT("Get interface, len :%d\n"), length);
+        data[0] = s->f.intf;
         ret = 1;
         break;
-	case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
-    case DeviceOutRequest | USB_REQ_SET_INTERFACE:
-		OSDebugOut(TEXT("Set interface: %d\n"), value);
-		s->intf = value;
+    case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
+        OSDebugOut(TEXT("Set interface: %d\n"), value);
+        s->f.intf = value;
         ret = 0;
         break;
         /* hid specific requests */
@@ -663,7 +646,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			memset(data, 0, len);
 
 			//TODO
-			int outChns = s->intf == 1 ? 1 : 2;
+			int outChns = s->f.intf == 1 ? 1 : 2;
 			uint32_t frames, outlen[2] = {0}, chn;
 			int16_t *src1, *src2;
 			int16_t *dst = (int16_t *)data;
@@ -677,7 +660,7 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 					s->audsrc[i]->GetFrames(&frames))
 				{
 					frames = MIN(maxPerChnFrames, frames); //max 50 frames usually
-					outlen[i] = s->audsrc[i]->GetBuffer(s->buffer[i], frames);
+					outlen[i] = s->audsrc[i]->GetBuffer(s->buffer[i].data(), frames);
 				}
 			}
 
@@ -685,18 +668,18 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 
 			//TODO well, it is 16bit interleaved, right?
 			//Merge with MIC_MODE_SHARED case?
-			switch(s->mode) {
+			switch(s->f.mode) {
 			case MIC_MODE_SINGLE:
 			{
 				int k = s->audsrc[0] ? 0 : 1;
-				int off = s->intf == 1 ? 0 : k;
+				int off = s->f.intf == 1 ? 0 : k;
 				chn = s->audsrc[k]->GetChannels();
 				frames = outlen[k];
 
 				uint32_t i = 0;
 				for(; i < frames && i < maxPerChnFrames; i++)
 				{
-					dst[i * outChns + off] = SetVolume(s->buffer[k][i * chn], s->out.vol[0]);
+					dst[i * outChns + off] = SetVolume(s->buffer[k][i * chn], s->f.vol[0]);
 					//dst[i * 2 + 1] = 0;
 				}
 
@@ -709,18 +692,18 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				int k = 0;//(s->buffer[0]) ? 0 : 1; //TODO No need? Should be always first one anyway
 				chn = s->audsrc[k]->GetChannels();
 				frames = outlen[k];
-				src1 = s->buffer[k];
+				src1 = s->buffer[k].data();
 
 				uint32_t i = 0;
 				for(; i < frames && i < maxPerChnFrames; i++)
 				{
-					dst[i * outChns] = SetVolume(src1[i * chn], s->out.vol[k]);
+					dst[i * outChns] = SetVolume(src1[i * chn], s->f.vol[k]);
 					if (outChns > 1)
 					{
 						if (chn == 1)
 							dst[i * 2 + 1] = dst[i * 2];
 						else
-							dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->out.vol[k]);
+							dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->f.vol[k]);
 					}
 				}
 
@@ -734,15 +717,15 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 				uint32_t cn2 = s->audsrc[1]->GetChannels();
 				uint32_t minLen = MIN(outlen[0], outlen[1]);
 
-				src1 = (int16_t *)s->buffer[0];
-				src2 = (int16_t *)s->buffer[1];
+				src1 = s->buffer[0].data();
+				src2 = s->buffer[1].data();
 
 				uint32_t i = 0;
 				for(; i < minLen && i < maxPerChnFrames; i++)
 				{
-					dst[i * outChns] = SetVolume(src1[i * cn1], s->out.vol[0]);
+					dst[i * outChns] = SetVolume(src1[i * cn1], s->f.vol[0]);
 					if(outChns > 1)
-						dst[i * 2 + 1] = SetVolume(src2[i * cn2], s->out.vol[1]);
+						dst[i * 2 + 1] = SetVolume(src2[i * cn2], s->f.vol[1]);
 				}
 
 				ret = i;
@@ -756,15 +739,13 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			if (!file)
 			{
 				char name[1024] = { 0 };
-				snprintf(name, sizeof(name), "singstar_%dch_%uHz.raw", outChns, s->srate[0]);
+				snprintf(name, sizeof(name), "singstar_%dch_%uHz.raw", outChns, s->f.srate[0]);
 				file = fopen(name, "wb");
 			}
 
 			if (file)
 				fwrite(data, sizeof(short), ret * outChns, file);
 #endif
-			//delete[] buffer[0];
-			//delete[] buffer[1];
 			return ret * outChns * sizeof(int16_t);
         }
         break;
@@ -791,8 +772,7 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 			s->audsrc[i]->Stop();
 			delete s->audsrc[i];
 			s->audsrc[i] = NULL;
-			delete [] s->buffer[i];
-			s->buffer[i] = NULL;
+			s->buffer[i].clear();
 		}
 	}
 
@@ -864,47 +844,18 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 	s->audsrc[0] = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SOURCE);
 	s->audsrc[1] = s->audsrcproxy->CreateObject(port, 1, AUDIODIR_SOURCE);
 
-	s->mode = MIC_MODE_SEPARATE;
+	s->f.mode = MIC_MODE_SEPARATE;
 	auto src = s->audsrc[0] ? s->audsrc[0] : (s->audsrc[1] ? s->audsrc[1] : nullptr);
 
 	if (src)
-		s->mode = src->GetMicMode(nullptr);
+		s->f.mode = src->GetMicMode(nullptr);
 
-	if(s->mode != MIC_MODE_SHARED && (!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1])))
-		s->mode = MIC_MODE_SINGLE;
+	if(s->f.mode != MIC_MODE_SHARED && (!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1])))
+		s->f.mode = MIC_MODE_SINGLE;
 
 	for (int i = 0; i < 2; i++)
 		if (s->audsrc[i])
-			s->buffer[i] = new int16_t[BUFFER_FRAMES * s->audsrc[i]->GetChannels()];
-
-	/*if(!devs[0].empty() && !devs[1].empty()
-		&& (devs[0] == devs[1]))
-	{
-		s->mode = MIC_MODE_SHARED;
-	}
-
-	if(!devs[0].empty())
-	{
-		info.strID = devs[0];
-		s->audsrc[0] = s->audsrcproxy->CreateObject(info);
-		if(s->audsrc[0])
-		{
-			s->buffer[0] = new int16_t[BUFFER_FRAMES * s->audsrc[0]->GetChannels()];
-			if(s->mode != MIC_MODE_SHARED)
-				s->mode = MIC_MODE_SINGLE;
-		}
-	}
-
-	if(s->mode != MIC_MODE_SHARED && !devs[1].empty())
-	{
-		info.strID = devs[1];
-		s->audsrc[1] = s->audsrcproxy->CreateObject(info);
-		if(s->audsrc[1])
-		{
-			s->buffer[1] = new int16_t[BUFFER_FRAMES * s->audsrc[1]->GetChannels()];
-			s->mode = MIC_MODE_SEPARATE;
-		}
-	}*/
+			s->buffer[i].resize(BUFFER_FRAMES * s->audsrc[i]->GetChannels());
 
 	if(!s->audsrc[0] && !s->audsrc[1])
 	{
@@ -920,13 +871,12 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
     s->dev.handle_destroy = singstar_mic_handle_destroy;
 	s->dev.open = singstar_mic_handle_open;
 	s->dev.close = singstar_mic_handle_close;
-    s->port = port;
 
     // set defaults
-    s->out.vol[0] = 240; /* 0 dB */
-    s->out.vol[1] = 240; /* 0 dB */
-    s->srate[0] = 48000;
-    s->srate[1] = 48000;
+    s->f.vol[0] = 240; /* 0 dB */
+    s->f.vol[1] = 240; /* 0 dB */
+    s->f.srate[0] = 48000;
+    s->f.srate[1] = 48000;
 
     return (USBDevice *)s;
 
@@ -938,6 +888,28 @@ int SingstarDevice::Configure(int port, const std::string& api, void *data)
 	if (proxy)
 		return proxy->Configure(port, data);
 	return RESULT_CANCELED;
+}
+
+int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
+{
+	SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	switch (mode)
+	{
+		case FREEZE_LOAD:
+			if (!s) return -1;
+			s->f = *(SINGSTARMICState::freeze *)data;
+			s->audsrc[0]->SetResampling(s->f.srate[0]);
+			s->audsrc[1]->SetResampling(s->f.srate[1]);
+			return sizeof(SINGSTARMICState::freeze);
+		case FREEZE_SAVE:
+			if (!s) return -1;
+			*(SINGSTARMICState::freeze *)data = s->f;
+			return sizeof(SINGSTARMICState::freeze);
+		case FREEZE_SIZE:
+			return sizeof(SINGSTARMICState::freeze);
+		default:
+		break;
+	}
 }
 
 REGISTER_DEVICE(DEVTYPE_SINGSTAR, DEVICENAME, SingstarDevice);

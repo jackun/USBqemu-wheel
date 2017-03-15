@@ -48,65 +48,39 @@ namespace usb_headset {
 
 static FILE *file = NULL;
 
-/*
- * A USB audio device supports an arbitrary number of alternate
- * interface settings for each interface.  Each corresponds to a block
- * diagram of parameterized blocks.  This can thus refer to things like
- * number of channels, data rates, or in fact completely different
- * block diagrams.  Alternative setting 0 is always the null block diagram,
- * which is used by a disabled device.
- */
-enum usb_audio_altset {
-    ALTSET_OFF  = 0x00,         /* No endpoint */
-    ALTSET_ON   = 0x01,         /* Single endpoint */
-};
-
-/*
- * buffering
- */
-
-struct streambuf {
-    uint8_t *data;
-    uint32_t size;
-    uint32_t prod;
-    uint32_t cons;
-};
-
 typedef struct HeadsetState {
     USBDevice dev;
-    int port;
-    int intf;
-    int altset[4];
     AudioDevice *audsrc;
     AudioDevice *audsink;
     AudioDeviceProxyBase *audsrcproxy;
-    MicMode mode;
 
-    /* state */
-    struct {
-        enum usb_audio_altset altset;
-        bool mute;
-        uint8_t vol[2];
-        uint32_t srate;
-        std::vector<int16_t> buffer;
-        //struct streambuf buf;
-    } out;
+    struct freeze {
+        int intf;
+        int altset[3];
+        MicMode mode;
 
-    struct {
-        bool mute;
-        uint8_t vol;
-        uint32_t srate;
-        std::vector<int16_t> buffer;
-    } in;
+        /* state */
+        struct {
+            bool mute;
+            uint8_t vol[2];
+            uint32_t srate;
+        } out;
 
-    struct {
-        bool mute;
-        uint8_t vol[2];
-    } mixer; //TODO
+        struct {
+            bool mute;
+            uint8_t vol;
+            uint32_t srate;
+        } in;
 
-    /* properties */
-    uint32_t debug;
-    //uint32_t buffer;
+        struct {
+            bool mute;
+            uint8_t vol[2];
+        } mixer; //TODO
+    } f; //freezable
+
+    std::vector<int16_t> in_buffer;
+    std::vector<int16_t> out_buffer;
+
 } HeadsetState;
 
 class HeadsetDevice : public Device
@@ -132,6 +106,7 @@ public:
         return RegisterAudioDevice::instance().Proxy(name)->Name();
     }
     static int Configure(int port, const std::string& api, void *data);
+    static int Freeze(int mode, USBDevice *dev, void *data);
 };
 
 static const uint8_t headset_dev_descriptor[] = {
@@ -517,14 +492,14 @@ static int usb_audio_get_control(HeadsetState *s, uint8_t attrib,
     switch (aid) {
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0600):
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0200):
-        data[0] = s->in.mute;
+        data[0] = s->f.in.mute;
         ret = 1;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0600):
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0200):
         //if (cn < 2) //TODO
         {
-            uint16_t vol = (s->in.vol * 0x8800 + 127) / 255 + 0x8000;
+            uint16_t vol = (s->f.in.vol * 0x8800 + 127) / 255 + 0x8000;
             data[0] = (uint8_t)(vol & 0xFF);
             data[1] = vol >> 8;
             ret = 2;
@@ -565,13 +540,13 @@ static int usb_audio_get_control(HeadsetState *s, uint8_t attrib,
         break;
 
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0100):
-        data[0] = s->out.mute;
+        data[0] = s->f.out.mute;
         ret = 1;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0100):
         if (cn < 2) //TODO
         {
-            uint16_t vol = (s->out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
+            uint16_t vol = (s->f.out.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
             data[0] = (uint8_t)(vol & 0xFF);
             data[1] = vol >> 8;
             ret = 2;
@@ -632,10 +607,10 @@ static int usb_audio_set_control(HeadsetState *s, uint8_t attrib,
     switch (aid) {
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0600):
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0200):
-        s->in.mute = data[0] & 1;
+        s->f.in.mute = data[0] & 1;
         set_vol = true;
         ret = 0;
-        OSDebugOut(TEXT("=> mic set cn %d mute %d\n"), cn, s->in.mute);
+        OSDebugOut(TEXT("=> mic set cn %d mute %d\n"), cn, s->f.in.mute);
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0600):
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0200):
@@ -648,17 +623,17 @@ static int usb_audio_set_control(HeadsetState *s, uint8_t attrib,
             vol = 255;
         }
 
-        if (s->in.vol != vol) {
-            s->in.vol = (uint8_t)vol;
+        if (s->f.in.vol != vol) {
+            s->f.in.vol = (uint8_t)vol;
             set_vol = true;
         }
         ret = 0;
         break;
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0100):
-        s->out.mute = data[0] & 1;
+        s->f.out.mute = data[0] & 1;
         set_vol = true;
         ret = 0;
-        OSDebugOut(TEXT("=> headphones set cn %d mute %04x\n"), cn, s->out.mute);
+        OSDebugOut(TEXT("=> headphones set cn %d mute %04x\n"), cn, s->f.out.mute);
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0100):
         vol = data[0] + (data[1] << 8);
@@ -672,8 +647,8 @@ static int usb_audio_set_control(HeadsetState *s, uint8_t attrib,
                 vol = 255;
             }
 
-            if (s->out.vol[cn] != vol) {
-                s->out.vol[cn] = (uint8_t)vol;
+            if (s->f.out.vol[cn] != vol) {
+                s->f.out.vol[cn] = (uint8_t)vol;
                 set_vol = true;
             }
             ret = 0;
@@ -682,13 +657,11 @@ static int usb_audio_set_control(HeadsetState *s, uint8_t attrib,
     }
 
     if (set_vol) {
-        //if (s->debug) {
+        //if (s->f.debug) {
             OSDebugOut(TEXT("headset: mute %d, vol %3d; mute %d vol %d %d\n"),
-                    s->in.mute, s->in.vol,
-                    s->out.mute, s->out.vol[0], s->out.vol[1]);
+                    s->f.in.mute, s->f.in.vol,
+                    s->f.out.mute, s->f.out.vol[0], s->f.out.vol[1]);
         //}
-        //AUD_set_volume_out(s->out.voice, s->out.mute,
-        //                   s->out.vol[0], s->out.vol[1]);
     }
 
     return ret;
@@ -711,32 +684,32 @@ static int usb_audio_ep_control(HeadsetState *s, uint8_t attrib,
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_SET_CUR, 0x84):
-        s->in.srate = data[0] | (data[1] << 8) | (data[2] << 16);
-        OSDebugOut(TEXT("=> mic set cn %d sampling to %d\n"), cn, s->in.srate);
+        s->f.in.srate = data[0] | (data[1] << 8) | (data[2] << 16);
+        OSDebugOut(TEXT("=> mic set cn %d sampling to %d\n"), cn, s->f.in.srate);
         if(s->audsrc)
-            s->audsrc->SetResampling(s->in.srate);
+            s->audsrc->SetResampling(s->f.in.srate);
         ret = 0;
         break;
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_GET_CUR, 0x84):
-        OSDebugOut(TEXT("=> mic get cn %d sampling %d\n"), cn, s->in.srate);
-        data[0] = s->in.srate & 0xFF;
-        data[1] = (s->in.srate >> 8) & 0xFF;
-        data[2] = (s->in.srate >> 16) & 0xFF;
+        OSDebugOut(TEXT("=> mic get cn %d sampling %d\n"), cn, s->f.in.srate);
+        data[0] = s->f.in.srate & 0xFF;
+        data[1] = (s->f.in.srate >> 8) & 0xFF;
+        data[2] = (s->f.in.srate >> 16) & 0xFF;
         ret = 3;
         break;
 
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_SET_CUR, 0x01):
-        s->out.srate = data[0] | (data[1] << 8) | (data[2] << 16);
-        OSDebugOut(TEXT("=> headphones set cn %d sampling to %d\n"), cn, s->out.srate);
+        s->f.out.srate = data[0] | (data[1] << 8) | (data[2] << 16);
+        OSDebugOut(TEXT("=> headphones set cn %d sampling to %d\n"), cn, s->f.out.srate);
         if(s->audsink)
-            s->audsink->SetResampling(s->out.srate);
+            s->audsink->SetResampling(s->f.out.srate);
         ret = 0;
         break;
     case ATTRIB_ID(AUDIO_SAMPLING_FREQ_CONTROL, AUDIO_REQUEST_GET_CUR, 0x01):
-        OSDebugOut(TEXT("=> headphones get cn %d sampling %d\n"), cn, s->out.srate);
-        data[0] = s->out.srate & 0xFF;
-        data[1] = (s->out.srate >> 8) & 0xFF;
-        data[2] = (s->out.srate >> 16) & 0xFF;
+        OSDebugOut(TEXT("=> headphones get cn %d sampling %d\n"), cn, s->f.out.srate);
+        data[0] = s->f.out.srate & 0xFF;
+        data[1] = (s->f.out.srate >> 8) & 0xFF;
+        data[2] = (s->f.out.srate >> 16) & 0xFF;
         ret = 3;
         break;
     }
@@ -763,7 +736,7 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
         ret = usb_audio_get_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) {
-            //if (s->debug) {
+            //if (s->f.debug) {
                 fprintf(stderr, "headset: fail: get control\n");
             //}
             goto fail;
@@ -777,7 +750,7 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
         ret = usb_audio_set_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) {
-            //if (s->debug) {
+            //if (s->f.debug) {
                 fprintf(stderr, "headset: fail: set control\n data:");
             //}
             goto fail;
@@ -877,15 +850,14 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
         ret = 0;
         break;
     case InterfaceRequest | USB_REQ_GET_INTERFACE:
-        OSDebugOut(TEXT("Get interface, index %d alt %d\n"), index, s->altset[index]);
-        data[0] = s->altset[index];
+        OSDebugOut(TEXT("Get interface, index %d alt %d\n"), index, s->f.altset[index]);
+        data[0] = s->f.altset[index];
         ret = 1;
         break;
     case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
-//    case DeviceOutRequest | USB_REQ_SET_INTERFACE:
         OSDebugOut(TEXT("Set interface: %d %d\n"), index, value);
-        s->intf = index;
-        s->altset[index] = value;
+        s->f.intf = index;
+        s->f.altset[index] = value;
         ret = 0;
         break;
         /* hid specific requests */
@@ -925,11 +897,11 @@ static int headset_handle_data(USBDevice *dev, int pid,
     case USB_TOKEN_IN:
         //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
         OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
-        if (devep == 4 && s->altset[2] && s->audsrc) {
+        if (devep == 4 && s->f.altset[2] && s->audsrc) {
 
             memset(data, 0, len);
 
-            uint32_t outChns = 1; //s->altset[2] == 1 ? 2 : 1;
+            uint32_t outChns = 1; //s->f.altset[2] == 1 ? 2 : 1;
             uint32_t inChns  = s->audsrc->GetChannels();
             int16_t *dst = (int16_t *)data;
             //Divide 'len' bytes between n channels of 16 bits
@@ -938,16 +910,16 @@ static int headset_handle_data(USBDevice *dev, int pid,
             if(s->audsrc->GetFrames(&frames))
             {
                 frames = MIN(frames, maxFrames);
-                s->in.buffer.resize(frames * inChns);
-                frames = s->audsrc->GetBuffer(s->in.buffer.data(), frames);
+                s->in_buffer.resize(frames * inChns);
+                frames = s->audsrc->GetBuffer(s->in_buffer.data(), frames);
             }
 
             uint32_t i = 0;
             for(; i < frames; i++)
             {
-                dst[i * outChns] = SetVolume(s->in.buffer[i * inChns], s->in.vol);
+                dst[i * outChns] = SetVolume(s->in_buffer[i * inChns], s->f.in.vol);
                 //if (outChns > 1 && inChns > 1)
-                //    dst[i * outChns + 1] = SetVolume(s->in.buffer[i * inChns + 1], s->in.vol);
+                //    dst[i * outChns + 1] = SetVolume(s->in_buffer[i * inChns + 1], s->f.in.vol);
                 //else if (outChns > 1)
                 //    dst[i * outChns + 1] = 0;
             }
@@ -958,7 +930,7 @@ static int headset_handle_data(USBDevice *dev, int pid,
             if (!file)
             {
                 char name[1024] = { 0 };
-                snprintf(name, sizeof(name), "headset_s16le_%dch_%dHz.raw", outChns, s->in.srate);
+                snprintf(name, sizeof(name), "headset_s16le_%dch_%dHz.raw", outChns, s->f.in.srate);
                 file = fopen(name, "wb");
             }
 
@@ -974,14 +946,14 @@ static int headset_handle_data(USBDevice *dev, int pid,
         if (!s->audsink)
             return 0;
 
-        if (devep == 1 && s->altset[1]) {
+        if (devep == 1 && s->f.altset[1]) {
             int16_t *src = (int16_t *)data;
-            uint32_t inChns = s->altset[1] == 1 ? 2 : 1;
+            uint32_t inChns = s->f.altset[1] == 1 ? 2 : 1;
             uint32_t outChns = s->audsink->GetChannels();
             //Divide 'len' bytes between n channels of 16 bits
             uint32_t frames = len / (inChns * sizeof(int16_t));
 
-            s->out.buffer.resize(frames * outChns); //TODO move to AudioDevice for less data copying
+            s->out_buffer.resize(frames * outChns); //TODO move to AudioDevice for less data copying
 
             uint32_t i = 0;
             for(; i < frames; i++)
@@ -989,12 +961,12 @@ static int headset_handle_data(USBDevice *dev, int pid,
                 if (inChns == outChns)
                 {
                     for (int cn = 0; cn < outChns; cn++)
-                        s->out.buffer[i * outChns + cn] = SetVolume(src[i * inChns + cn], s->out.vol[cn]);
+                        s->out_buffer[i * outChns + cn] = SetVolume(src[i * inChns + cn], s->f.out.vol[cn]);
                 }
                 else if (inChns < outChns)
                 {
                     for (int cn = 0; cn < outChns; cn++)
-                        s->out.buffer[i * outChns + cn] = SetVolume(src[i * inChns], s->out.vol[cn]);
+                        s->out_buffer[i * outChns + cn] = SetVolume(src[i * inChns], s->f.out.vol[cn]);
                 }
             }
 
@@ -1002,7 +974,7 @@ static int headset_handle_data(USBDevice *dev, int pid,
             if (!file)
             {
                 char name[1024] = { 0 };
-                snprintf(name, sizeof(name), "headset_s16le_%dch_%dHz.raw", inChns, s->out.srate);
+                snprintf(name, sizeof(name), "headset_s16le_%dch_%dHz.raw", inChns, s->f.out.srate);
                 file = fopen(name, "wb");
             }
 
@@ -1010,7 +982,7 @@ static int headset_handle_data(USBDevice *dev, int pid,
                 fwrite(data, sizeof(short), frames * inChns, file);
 #endif
 
-            frames = s->audsink->SetBuffer(s->out.buffer.data(), frames);
+            frames = s->audsink->SetBuffer(s->out_buffer.data(), frames);
 
             return frames * inChns * sizeof(int16_t);
         }
@@ -1032,8 +1004,7 @@ static void headset_handle_destroy(USBDevice *dev)
         s->audsrc->Stop();
         delete s->audsrc;
         s->audsrc = NULL;
-        //delete [] s->in.buffer[i];
-        s->in.buffer.clear();
+        s->in_buffer.clear();
     }
 
     if(s->audsink)
@@ -1041,8 +1012,7 @@ static void headset_handle_destroy(USBDevice *dev)
         s->audsink->Stop();
         delete s->audsink;
         s->audsink = NULL;
-        //delete [] s->out.buffer[i];
-        s->out.buffer.clear();
+        s->out_buffer.clear();
     }
 
     s->audsrcproxy->AudioDeinit();
@@ -1087,7 +1057,6 @@ static int headset_handle_packet(USBDevice *s, int pid,
     return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
-//USBDevice *headset_init(int port, TSTDSTRING *devs)
 USBDevice* HeadsetDevice::CreateDevice(int port)
 {
     std::string api;
@@ -1119,7 +1088,7 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
 
     s->audsrc  = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SOURCE);
     s->audsink = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SINK);
-    s->mode = MIC_MODE_SINGLE;
+    s->f.mode = MIC_MODE_SINGLE;
 
     if(!s->audsrc || !s->audsink)
     {
@@ -1127,8 +1096,8 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
         return NULL;
     }
 
-    s->in.buffer.reserve(BUFFER_FRAMES * s->audsrc->GetChannels());
-    s->out.buffer.reserve(BUFFER_FRAMES * s->audsink->GetChannels());
+    s->in_buffer.reserve(BUFFER_FRAMES * s->audsrc->GetChannels());
+    s->out_buffer.reserve(BUFFER_FRAMES * s->audsink->GetChannels());
 
     s->dev.speed = USB_SPEED_FULL;
     s->dev.handle_packet  = headset_handle_packet;
@@ -1138,14 +1107,13 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->dev.handle_destroy = headset_handle_destroy;
     s->dev.open           = headset_handle_open;
     s->dev.close          = headset_handle_close;
-    s->port = port;
 
     // set defaults
-    s->out.vol[0] = 240; /* 0 dB */
-    s->out.vol[1] = 240; /* 0 dB */
-    s->in.vol = 240; /* 0 dB */
-    s->out.srate = 48000;
-    s->in.srate = 48000;
+    s->f.out.vol[0] = 240; /* 0 dB */
+    s->f.out.vol[1] = 240; /* 0 dB */
+    s->f.in.vol = 240; /* 0 dB */
+    s->f.out.srate = 48000;
+    s->f.in.srate = 48000;
 
     return (USBDevice *)s;
 
@@ -1157,6 +1125,29 @@ int HeadsetDevice::Configure(int port, const std::string& api, void *data)
     if (proxy)
         return proxy->Configure(port, data);
     return RESULT_CANCELED;
+}
+
+int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
+{
+    HeadsetState *s = (HeadsetState *)dev;
+    switch (mode)
+    {
+        case FREEZE_LOAD:
+            if (!s) return -1;
+            s->f = *(HeadsetState::freeze *)data;
+            s->audsrc->SetResampling(s->f.in.srate);
+            s->audsink->SetResampling(s->f.out.srate);
+            return sizeof(HeadsetState::freeze);
+        case FREEZE_SAVE:
+            if (!s) return -1;
+            *(HeadsetState::freeze *)data = s->f;
+            return sizeof(HeadsetState::freeze);
+        case FREEZE_SIZE:
+            return sizeof(HeadsetState::freeze);
+        default:
+        break;
+    }
+    return -1;
 }
 
 REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, DEVICENAME, HeadsetDevice);

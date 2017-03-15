@@ -40,7 +40,6 @@
 
 #define USB_SPEED_LOW   0
 #define USB_SPEED_FULL  1
-#define USB_SPEED_HIGH  2
 
 #define USB_SPEED_MASK_LOW   (1 << USB_SPEED_LOW)
 #define USB_SPEED_MASK_FULL  (1 << USB_SPEED_FULL)
@@ -207,15 +206,9 @@ int usb_generic_handle_packet(USBDevice *s, int pid,
 int set_usb_string(uint8_t *buf, const char *str);
 int set_usb_string(uint8_t *buf, const char *str, int len);
 void usb_device_reset(USBDevice *dev);
+void usb_wakeup(USBDevice *dev);
+void usb_reattach(USBDevice *dev);
+void usb_send_msg(USBDevice *dev, int msg);
 
 /* usb hub */
 USBDevice *usb_hub_init(int nb_ports);
-
-/* usb-ohci.c */
-void usb_ohci_init(void *bus, int num_ports, int devfn);
-
-/* usb-hid.c */
-USBDevice *usb_mouse_init(void);
-
-/* usb-kbd.c */
-USBDevice *usb_keyboard_init(void);

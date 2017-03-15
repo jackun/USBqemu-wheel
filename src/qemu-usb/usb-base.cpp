@@ -212,3 +212,15 @@ void usb_wakeup(USBDevice *dev)
         dev->port->ops->wakeup(dev->port);
     }
 }
+
+void usb_reattach(USBDevice *dev)
+{
+    if (dev && dev->port && dev->port->ops->attach) {
+        dev->port->ops->attach(dev->port, dev);
+    }
+}
+
+void usb_send_msg(USBDevice *dev, int msg)
+{
+    dev->handle_packet(dev, msg, 0, 0, NULL, 0);
+}

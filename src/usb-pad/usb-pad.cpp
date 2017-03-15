@@ -26,6 +26,7 @@ public:
 		return RegisterPad::instance().Proxy(name)->Name();
 	}
 	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
 };
 
 #ifdef _DEBUG
@@ -58,11 +59,18 @@ typedef struct PADState {
 	int				initStage;
 	//Config instead?
 	bool			doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
+	struct freeze {
+		int wheel_type;
+	} f;
 } PADState;
 
-static generic_data_t generic_data;
-static dfp_data_t dfp_data;
-static gtforce_data_t gtf_data;
+typedef struct u_wheel_data_t {
+	union {
+		generic_data_t generic_data;
+		dfp_data_t dfp_data;
+		gtforce_data_t gtf_data;
+	} u;
+} u_wheel_data_t;
 
 /* HID interface requests */
 #define GET_REPORT   0xa101
@@ -359,6 +367,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (!s)
 		return NULL;
 
+	s->f.wheel_type = conf.WheelType[1 - port];
 	s->pad = pad;
 	//s->padProxy = proxy;
 	s->dev.speed = USB_SPEED_FULL;
@@ -395,37 +404,38 @@ void ResetData(dfp_data_t *d)
 
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 {
+	u_wheel_data_t *w = (u_wheel_data_t *)buf;
+
 	//fprintf(stderr,"usb-pad: axis x %d\n", data.axis_x);
 	switch(type){
 	case WT_GENERIC:
-		memset(&generic_data, 0xff, sizeof(generic_data_t));
-		//ResetData(&generic_data);
+		memset(&w->u.generic_data, 0xff, sizeof(generic_data_t));
+		//ResetData(&w->u.generic_data);
 
-		generic_data.buttons = data.buttons;
-		generic_data.hatswitch = data.hatswitch;
-		generic_data.axis_x = data.steering;
-		generic_data.axis_y = 0xFF; //data.clutch;
-		generic_data.axis_z = data.throttle;
-		generic_data.axis_rz = data.brake;
+		w->u.generic_data.buttons = data.buttons;
+		w->u.generic_data.hatswitch = data.hatswitch;
+		w->u.generic_data.axis_x = data.steering;
+		w->u.generic_data.axis_y = 0xFF; //data.clutch;
+		w->u.generic_data.axis_z = data.throttle;
+		w->u.generic_data.axis_rz = data.brake;
 
-		memcpy(buf, &generic_data, sizeof(generic_data_t));
 		break;
 
 	case WT_DRIVING_FORCE_PRO:
-		//memset(&dfp_data, 0, sizeof(dfp_data_t));
-		//ResetData(&dfp_data);
+		//memset(&w->u.dfp_data, 0, sizeof(dfp_data_t));
+		//ResetData(&w->u.dfp_data);
 
-		dfp_data.buttons = data.buttons;
-		dfp_data.hatswitch = data.hatswitch;
-		dfp_data.axis_x = data.steering;
-		dfp_data.axis_z = 1 | (data.throttle * 0x3F) / 0xFF; //TODO Always > 0 or everything stops working, wut.
-		dfp_data.axis_rz = 0x3F - (data.brake * 0x3F) / 0xFF;
-		//OSDebugOut(TEXT("dfp: axis_z=0x%02x, axis_rz=0x%02x\n"), dfp_data.axis_z, dfp_data.axis_rz);
+		w->u.dfp_data.buttons = data.buttons;
+		w->u.dfp_data.hatswitch = data.hatswitch;
+		w->u.dfp_data.axis_x = data.steering;
+		w->u.dfp_data.axis_z = 1 | (data.throttle * 0x3F) / 0xFF; //TODO Always > 0 or everything stops working, wut.
+		w->u.dfp_data.axis_rz = 0x3F - (data.brake * 0x3F) / 0xFF;
+		//OSDebugOut(TEXT("dfp: axis_z=0x%02x, axis_rz=0x%02x\n"), w->u.dfp_data.axis_z, w->u.dfp_data.axis_rz);
 
-		dfp_data.magic1 = 1;
-		dfp_data.magic2 = 1;
-		dfp_data.magic3 = 1;
-		dfp_data.magic4 =
+		w->u.dfp_data.magic1 = 1;
+		w->u.dfp_data.magic2 = 1;
+		w->u.dfp_data.magic3 = 1;
+		w->u.dfp_data.magic4 =
 			1 << 0 | //enable pedals?
 			0 << 1 |
 			0 << 2 |
@@ -435,21 +445,19 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 			0 << 6 |
 			0 << 7 ;
 
-		memcpy(buf, &dfp_data, sizeof(dfp_data_t));
-		//PrintBits(&dfp_data, sizeof(dfp_data_t));
+		//PrintBits(&w->u.dfp_data, sizeof(dfp_data_t));
 
 		break;
 
 	case WT_GT_FORCE:
-		memset(&gtf_data, 0xff, sizeof(gtforce_data_t));
+		memset(&w->u.gtf_data, 0xff, sizeof(gtforce_data_t));
 
-		gtf_data.buttons = data.buttons;
-		gtf_data.axis_x = data.steering;
-		gtf_data.axis_y = 0xFF; //data.clutch;
-		gtf_data.axis_z = data.throttle;
-		gtf_data.axis_rz = data.brake;
+		w->u.gtf_data.buttons = data.buttons;
+		w->u.gtf_data.axis_x = data.steering;
+		w->u.gtf_data.axis_y = 0xFF; //data.clutch;
+		w->u.gtf_data.axis_z = data.throttle;
+		w->u.gtf_data.axis_rz = data.brake;
 
-		memcpy(buf, &gtf_data, sizeof(gtforce_data_t));
 		break;
 
 	default:
@@ -463,6 +471,29 @@ int PadDevice::Configure(int port, const std::string& api, void *data)
 	if (proxy)
 		return proxy->Configure(port, data);
 	return RESULT_CANCELED;
+}
+
+int PadDevice::Freeze(int mode, USBDevice *dev, void *data)
+{
+	PADState *s = (PADState *)dev;
+
+	switch (mode)
+	{
+		case FREEZE_LOAD:
+			if (!s) return -1;
+			s->f = *(PADState::freeze *)data;
+			s->pad->Type((PS2WheelTypes)s->f.wheel_type);
+			return sizeof(PADState::freeze);
+		case FREEZE_SAVE:
+			if (!s) return -1;
+			*(PADState::freeze *)data = s->f;
+			return sizeof(PADState::freeze);
+		case FREEZE_SIZE:
+			return sizeof(PADState::freeze);
+		default:
+		break;
+	}
+	return -1;
 }
 
 REGISTER_DEVICE(DEVTYPE_PAD, DEVICENAME, PadDevice);

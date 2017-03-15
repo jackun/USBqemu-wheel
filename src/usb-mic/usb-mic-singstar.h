@@ -29,6 +29,7 @@ public:
 		return RegisterAudioDevice::instance().Proxy(name)->Name();
 	}
 	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
 };
 };
 #endif

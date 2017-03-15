@@ -26,5 +26,6 @@ public:
 		return TEXT("cstdio");
 	}
 	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
 };
 #endif

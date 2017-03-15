@@ -36,48 +36,32 @@
 int64_t last_cycle = 0;
 #define MIN_IRQ_INTERVAL 64 /* hack */
 
-#define PSXCLK	36864000	/* 36.864 Mhz */
 extern void USBirq(int);
 extern int64_t get_clock();
+extern int get_ticks_per_second();
 
-uint32_t bits = 0;
-uint32_t need_interrupt = 0;
 //#define DEBUG_PACKET
 //#define DEBUG_OHCI
 
 /* Update IRQ levels */
 static inline void ohci_intr_update(OHCIState *ohci)
 {
-	bits = (ohci->intr_status & ohci->intr) & 0x7fffffff;
+    int level = 0;
 
-    if ((ohci->intr & OHCI_INTR_MIE) && (bits!=0)) // && (ohci->ctl & OHCI_CTL_HCFS))
-	{
-		/*
-		static char reasons[1024];
-		int first=1;
+    if ((ohci->intr & OHCI_INTR_MIE) &&
+        (ohci->intr_status & ohci->intr))
+        level = 1;
 
-		reasons[0]=0;
+    if (level)
+    {
 
-#define reason_add(p,t) if(bits&(p)) { if(!first) strcat_s(reasons,1024,", "); first=0; strcat_s(reasons,1024,t); }
-		reason_add(OHCI_INTR_SO,"Scheduling overrun");
-		reason_add(OHCI_INTR_WD,"HcDoneHead writeback");
-		reason_add(OHCI_INTR_SF,"Start of frame");
-		reason_add(OHCI_INTR_RD,"Resume detect");
-		reason_add(OHCI_INTR_UE,"Unrecoverable error");
-		reason_add(OHCI_INTR_FNO,"Frame number overflow");
-		reason_add(OHCI_INTR_RHSC,"Root hub status change");
-		reason_add(OHCI_INTR_OC,"Ownership change");
-		*/
-        if( (get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
+        //if ((get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
+        if (ohci->intr_status != OHCI_INTR_WD) //HACK skip first intr with _WD, _SF should follow shortly
         {
-            if((ohci->ctl & OHCI_CTL_HCFS)==OHCI_USB_OPERATIONAL)
-            {
-                USBirq(1);
-                //OSDebugOut(TEXT("usb-ohci: Interrupt Called. Reason(s): %s\n",reasons);
-            }
+            USBirq(1);
             last_cycle = get_clock();
         }
-	}
+    }
 }
 
 /* Set an interrupt */
@@ -107,7 +91,7 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
     uint32_t old_state = port->ctrl;
 
     if (dev) {
-        if (port->port.dev) {
+        if (port1->dev) {
             ohci_attach(port1, NULL);
         }
         /* set connect status */
@@ -118,10 +102,10 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
             port->ctrl |= OHCI_PORT_LSDA;
         else
             port->ctrl &= ~OHCI_PORT_LSDA;
-        port->port.dev = dev;
+        dev->port = port1;
+        port1->dev = dev;
         /* send the attach message */
-        dev->handle_packet(dev,
-                           USB_MSG_ATTACH, 0, 0, NULL, 0);
+        usb_send_msg(dev, USB_MSG_ATTACH);
         OSDebugOut(TEXT("usb-ohci: Attached port %d\n"), port1->index);
     } else {
         /* set connect status */
@@ -134,13 +118,13 @@ static void ohci_attach(USBPort *port1, USBDevice *dev)
             port->ctrl &= ~OHCI_PORT_PES;
             port->ctrl |= OHCI_PORT_PESC;
         }
-        dev = port->port.dev;
+        dev = port1->dev;
         if (dev) {
+            dev->port = NULL;
             /* send the detach message */
-            dev->handle_packet(dev,
-                               USB_MSG_DETACH, 0, 0, NULL, 0);
+            usb_send_msg(dev, USB_MSG_DETACH);
         }
-        port->port.dev = NULL;
+        port1->dev = NULL;
         OSDebugOut(TEXT("usb-ohci: Detached port %d\n"), port1->index);
     }
 
@@ -256,11 +240,6 @@ void ohci_hard_reset(OHCIState *ohci)
     ohci->ctl = 0;
     ohci_roothub_reset(ohci);
     OSDebugOut(TEXT("usb-ohci: Hard Reset.\n"));
-
-	// test
-	ohci->intr_status &= ~OHCI_INTR_SF;
-	ohci_intr_update(ohci);
-	ohci->ctl &= ~OHCI_USB_OPERATIONAL;
 }
 
 #define le32_to_cpu(x) (x)
@@ -355,6 +334,15 @@ static inline int ohci_put_iso_td(uint32_t addr, struct ohci_iso_td *td)
 {
     return put_dwords(addr, (uint32_t *)td, 4) &&
         put_words(addr + 16, td->offset, 8);
+}
+
+static inline int ohci_put_hcca(OHCIState *ohci,
+                                struct ohci_hcca *hcca)
+{
+    cpu_physical_memory_write(ohci->hcca + HCCA_WRITEBACK_OFFSET,
+        (uint8_t *)hcca + HCCA_WRITEBACK_OFFSET,
+        HCCA_WRITEBACK_SIZE);
+    return 1;
 }
 
 /* Read/Write the contents of a TD from/to main memory.  */
@@ -871,7 +859,7 @@ static int ohci_service_ed_list(OHCIState *ohci, uint32_t head)
             if ((ed.flags & OHCI_ED_F) == 0) {
                  if (ohci_service_td(ohci, &ed))
                      break;
-             } else {
+             } else if (ohci->ctl & OHCI_CTL_IE) {
                  /* Handle isochronous endpoints */
                  if (ohci_service_iso_td(ohci, &ed, completion))
                      break;
@@ -921,7 +909,9 @@ void ohci_frame_boundary(void *opaque)
     cpu_physical_memory_read(ohci->hcca, (uint8_t *)&hcca, sizeof(hcca));
 
     /* Process all the lists at the end of the frame */
-    if (ohci->ctl & OHCI_CTL_PLE) {
+    bool hack = ohci->intr_status & ohci->intr & OHCI_INTR_RHSC; //don't process invalid descriptors
+    if (hack) OSDebugOut(TEXT("skipping PLE\n"));
+    if ((ohci->ctl & OHCI_CTL_PLE) && !hack) {
         int n;
 
         n = ohci->frame_number & 0x1f;
@@ -970,9 +960,7 @@ void ohci_frame_boundary(void *opaque)
     ohci_sof(ohci);
 
     /* Writeback HCCA */
-    cpu_physical_memory_write(ohci->hcca + HCCA_WRITEBACK_OFFSET,
-                              (uint8_t *)&hcca + HCCA_WRITEBACK_OFFSET,
-                              HCCA_WRITEBACK_SIZE);
+    ohci_put_hcca(ohci, &hcca);
 }
 
 /* Start sending SOF tokens across the USB bus, lists are processed in
@@ -1173,8 +1161,7 @@ static void ohci_port_set_status(OHCIState *ohci, int portnum, uint32_t val)
 
     if (ohci_port_set_if_connected(ohci, portnum, val & OHCI_PORT_PRS)) {
         OSDebugOut(TEXT("usb-ohci: port %d: RESET\n"), portnum);
-        port->port.dev->handle_packet(port->port.dev, USB_MSG_RESET,
-                                      0, 0, NULL, 0);
+        usb_send_msg(port->port.dev, USB_MSG_RESET);
         /* Or just ... */
         //usb_device_reset(port->port.dev);
         port->ctrl &= ~OHCI_PORT_PRS;
@@ -1401,7 +1388,7 @@ OHCIState *ohci_create(uint32_t base, int ports)
 	if(!ohci) return NULL;
     int i;
 
-	const int ticks_per_sec = PSXCLK;
+	const int ticks_per_sec = get_ticks_per_second();
 
 	memset(ohci,0,sizeof(OHCIState));
 
