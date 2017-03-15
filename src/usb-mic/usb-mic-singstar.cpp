@@ -910,6 +910,7 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 		default:
 		break;
 	}
+	return -1;
 }
 
 REGISTER_DEVICE(DEVTYPE_SINGSTAR, DEVICENAME, SingstarDevice);
