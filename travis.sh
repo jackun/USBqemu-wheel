@@ -33,6 +33,8 @@ linux_32_before_install() {
 		libgtk2.0-dev:i386 \
 		libpulse-dev:i386 \
 		git-buildpackage \
+		python-dateutil \
+		python-pkg-resources \
 		${COMPILER_PACKAGE}
 }
 
