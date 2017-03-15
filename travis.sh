@@ -49,6 +49,7 @@ linux_32_script() {
 	export CC=${CC}-${VERSION} CXX=${CXX}-${VERSION}
 	if [ "x${TRAVIS_TAG}" != "x" ]; then
 		# generate changelog since last time it was touched
+		git checkout -b master
 		gbp dch --spawn-editor=never -R -U low -a --upstream-tag=${TRAVIS_TAG} -N ${TRAVIS_TAG}
 	fi
 	dpkg-buildpackage -b -us -uc -ai386

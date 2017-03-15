@@ -4,8 +4,8 @@ sudo: required
 dist: trusty
 
 cache: ccache
-git:
-  depth: 3
+#git:
+#  depth: 3
 
 branches:
   only:
