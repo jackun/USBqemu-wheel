@@ -32,6 +32,7 @@ linux_32_before_install() {
 		libglib2.0-dev:i386 \
 		libgtk2.0-dev:i386 \
 		libpulse-dev:i386 \
+		git-buildpackage \
 		${COMPILER_PACKAGE}
 }
 
@@ -44,6 +45,10 @@ linux_32_script() {
 	export PATH="${BUILD_TMP}:${PATH}"
 
 	export CC=${CC}-${VERSION} CXX=${CXX}-${VERSION}
+	if [ "x${TRAVIS_TAG}" != "x" ]; then
+		# generate changelog since last time it was touched
+		gbp dch --spawn-editor=never -R -U low -a --upstream-tag=${TRAVIS_TAG} -N ${TRAVIS_TAG}
+	fi
 	dpkg-buildpackage -b -us -uc -ai386
 }
 
