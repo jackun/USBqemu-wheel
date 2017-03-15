@@ -103,8 +103,8 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				{
 					i++; //jump over "None"
 					auto dev = rd.Device(name);
-					SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)dev->TypeName());
-					SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)dev->TypeName());
+					SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)dev->Name());
+					SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)dev->Name());
 
 					//Port 1 aka device/player 1
 					if (conf.Port[1] == name)
