@@ -80,7 +80,7 @@ linux_64_script() {
 
 linux_after_success() {
 	for file in ../*.deb; do
-		mv -v "${file}" "${file%%.deb}-${CC}-{VERSION}.deb"
+		mv -v "${file}" "${file%%.deb}-${CC}-${VERSION}.deb"
 	done
 	ccache -s
 }
