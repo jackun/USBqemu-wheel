@@ -16,6 +16,7 @@ debian/%: debian/%.in
 
 override_dh_auto_configure: $(autogen-files)
 	dh_auto_configure -- \
+		-DPACKAGING=ON \
 		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
 		-DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
