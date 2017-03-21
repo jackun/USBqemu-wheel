@@ -53,25 +53,108 @@ DWORD listeninterval = 500;
 
 bool didDIinit = false;					//we have a handle
 
+void ReleaseFFB(int port)
+{
+	if (g_pEffect[port])
+		g_pEffect[port]->Stop();
+	if (g_pEffectSpring[port])
+		g_pEffectSpring[port]->Stop();
+	if (g_pEffectFriction[port])
+		g_pEffectFriction[port]->Stop();
+	if (g_pEffectRamp[port])
+		g_pEffectRamp[port]->Stop();
+	if (g_pEffectDamper[port])
+		g_pEffectDamper[port]->Stop();
+
+	SAFE_RELEASE(g_pEffect[port]);
+	SAFE_RELEASE(g_pEffectSpring[port]);
+	SAFE_RELEASE(g_pEffectFriction[port]);
+	SAFE_RELEASE(g_pEffectRamp[port]);
+	SAFE_RELEASE(g_pEffectDamper[port]);
+
+	FFBindex[port] = -1;
+	FFB[port] = false;
+}
+
+void CreateFFB(int port, DWORD joy)
+{
+	ReleaseFFB(port);
+
+	if (joy >= numj)
+		return;
+
+	try {
+		//create the constant force effect
+		ZeroMemory(&eff, sizeof(eff));
+		ZeroMemory(&effSpring, sizeof(effSpring));
+		ZeroMemory(&effFriction, sizeof(effFriction));
+		ZeroMemory(&cfw, sizeof(cfw));
+		ZeroMemory(&cSpring, sizeof(cSpring));
+		ZeroMemory(&cFriction, sizeof(cFriction));
+		ZeroMemory(&cRamp, sizeof(cRamp));
+
+		//constantforce
+		eff.dwSize = sizeof(DIEFFECT);
+		eff.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
+		eff.dwSamplePeriod = 0;
+		eff.dwGain = MIN(MAX(GAINZ[port][0], 0), 10000);
+		eff.dwTriggerButton = DIEB_NOTRIGGER;
+		eff.dwTriggerRepeatInterval = 0;
+		eff.cAxes = 1;
+		eff.rgdwAxes = rgdwAxes;
+		eff.rglDirection = rglDirection;
+		eff.dwStartDelay = 0;
+		eff.dwDuration = INFINITE;
+
+		cfw.lMagnitude = 0;
+
+		eff.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
+		eff.lpvTypeSpecificParams = &cfw;
+		g_pJoysticks[joy]->CreateEffect(GUID_ConstantForce, &eff, &g_pEffect[port], NULL);
+
+		effSpring = eff;
+		effFriction = eff;
+		effRamp = eff;
+		effDamper = eff;
+
+		cSpring.lNegativeCoefficient = 0;
+		cSpring.lPositiveCoefficient = 0;
+
+		effSpring.cbTypeSpecificParams = sizeof(DICONDITION);
+		effSpring.lpvTypeSpecificParams = &cSpring;
+		g_pJoysticks[joy]->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
+
+		effFriction.cbTypeSpecificParams = sizeof(DICONDITION);
+		effFriction.lpvTypeSpecificParams = &cFriction;
+		g_pJoysticks[joy]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
+
+		effRamp.cbTypeSpecificParams = sizeof(DIRAMPFORCE);
+		effRamp.lpvTypeSpecificParams = &cRamp;
+		g_pJoysticks[joy]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
+
+		effDamper.cbTypeSpecificParams = sizeof(DICONDITION);
+		effDamper.lpvTypeSpecificParams = &cDamper;
+		g_pJoysticks[joy]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
+
+		FFBindex[port] = joy;
+		FFB[port] = true;
+	}
+	catch (...) {};
+
+	//start the effect
+	//SetSpringForce(10000);
+	if (g_pEffect[port])
+	{
+		OSDebugOut(TEXT("DINPUT: Start Effect\n"));
+		g_pEffect[port]->SetParameters(&eff, DIEP_START);
+	}
+}
+
 void FreeDirectInput()
 {
 	if (!refCount || --refCount > 0) return;
 
 	numj=0;  //no joysticks
-
-	for (int i = 0; i < 2; i++)
-	{
-		if (g_pEffect[i])
-			g_pEffect[i]->Stop();
-		if (g_pEffectSpring[i])
-			g_pEffectSpring[i]->Stop();
-		if (g_pEffectFriction[i])
-			g_pEffectFriction[i]->Stop();
-		if (g_pEffectRamp[i])
-			g_pEffectRamp[i]->Stop();
-		if (g_pEffectDamper[i])
-			g_pEffectDamper[i]->Stop();
-	}
 
     // Unacquire the device one last time just in case
     // the app tried to exit while the device is still acquired.
@@ -85,19 +168,14 @@ void FreeDirectInput()
 			g_pJoysticks[i]->Unacquire();
 	}
 
+	ReleaseFFB(0);
+	ReleaseFFB(1);
+
     // Release any DirectInput objects.
     SAFE_RELEASE( g_pKeyboard );
     SAFE_RELEASE( g_pMouse );
 	for(DWORD i=0; i<numj; i++) SAFE_RELEASE( g_pJoysticks[i] );
     SAFE_RELEASE( g_pDI );
-	for (int i = 0; i < 2; i++)
-	{
-		SAFE_RELEASE(g_pEffect[i]);
-		SAFE_RELEASE(g_pEffectSpring[i]);
-		SAFE_RELEASE(g_pEffectFriction[i]);
-		SAFE_RELEASE(g_pEffectRamp[i]);
-		SAFE_RELEASE(g_pEffectDamper[i]);
-	}
 	didDIinit=false;
 }
 BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
@@ -448,7 +526,9 @@ bool AxisDown(LONG axisid, LONG & inverted, LONG & initial)
 	//could probably be condensed
 	//TODO mouse axis
 
-	for(DWORD i=0; i<numj; i++){
+		DWORD i = axisid / 8;
+		if (i >= numj) return false;
+
 		if( g_pJoysticks[i] ) {
 			LONG detectrange = 2000;
 			LONG lXdiff = js[i].lX - jso[i].lX;
@@ -484,13 +564,12 @@ bool AxisDown(LONG axisid, LONG & inverted, LONG & initial)
 			if(axisid % 8 == 7 && lSlider2diff > detectrange) { initial = jsi[i].rglSlider[1];inverted = TRUE; return true;}
 			if(axisid % 8 == 7 && lSlider2diff < -detectrange) { initial = jsi[i].rglSlider[1];inverted = FALSE; return true;}
 		}
-	}
 	return false;
 	//max 160
 }
 
 //search all axis/buttons (config only)
-bool FindControl(LONG & axis,LONG & inverted, LONG & initial, LONG & button)
+bool FindControl(LONG port, LONG & axis,LONG & inverted, LONG & initial, LONG & button)
 {
 	if(listening==true){
 		if(listenend>GetTickCount())
@@ -504,6 +583,10 @@ bool FindControl(LONG & axis,LONG & inverted, LONG & initial, LONG & button)
 						listening = false;
 						axis=i;
 						button=-1;
+						if (axis % 8 == 0)
+						{
+							CreateFFB(port, axis / 8);
+						}
 						return true;
 					}
 				}
@@ -847,69 +930,12 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			if(FFB[port] == false && joyid == i && (diCaps.dwFlags & DIDC_FORCEFEEDBACK)){
 				//First FFB device detected
 
-				//create effect
-				try{
+				//Exclusive
+				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
 
-					//Exclusive
-					g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
+				AutoCenter(i, false);  //just keep it off for all wheels
 
-					AutoCenter(i, false);  //just keep it off for all wheels
-
-					//create the constant force effect
-					ZeroMemory( &eff, sizeof(eff) );
-					ZeroMemory( &effSpring, sizeof(effSpring) );
-					ZeroMemory( &effFriction, sizeof(effFriction) );
-					ZeroMemory( &cfw, sizeof(cfw) );
-					ZeroMemory( &cSpring, sizeof(cSpring) );
-					ZeroMemory( &cFriction, sizeof(cFriction) );
-					ZeroMemory( &cRamp, sizeof(cRamp) );
-
-					//constantforce
-					eff.dwSize                  = sizeof(DIEFFECT);
-					eff.dwFlags                 = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
-					eff.dwSamplePeriod          = 0;
-					eff.dwGain                  = MIN(MAX(GAINZ[port][0], 0), 10000);
-					eff.dwTriggerButton         = DIEB_NOTRIGGER;
-					eff.dwTriggerRepeatInterval = 0;
-					eff.cAxes                   = 1;
-					eff.rgdwAxes                = rgdwAxes;
-					eff.rglDirection            = rglDirection;
-					eff.dwStartDelay            = 0;
-					eff.dwDuration              = INFINITE;
-
-					cfw.lMagnitude = 0;
-
-					eff.cbTypeSpecificParams    = sizeof(DICONSTANTFORCE);
-					eff.lpvTypeSpecificParams   = &cfw;
-					g_pJoysticks[i]->CreateEffect( GUID_ConstantForce, &eff, &g_pEffect[port], NULL );
-
-					effSpring = eff;
-					effFriction = eff;
-					effRamp = eff;
-					effDamper = eff;
-
-					cSpring.lNegativeCoefficient = 0;
-					cSpring.lPositiveCoefficient = 0;
-
-					effSpring.cbTypeSpecificParams    = sizeof(DICONDITION);
-					effSpring.lpvTypeSpecificParams   = &cSpring;
-					g_pJoysticks[i]->CreateEffect( GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL );
-
-					effFriction.cbTypeSpecificParams = sizeof(DICONDITION);
-					effFriction.lpvTypeSpecificParams = &cFriction;
-					g_pJoysticks[i]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
-
-					effRamp.cbTypeSpecificParams = sizeof(DIRAMPFORCE);
-					effRamp.lpvTypeSpecificParams = &cRamp;
-					g_pJoysticks[i]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
-
-					effDamper.cbTypeSpecificParams = sizeof(DICONDITION);
-					effDamper.lpvTypeSpecificParams = &cDamper;
-					g_pJoysticks[i]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
-
-					FFBindex[port] =i;
-					FFB[port] = true;
-				}catch(...){};
+				CreateFFB(port, i);
 
 			}
 			else
@@ -924,11 +950,6 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			}
 		}
 	}
-
-	OSDebugOut(TEXT("DINPUT: Start Effect"));
-	//start the effect
-	//SetSpringForce(10000);
-	if(g_pEffect[port]) g_pEffect[port]->SetParameters(&eff, DIEP_START);
 
 	didDIinit=true;
 	return S_OK;

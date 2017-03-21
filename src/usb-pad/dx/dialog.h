@@ -126,7 +126,7 @@ void ListenForControl(int port)
 
 	inv=0;
 	ini=0;
-	ret = FindControl(ax,inv,ini,but);
+	ret = FindControl(port, ax,inv,ini,but);
 
 	if(ret){
 		AXISID[port][CID] = ax;
