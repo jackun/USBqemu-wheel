@@ -115,7 +115,6 @@ SET(SRCS_SAMPLERATE
 # Some unneeded headers too
 SET(HDRS_MIC
 	./src/usb-mic/audio.h
-	./src/usb-mic/usb.h
 	./src/usb-mic/audiodev.h
 	./src/usb-mic/audiodeviceproxy.h
 	./src/usb-mic/usb-mic-singstar.h
@@ -123,7 +122,7 @@ SET(HDRS_MIC
 
 SET(HDRS_QEMU
 	./src/qemu-usb/vl.h
-	./src/qemu-usb/usb.h
+	./src/qemu-usb/qusb.h
 	./src/qemu-usb/USBinternal.h
 	./src/qemu-usb/usb-msd.h
 )

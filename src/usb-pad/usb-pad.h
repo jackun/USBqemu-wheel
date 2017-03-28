@@ -2,7 +2,6 @@
 #define USBPAD_H
 
 #include "../qemu-usb/vl.h"
-#include "../usb-mic/usb.h"
 #include "../configuration.h"
 
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))

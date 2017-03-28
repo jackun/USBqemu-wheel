@@ -69,7 +69,7 @@ static inline char *realpath(const char *path, char *resolved_path)
 #define PRIo64 "I64o"
 #endif
 
-#include "usb.h"
+#include "qusb.h"
 
 #ifndef glue
 #define xglue(x, y) x ## y
