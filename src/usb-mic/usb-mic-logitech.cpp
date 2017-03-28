@@ -1,5 +1,4 @@
 #include "usb-mic-singstar.h"
-#include "usb.h"
 #include "audio.h"
 
 #define DEVICENAME "logitech_usbmic"
@@ -42,7 +41,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
     0x00,                                 /* bInterfaceNumber */
     0x00,                                 /* bAlternateSetting */
     0x00,                                 /* bNumEndpoints */
-    USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+    USB_CLASS_AUDIO,                      /* bInterfaceClass */
     AUDIO_SUBCLASS_AUDIOCONTROL,          /* bInterfaceSubClass */
     AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
     0x00,                                 /* iInterface */
@@ -97,7 +96,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
     0x01,                                 /* bInterfaceNumber */
     0x00,                                 /* bAlternateSetting */
     0x00,                                 /* bNumEndpoints */
-    USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+    USB_CLASS_AUDIO,                      /* bInterfaceClass */
     AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
     AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
     0x00,                                 /* iInterface */
@@ -108,7 +107,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
     0x01,                                 /* bInterfaceNumber */
     0x01,                                 /* bAlternateSetting */
     0x01,                                 /* bNumEndpoints */
-    USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+    USB_CLASS_AUDIO,                      /* bInterfaceClass */
     AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
     AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
     0x00,                                 /* iInterface */
@@ -161,7 +160,7 @@ static const uint8_t logitech_mic_config_descriptor[] = {
     0x01,                                 /* bInterfaceNumber */
     0x02,                                 /* bAlternateSetting */
     0x01,                                 /* bNumEndpoints */
-    USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+    USB_CLASS_AUDIO,                      /* bInterfaceClass */
     AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
     AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
     0x00,                                 /* iInterface */

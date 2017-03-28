@@ -32,7 +32,6 @@
 
 #define DEVICENAME "headset"
 
-#include "usb.h"
 #include "audio.h"
 
 #define BUFFER_FRAMES 200
@@ -144,7 +143,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x00,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
   0x00,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOCONTROL,          /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -282,7 +281,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x01,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
   0x00,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -293,7 +292,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x01,                                 /* bInterfaceNumber */
   0x01,                                 /* bAlternateSetting */
   0x01,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -346,7 +345,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x01,                                 /* bInterfaceNumber */
   0x02,                                 /* bAlternateSetting */
   0x01,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -399,7 +398,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x02,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
   0x00,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -410,7 +409,7 @@ static const uint8_t headset_config_descriptor[] = {
   0x02,                                 /* bInterfaceNumber */
   0x01,                                 /* bAlternateSetting */
   0x01,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -1049,14 +1048,6 @@ static void headset_handle_close(USBDevice *dev)
     }
 }
 
-static int headset_handle_packet(USBDevice *s, int pid,
-                              uint8_t devaddr, uint8_t devep,
-                              uint8_t *data, int len)
-{
-    //fprintf(stderr,"usb-headset_mic: packet received with pid=%x, devaddr=%x, devep=%x and len=%x\n",pid,devaddr,devep,len);
-    return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
-}
-
 USBDevice* HeadsetDevice::CreateDevice(int port)
 {
     std::string api;
@@ -1100,7 +1091,7 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->out_buffer.reserve(BUFFER_FRAMES * s->audsink->GetChannels());
 
     s->dev.speed = USB_SPEED_FULL;
-    s->dev.handle_packet  = headset_handle_packet;
+    s->dev.handle_packet  = usb_generic_handle_packet;
     s->dev.handle_reset   = headset_handle_reset;
     s->dev.handle_control = headset_handle_control;
     s->dev.handle_data    = headset_handle_data;

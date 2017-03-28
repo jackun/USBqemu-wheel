@@ -33,12 +33,7 @@
 
 static FILE *file = NULL;
 
-//#include "type.h"
-
-#include "usb.h"
 #include "audio.h"
-//#include "usbcfg.h"
-//#include "usbdesc.h"
 
 #define BUFFER_FRAMES 200
 
@@ -123,7 +118,7 @@ static const uint8_t singstar_mic_config_descriptor[] = {
   0x00,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
   0x00,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOCONTROL,          /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -178,7 +173,7 @@ static const uint8_t singstar_mic_config_descriptor[] = {
   0x01,                                 /* bInterfaceNumber */
   0x00,                                 /* bAlternateSetting */
   0x00,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -189,7 +184,7 @@ static const uint8_t singstar_mic_config_descriptor[] = {
   0x01,                                 /* bInterfaceNumber */
   0x01,                                 /* bAlternateSetting */
   0x01,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -242,7 +237,7 @@ static const uint8_t singstar_mic_config_descriptor[] = {
   0x01,                                 /* bInterfaceNumber */
   0x02,                                 /* bAlternateSetting */
   0x01,                                 /* bNumEndpoints */
-  USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
+  USB_CLASS_AUDIO,                      /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
   0x00,                                 /* iInterface */
@@ -804,14 +799,6 @@ static void singstar_mic_handle_close(USBDevice *dev)
 	}
 }
 
-static int singstar_mic_handle_packet(USBDevice *s, int pid,
-                              uint8_t devaddr, uint8_t devep,
-                              uint8_t *data, int len)
-{
-	//fprintf(stderr,"usb-singstar_mic: packet received with pid=%x, devaddr=%x, devep=%x and len=%x\n",pid,devaddr,devep,len);
-	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
-}
-
 //USBDevice *singstar_mic_init(int port, TSTDSTRING *devs)
 USBDevice* SingstarDevice::CreateDevice(int port)
 {
@@ -864,7 +851,7 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 	}
 
     s->dev.speed = USB_SPEED_FULL;
-    s->dev.handle_packet  = singstar_mic_handle_packet;
+    s->dev.handle_packet  = usb_generic_handle_packet;
     s->dev.handle_reset   = singstar_mic_handle_reset;
     s->dev.handle_control = singstar_mic_handle_control;
     s->dev.handle_data    = singstar_mic_handle_data;
