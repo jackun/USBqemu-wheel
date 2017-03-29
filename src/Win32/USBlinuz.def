@@ -25,3 +25,4 @@ EXPORTS
 	USBabout			@21
 	USBsetSettingsDir	@22
 	USBsetLogDir		@23
+	USBfreeze			@24
