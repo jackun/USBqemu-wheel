@@ -836,7 +836,7 @@ USBDevice *MsdDevice::CreateDevice(int port)
 
     s->file = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
     if (!s->file) {
-        fprintf(stderr, "usb-msd: Could not open image file '%" SFMTs"'\n", var.tstrValue.c_str());
+        SysMessage(TEXT("usb-msd: Could not open image file '%s'\n"), var.tstrValue.c_str());
         return NULL;
     }
 
