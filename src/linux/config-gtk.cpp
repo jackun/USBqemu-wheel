@@ -29,14 +29,44 @@
 // src/USB.cpp
 extern bool configChanged;
 
-//TODO better way to access API comboboxes from "device changed" callback
-struct APICallback
+struct SettingsCB
 {
+	int player;
 	std::string device;
 	std::string api;
 	GtkComboBox* combo;
 };
-static APICallback apiCallback[2];
+
+gboolean run_msg_dialog(gpointer data)
+{
+	GtkWidget *dialog = (GtkWidget *)data;
+	gtk_widget_show_all (dialog);
+	gtk_dialog_run (GTK_DIALOG(dialog));
+	gtk_widget_destroy (dialog);
+	return FALSE;
+}
+
+void SysMessage(const char *fmt, ...)
+{
+	va_list list;
+	char msg[1024];
+
+	va_start (list, fmt);
+	vsnprintf (msg, sizeof(msg), fmt, list);
+	va_end (list);
+
+	if (msg[strlen(msg) - 1] == '\n')
+		msg[strlen(msg) - 1] = 0;
+
+	GtkWidget *dialog;
+	dialog = gtk_message_dialog_new (NULL,
+									GTK_DIALOG_DESTROY_WITH_PARENT,
+									GTK_MESSAGE_INFO,
+									GTK_BUTTONS_OK,
+									"%s", msg);
+	// run on main thread, a bit iffy
+	g_idle_add (run_msg_dialog, (gpointer)dialog);
+}
 
 static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 {
@@ -50,12 +80,13 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	}
 }
 
-static void populateApiWidget(GtkComboBox *widget, int player, const std::string& device)
+static void populateApiWidget(SettingsCB *settingsCB, const std::string& device)
 {
-	gtk_list_store_clear (GTK_LIST_STORE (gtk_combo_box_get_model (widget)));
+	gtk_list_store_clear (GTK_LIST_STORE (gtk_combo_box_get_model (settingsCB->combo)));
 
 	auto dev = RegisterDevice::instance().Device( device );
-	int port = 1 - player;
+	int port = 1 - settingsCB->player;
+	GtkComboBox *widget = settingsCB->combo;
 	if (dev)
 	{
 		std::string api;
@@ -73,7 +104,7 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 			api = it->second;
 
 		OSDebugOut("Current api: %s\n", api.c_str());
-		apiCallback[player].api = api;
+		settingsCB->api = api;
 		int i = 0;
 		for(auto& it : dev->ListAPIs())
 		{
@@ -90,8 +121,9 @@ static void populateApiWidget(GtkComboBox *widget, int player, const std::string
 
 static void deviceChanged (GtkComboBox *widget, gpointer data)
 {
+	SettingsCB *settingsCB = (SettingsCB *)data;
 	gint active = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-	int player = (int)data;
+	int player = settingsCB->player;
 	std::string s("");
 
 	if (active > 0)
@@ -100,8 +132,8 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 		auto dev = RegisterDevice::instance().Device(active - 1);
 	}
 
-	apiCallback[player].device = s;
-	populateApiWidget(apiCallback[player].combo, player, s);
+	settingsCB->device = s;
+	populateApiWidget(settingsCB, s);
 
 	if(player == 0)
 		conf.Port[1] = s;
@@ -113,11 +145,12 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 
 static void apiChanged (GtkComboBox *widget, gpointer data)
 {
-	int player = (int)data;
+	SettingsCB *settingsCB = (SettingsCB *)data;
+	int player = settingsCB->player;
 	gint active = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	int port = 1 - player;
 
-	auto& name = apiCallback[player].device;
+	auto& name = settingsCB->device;
 	auto dev = RegisterDevice::instance().Device( name );
 	if (dev)
 	{
@@ -133,7 +166,7 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 				itAPI->second = *it;
 			else
 				changedAPIs[pair] = *it;
-			apiCallback[player].api = *it;
+			settingsCB->api = *it;
 
 			OSDebugOut("selected api: %s\napi settings:\n", it->c_str());
 		}
@@ -142,11 +175,12 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 
 static void configureApi (GtkWidget *widget, gpointer data)
 {
-	int player = (int) data;
+	SettingsCB *settingsCB = (SettingsCB *)data;
+	int player = settingsCB->player;
 	int port = 1 - player;
 
-	auto& name = apiCallback[player].device;
-	auto& api = apiCallback[player].api;
+	auto& name = settingsCB->device;
+	auto& api = settingsCB->api;
 	auto dev = RegisterDevice::instance().Device( name );
 
 	OSDebugOut("configure api %s [%s] for player %d\n", api.c_str(), name.c_str(), player);
@@ -197,6 +231,9 @@ void CALLBACK USBconfigure() {
 
 	LoadConfig();
 	void * that = NULL;
+	SettingsCB settingsCB[2];
+	settingsCB[0].player = 0;
+	settingsCB[1].player = 1;
 
 	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
 	const char *ports[] = {"Port 1:", "Port 2:"};
@@ -223,7 +260,7 @@ void CALLBACK USBconfigure() {
 	/*** Devices' Comboboxes ***/
 	for(int ply = 0; ply < 2; ply++)
 	{
-		apiCallback[ply].device = devs[ply];
+		settingsCB[ply].device = devs[ply];
 
 		rs_cb = new_combobox(ports[ply], vbox);
 		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "None");
@@ -240,7 +277,7 @@ void CALLBACK USBconfigure() {
 			if (devs[ply] == device)
 				gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), idx);
 		}
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (gpointer)ply);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&settingsCB[ply]);
 	}
 
 	/*** APIs ***/
@@ -250,19 +287,19 @@ void CALLBACK USBconfigure() {
 	for(int ply = 0; ply < 2; ply++)
 	{
 		rs_cb = new_combobox (ports[ply], vbox);
-		apiCallback[ply].combo = GTK_COMBO_BOX(rs_cb);
+		settingsCB[ply].combo = GTK_COMBO_BOX (rs_cb);
 		//gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (apiChanged), (gpointer)ply);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (apiChanged), (gpointer)&settingsCB[ply]);
 
 		GtkWidget *hbox = gtk_widget_get_parent (rs_cb);
 		GtkWidget *button = gtk_button_new_with_label ("Configure");
 		gtk_button_set_image(GTK_BUTTON (button), gtk_image_new_from_icon_name ("gtk-preferences", GTK_ICON_SIZE_BUTTON));
 		gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 5);
 
-		g_signal_connect (button, "clicked", G_CALLBACK (configureApi), (gpointer)ply);
+		g_signal_connect (button, "clicked", G_CALLBACK (configureApi), (gpointer)&settingsCB[ply]);
 		g_object_set_data (G_OBJECT (button), "dlg", dlg);
 
-		populateApiWidget(GTK_COMBO_BOX (rs_cb), ply, devs[ply]);
+		populateApiWidget(&settingsCB[ply], devs[ply]);
 	}
 
 	/** Wheel type **/

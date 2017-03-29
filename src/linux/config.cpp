@@ -13,7 +13,6 @@
 #include "ini.h"
 #include "config.h"
 
-//libjoyrumble used as an example
 //Hopefully PCSX2 has inited all the GTK stuff already
 using namespace std;
 
@@ -22,7 +21,7 @@ std::string IniDir;
 std::string LogDir;
 const char* iniFile = "USBqemu-wheel.ini";
 
-void SysMessage(const char *fmt, ...)
+void SysMessage_stderr(const char *fmt, ...)
 {
 	va_list arglist;
 
