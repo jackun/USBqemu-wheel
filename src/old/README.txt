@@ -1,1 +1,0 @@
-Deprecated project files. Use CMake.
