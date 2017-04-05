@@ -4,7 +4,7 @@
 #include "vl.h"
 
 #ifdef _DEBUG
-#define DEBUG_OHCI
+//#define DEBUG_OHCI
 #endif
 /* Dump packet contents.  */
 //#define DEBUG_PACKET

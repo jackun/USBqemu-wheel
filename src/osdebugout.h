@@ -43,6 +43,7 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 #define OSDebugOut_noprfx(psz_fmt, ...) _OSDebugOut(psz_fmt, ##__VA_ARGS__)
 #else
 #define OSDebugOut(...) do{}while(0)
+#define OSDebugOut_noprfx(...) do{}while(0)
 #endif
 
 #else //_WIN32

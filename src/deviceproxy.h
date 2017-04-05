@@ -21,6 +21,7 @@ enum DeviceType
 	DEVTYPE_SINGSTAR,
 	DEVTYPE_LOGITECH_MIC,
 	DEVTYPE_LOGITECH_HEADSET,
+	DEVTYPE_PT,
 };
 
 struct SelectDeviceName {

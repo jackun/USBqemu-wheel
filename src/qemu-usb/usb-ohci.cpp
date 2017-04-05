@@ -31,7 +31,7 @@
 #include "vl.h"
 #include "USBinternal.h"
 #include "platcompat.h"
-#include "../osdebugout.h"
+#include "osdebugout.h"
 
 int64_t last_cycle = 0;
 #define MIN_IRQ_INTERVAL 64 /* hack */
@@ -42,6 +42,34 @@ extern int get_ticks_per_second();
 
 //#define DEBUG_PACKET
 //#define DEBUG_OHCI
+
+static void print_intr(int intr)
+{
+    const char *str[] = {"SO",
+        "WD",
+        "SF",
+        "RD",
+        "UE",
+        "FNO",
+        "RHSC",
+        "OC",
+        "MIE" };
+    const unsigned arr[] = {OHCI_INTR_SO,
+        OHCI_INTR_WD,
+        OHCI_INTR_SF,
+        OHCI_INTR_RD,
+        OHCI_INTR_UE,
+        OHCI_INTR_FNO,
+        OHCI_INTR_RHSC,
+        OHCI_INTR_OC,
+        OHCI_INTR_MIE};
+    
+    for (int i=0; i< sizeof(arr) / sizeof(arr[0]); i++)
+    {
+        if (intr & arr[i])
+            OSDebugOut_noprfx(TEXT("%" SFMTs " | "), str[i]);
+    }
+}
 
 /* Update IRQ levels */
 static inline void ohci_intr_update(OHCIState *ohci)
@@ -54,6 +82,9 @@ static inline void ohci_intr_update(OHCIState *ohci)
 
     if (level)
     {
+        //OSDebugOut(TEXT("IRQ %lld\n"), get_clock() - last_cycle);
+        //print_intr(ohci->intr); OSDebugOut_noprfx(TEXT("\n"));
+        //print_intr(ohci->intr_status); OSDebugOut_noprfx(TEXT("\n"));
 
         //if ((get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
         if (ohci->intr_status != OHCI_INTR_WD) //HACK skip first intr with _WD, _SF should follow shortly
@@ -1293,10 +1324,16 @@ void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
 #endif
     switch (addr >> 2) {
     case 1: /* HcControl */
+#ifdef DEBUG_OHCI
+        OSDebugOut(TEXT("HcControl: addr %d = 0x%08x\n"), addr >> 2, val);
+#endif
         ohci_set_ctl(ohci, val);
         break;
 
     case 2: /* HcCommandStatus */
+#ifdef DEBUG_OHCI
+        OSDebugOut(TEXT("HcCommandStatus: addr %d = 0x%08x\n"), addr >> 2, val);
+#endif
         /* SOC is read-only */
         val = (val & ~OHCI_STATUS_SOC);
 
@@ -1308,16 +1345,25 @@ void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
         break;
 
     case 3: /* HcInterruptStatus */
+#ifdef DEBUG_OHCI
+        OSDebugOut(TEXT("HcInterruptStatus: addr %d = 0x%08x\n"), addr >> 2, val);
+#endif
         ohci->intr_status &= ~val;
         ohci_intr_update(ohci);
         break;
 
     case 4: /* HcInterruptEnable */
+#ifdef DEBUG_OHCI
+        OSDebugOut(TEXT("HcInterruptEnable: addr %d = 0x%08x\n"), addr >> 2, val);
+#endif
         ohci->intr |= val;
         ohci_intr_update(ohci);
         break;
 
     case 5: /* HcInterruptDisable */
+#ifdef DEBUG_OHCI
+        OSDebugOut(TEXT("HcInterruptDisable: addr %d = 0x%08x\n"), addr >> 2, val);
+#endif
         ohci->intr &= ~val;
         ohci_intr_update(ohci);
         break;

@@ -221,6 +221,41 @@
 #define USB_ENDPOINT_USAGE_IMPLICIT_FEEDBACK   0x20
 #define USB_ENDPOINT_USAGE_RESERVED            0x30
 
+struct ohci_regs {
+	/* control and status registers */
+	uint32_t	revision;
+	uint32_t	control;
+	uint32_t	cmdstatus;
+	uint32_t	intrstatus;
+	uint32_t	intrenable;
+	uint32_t	intrdisable;
+	/* memory pointers */
+	uint32_t	hcca;
+	uint32_t	ed_periodcurrent;
+	uint32_t	ed_controlhead;
+	uint32_t	ed_controlcurrent;
+	uint32_t	ed_bulkhead;
+	uint32_t	ed_bulkcurrent;
+	uint32_t	donehead;
+	/* frame counters */
+	uint32_t	fminterval;
+	uint32_t	fmremaining;
+	uint32_t	fmnumber;
+	uint32_t	periodicstart;
+	uint32_t	lsthresh;
+	/* Root hub ports */
+	struct	ohci_roothub_regs {
+		uint32_t	a;
+		uint32_t	b;
+		uint32_t	status;
+		uint32_t	portstatus[15];
+	} roothub;
+}
+#ifdef _GNUC_
+__attribute__((aligned(32)))
+#endif
+;
+
 typedef struct USBPort USBPort;
 typedef struct USBDevice USBDevice;
 

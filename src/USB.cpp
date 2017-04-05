@@ -314,6 +314,7 @@ EXPORT_C_(void) USBirqCallback(USBcallback callback) {
 }
 
 extern u32 bits;
+int freeze_load = 0;
 
 EXPORT_C_(int) _USBirqHandler(void) 
 {
@@ -328,6 +329,7 @@ EXPORT_C_(USBhandler) USBirqHandler(void) {
 
 EXPORT_C_(void) USBsetRAM(void *mem) {
 	ram = (u8*)mem;
+
 	Reset();
 }
 
@@ -425,6 +427,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			ptr += usbd.device[i].size;
 		}
 
+		freeze_load = 1;
 	}
 	//TODO straight copying of structs can break cross-platform/cross-compiler save states 'cause padding 'n' stuff
 	else if (mode == FREEZE_SAVE) 

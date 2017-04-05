@@ -11,8 +11,8 @@ ENDMACRO(getenv_path)
 SET(TargetName "USBqemu-wheel")
 PROJECT(${TargetName})
 
-set(CMAKE_MODULE_PATH
-  "${${TargetName}_SOURCE_DIR}/cmake"
+LIST(APPEND CMAKE_MODULE_PATH
+	"${${TargetName}_SOURCE_DIR}/cmake"
 )
 
 SET (PLUGIN_VERSION_MAJOR "0")
@@ -348,6 +348,33 @@ IF(UNIX)
 	#LIST(APPEND LIBS ${GTK3_LIBRARIES})
 	#INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 ENDIF()
+
+# USB pass-through with libusb-1.0
+FIND_PACKAGE(LibUSB)
+#PKG_CHECK_MODULES(LIBUSB "libusb-1.0>=1.0.20")
+IF(LibUSB_FOUND)
+	IF(UNIX)
+		LIST(APPEND SRCS
+			./src/usb-pt/usb-pt-gtk.cpp
+		)
+	ENDIF(UNIX)
+
+	IF(WIN32)
+		LIST(APPEND SRCS
+			./src/usb-pt/usb-pt-win32.cpp
+		)
+	ENDIF(WIN32)
+
+	LIST(APPEND HDRS
+		./src/usb-pt/usb-pt.h
+	)
+
+	LIST(APPEND SRCS
+		./src/usb-pt/usb-pt.cpp
+	)
+	LIST(APPEND LIBS ${LibUSB_LIBRARIES})
+	INCLUDE_DIRECTORIES(${LibUSB_INCLUDE_DIRS})
+ENDIF(LibUSB_FOUND)
 
 LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
 LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})

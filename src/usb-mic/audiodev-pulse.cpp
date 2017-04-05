@@ -862,6 +862,7 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	SRC_DATA data;
 	PulseAudioDevice *padev = (PulseAudioDevice *) userdata;
 	const void* padata = NULL;
+	size_t output_frames = 0;
 
 	if (padev->mQuit)
 		return;
@@ -889,32 +890,34 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	if (ret != PA_OK)
 		OSDebugOut("pa_stream_drop %s\n", pa_strerror(ret));
 
-	size_t resampled = static_cast<size_t>(padev->mInBuffer.size<float>() * padev->mResampleRatio * padev->mTimeAdjust);
-	if (resampled == 0)
-		resampled = padev->mInBuffer.size<float>();
-	rebuf.resize(resampled);
-
-	size_t output_frames = 0;
-	float *pBegin = rebuf.data();
-	float *pEnd   = pBegin + rebuf.size();
-
-	memset(&data, 0, sizeof(SRC_DATA));
-
-	while (padev->mInBuffer.peek_read() > 0)
+	if (padev->mInBuffer.size<float>() > 0)
 	{
-		data.data_in       = (const float *) padev->mInBuffer.front();
-		data.input_frames  = padev->mInBuffer.peek_read<float>() / padev->GetChannels();
-		data.data_out      = pBegin;
-		data.output_frames = (pEnd - pBegin) / padev->GetChannels();
-		data.src_ratio     = padev->mResampleRatio * padev->mTimeAdjust;
+		size_t resampled = static_cast<size_t>(padev->mInBuffer.size<float>() * padev->mResampleRatio);// * padev->mTimeAdjust);
+		if (resampled == 0)
+			resampled = padev->mInBuffer.size<float>();
+		rebuf.resize(resampled);
 
-		src_process(padev->mResampler, &data);
-		output_frames += data.output_frames_gen;
-		pBegin += data.output_frames_gen * padev->GetChannels();
+		float *pBegin = rebuf.data();
+		float *pEnd   = pBegin + rebuf.size();
 
-		size_t samples = data.input_frames_used * padev->GetChannels();
-		if (!samples) break; //TODO happens?
-		padev->mInBuffer.read<float>(samples);
+		memset(&data, 0, sizeof(SRC_DATA));
+
+		while (padev->mInBuffer.peek_read() > 0)
+		{
+			data.data_in       = (const float *) padev->mInBuffer.front();
+			data.input_frames  = padev->mInBuffer.peek_read<float>() / padev->GetChannels();
+			data.data_out      = pBegin;
+			data.output_frames = (pEnd - pBegin) / padev->GetChannels();
+			data.src_ratio     = padev->mResampleRatio;// * padev->mTimeAdjust;
+
+			src_process(padev->mResampler, &data);
+			output_frames += data.output_frames_gen;
+			pBegin += data.output_frames_gen * padev->GetChannels();
+
+			size_t samples = data.input_frames_used * padev->GetChannels();
+			if (!samples) break; //TODO happens?
+			padev->mInBuffer.read<float>(samples);
+		}
 	}
 
 	std::lock_guard<std::mutex> lock(padev->mMutex);
@@ -954,9 +957,9 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 			inFloats.resize(padev->mInBuffer.size<short>());
 			float *pDst = inFloats.data();
 
-			while (padev->mInBuffer.peek_read() > 0)
+			size_t samples;
+			while ((samples = padev->mInBuffer.peek_read<short>()) > 0)
 			{
-				size_t samples = padev->mInBuffer.peek_read<short>();
 				src_short_to_float_array(
 						(const short *)padev->mInBuffer.front(),
 						pDst, samples);
@@ -972,7 +975,7 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 				data.input_frames  = (inFloats.size() - in_offset) / padev->GetChannels();
 				data.data_out      = padev->mOutBuffer.back<float>();
 				data.output_frames = padev->mOutBuffer.peek_write<float>() / padev->GetChannels();
-				data.src_ratio     = padev->mResampleRatio * padev->mTimeAdjust;
+				data.src_ratio     = padev->mResampleRatio;// * padev->mTimeAdjust;
 
 				src_process(padev->mResampler, &data);
 
@@ -996,7 +999,7 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 		if (ret != PA_OK)
 		{
 			OSDebugOut("pa_stream_begin_write %d: %s\n", ret, pa_strerror(ret));
-			goto exit;
+			return;
 		}
 
 		ssize_t final_bytes = 0;
@@ -1020,13 +1023,11 @@ void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userd
 		{
 			OSDebugOut("pa_stream_write %d: %s\n", ret, pa_strerror(ret));
 			pa_stream_cancel_write(padev->mStream); //TODO needed?
-			goto exit;
+			return;
 		}
 
 		remaining_bytes -= pa_bytes;
 	}
-
-exit:
 
 	return;
 }
