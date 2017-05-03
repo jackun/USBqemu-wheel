@@ -2,6 +2,8 @@
 #define USB_PT_H
 
 #include <libusb-1.0/libusb.h>
+#include <vector>
+
 #include "USB.h"
 #include "osdebugout.h"
 #include "deviceproxy.h"
@@ -30,6 +32,8 @@ struct ConfigUSBDevice
 			(bus == r.bus && port == r.port || ignore_busport);
 	}
 };
+
+void get_usb_devices(std::vector<ConfigUSBDevice>& devs);
 
 typedef struct PTState {
 	USBDevice	dev;

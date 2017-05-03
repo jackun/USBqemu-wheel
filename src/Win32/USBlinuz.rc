@@ -104,6 +104,19 @@ BEGIN
     EDITTEXT        IDC_BUFFER2,122,186,40,12,ES_AUTOHSCROLL | ES_NUMBER
 END
 
+IDD_DLGUSBPT DIALOGEX 0, 0, 257, 98
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "USB  Pass-through Configuration"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    PUSHBUTTON      "Cancel",IDCANCEL,200,78,50,14
+    DEFPUSHBUTTON   "OK",IDOK,144,78,50,14
+    COMBOBOX        IDC_COMBO1,12,24,234,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Device",-1,6,6,246,42
+    CONTROL         "Ignore bus/port number when searching for device",IDC_CHECK1,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,54,179,10
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -125,6 +138,11 @@ BEGIN
     0
 END
 
+IDD_DLGUSBPT AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -134,8 +152,25 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO
 BEGIN
+    IDD_DLGMSD, DIALOG
+    BEGIN
+    END
+
+    IDD_CONFIG, DIALOG
+    BEGIN
+    END
+
+    IDD_ABOUT, DIALOG
+    BEGIN
+    END
+
     IDD_DLGWASAPI, DIALOG
     BEGIN
+    END
+
+    IDD_DLGUSBPT, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 80
     END
 END
 #endif    // APSTUDIO_INVOKED
