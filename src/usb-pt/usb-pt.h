@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "USB.h"
+#include "libusbcontext.h"
 #include "osdebugout.h"
 #include "deviceproxy.h"
 //#include <unordered_map>
@@ -40,8 +41,7 @@ typedef struct PTState {
 	uint8_t		port;
 
 	libusb_device_handle *usb_handle;
-	libusb_context *usb_ctx;
-
+	std::shared_ptr<libusb_context> usb_ctx;
 	int config;
 	int intf;
 	int altset;

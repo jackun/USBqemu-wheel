@@ -47,16 +47,15 @@ void get_usb_devices(std::vector<ConfigUSBDevice>& devs)
 	// discover devices
 	libusb_device **list;
 	libusb_device_descriptor desc;
-	libusb_context *ctx;
+	auto ctx = LibusbContext::Get();
 
-	r = libusb_init(&ctx);
-	if (r < 0)
+	if (!ctx)
 	{
 		SysMessage(TEXT("usb-pt: Error initing libusb\n"));
 		return;
 	}
 
-	ssize_t cnt = libusb_get_device_list(nullptr, &list);
+	ssize_t cnt = libusb_get_device_list(ctx.get(), &list);
 	int err = 0;
 
 	if (cnt < 0)
@@ -88,13 +87,17 @@ void get_usb_devices(std::vector<ConfigUSBDevice>& devs)
 		}
 		else if (!handle)
 		{
-			OSDebugOut(TEXT("Failed to open device %04x:%04x: %d %" SFMTs "\n"), dev.vid, dev.pid, r, libusb_error_name(r));
+			OSDebugOut(TEXT("Failed to open device %04x:%04x: %d %s\n"), dev.vid, dev.pid, r, libusb_error_name(r));
+			fprintf(stderr, "Failed to open device %04x:%04x: %d %s\n", dev.vid, dev.pid, r, libusb_error_name(r));
 			continue; //meh, skipping
 					  //dev.name = "<access denied>";
 		}
 		else
 		{
 			OSDebugOut(TEXT("Failed to get string descriptor for iProduct: %d\n"), r);
+#ifdef NDEBUG
+			fprintf(stderr, "Failed to get string descriptor for iProduct: %d\n", r);
+#endif
 		}
 
 		if (handle)
@@ -104,8 +107,7 @@ void get_usb_devices(std::vector<ConfigUSBDevice>& devs)
 	}
 
 	libusb_free_device_list(list, 1);
-	libusb_exit(ctx);
-
+	//LibusbContext::Exit();
 	return;
 }
 
@@ -241,6 +243,9 @@ static int pt_handle_data (USBDevice *dev, int pid, uint8_t devep, uint8_t *data
 		else
 		{
 			OSDebugOut(TEXT("Unsupported endpoint type %d\n"), s->transfer_type);
+#ifdef NDEBUG
+			fprintf(stderr, "Unsupported endpoint type %d\n", s->transfer_type);
+#endif
 		}
 
 		if (ret == LIBUSB_ERROR_PIPE) {
@@ -251,7 +256,7 @@ static int pt_handle_data (USBDevice *dev, int pid, uint8_t devep, uint8_t *data
 		retry++;
 	}
 
-	OSDebugOut(TEXT("pid %x devep %02x len %d error: %d\n"), pid, devep, len, ret);
+	OSDebugOut(TEXT("pid %x devep %02x len %d error: %d retry %d\n"), pid, devep, len, ret, retry);
 
 	if (ret < 0)
 	{
@@ -460,7 +465,7 @@ static void pt_handle_destroy(USBDevice *dev)
 			libusb_unref_device (dev);
 			libusb_close (s->usb_handle);
 		}
-		libusb_exit (s->usb_ctx);
+		s->usb_ctx = nullptr;
 	}
 	free(s);
 }
@@ -482,7 +487,9 @@ static libusb_device* find_device(const ConfigUSBDevice& dev)
 	libusb_device **list;
 	libusb_device *found = nullptr;
 	libusb_device_descriptor desc;
-	ssize_t cnt = libusb_get_device_list(nullptr, &list);
+
+	auto ctx = LibusbContext::Get();
+	ssize_t cnt = libusb_get_device_list(ctx.get(), &list);
 	int err = 0;
 
 	if (cnt < 0)
@@ -534,9 +541,9 @@ USBDevice *PTDevice::CreateDevice(int port)
 	if (!s)
 		return nullptr;
 
-	r = libusb_init (&s->usb_ctx);
 
-	if (r < 0) {
+	s->usb_ctx = LibusbContext::Get();
+	if (!s->usb_ctx) {
 		SysMessage (TEXT("usb-pt: Error initing libusb\n"));
 		goto fail;
 	}

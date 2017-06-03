@@ -210,9 +210,12 @@ EXPORT_C_(s32) USBinit() {
 	return 0;
 }
 
+#include "usb-pt\libusbcontext.h"
+
 EXPORT_C_(void) USBshutdown() {
 
 	OSDebugOut(TEXT("USBshutdown\n"));
+	LibusbContext::Exit(); //Ah crap, NTWaitForSingleObject thread-locks in dll unload, so call first here
 	DestroyDevices();
 
 	free(qemu_ohci);
