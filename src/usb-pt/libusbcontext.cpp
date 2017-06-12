@@ -40,7 +40,7 @@ void Exit()
 std::shared_ptr<libusb_context> Get()
 {
 	std::call_once(s_context_initialized, []() {
-		s_libusb_context.reset(Create(), [](auto* context) {
+		s_libusb_context.reset(Create(), [](libusb_context* context) {
 			OSDebugOut_noprfx(TEXT("******** libusb_exit lambda ********\n"));
 			if (context != nullptr)
 				libusb_exit(context);

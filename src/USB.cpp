@@ -210,7 +210,7 @@ EXPORT_C_(s32) USBinit() {
 	return 0;
 }
 
-#include "usb-pt\libusbcontext.h"
+#include "usb-pt/libusbcontext.h"
 
 EXPORT_C_(void) USBshutdown() {
 

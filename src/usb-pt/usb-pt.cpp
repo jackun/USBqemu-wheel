@@ -573,7 +573,7 @@ USBDevice *PTDevice::CreateDevice(int port)
 #ifndef _WIN32
 	r = libusb_set_auto_detach_kernel_driver (s->usb_handle, 0);
 	OSDebugOut (TEXT("libusb_set_auto_detach_kernel_driver %d \n"), r);
-	libusb_set_debug(s->usb_ctx, LIBUSB_LOG_LEVEL_DEBUG);
+	libusb_set_debug(s->usb_ctx.get(), LIBUSB_LOG_LEVEL_DEBUG);
 #endif
 #if 0
 	libusb_device_descriptor dev_desc;
