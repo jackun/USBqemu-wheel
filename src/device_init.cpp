@@ -4,6 +4,7 @@
 #include "usb-mic/usb-mic-singstar.h"
 #include "usb-mic/usb-headset.h"
 #include "usb-hid/usb-hid.h"
+#include "usb-eyetoy/usb-eyetoy-webcam.h"
 
 void RegisterDevice::Initialize()
 {
@@ -17,4 +18,5 @@ void RegisterDevice::Initialize()
 	inst.Add(DEVTYPE_HIDMOUSE, new DeviceProxy<usb_hid::HIDMouseDevice>());
 	inst.Add(DEVTYPE_RBKIT, new DeviceProxy<usb_pad::RBDrumKitDevice>());
 	inst.Add(DEVTYPE_BUZZ, new DeviceProxy<usb_pad::BuzzDevice>());
+	//inst.Add(DEVTYPE_EYETOY_WEBCAM, new DeviceProxy<usb_eyetoy::EyeToyWebCamDevice>()); // not ready
 }
