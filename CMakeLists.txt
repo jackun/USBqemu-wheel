@@ -172,7 +172,17 @@ SET(SRCS_MIC
 	./src/usb-mic/usb-mic-logitech.cpp
 	./src/usb-mic/usb-headset.cpp
 	./src/usb-mic/audiodev-noop.cpp
+)
+
+SET(SRCS_EYETOY
 	#./src/usb-eyetoy/usb-eyetoy.cpp
+	./src/usb-eyetoy/videodeviceproxy.cpp
+	./src/usb-eyetoy/usb-eyetoy-webcam.cpp
+)
+
+SET(HDRS_EYETOY
+	./src/usb-eyetoy/videodeviceproxy.h
+	./src/usb-eyetoy/videodev.h
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
@@ -217,6 +227,7 @@ IF(WIN32)
 	SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
 	SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
+	SOURCE_GROUP("Header Files\\usb-eyetoy" FILES ${HDRS_EYETOY})
 	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
 	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
@@ -224,6 +235,7 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\qemu-usb" FILES ${SRCS_QEMU})
 	SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
+	SOURCE_GROUP("Source Files\\usb-eyetoy" FILES ${SRCS_EYETOY})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
 	
 	IF(NOT PLUGIN_BUILD_DX)
@@ -349,8 +361,8 @@ IF(UNIX)
 	#INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 ENDIF()
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_EYETOY} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_EYETOY})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)
