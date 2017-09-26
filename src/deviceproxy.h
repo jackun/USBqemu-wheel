@@ -25,6 +25,8 @@ enum DeviceType
 	DEVTYPE_HIDMOUSE,
 	DEVTYPE_RBKIT,
 	DEVTYPE_BUZZ,
+	DEVTYPE_EYETOY,
+	DEVTYPE_EYETOY_WEBCAM,
 };
 
 struct SelectDeviceName {
