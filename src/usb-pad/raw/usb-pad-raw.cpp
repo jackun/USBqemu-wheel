@@ -269,29 +269,13 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			uint16_t v = 0;
 			switch(pValueCaps[i].Range.UsageMin)
 			{
-				// X-axis 0x30
-				case HID_USAGE_GENERIC_X: 
-					v = mapping->axisMap[0]; 
-					break;
-				// Y-axis
-				case HID_USAGE_GENERIC_Y: 
-					v = mapping->axisMap[1]; 
-					break;
-				// Z-axis
-				case HID_USAGE_GENERIC_Z: 
-					v = mapping->axisMap[2]; 
-					break;
-				// Rotate-X
-				case HID_USAGE_GENERIC_RX: 
-					v = mapping->axisMap[3]; 
-					break;
-				// Rotate-Y
-				case HID_USAGE_GENERIC_RY: 
-					v = mapping->axisMap[4]; 
-					break;
-				// Rotate-Z 0x35
-				case HID_USAGE_GENERIC_RZ: 
-					v = mapping->axisMap[5]; 
+				case HID_USAGE_GENERIC_X: //0x30
+				case HID_USAGE_GENERIC_Y:
+				case HID_USAGE_GENERIC_Z:
+				case HID_USAGE_GENERIC_RX:
+				case HID_USAGE_GENERIC_RY:
+				case HID_USAGE_GENERIC_RZ: //0x35
+					v = mapping->axisMap[pValueCaps[i].Range.UsageMin - HID_USAGE_GENERIC_X];
 					break;
 				case HID_USAGE_GENERIC_HATSWITCH:
 					//fprintf(stderr, "Hat: %02X\n", value);
@@ -360,13 +344,12 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 static void ParseRawInputKB(PRAWINPUT pRawInput)
 {
 	Mappings			*mapping = NULL;
-	MapVector::iterator	it;
 
-	for(it = mapVector.begin(); it != mapVector.end(); ++it)
+	for(auto& it : mapVector)
 	{
-		if(!it->hidPath.compare(TEXT("Keyboard")))
+		if(!it.hidPath.compare(TEXT("Keyboard")))
 		{
-			mapping = &(*it);
+			mapping = &it;
 			break;
 		}
 	}
