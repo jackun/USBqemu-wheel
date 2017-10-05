@@ -3,9 +3,6 @@
 
 #include "vl.h"
 
-#ifdef _DEBUG
-#define DEBUG_OHCI
-#endif
 /* Dump packet contents.  */
 //#define DEBUG_PACKET
 /* This causes frames to occur 1000x slower */
