@@ -98,7 +98,7 @@ static void populateApiWidget(SettingsCB *settingsCB, const std::string& device)
 			LoadSetting(port, device, currAPI);
 			api = currAPI.strValue;
 			if (!dev->IsValidAPI(api))
-				api = "";
+				api.clear();
 		}
 		else
 			api = it->second;
@@ -124,7 +124,7 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 	SettingsCB *settingsCB = (SettingsCB *)data;
 	gint active = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	int player = settingsCB->player;
-	std::string s("");
+	std::string s;
 
 	if (active > 0)
 	{
