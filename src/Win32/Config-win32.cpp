@@ -172,7 +172,7 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 							std::string api = *it;
 							Win32Handles handles(hInst, hW);
 							if (device->Configure(port, api, &handles) == RESULT_FAILED)
-								SysMessage(TEXT("Some settings may have not been saved!"));
+								SysMessage(TEXT("Some settings may not have been saved!\n"));
 						}
 					}
 				}
