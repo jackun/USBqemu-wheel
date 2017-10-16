@@ -49,7 +49,7 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return L"DInput";
+		return TEXT("DInput");
 	}
 
 	static int Configure(int port, void *data);
