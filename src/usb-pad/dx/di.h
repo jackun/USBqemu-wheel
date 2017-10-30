@@ -867,17 +867,17 @@ HRESULT InitDirectInput( HWND hWindow, int port )
     HRESULT hr;
 
 	//release any previous resources
-	OSDebugOut(TEXT("DINPUT: FreeDirectInput %p\n"), hWin);
+	OSDebugOut(TEXT("DINPUT: FreeDirectInput %p\n"), hWindow);
 
 	if (refCount == 0)
 	{
 		// Create a DInput object
-		OSDebugOut(TEXT("DINPUT: DirectInput8Create %p\n"), hWin);
+		OSDebugOut(TEXT("DINPUT: DirectInput8Create %p\n"), hWindow);
 		if (FAILED(hr = DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION,
 			IID_IDirectInput8, (VOID**)&g_pDI, NULL)))
 			return hr;
 
-		OSDebugOut(TEXT("DINPUT: CreateDevice Keyboard %p\n"), hWin);
+		OSDebugOut(TEXT("DINPUT: CreateDevice Keyboard %p\n"), hWindow);
 		//Create Keyboard
 		g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
 		if (g_pKeyboard)
@@ -886,7 +886,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			g_pKeyboard->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			g_pKeyboard->Acquire();
 		}
-		OSDebugOut(TEXT("DINPUT: CreateDevice Mouse %p\n"), hWin);
+		OSDebugOut(TEXT("DINPUT: CreateDevice Mouse %p\n"), hWindow);
 		//Create Mouse
 		g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
 		if (g_pMouse)
@@ -901,7 +901,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		FFB[port] = false;  //no FFB device selected
 
 		//enumerate attached only
-		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWin);
+		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWindow);
 		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
 
