@@ -236,6 +236,17 @@ void InitDI(int port)
 	InitDirectInput(hWin, port);
 }
 
+bool GetControl(int port, int id)
+{
+	if (BUTTON[port][id + 1] > -1) {
+		if (KeyDown(BUTTON[port][id + 1]))
+			return true;
+		else
+			return false;
+	}
+	return false;
+}
+
 float GetControl(int port, int id,  bool axisbutton)
 {
 	if(id==0) //steering uses two inputs
@@ -263,20 +274,12 @@ float GetControl(int port, int id,  bool axisbutton)
 				}else{
 					return 0.0;}
 			}
-		}else{
-			if(AXISID[port][id+1] > -1){return ReadAxisFiltered(port, id+1);}
+			else if (GetControl(port, id)){
+				return 1.0f;
+			}
+		}else if(AXISID[port][id+1] > -1){
+			return ReadAxisFiltered(port, id+1);
 		}
 	}
 	return 0.f;
-}
-
-bool GetControl(int port, int id)
-{
-	if (BUTTON[port][id + 1] > -1) {
-		if (KeyDown(BUTTON[port][id + 1]))
-			return true;
-		else
-			return false;
-	}
-	return false;
 }
