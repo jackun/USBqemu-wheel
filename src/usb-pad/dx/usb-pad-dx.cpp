@@ -111,14 +111,14 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 		mWheelData.throttle = 255-(int)(GetControl(mPort, THROTTLE, false)*255.0f);
 		mWheelData.brake = 255-(int)(GetControl(mPort, BRAKE, false)*255.0f);
 
-		if(GetControl(mPort, CROSS))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
-		if(GetControl(mPort, SQUARE))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
-		if(GetControl(mPort, CIRCLE))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_CIRCLE);
-		if(GetControl(mPort, TRIANGLE))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
-		if(GetControl(mPort, R1))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_R1);
-		if(GetControl(mPort, L1))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_L1);
-		if(GetControl(mPort, R2))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_R2);
-		if(GetControl(mPort, L2))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_L2);
+		if(GetControl(mPort, CROSS, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
+		if(GetControl(mPort, SQUARE, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
+		if(GetControl(mPort, CIRCLE, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_CIRCLE);
+		if(GetControl(mPort, TRIANGLE, true))	mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_TRIANGLE);
+		if(GetControl(mPort, R1, true))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_R1);
+		if(GetControl(mPort, L1, true))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_L1);
+		if(GetControl(mPort, R2, true))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_R2);
+		if(GetControl(mPort, L2, true))			mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_L2);
 
 		if(GetControl(mPort, SELECT))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_SELECT);
 		if(GetControl(mPort, START))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_START);
