@@ -58,7 +58,7 @@ linux_32_script() {
 		git checkout -b master
 		gbp dch --spawn-editor=never -R -U low -a --upstream-tag=${TRAVIS_TAG} -N ${TRAVIS_TAG}
 	fi
-	dpkg-buildpackage -b -us -uc -ai386
+	dpkg-buildpackage -d -b -us -uc -ai386
 }
 
 
