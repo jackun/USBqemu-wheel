@@ -20,7 +20,7 @@ Package: libusbqemu-wheel-unstable-dbg
 Section: debug
 Priority: extra
 Architecture: i386
-Depends: libusbqemu-wheel (= ${binary:Version})
+Depends: libusbqemu-wheel-unstable (= ${binary:Version})
 Description: Debug symbols for libusbqemu-wheel
  Qemu-based usb plugin for PCSX2 Playstation 2 emulator.
  .
