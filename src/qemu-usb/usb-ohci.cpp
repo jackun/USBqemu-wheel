@@ -206,7 +206,7 @@ static void ohci_roothub_reset(OHCIState *ohci)
 }
 
 /* Reset the controller */
-static void ohci_soft_reset(OHCIState *ohci)
+void ohci_soft_reset(OHCIState *ohci)
 {
     ohci_bus_stop(ohci);
     ohci->ctl = (ohci->ctl & OHCI_CTL_IR) | OHCI_USB_SUSPEND;
@@ -253,7 +253,8 @@ static inline int get_dwords(uint32_t addr, uint32_t *buf, int num)
     int i;
 
     for (i = 0; i < num; i++, buf++, addr += sizeof(*buf)) {
-        cpu_physical_memory_rw(addr, (uint8_t *)buf, sizeof(*buf), 0);
+        if (cpu_physical_memory_rw(addr, (uint8_t *)buf, sizeof(*buf), 0))
+            return 0;
         *buf = le32_to_cpu(*buf);
     }
 
@@ -266,7 +267,8 @@ static inline int get_words(uint32_t addr, uint16_t *buf, int num)
     int i;
 
     for (i = 0; i < num; i++, buf++, addr += sizeof(*buf)) {
-        cpu_physical_memory_rw(addr, (uint8_t *)buf, sizeof(*buf), 0);
+        if (cpu_physical_memory_rw(addr, (uint8_t *)buf, sizeof(*buf), 0))
+            return 0;
         *buf = le16_to_cpu(*buf);
     }
 
@@ -280,7 +282,8 @@ static inline int put_dwords(uint32_t addr, uint32_t *buf, int num)
 
     for (i = 0; i < num; i++, buf++, addr += sizeof(*buf)) {
         uint32_t tmp = cpu_to_le32(*buf);
-        cpu_physical_memory_rw(addr, (uint8_t *)&tmp, sizeof(tmp), 1);
+        if (cpu_physical_memory_rw(addr, (uint8_t *)&tmp, sizeof(tmp), 1))
+            return 0;
     }
 
     return 1;
@@ -293,7 +296,8 @@ static inline int put_words(uint32_t addr, uint16_t *buf, int num)
 
     for (i = 0; i < num; i++, buf++, addr += sizeof(*buf)) {
         uint16_t tmp = cpu_to_le16(*buf);
-        cpu_physical_memory_rw(addr, (uint8_t *)&tmp, sizeof(tmp), 1);
+        if (cpu_physical_memory_rw(addr, (uint8_t *)&tmp, sizeof(tmp), 1))
+            return 0;
     }
 
     return 1;
@@ -355,7 +359,8 @@ static void ohci_copy_td(struct ohci_td *td, uint8_t *buf, int len, int write)
     n = 0x1000 - (ptr & 0xfff);
     if (n > len)
         n = len;
-    cpu_physical_memory_rw(ptr, buf, n, write);
+    if (cpu_physical_memory_rw(ptr, buf, n, write))
+        return;
     if (n == len)
         return;
     ptr = td->be & ~0xfffu;
@@ -373,7 +378,8 @@ static void ohci_copy_iso_td(uint32_t start_addr, uint32_t end_addr,
     n = 0x1000 - (ptr & 0xfff);
     if (n > len)
         n = len;
-    cpu_physical_memory_rw(ptr, buf, n, write);
+    if (cpu_physical_memory_rw(ptr, buf, n, write))
+        return;
     if (n == len)
         return;
     ptr = end_addr & ~0xfffu;
@@ -909,7 +915,7 @@ void ohci_frame_boundary(void *opaque)
     cpu_physical_memory_read(ohci->hcca, (uint8_t *)&hcca, sizeof(hcca));
 
     /* Process all the lists at the end of the frame */
-    bool hack = ohci->intr_status & ohci->intr & OHCI_INTR_RHSC; //don't process invalid descriptors
+    bool hack = false;// ohci->intr_status & ohci->intr & OHCI_INTR_RHSC; //don't process invalid descriptors
     if (hack) OSDebugOut(TEXT("skipping PLE\n"));
     if ((ohci->ctl & OHCI_CTL_PLE) && !hack) {
         int n;

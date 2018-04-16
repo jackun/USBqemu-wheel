@@ -270,6 +270,7 @@ void ohci_mem_write(OHCIState *ohci, uint32_t addr, uint32_t value );
 void ohci_frame_boundary(void *opaque);
 
 void ohci_hard_reset(OHCIState *ohci);
+void ohci_soft_reset(OHCIState *ohci);
 int ohci_bus_start(OHCIState *ohci);
 void ohci_bus_stop(OHCIState *ohci);
 #endif

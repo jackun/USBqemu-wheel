@@ -531,13 +531,23 @@ EXPORT_C_(s32) USBtest() {
 	return 0;
 }
 
-void cpu_physical_memory_rw(u32 addr, u8 *buf, size_t len, int is_write)
+int cpu_physical_memory_rw(u32 addr, u8 *buf, size_t len, int is_write)
 {
 	//OSDebugOut(TEXT("%s addr %08X, len %d\n"), is_write ? TEXT("write") : TEXT("read "), addr, len);
+	// invalid address, reset and try again
+	if (addr > 0x200000)
+	{
+		OSDebugOut(TEXT("invalid address, soft resetting qemu.\n"));
+		if (qemu_ohci)
+			ohci_soft_reset(qemu_ohci);
+		return 1;
+	}
+
 	if(is_write)
 		memcpy(&(ram[addr]),buf,len);
 	else
 		memcpy(buf,&(ram[addr]),len);
+	return 0;
 }
 
 int get_ticks_per_second()

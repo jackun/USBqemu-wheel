@@ -87,19 +87,19 @@ static inline char *realpath(const char *path, char *resolved_path)
 
 /* vl.c */
 uint64_t muldiv64(uint64_t a, uint32_t b, uint32_t c);
-void cpu_physical_memory_rw(uint32_t addr, uint8_t *buf,
+int cpu_physical_memory_rw(uint32_t addr, uint8_t *buf,
 	size_t len, int is_write);
 
-inline void cpu_physical_memory_read(uint32_t addr,
+inline int cpu_physical_memory_read(uint32_t addr,
 	uint8_t *buf, size_t len)
 {
-	cpu_physical_memory_rw(addr, buf, len, 0);
+	return cpu_physical_memory_rw(addr, buf, len, 0);
 }
 
-inline void cpu_physical_memory_write(uint32_t addr,
+inline int cpu_physical_memory_write(uint32_t addr,
 	const uint8_t *buf, size_t len)
 {
-	cpu_physical_memory_rw(addr, (uint8_t *)buf, len, 1);
+	return cpu_physical_memory_rw(addr, (uint8_t *)buf, len, 1);
 }
 
 void *qemu_mallocz(uint32_t size);
