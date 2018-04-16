@@ -375,7 +375,7 @@ static void set_sense(void *opaque, SCSISense sense)
     MSDState *s = (MSDState *)opaque;
     memset(s->f.sense_buf, 0, sizeof(s->f.sense_buf));
     //SENSE request
-    s->f.sense_buf[0] = 0x70;//0x70 - current sense, 0x80 - set Valid bit if got sense information
+    s->f.sense_buf[0] = 0x70 | 0x80;//0x70 - current sense, 0x80 - set Valid bit if got sense information
     //s->f.sense_buf[1] = 0x00;
     s->f.sense_buf[2] = sense.key;//ILLEGAL_REQUEST;
     //sense information, like LBA where error occured
@@ -397,28 +397,27 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
     uint32_t xfer_len;
     s->f.last_cmd = cbw->cmd[0];
 
+    s->f.result = COMMAND_PASSED;
+    s->f.off = 0;
+    if (cbw->cmd[0] != REQUEST_SENSE)
+        set_sense(s, SENSE_CODE(NO_SENSE));
+
     switch(cbw->cmd[0])
     {
     case TEST_UNIT_READY:
         //Do something?
-        s->f.result = COMMAND_PASSED;
-        set_sense(s, SENSE_CODE(NO_SENSE));
         /* If error */
         //s->f.result = COMMAND_FAILED;
         //set_sense(s, SENSE_CODE(LUN_NOT_READY));
         break;
     case REQUEST_SENSE: //device shall keep old sense data
-        s->f.result = COMMAND_PASSED;
         DPRINTF("REQUEST_SENSE allocation length: %d\n", (int)cbw->cmd[4]);
         memcpy(s->f.buf, s->f.sense_buf,
             /* XXX the UFI device shall return only the number of bytes requested, as is */
             cbw->cmd[4] < sizeof(s->f.sense_buf) ? (size_t)cbw->cmd[4] : sizeof(s->f.sense_buf));
         break;
     case INQUIRY:
-        s->f.result = COMMAND_PASSED;
-        set_sense(s, SENSE_CODE(NO_SENSE));
         memset(s->f.buf, 0, sizeof(s->f.buf));
-        s->f.off = 0;
         s->f.buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
         s->f.buf[1] = 1 << 7; //removable
         s->f.buf[3] = 1; //UFI response data format
@@ -432,10 +431,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
         int64_t fsize;
         uint32_t *last_lba, *blk_len;
 
-        s->f.result = COMMAND_PASSED;
-        set_sense(s, SENSE_CODE(NO_SENSE));
         memset(s->f.buf, 0, sizeof(s->f.buf));
-        s->f.off = 0;
 
         fsize = get_file_size(s->file);
 
@@ -460,10 +456,6 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
 
     case READ_12:
     case READ_10:
-        s->f.result = COMMAND_PASSED;
-        s->f.off = 0;
-        set_sense(s, SENSE_CODE(NO_SENSE));
-
         lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
         if(cbw->cmd[0] == READ_10)
             xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
@@ -495,10 +487,6 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
 
     case WRITE_12:
     case WRITE_10:
-        s->f.result = COMMAND_PASSED;
-        s->f.off = 0;
-        set_sense(s, SENSE_CODE(NO_SENSE));
-
         lba = bswap32(*(uint32_t *)&cbw->cmd[2]);
         if(cbw->cmd[0] == WRITE_10)
             xfer_len = bswap16(*(uint16_t *)&cbw->cmd[7]);
