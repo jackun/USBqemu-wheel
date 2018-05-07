@@ -25,15 +25,17 @@
 #define VL_H
 
 /* we put basic includes here to avoid repeating them in device drivers */
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <stdint.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstdarg>
+#include <cstring>
+#include <cstdint>
+#include <cstddef>
 #include <limits.h>
 #include <time.h>
 #include <ctype.h>
-#include <errno.h>
+#include <cassert>
+#include <cerrno>
 #include <fcntl.h>
 #include <sys/stat.h>
 
@@ -41,28 +43,7 @@
 #define inline __inline
 #endif
 
-#ifndef O_LARGEFILE
-#define O_LARGEFILE 0
-#endif
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 #ifdef _WIN32
-#include <windows.h>
-#define fsync _commit
-#define lseek _lseeki64
-//#define ENOTSUP 4096
-extern int qemu_ftruncate64(int, int64_t);
-#define ftruncate qemu_ftruncate64
-
-
-static inline char *realpath(const char *path, char *resolved_path)
-{
-    _fullpath(resolved_path, path, _MAX_PATH);
-    return resolved_path;
-}
-
 #define PRId64 "I64d"
 #define PRIx64 "I64x"
 #define PRIu64 "I64u"
@@ -102,6 +83,6 @@ inline void cpu_physical_memory_write(uint32_t addr,
 	cpu_physical_memory_rw(addr, (uint8_t *)buf, len, 1);
 }
 
-void *qemu_mallocz(uint32_t size);
+void *qemu_mallocz(size_t size);
 
 #endif /* VL_H */

@@ -26,6 +26,7 @@
 
 #include "../USB.h"
 #include "../qemu-usb/vl.h"
+#include "../qemu-usb/desc.h"
 #include "../deviceproxy.h"
 #include "audiodeviceproxy.h"
 #include <assert.h>
@@ -80,6 +81,8 @@ typedef struct HeadsetState {
     std::vector<int16_t> in_buffer;
     std::vector<int16_t> out_buffer;
 
+    USBDesc desc;
+    USBDescDevice desc_dev;
 } HeadsetState;
 
 class HeadsetDevice : public Device
@@ -460,6 +463,12 @@ static const uint8_t headset_config_descriptor[] = {
   0                                     /* bLength */
 };
 
+static const USBDescStrings desc_strings = {
+	"",
+	"Logitech"
+	"Logitech USB Headset",
+	"00000000"
+};
 
 static void headset_handle_reset(USBDevice *dev)
 {
@@ -716,13 +725,18 @@ static int usb_audio_ep_control(HeadsetState *s, uint8_t attrib,
     return ret;
 }
 
-static int headset_handle_control(USBDevice *dev, int request, int value,
-                                  int index, int length, uint8_t *data)
+static void headset_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
+                           int index, int length, uint8_t *data)
 {
     HeadsetState *s = (HeadsetState *)dev;
     int ret = 0;
 
     OSDebugOut(TEXT("headset: req %04X val: %04X idx: %04X len: %d\n"), request, value, index, length);
+
+    ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
+    if (ret >= 0) {
+        return;
+    }
 
     switch(request) {
     /*
@@ -735,11 +749,12 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
         ret = usb_audio_get_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) {
-            //if (s->f.debug) {
-                fprintf(stderr, "headset: fail: get control\n");
+            //if (s->debug) {
+                fprintf(stderr, "singstar: fail: get control\n");
             //}
             goto fail;
         }
+        p->actual_length = ret;
         break;
 
     case ClassInterfaceOutRequest | AUDIO_REQUEST_SET_CUR:
@@ -749,8 +764,8 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
         ret = usb_audio_set_control(s, request & 0xff, value, index,
                                     length, data);
         if (ret < 0) {
-            //if (s->f.debug) {
-                fprintf(stderr, "headset: fail: set control\n data:");
+            //if (s->debug) {
+                fprintf(stderr, "singstar: fail: set control\n data:");
             //}
             goto fail;
         }
@@ -768,115 +783,11 @@ static int headset_handle_control(USBDevice *dev, int request, int value,
                                     length, data);
         if (ret < 0) goto fail;
         break;
-    /*
-    * Generic usb request
-    */
-    case DeviceRequest | USB_REQ_GET_STATUS:
-        data[0] = (dev->remote_wakeup << USB_DEVICE_REMOTE_WAKEUP);
-        data[1] = 0x00;
-        ret = 2;
-        break;
-    case DeviceOutRequest | USB_REQ_CLEAR_FEATURE:
-        if (value == USB_DEVICE_REMOTE_WAKEUP) {
-            dev->remote_wakeup = 0;
-        } else {
-            goto fail;
-        }
-        ret = 0;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_FEATURE:
-        if (value == USB_DEVICE_REMOTE_WAKEUP) {
-            dev->remote_wakeup = 1;
-        } else {
-            goto fail;
-        }
-        ret = 0;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_ADDRESS:
-        dev->addr = value;
-        ret = 0;
-        break;
-    case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
-        OSDebugOut(TEXT("Get descriptor: %d\n"), value >> 8);
-        switch(value >> 8) {
-        case USB_DT_DEVICE:
-            memcpy(data, headset_dev_descriptor,
-                   sizeof(headset_dev_descriptor));
-            ret = sizeof(headset_dev_descriptor);
-            break;
-        case USB_DT_CONFIG:
-            memcpy(data, headset_config_descriptor,
-                sizeof(headset_config_descriptor));
-            ret = sizeof(headset_config_descriptor);
-            *(uint16_t*)&data[2] = ret - 1;
-            break;
-        //Probably ignored most of the time
-        case USB_DT_STRING:
-            switch(value & 0xff) {
-            case 0:
-                /* language ids */
-                data[0] = 4;
-                data[1] = 3;
-                data[2] = 0x09;
-                data[3] = 0x04;
-                ret = 4;
-                break;
-            case 3:// TODO iSerial = 0 (unused according to specs)
-                /* serial number */
-                ret = set_usb_string(data, "00000000");
-                break;
-            case 2:
-                /* product description */
-                ret = set_usb_string(data, "Logitech USB Headset");
-                break;
-            case 1:
-                /* vendor description */
-                ret = set_usb_string(data, "Logitech");
-                break;
-            default:
-                goto fail;
-            }
-            break;
-        default:
-            goto fail;
-        }
-        break;
-    case DeviceRequest | USB_REQ_GET_CONFIGURATION:
-        data[0] = 1;
-        ret = 1;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_CONFIGURATION:
-        ret = 0;
-        break;
-    case InterfaceRequest | USB_REQ_GET_INTERFACE:
-        OSDebugOut(TEXT("Get interface, index %d alt %d\n"), index, s->f.altset[index]);
-        data[0] = s->f.altset[index];
-        ret = 1;
-        break;
-    case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
-        OSDebugOut(TEXT("Set interface: %d %d\n"), index, value);
-        s->f.intf = index;
-        s->f.altset[index] = value;
-        ret = 0;
-        break;
-        /* hid specific requests */
-    case InterfaceRequest | USB_REQ_GET_DESCRIPTOR:
-        // Probably never comes here
-        goto fail;
-        break;
-    case GET_REPORT:
-        ret = 0;
-        break;
-    case SET_IDLE:
-        ret = 0;
-        break;
     default:
-        OSDebugOut(TEXT("Unhandled case\n"));
     fail:
-        ret = USB_RET_STALL;
+        p->status = USB_RET_STALL;
         break;
     }
-    return ret;
 }
 
 //naive, needs interpolation and stuff
@@ -886,25 +797,33 @@ inline static int16_t SetVolume(int16_t sample, int vol)
     return (int16_t)((int32_t)sample * vol / 0xFF);
 }
 
-static int headset_handle_data(USBDevice *dev, int pid,
-                               uint8_t devep, uint8_t *data, int len)
+static void headset_handle_data(USBDevice *dev, USBPacket *p)
 {
     HeadsetState *s = (HeadsetState *)dev;
     int ret = USB_RET_STALL;
+    uint8_t devep = p->ep->nr;
 
-    switch(pid) {
+    switch(p->pid) {
     case USB_TOKEN_IN:
-        //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
-        OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
+        //fprintf(stderr, "token in ep: %d len: %zd\n", devep, p->iov.size);
+        OSDebugOut(TEXT("token in ep: %d len: %zd\n"), devep, p->iov.size);
         if (devep == 4 && s->f.altset[2] && s->audsrc) {
-
-            memset(data, 0, len);
 
             uint32_t outChns = 1; //s->f.altset[2] == 1 ? 2 : 1;
             uint32_t inChns  = s->audsrc->GetChannels();
-            int16_t *dst = (int16_t *)data;
+			int16_t *dst = nullptr;
+			std::vector<int16_t> dst_alloc(0); //TODO
+			size_t len = p->iov.size;
             //Divide 'len' bytes between n channels of 16 bits
             uint32_t maxFrames = len / (outChns * sizeof(int16_t)), frames = 0;
+
+			if (p->iov.niov == 1)
+				dst = (int16_t *)p->iov.iov[0].iov_base;
+			else
+			{
+				dst_alloc.resize(len / sizeof(int16_t));
+				dst = dst_alloc.data();
+			}
 
             if(s->audsrc->GetFrames(&frames))
             {
@@ -936,21 +855,39 @@ static int headset_handle_data(USBDevice *dev, int pid,
             if (file)
                 fwrite(data, sizeof(short), ret * outChns, file);
 #endif
-            return ret * outChns * sizeof(int16_t);
+            ret = ret * outChns * sizeof(int16_t);
+            if (p->iov.niov > 1)
+			{
+				usb_packet_copy (p, dst_alloc.data(), ret);
+			}
+			else
+				p->actual_length = ret;
         }
         break;
     case USB_TOKEN_OUT:
 
         //OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, len);
         if (!s->audsink)
-            return 0;
+            return;
 
         if (devep == 1 && s->f.altset[1]) {
-            int16_t *src = (int16_t *)data;
             uint32_t inChns = s->f.altset[1] == 1 ? 2 : 1;
             uint32_t outChns = s->audsink->GetChannels();
+            size_t len = p->actual_length; //p->iov.size;
             //Divide 'len' bytes between n channels of 16 bits
             uint32_t frames = len / (inChns * sizeof(int16_t));
+            int16_t *src = nullptr;
+            std::vector<int16_t> src_alloc(0);
+
+			if (p->iov.niov == 1)
+				src = (int16_t *)p->iov.iov[0].iov_base;
+			else
+			{
+				//Copy iov data into contiguous space
+				src_alloc.resize(len / sizeof(int16_t));
+				src = src_alloc.data();
+				usb_packet_copy (p, src, len);
+			}
 
             s->out_buffer.resize(frames * outChns); //TODO move to AudioDevice for less data copying
 
@@ -983,14 +920,13 @@ static int headset_handle_data(USBDevice *dev, int pid,
 
             frames = s->audsink->SetBuffer(s->out_buffer.data(), frames);
 
-            return frames * inChns * sizeof(int16_t);
+            p->actual_length = frames * inChns * sizeof(int16_t);
         }
     default:
     fail:
-        ret = USB_RET_STALL;
+        p->status = USB_RET_STALL;
         break;
     }
-    return ret;
 }
 
 
@@ -1082,22 +1018,28 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->f.mode = MIC_MODE_SINGLE;
 
     if(!s->audsrc || !s->audsink)
-    {
-        headset_handle_destroy((USBDevice*)s);
-        return NULL;
-    }
+		goto fail;
 
     s->in_buffer.reserve(BUFFER_FRAMES * s->audsrc->GetChannels());
     s->out_buffer.reserve(BUFFER_FRAMES * s->audsink->GetChannels());
 
+    s->desc.full = &s->desc_dev;
+    s->desc.str = desc_strings;
+    if (usb_desc_parse_dev (headset_dev_descriptor, sizeof(headset_dev_descriptor), s->desc, s->desc_dev) < 0)
+        goto fail;
+    if (usb_desc_parse_config (headset_config_descriptor, sizeof(headset_config_descriptor), s->desc_dev) < 0)
+        goto fail;
+
     s->dev.speed = USB_SPEED_FULL;
-    s->dev.handle_packet  = usb_generic_handle_packet;
-    s->dev.handle_reset   = headset_handle_reset;
-    s->dev.handle_control = headset_handle_control;
-    s->dev.handle_data    = headset_handle_data;
-    s->dev.handle_destroy = headset_handle_destroy;
-    s->dev.open           = headset_handle_open;
-    s->dev.close          = headset_handle_close;
+    s->dev.klass.handle_attach  = usb_desc_attach;
+    s->dev.klass.handle_reset   = headset_handle_reset;
+    s->dev.klass.handle_control = headset_handle_control;
+    s->dev.klass.handle_data    = headset_handle_data;
+    s->dev.klass.unrealize      = headset_handle_destroy;
+    s->dev.klass.open           = headset_handle_open;
+    s->dev.klass.close          = headset_handle_close;
+    s->dev.klass.usb_desc       = &s->desc;
+    s->dev.klass.product_desc   = desc_strings[2];
 
     // set defaults
     s->f.out.vol[0] = 240; /* 0 dB */
@@ -1106,8 +1048,16 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->f.out.srate = 48000;
     s->f.in.srate = 48000;
 
+    usb_desc_init(&s->dev);
+    usb_desc_create_serial(&s->dev);
+    usb_ep_init(&s->dev);
+    headset_handle_reset ((USBDevice *)s);
+
     return (USBDevice *)s;
 
+fail:
+    headset_handle_destroy ((USBDevice *)s);
+    return NULL;
 }
 
 int HeadsetDevice::Configure(int port, const std::string& api, void *data)

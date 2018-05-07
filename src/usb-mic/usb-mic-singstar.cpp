@@ -26,6 +26,7 @@
 
 #include "../USB.h"
 #include "../qemu-usb/vl.h"
+#include "../qemu-usb/desc.h"
 #include "usb-mic-singstar.h"
 #include <assert.h>
 
@@ -61,6 +62,10 @@ enum usb_audio_altset : int8_t {
 
 typedef struct SINGSTARMICState {
     USBDevice dev;
+
+    USBDesc desc;
+    USBDescDevice desc_dev;
+
     AudioDevice *audsrc[2];
     AudioDeviceProxyBase *audsrcproxy;
 
@@ -80,6 +85,13 @@ typedef struct SINGSTARMICState {
     std::vector<int16_t> buffer[2];
     //uint8_t  fifo[2][200]; //on-chip 400byte fifo
 } SINGSTARMICState;
+
+static const USBDescStrings desc_strings = {
+    "",
+    "Nam Tai E&E Products Ltd.",
+    "USBMIC",
+    "310420811",
+};
 
 /* descriptor dumped from a real singstar MIC adapter */
 static const uint8_t singstar_mic_dev_descriptor[] = {
@@ -455,13 +467,25 @@ static int usb_audio_ep_control(SINGSTARMICState *s, uint8_t attrib,
     return ret;
 }
 
-static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
-                                  int index, int length, uint8_t *data)
+static void singstar_mic_set_interface(USBDevice *dev, int intf,
+                              int alt_old, int alt_new)
+{
+	SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	s->f.intf = alt_new;
+}
+
+static void singstar_mic_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
+                           int index, int length, uint8_t *data)
 {
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
     int ret = 0;
 
 	OSDebugOut(TEXT("singstar: req %04X val: %04X idx: %04X len: %d\n"), request, value, index, length);
+
+    ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
+    if (ret >= 0) {
+        return;
+    }
 
     switch(request) {
     /*
@@ -479,6 +503,7 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
             //}
             goto fail;
         }
+        p->actual_length = ret;
         break;
 
     case ClassInterfaceOutRequest | AUDIO_REQUEST_SET_CUR:
@@ -507,116 +532,11 @@ static int singstar_mic_handle_control(USBDevice *dev, int request, int value,
                                     length, data);
         if (ret < 0) goto fail;
         break;
-    /*
-    * Generic usb request
-    */
-    case DeviceRequest | USB_REQ_GET_STATUS:
-        data[0] = (dev->remote_wakeup << USB_DEVICE_REMOTE_WAKEUP);
-        data[1] = 0x00;
-        ret = 2;
-        break;
-    case DeviceOutRequest | USB_REQ_CLEAR_FEATURE:
-        if (value == USB_DEVICE_REMOTE_WAKEUP) {
-            dev->remote_wakeup = 0;
-        } else {
-            goto fail;
-        }
-        ret = 0;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_FEATURE:
-        if (value == USB_DEVICE_REMOTE_WAKEUP) {
-            dev->remote_wakeup = 1;
-        } else {
-            goto fail;
-        }
-        ret = 0;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_ADDRESS:
-        dev->addr = value;
-        ret = 0;
-        break;
-    case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
-
-		//XXX qemu has internal buffer of 8KB (device 1KB), but PS2 games' usb driver
-		//first calls with buffer size like 4 or 8 bytes
-		//and then re-requests with 'ret'-urned size buffer 
-		//or gets the size from descriptor if it was copied enough from the first call already, it seems.
-        switch(value >> 8) {
-        case USB_DT_DEVICE:
-            memcpy(data, singstar_mic_dev_descriptor,
-                   sizeof(singstar_mic_dev_descriptor));
-            ret = sizeof(singstar_mic_dev_descriptor);
-            break;
-        case USB_DT_CONFIG:
-            memcpy(data, singstar_mic_config_descriptor,
-                sizeof(singstar_mic_config_descriptor));
-            ret = sizeof(singstar_mic_config_descriptor);
-            break;
-		//Probably ignored most of the time
-        case USB_DT_STRING:
-            switch(value & 0xff) {
-            case 0:
-                /* language ids */
-                data[0] = 4;
-                data[1] = 3;
-                data[2] = 0x09;
-                data[3] = 0x04;
-                ret = 4;
-                break;
-            case 3:// TODO iSerial = 0 (unused according to specs)
-                /* serial number */
-                ret = set_usb_string(data, "310420811");
-                break;
-            case 2:
-                /* product description */
-                ret = set_usb_string(data, "USBMIC");
-                break;
-            case 1:
-                /* vendor description */
-                ret = set_usb_string(data, "Nam Tai E&E Products Ltd.");
-                break;
-            default:
-                goto fail;
-            }
-            break;
-        default:
-            goto fail;
-        }
-        break;
-    case DeviceRequest | USB_REQ_GET_CONFIGURATION:
-        data[0] = 1;
-        ret = 1;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_CONFIGURATION:
-        ret = 0;
-        break;
-    case InterfaceRequest | USB_REQ_GET_INTERFACE:
-        OSDebugOut(TEXT("Get interface, len :%d\n"), length);
-        data[0] = s->f.intf;
-        ret = 1;
-        break;
-    case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
-        OSDebugOut(TEXT("Set interface: %d\n"), value);
-        s->f.intf = value;
-        ret = 0;
-        break;
-        /* hid specific requests */
-    case InterfaceRequest | USB_REQ_GET_DESCRIPTOR:
-        // Probably never comes here
-        goto fail;
-        break;
-    case GET_REPORT:
-        ret = 0;
-        break;
-    case SET_IDLE:
-        ret = 0;
-        break;
     default:
     fail:
-        ret = USB_RET_STALL;
+        p->status = USB_RET_STALL;
         break;
     }
-    return ret;
 }
 
 //naive, needs interpolation and stuff
@@ -626,27 +546,36 @@ inline static int16_t SetVolume(int16_t sample, int vol)
 	return (int16_t)((int32_t)sample * vol / 0xFF);
 }
 
-static int singstar_mic_handle_data(USBDevice *dev, int pid,
-                               uint8_t devep, uint8_t *data, int len)
+static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 {
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
     int ret = 0;
+    uint8_t devep = p->ep->nr;
 
-    switch(pid) {
+    switch(p->pid) {
     case USB_TOKEN_IN:
-        //fprintf(stderr, "token in ep: %d len: %d\n", devep, len);
-		//OSDebugOut(TEXT("token in ep: %d len: %d\n"), devep, len);
+        //fprintf(stderr, "token in ep: %d len: %zd\n", devep, p->iov.size);
+		//OSDebugOut(TEXT("token in ep: %d len: %zd\n"), devep, p->iov.size);
         if (devep == 1) {
-
-			memset(data, 0, len);
 
 			//TODO
 			int outChns = s->f.intf == 1 ? 1 : 2;
 			uint32_t frames, outlen[2] = {0}, chn;
 			int16_t *src1, *src2;
-			int16_t *dst = (int16_t *)data;
+			int16_t *dst = nullptr;
+			std::vector<int16_t> dst_alloc(0); //TODO
+			size_t len = p->iov.size;
 			//Divide 'len' bytes between 2 channels of 16 bits
 			uint32_t maxPerChnFrames = len / (outChns * sizeof(uint16_t));
+
+			if (p->iov.niov == 1)
+				dst = (int16_t *)p->iov.iov[0].iov_base;
+			else
+			{
+				dst_alloc.resize(len / sizeof(int16_t));
+				dst = dst_alloc.data();
+			}
+
 
 			for(int i = 0; i<2; i++)
 			{
@@ -741,18 +670,23 @@ static int singstar_mic_handle_data(USBDevice *dev, int pid,
 			if (file)
 				fwrite(data, sizeof(short), ret * outChns, file);
 #endif
-			return ret * outChns * sizeof(int16_t);
+			ret = ret * outChns * sizeof(int16_t);
+			if (p->iov.niov > 1)
+			{
+				usb_packet_copy (p, dst_alloc.data(), ret);
+			}
+			else
+				p->actual_length = ret;
         }
         break;
     case USB_TOKEN_OUT:
         printf("token out ep: %d\n", devep);
-		OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, len);
+		OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, p->actual_length);
     default:
     fail:
-        ret = USB_RET_STALL;
+        p->status = USB_RET_STALL;
         break;
     }
-    return ret;
 }
 
 
@@ -845,19 +779,26 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 			s->buffer[i].resize(BUFFER_FRAMES * s->audsrc[i]->GetChannels());
 
 	if(!s->audsrc[0] && !s->audsrc[1])
-	{
-		singstar_mic_handle_destroy((USBDevice*)s);
-		return NULL;
-	}
+		goto fail;
 
-    s->dev.speed = USB_SPEED_FULL;
-    s->dev.handle_packet  = usb_generic_handle_packet;
-    s->dev.handle_reset   = singstar_mic_handle_reset;
-    s->dev.handle_control = singstar_mic_handle_control;
-    s->dev.handle_data    = singstar_mic_handle_data;
-    s->dev.handle_destroy = singstar_mic_handle_destroy;
-	s->dev.open = singstar_mic_handle_open;
-	s->dev.close = singstar_mic_handle_close;
+	s->desc.full = &s->desc_dev;
+	s->desc.str = desc_strings;
+	if (usb_desc_parse_dev (singstar_mic_dev_descriptor, sizeof(singstar_mic_dev_descriptor), s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config (singstar_mic_config_descriptor, sizeof(singstar_mic_config_descriptor), s->desc_dev) < 0)
+		goto fail;
+
+	s->dev.speed = USB_SPEED_FULL;
+	s->dev.klass.handle_attach  = usb_desc_attach;
+	s->dev.klass.handle_reset   = singstar_mic_handle_reset;
+	s->dev.klass.handle_control = singstar_mic_handle_control;
+	s->dev.klass.handle_data    = singstar_mic_handle_data;
+	s->dev.klass.set_interface  = singstar_mic_set_interface;
+	s->dev.klass.unrealize      = singstar_mic_handle_destroy;
+	s->dev.klass.open           = singstar_mic_handle_open;
+	s->dev.klass.close          = singstar_mic_handle_close;
+	s->dev.klass.usb_desc       = &s->desc;
+	s->dev.klass.product_desc   = desc_strings[2];
 
     // set defaults
     s->f.vol[0] = 240; /* 0 dB */
@@ -865,8 +806,16 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
     s->f.srate[0] = 48000;
     s->f.srate[1] = 48000;
 
+	usb_desc_init(&s->dev);
+	//usb_desc_create_serial(&s->dev);
+	usb_ep_init(&s->dev);
+	singstar_mic_handle_reset ((USBDevice *)s);
+
     return (USBDevice *)s;
 
+fail:
+	singstar_mic_handle_destroy ((USBDevice *)s);
+	return NULL;
 }
 
 int SingstarDevice::Configure(int port, const std::string& api, void *data)

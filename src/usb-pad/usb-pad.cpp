@@ -1,8 +1,21 @@
 #include "../USB.h"
 #include "../deviceproxy.h"
+#include "../qemu-usb/desc.h"
 #include "padproxy.h"
 
 #define DEVICENAME "pad"
+
+static const USBDescStrings pad_desc_strings = {
+	"",
+	"Logitech",
+	"Driving Force"
+};
+
+static const USBDescStrings pad_dfp_desc_strings = {
+	"",
+	"Logitech",
+	"Driving Force Pro"
+};
 
 class PadDevice : public Device
 {
@@ -53,6 +66,8 @@ void PrintBits(void * data, int size)
 
 typedef struct PADState {
 	USBDevice		dev;
+	USBDesc desc;
+	USBDescDevice desc_dev;
 	PadProxyBase*	padProxy;
 	Pad*			pad;
 	uint8_t			port;
@@ -136,37 +151,38 @@ uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn)
 	return inBtn;
 }
 
-static int pad_handle_data(USBDevice *dev, int pid, 
-							uint8_t devep, uint8_t *data, int len)
+static void pad_handle_data(USBDevice *dev, USBPacket *p)
 {
 	PADState *s = (PADState *)dev;
+	uint8_t data[64];
 
 	int ret = 0;
+	uint8_t devep = p->ep->nr;
 
-	switch(pid) {
+	switch(p->pid) {
 	case USB_TOKEN_IN:
 		if (devep == 1 && s->pad) {
-			ret = s->pad->TokenIn(data, len);
+			ret = s->pad->TokenIn(data, sizeof(data));
+			usb_packet_copy (p, data, ret);
 		} else {
 			goto fail;
 		}
 		break;
 	case USB_TOKEN_OUT:
+		usb_packet_copy (p, data, p->iov.size);
 		last_cmd = data[0];
 		/*fprintf(stderr,"usb-pad: data token out len=0x%X %X,%X,%X,%X,%X,%X,%X,%X\n",len, 
 			data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]);*/
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
 		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
 		//	s->initStage ++;
-
-		ret = s->pad->TokenOut(data, len);
+		ret = s->pad->TokenOut(data, sizeof(data));
 		break;
 	default:
 	fail:
-		ret = USB_RET_STALL;
+		p->status = USB_RET_STALL;
 		break;
 	}
-	return ret;
 }
 
 static void pad_handle_reset(USBDevice *dev)
@@ -177,41 +193,15 @@ static void pad_handle_reset(USBDevice *dev)
 	return;
 }
 
-static int pad_handle_control(USBDevice *dev, int request, int value,
+static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
 								  int index, int length, uint8_t *data)
 {
 	PADState *s = (PADState *)dev;
 	int ret = 0;
-	if(s == NULL) return USB_RET_STALL;
 
 	int t = s->port == 1 ? conf.WheelType[0] : conf.WheelType[1];
 
 	switch(request) {
-	case DeviceRequest | USB_REQ_GET_STATUS:
-		data[0] = (dev->remote_wakeup << USB_DEVICE_REMOTE_WAKEUP);
-		data[1] = 0x00;
-		ret = 2;
-		break;
-	case DeviceOutRequest | USB_REQ_CLEAR_FEATURE:
-		if (value == USB_DEVICE_REMOTE_WAKEUP) {
-			dev->remote_wakeup = 0;
-		} else {
-			goto fail;
-		}
-		ret = 0;
-		break;
-	case DeviceOutRequest | USB_REQ_SET_FEATURE:
-		if (value == USB_DEVICE_REMOTE_WAKEUP) {
-			dev->remote_wakeup = 1;
-		} else {
-			goto fail;
-		}
-		ret = 0;
-		break;
-	case DeviceOutRequest | USB_REQ_SET_ADDRESS:
-		dev->addr = value;
-		ret = 0;
-		break;
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
 		switch(value >> 8) {
 		case USB_DT_DEVICE:
@@ -246,15 +236,15 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 				break;
 			case 1:
 				/* vendor description */
-				ret = set_usb_string(data, "Logitech", length);
+				p->actual_length = set_usb_string(data, "Logitech", length);
 				break;
 			case 2:
 				/* product description */
-				ret = set_usb_string(data, "Driving Force Pro", length);
+				p->actual_length = set_usb_string(data, "Driving Force Pro", length);
 				break;
 			case 3:
 				/* serial number */
-				ret = set_usb_string(data, "1234567890AB", length);
+				p->actual_length = set_usb_string(data, "1234567890AB", length);
 				break;
 			default:
 				goto fail;
@@ -263,20 +253,6 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		default:
 			goto fail;
 		}
-		break;
-	case DeviceRequest | USB_REQ_GET_CONFIGURATION:
-		data[0] = 1;
-		ret = 1;
-		break;
-	case DeviceOutRequest | USB_REQ_SET_CONFIGURATION:
-		ret = 0;
-		break;
-	case DeviceRequest | USB_REQ_GET_INTERFACE:
-		data[0] = 0;
-		ret = 1;
-		break;
-	case DeviceOutRequest | USB_REQ_SET_INTERFACE:
-		ret = 0;
 		break;
 		/* hid specific requests */
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //Never called?
@@ -307,10 +283,9 @@ static int pad_handle_control(USBDevice *dev, int request, int value,
 		break;
 	default:
 	fail:
-		ret = USB_RET_STALL;
+		p->status = USB_RET_STALL;
 		break;
 	}
-	return ret;
 }
 
 static void pad_handle_destroy(USBDevice *dev)
@@ -320,14 +295,6 @@ static void pad_handle_destroy(USBDevice *dev)
 		delete s->pad;
 	}
 	free(s);
-}
-
-int pad_handle_packet(USBDevice *s, int pid, 
-							uint8_t devaddr, uint8_t devep,
-							uint8_t *data, int len)
-{
-	//fprintf(stderr,"usb-pad: packet received with pid=%x, devaddr=%x, devep=%x and len=%x\n",pid,devaddr,devep,len);
-	return usb_generic_handle_packet(s,pid,devaddr,devep,data,len);
 }
 
 int pad_open(USBDevice *dev)
@@ -367,21 +334,58 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (!s)
 		return NULL;
 
+	s->desc.full = &s->desc_dev;
+	s->desc.str = pad_desc_strings;
+
+	int dev_desc_len = sizeof(pad_dev_descriptor);
+	const uint8_t *dev_desc = pad_dev_descriptor;
+	const uint8_t *config_desc = df_config_descriptor;
+	int config_desc_len = sizeof(df_config_descriptor);
+
+	if (pad->Type() == WT_DRIVING_FORCE_PRO)
+	{
+		s->desc.str = pad_dfp_desc_strings;
+		dev_desc = dfp_dev_descriptor;
+		config_desc = dfp_config_descriptor;
+		config_desc_len = sizeof(dfp_config_descriptor);
+	}
+	else if (pad->Type() == WT_GT_FORCE)
+	{
+		dev_desc = ffgp_dev_descriptor;
+		//config_desc = pad_driving_force_hid_report_descriptor; //TODO
+		//config_desc_len = sizeof(pad_driving_force_hid_report_descriptor);
+	}
+
+	if (usb_desc_parse_dev (dev_desc, dev_desc_len, s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config (dfp_config_descriptor, sizeof(dfp_config_descriptor), s->desc_dev) < 0)
+		goto fail;
+
 	s->f.wheel_type = conf.WheelType[1 - port];
 	s->pad = pad;
 	//s->padProxy = proxy;
 	s->dev.speed = USB_SPEED_FULL;
-	s->dev.handle_packet  = pad_handle_packet;
-	s->dev.handle_reset   = pad_handle_reset;
-	s->dev.handle_control = pad_handle_control;
-	s->dev.handle_data    = pad_handle_data;
-	s->dev.handle_destroy = pad_handle_destroy;
-	s->dev.open = pad_open;
-	s->dev.close = pad_close;
+	s->dev.klass.handle_attach  = usb_desc_attach;
+	s->dev.klass.handle_reset   = pad_handle_reset;
+	s->dev.klass.handle_control = pad_handle_control;
+	s->dev.klass.handle_data    = pad_handle_data;
+	s->dev.klass.unrealize      = pad_handle_destroy;
+	s->dev.klass.open           = pad_open;
+	s->dev.klass.close          = pad_close;
+	s->dev.klass.usb_desc       = &s->desc;
+	s->dev.klass.product_desc   = s->desc.str[2];
 	s->port = port;
+
+	usb_desc_init(&s->dev);
+	usb_desc_create_serial(&s->dev);
+	usb_ep_init(&s->dev);
+	pad_handle_reset ((USBDevice *)s);
 
 	return (USBDevice *)s;
 
+fail:
+	pad_handle_destroy ((USBDevice *)s);
+	return NULL;
 }
 
 void ResetData(generic_data_t *d)

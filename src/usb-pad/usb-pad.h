@@ -4,7 +4,6 @@
 #include "../qemu-usb/vl.h"
 #include "../configuration.h"
 
-#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
 #define CHECK(exp)		{ if(!(exp)) goto Error; }
 #define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
 
@@ -278,8 +277,25 @@ static const uint8_t dfp_dev_descriptor[] = {
 	/* idVendor            */ WBVAL(0x046d),
 	/* idProduct           */ WBVAL(DFP_PID),
 	/* bcdDevice           */ WBVAL(0x0001), //(1)
-	/* iManufacturer       */ 0x03, //(1)
-	/* iProduct            */ 0x01, //(2)
+	/* iManufacturer       */ 0x01, //(1)
+	/* iProduct            */ 0x02, //(2)
+	/* iSerialNumber       */ 0x00, //(0)
+	/* bNumConfigurations  */ 0x01, //(1)
+};
+
+static const uint8_t ffgp_dev_descriptor[] = {
+	/* bLength             */ 0x12, //(18)
+	/* bDescriptorType     */ 0x01, //(1)
+	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bDeviceClass        */ 0x00, //(0)
+	/* bDeviceSubClass     */ 0x00, //(0)
+	/* bDeviceProtocol     */ 0x00, //(0)
+	/* bMaxPacketSize0     */ 0x08, //(8)
+	/* idVendor            */ WBVAL(0x046d),
+	/* idProduct           */ WBVAL(FFGP_PID),
+	/* bcdDevice           */ WBVAL(0x0001), //(1)
+	/* iManufacturer       */ 0x01, //(1)
+	/* iProduct            */ 0x02, //(2)
 	/* iSerialNumber       */ 0x00, //(0)
 	/* bNumConfigurations  */ 0x01, //(1)
 };

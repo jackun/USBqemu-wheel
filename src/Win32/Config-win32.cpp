@@ -6,7 +6,7 @@
 #include "../usb-mic/audiodeviceproxy.h"
 #include "../configuration.h"
 
-extern HINSTANCE hInst;
+HINSTANCE hInst;
 extern bool configChanged;
 
 void SysMessageA(const char *fmt, ...) {

@@ -3,9 +3,6 @@
 
 #include "vl.h"
 
-#ifdef _DEBUG
-#define DEBUG_OHCI
-#endif
 /* Dump packet contents.  */
 //#define DEBUG_PACKET
 /* This causes frames to occur 1000x slower */
@@ -65,7 +62,10 @@ typedef struct OHCIState {
     
     /* Active packets.  */
     uint32_t old_ctl;
+    USBPacket usb_packet;
     uint8_t usb_buf[8192];
+    uint32_t async_td;
+    bool async_complete;
     
 } OHCIState;
 
@@ -81,6 +81,14 @@ struct ohci_hcca {
 #define offsetof_(x,z) (intptr_t(&((x)->z)) - intptr_t(x))
 #define offsetof(x,z) offsetof_((x*)0,z)
 #endif
+
+//ISO C++ forbids declaration of ‘typeof’ with no type
+/*
+#define CONTAINER_OF(ptr, type, member) ({                      \
+        const typeof(((type *) 0)->member) *__mptr = (ptr);     \
+        (type *) ((char *) __mptr - offsetof(type, member));})
+*/
+#define CONTAINER_OF(p, type, field) ((type*) ((char*)p - ((ptrdiff_t)&((type*)0)->field)))
 
 #define HCCA_WRITEBACK_OFFSET   128 //offsetof(struct ohci_hcca, frame)
 #define HCCA_WRITEBACK_SIZE     8 /* frame, pad, done */
