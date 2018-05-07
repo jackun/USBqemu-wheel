@@ -20,6 +20,8 @@
 #define SFMTs "s"
 #endif
 
+#define __builtin_constant_p(p) false
+
 #else //_WIN32
 
 #define MAX_PATH PATH_MAX
@@ -73,4 +75,20 @@ errno_t wcsncpy_s(
 
 #endif //__MINGW32__
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) ((sizeof(x) / sizeof((x)[0])))
+#endif
+
+//TODO Idk, used only in desc.h and struct USBDescriptor should be already packed anyway
+#if defined(_WIN32) && !defined(__MINGW32__)
+#define PACK(def,name) __pragma( pack(push, 1) ) def name __pragma( pack(pop) )
+#else
+#define PACK(def,name) def __attribute__((gcc_struct, packed)) name
+#endif
+
+#ifdef _WIN64
+typedef __int64 ssize_t;
+#else
+typedef int     ssize_t;
+#endif
 #endif

@@ -154,7 +154,6 @@ const char *AXIS2TXT[] = {
 
 void resetState(HWND hW);
 HWND dgHwnd = NULL;
-HINSTANCE hInst;
 //std::vector<std::wstring> joysName;
 static std::vector<std::wstring> joysDev;
 static DWORD selectedJoy[2];

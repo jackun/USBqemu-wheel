@@ -61,7 +61,7 @@ s64 clocks = 0;
 s64 remaining = 0;
 
 #if _WIN32
-HWND gsWnd=NULL;
+HWND gsWnd = nullptr;
 #endif
 
 
@@ -94,13 +94,13 @@ void DestroyDevices()
 	for (int i=0; i<2; i++)
 	{
 		if(qemu_ohci && qemu_ohci->rhport[i].port.dev) {
-			qemu_ohci->rhport[i].port.dev->handle_destroy(qemu_ohci->rhport[i].port.dev);
-			qemu_ohci->rhport[i].port.dev = NULL;
+			qemu_ohci->rhport[i].port.dev->klass.unrealize(qemu_ohci->rhport[i].port.dev);
+			qemu_ohci->rhport[i].port.dev = nullptr;
 		}
 		else if(usb_device[i])
-			usb_device[i]->handle_destroy(usb_device[i]);
+			usb_device[i]->klass.unrealize(usb_device[i]);
 
-		usb_device[i] = NULL;
+		usb_device[i] = nullptr;
 	}
 }
 
@@ -121,19 +121,25 @@ USBDevice* CreateDevice(DeviceType index, int port)
 	return device;
 }
 
+//TODO re-do sneaky attach
 void USBAttach(int port, USBDevice *dev, bool sneaky = false)
 {
 	if (!qemu_ohci) return;
 
-	if (sneaky)
+	USBDevice *tmp = qemu_ohci->rhport[port].port.dev;
+	if (tmp)
 	{
-		USBDevice *tmp = qemu_ohci->rhport[port].port.dev;
-		if (tmp)
-			tmp->handle_destroy(tmp);
-		qemu_ohci->rhport[port].port.dev = dev;
+		if (!sneaky)
+			usb_detach (&qemu_ohci->rhport[port].port);
+		tmp->klass.unrealize(tmp);
 	}
 
-	qemu_ohci->rhport[port].port.ops->attach(&(qemu_ohci->rhport[port].port), dev);
+	qemu_ohci->rhport[port].port.dev = dev;
+	if (dev)
+	{
+		dev->attached = true;
+		usb_attach (&qemu_ohci->rhport[port].port); //.ops->attach(&(qemu_ohci->rhport[port].port));
+	}
 }
 
 USBDevice* CreateDevice(const std::string& name, int port)
@@ -242,8 +248,12 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 			hWnd = GetParent (hWnd);
 	}
 	gsWnd = hWnd;
+
+# if defined(BUILD_RAW)
 	if(msgWindow == NULL)
 		InitWindow(hWnd);
+# endif
+
 #endif
 
 	if (configChanged || (!usb_device[0] && !usb_device[1]))
@@ -253,11 +263,11 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 	}
 
 	//TODO Pass pDsp to open probably so dinput can bind to this HWND
-	if(usb_device[0] && usb_device[0]->open)
-		usb_device[0]->open(usb_device[0]);
+	if(usb_device[0] && usb_device[0]->klass.open)
+		usb_device[0]->klass.open(usb_device[0]);
 
-	if(usb_device[1] && usb_device[1]->open)
-		usb_device[1]->open(usb_device[1]);
+	if(usb_device[1] && usb_device[1]->klass.open)
+		usb_device[1]->klass.open(usb_device[1]);
 
 	return 0;
 }
@@ -265,13 +275,13 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 EXPORT_C_(void) USBclose() {
 	OSDebugOut(TEXT("USBclose\n"));
 
-	if(usb_device[0] && usb_device[0]->close)
-		usb_device[0]->close(usb_device[0]);
+	if(usb_device[0] && usb_device[0]->klass.close)
+		usb_device[0]->klass.close(usb_device[0]);
 
-	if(usb_device[1] && usb_device[1]->close)
-		usb_device[1]->close(usb_device[1]);
+	if(usb_device[1] && usb_device[1]->klass.close)
+		usb_device[1]->klass.close(usb_device[1]);
 
-#if _WIN32
+#if defined(_WIN32) && defined(BUILD_RAW)
 	UninitWindow();
 #endif
 }
@@ -386,7 +396,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				if (dev)
 				{
 					assert(usb_device[i] == dev);
-					dev->handle_destroy(dev);
+					dev->klass.unrealize(dev);
 				}
 
 				proxy = regInst.Device(index);
@@ -402,17 +412,9 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					return -1;
 				}
 
-				USBDevice tmp  = *usb_device[i];
+				USBDeviceClass tmp  = usb_device[i]->klass;
 				*usb_device[i] = usbd.device[i].dev;
-
-				usb_device[i]->port           = tmp.port;
-				usb_device[i]->handle_packet  = tmp.handle_packet;
-				usb_device[i]->handle_destroy = tmp.handle_destroy;
-				usb_device[i]->open           = tmp.open;
-				usb_device[i]->close          = tmp.close;
-				usb_device[i]->handle_reset   = tmp.handle_reset;
-				usb_device[i]->handle_control = tmp.handle_control;
-				usb_device[i]->handle_data    = tmp.handle_data;
+				usb_device[i]->klass = tmp;
 
 				proxy->Freeze(FREEZE_LOAD, usb_device[i], ptr);
 			}
@@ -467,14 +469,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				proxy->Freeze(FREEZE_SAVE, usb_device[i], ptr);
 				usbd.device[i].dev = *usb_device[i];
 
-				usbd.device[i].dev.port           = nullptr;
-				usbd.device[i].dev.handle_packet  = nullptr;
-				usbd.device[i].dev.handle_destroy = nullptr;
-				usbd.device[i].dev.open           = nullptr;
-				usbd.device[i].dev.close          = nullptr;
-				usbd.device[i].dev.handle_reset   = nullptr;
-				usbd.device[i].dev.handle_control = nullptr;
-				usbd.device[i].dev.handle_data    = nullptr;
+				memset (&usbd.device[i].dev.klass, 0, sizeof(USBDeviceClass));
 			}
 
 			ptr += usbd.device[i].size;

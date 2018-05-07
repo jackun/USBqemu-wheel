@@ -1,5 +1,6 @@
 #include "usb-mic-singstar.h"
 #include "audio.h"
+#include "../qemu-usb/desc.h"
 
 #define DEVICENAME "logitech_usbmic"
 
@@ -211,63 +212,19 @@ static const uint8_t logitech_mic_config_descriptor[] = {
     0                                     /* bLength */
 };
 
-static int (*pfn_singstar_mic_handle_control)(USBDevice *dev, int request, int value,
-	int index, int length, uint8_t *data) = nullptr;
+static const USBDescStrings lt_desc_strings = {
+    "",
+    "Logitech",
+    "USBMIC",
+};
 
-static int logitech_mic_handle_control(USBDevice *dev, int request, int value,
-	int index, int length, uint8_t *data)
-{
-	int ret = 0;
-	switch (request) {
-	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
-		switch (value >> 8) {
-		case USB_DT_DEVICE:
-			memcpy(data, logitech_mic_dev_descriptor,
-				sizeof(logitech_mic_dev_descriptor));
-			ret = sizeof(logitech_mic_dev_descriptor);
-			break;
-		case USB_DT_CONFIG:
-			memcpy(data, logitech_mic_config_descriptor,
-				sizeof(logitech_mic_config_descriptor));
-			ret = sizeof(logitech_mic_config_descriptor);
-			break;
-		case USB_DT_STRING:
-			switch (value & 0xff) {
-			case 0:
-				/* language ids */
-				data[0] = 4;
-				data[1] = 3;
-				data[2] = 0x09;
-				data[3] = 0x04;
-				ret = 4;
-				break;
-			case 2:
-				/* product description */
-				ret = set_usb_string(data, "USBMIC");
-				break;
-			case 1:
-				/* vendor description */
-				ret = set_usb_string(data, "Logitech");
-				break;
-			default:
-				goto fail;
-			}
-			break;
-		default:
-			goto fail;
-			break;
-		}
-		break;
-	default:
-		if (pfn_singstar_mic_handle_control)
-			return pfn_singstar_mic_handle_control(dev, request, value, index, length, data);
+//Minified state
+typedef struct SINGSTARMICMINIState {
+    USBDevice dev;
 
-	fail:
-		return USB_RET_STALL;
-		break;
-	}
-	return ret;
-}
+    USBDesc desc;
+    USBDescDevice desc_dev;
+} SINGSTARMICMINIState;
 
 class LogitechMicDevice : public SingstarDevice
 {
@@ -285,9 +242,24 @@ public:
 		USBDevice* dev = SingstarDevice::CreateDevice(port, api);
 		if (!dev)
 			return NULL;
-		pfn_singstar_mic_handle_control = dev->handle_control;
-		dev->handle_control = logitech_mic_handle_control;
+
+		SINGSTARMICMINIState *s = (SINGSTARMICMINIState *)dev;
+		s->desc = {};
+		s->desc_dev = {};
+
+		s->desc.str = lt_desc_strings;
+		if (usb_desc_parse_dev (logitech_mic_dev_descriptor, sizeof(logitech_mic_dev_descriptor), s->desc, s->desc_dev) < 0)
+			goto fail;
+		if (usb_desc_parse_config (logitech_mic_config_descriptor, sizeof(logitech_mic_config_descriptor), s->desc_dev) < 0)
+			goto fail;
+
+		s->dev.klass.usb_desc       = &s->desc;
+		s->dev.klass.product_desc   = lt_desc_strings[2];
+		usb_desc_init(&s->dev);
 		return dev;
+fail:
+		s->dev.klass.unrealize (dev);
+		return NULL;
 	}
 	static const char* TypeName()
 	{

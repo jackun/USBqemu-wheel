@@ -24,7 +24,7 @@ uint64_t muldiv64(uint64_t a, uint32_t b, uint32_t c)
     return res.ll;
 }
 
-void *qemu_mallocz(uint32_t size)
+void *qemu_mallocz(size_t size)
 {
 	void *m=malloc(size);
 	if(!m) return NULL;
