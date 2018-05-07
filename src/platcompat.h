@@ -63,6 +63,7 @@ errno_t wcstombs_s(
 	return wcstombs_s(pReturnValue, mbstr, size, wcstr, count);
 }
 
+#if 0 //newer mingw has it defined
 template <size_t size>  
 errno_t wcsncpy_s(  
 	wchar_t (&strDest)[size],  
@@ -72,6 +73,7 @@ errno_t wcsncpy_s(
 {
 	return wcsncpy_s(strDest, size, strSource, count);
 }
+#endif
 
 #endif //__MINGW32__
 
