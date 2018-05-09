@@ -291,10 +291,7 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 static void pad_handle_destroy(USBDevice *dev)
 {
 	PADState *s = (PADState *)dev;
-	if (s) {
-		delete s->pad;
-	}
-	free(s);
+	delete s;
 }
 
 int pad_open(USBDevice *dev)
@@ -329,10 +326,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 		return NULL;
 
 	pad->Type((PS2WheelTypes)conf.WheelType[1 - port]);
-	PADState *s = (PADState *)qemu_mallocz(sizeof(PADState));
-
-	if (!s)
-		return NULL;
+	PADState *s = new PADState();
 
 	s->desc.full = &s->desc_dev;
 	s->desc.str = pad_desc_strings;

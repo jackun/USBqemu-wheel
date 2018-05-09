@@ -693,7 +693,11 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 static void singstar_mic_handle_destroy(USBDevice *dev)
 {
     SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	if (file)
+		fclose(file);
+	file = NULL;
 
+	if (!s) return;
 	for(int i=0; i<2; i++)
 	{
 		if(s->audsrc[i])
@@ -704,12 +708,8 @@ static void singstar_mic_handle_destroy(USBDevice *dev)
 			s->buffer[i].clear();
 		}
 	}
-
 	s->audsrcproxy->AudioDeinit();
-    free(s);
-	if (file)
-		fclose(file);
-	file = NULL;
+	delete s;
 }
 
 static int singstar_mic_handle_open(USBDevice *dev)
@@ -749,9 +749,7 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
     SINGSTARMICState *s;
     AudioDeviceInfo info;
 
-    s = (SINGSTARMICState *)qemu_mallocz(sizeof(SINGSTARMICState));
-    if (!s)
-        return NULL;
+    s = new SINGSTARMICState();
 
 	s->audsrcproxy = RegisterAudioDevice::instance().Proxy(api);
 	if (!s->audsrcproxy)

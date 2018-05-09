@@ -933,7 +933,11 @@ static void headset_handle_data(USBDevice *dev, USBPacket *p)
 static void headset_handle_destroy(USBDevice *dev)
 {
     HeadsetState *s = (HeadsetState *)dev;
+    if (file)
+        fclose(file);
+    file = NULL;
 
+    if (!s) return;
     if(s->audsrc)
     {
         s->audsrc->Stop();
@@ -951,10 +955,7 @@ static void headset_handle_destroy(USBDevice *dev)
     }
 
     s->audsrcproxy->AudioDeinit();
-    free(s);
-    if (file)
-        fclose(file);
-    file = NULL;
+    delete s;
 }
 
 static int headset_handle_open(USBDevice *dev)
@@ -1000,9 +1001,7 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     HeadsetState *s;
     AudioDeviceInfo info;
 
-    s = (HeadsetState *)qemu_mallocz(sizeof(HeadsetState));
-    if (!s)
-        return NULL;
+    s = new HeadsetState();
 
     s->audsrcproxy = RegisterAudioDevice::instance().Proxy(api);
     if (!s->audsrcproxy)

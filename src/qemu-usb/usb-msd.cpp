@@ -1016,14 +1016,12 @@ static void usb_msd_handle_destroy(USBDevice *dev)
         fclose(s->file);
         s->file = NULL;
     }
-    free(s);
+    delete s;
 }
 
 USBDevice *MsdDevice::CreateDevice(int port)
 {
-    MSDState *s = (MSDState *)qemu_mallocz(sizeof(MSDState));
-    if (!s)
-        return NULL;
+    MSDState *s = new MSDState();
 
     //CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
     //LoadSetting(port, DEVICENAME, varApi);
