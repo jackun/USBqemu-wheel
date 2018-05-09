@@ -655,12 +655,12 @@ void usb_desc_set_string(USBDevice *dev, uint8_t index, const char *str)
 		}
 	}
 	if (s == NULL) {
-		s = static_cast<USBDescString *>(g_malloc0(sizeof(*s)));
+		s = static_cast<USBDescString *>(my_g_malloc0(sizeof(*s)));
 		s->index = index;
 		QLIST_INSERT_HEAD(&dev->strings, s, next);
 	}
-	g_free(s->str);
-	s->str = g_strdup(str);
+	my_g_free(s->str);
+	s->str = strdup(str);
 }
 
 /*

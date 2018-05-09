@@ -122,7 +122,7 @@ unsigned iov_copy(struct iovec *dst_iov, unsigned int dst_iov_cnt,
 
 void qemu_iovec_init(QEMUIOVector *qiov, int alloc_hint)
 {
-    qiov->iov = g_new(struct iovec, alloc_hint);
+    qiov->iov = my_g_new(struct iovec, alloc_hint);
     qiov->niov = 0;
     qiov->nalloc = alloc_hint;
     qiov->size = 0;
@@ -146,7 +146,7 @@ void qemu_iovec_add(QEMUIOVector *qiov, void *base, size_t len)
 
     if (qiov->niov == qiov->nalloc) {
         qiov->nalloc = 2 * qiov->nalloc + 1;
-        qiov->iov = g_renew(struct iovec, qiov->iov, qiov->nalloc);
+        qiov->iov = my_g_renew(struct iovec, qiov->iov, qiov->nalloc);
     }
     qiov->iov[qiov->niov].iov_base = base;
     qiov->iov[qiov->niov].iov_len = len;
@@ -232,7 +232,7 @@ void qemu_iovec_destroy(QEMUIOVector *qiov)
     assert(qiov->nalloc != -1);
 
     qemu_iovec_reset(qiov);
-    g_free(qiov->iov);
+    my_g_free(qiov->iov);
     qiov->nalloc = 0;
     qiov->iov = NULL;
 }

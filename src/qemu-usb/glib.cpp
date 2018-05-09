@@ -14,7 +14,7 @@
  * Returns: a pointer to the allocated memory
  */
 void*
-g_malloc (size_t n_bytes)
+my_g_malloc (size_t n_bytes)
 {
   if (G_LIKELY (n_bytes))
     {
@@ -43,7 +43,7 @@ g_malloc (size_t n_bytes)
  * Returns: a pointer to the allocated memory
  */
 void*
-g_malloc0 (size_t n_bytes)
+my_g_malloc0 (size_t n_bytes)
 {
   if (G_LIKELY (n_bytes))
     {
@@ -74,7 +74,7 @@ g_malloc0 (size_t n_bytes)
  * Returns: a pointer to the allocated memory
  */
 void*
-g_malloc_n (size_t n_blocks,
+my_g_malloc_n (size_t n_blocks,
 	    size_t n_block_bytes)
 {
   if (SIZE_OVERFLOWS (n_blocks, n_block_bytes))
@@ -83,7 +83,7 @@ g_malloc_n (size_t n_blocks,
       //         G_STRLOC, n_blocks, n_block_bytes);
     }
 
-  return g_malloc (n_blocks * n_block_bytes);
+  return my_g_malloc (n_blocks * n_block_bytes);
 }
 
 /**
@@ -100,7 +100,7 @@ g_malloc_n (size_t n_blocks,
  * Returns: the new address of the allocated memory
  */
 void*
-g_realloc (void* mem,
+my_g_realloc (void* mem,
 	   size_t    n_bytes)
 {
   void* newmem;
@@ -137,7 +137,7 @@ g_realloc (void* mem,
  * Returns: the new address of the allocated memory
  */
 void*
-g_realloc_n (void* mem,
+my_g_realloc_n (void* mem,
 	     size_t    n_blocks,
 	     size_t    n_block_bytes)
 {
@@ -147,34 +147,5 @@ g_realloc_n (void* mem,
       //         G_STRLOC, n_blocks, n_block_bytes);
     }
 
-  return g_realloc (mem, n_blocks * n_block_bytes);
-}
-
-/**
- * g_strdup:
- * @str: (nullable): the string to duplicate
- *
- * Duplicates a string. If @str is %NULL it returns %NULL.
- * The returned string should be freed with g_free()
- * when no longer needed.
- *
- * Returns: a newly-allocated copy of @str
- */
-char*
-g_strdup (const char *str)
-{
-  char *new_str;
-  size_t length;
-
-  if (str)
-    {
-      length = strlen (str) + 1;
-      new_str = g_new (char, length);
-      //if (new_str) //TODO do the check?
-        memcpy (new_str, str, length);
-    }
-  else
-    new_str = NULL;
-
-  return new_str;
+  return my_g_realloc (mem, n_blocks * n_block_bytes);
 }
