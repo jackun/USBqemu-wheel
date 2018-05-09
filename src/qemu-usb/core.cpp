@@ -26,7 +26,6 @@
 #include "platcompat.h"
 #include "osdebugout.h"
 #include "vl.h"
-#include "usb.h"
 #include "iov.h"
 //#include "trace.h"
 
