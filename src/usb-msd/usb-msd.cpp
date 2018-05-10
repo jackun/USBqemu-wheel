@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "vl.h"
-#include "desc.h"
+#include "../qemu-usb/vl.h"
+#include "../qemu-usb/desc.h"
 #include "usb-msd.h"
 
 #define DEVICENAME "msd"

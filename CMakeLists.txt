@@ -134,7 +134,10 @@ SET(HDRS_QEMU
 	./src/qemu-usb/desc.h
 	./src/qemu-usb/iov.h
 	./src/qemu-usb/queue.h
-	./src/qemu-usb/usb-msd.h
+)
+
+SET(HDRS_MSD
+	./src/usb-msd/usb-msd.h
 )
 
 SET(HDRS_PAD
@@ -170,8 +173,11 @@ SET(SRCS_QEMU
 	./src/qemu-usb/desc.cpp
 	./src/qemu-usb/core.cpp
 	./src/qemu-usb/bus.cpp
-	./src/qemu-usb/usb-msd.cpp
 	./src/qemu-usb/usb-ohci.cpp
+)
+
+SET(SRCS_MSD
+	./src/usb-msd/usb-msd.cpp
 )
 
 SET(SRCS_PAD
@@ -218,8 +224,8 @@ IF(WIN32)
 		./src/usb-mic/audiodev-wasapi.cpp
 	)
 	
-	LIST(APPEND SRCS_QEMU
-		./src/qemu-usb/usb-msd-win32.cpp
+	LIST(APPEND SRCS_MSD
+		./src/usb-msd/usb-msd-win32.cpp
 	)
 	
 	# These two eventually contain only code that manages raw/dx configurations
@@ -231,6 +237,7 @@ IF(WIN32)
 	SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
 	SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
+	SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
 	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
 	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
@@ -238,6 +245,7 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\qemu-usb" FILES ${SRCS_QEMU})
 	SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
+	SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
 
 	IF(PLUGIN_BUILD_DX)
@@ -311,8 +319,8 @@ IF(UNIX)
 		./src/linux/actualfile.h
 		./src/linux/config.h
 	)
-	LIST(APPEND SRCS_QEMU
-		./src/qemu-usb/usb-msd-gtk.cpp
+	LIST(APPEND SRCS_MSD
+		./src/usb-msd/usb-msd-gtk.cpp
 	)
 	LIST(APPEND HDRS_PAD
 		./src/usb-pad/joydev/joydev.h
@@ -361,8 +369,8 @@ IF(UNIX)
 	#INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 ENDIF()
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MIC} ${SRCS_PAD})
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)
