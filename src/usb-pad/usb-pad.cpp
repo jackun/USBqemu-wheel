@@ -162,21 +162,21 @@ static void pad_handle_data(USBDevice *dev, USBPacket *p)
 	switch(p->pid) {
 	case USB_TOKEN_IN:
 		if (devep == 1 && s->pad) {
-			ret = s->pad->TokenIn(data, sizeof(data));
-			usb_packet_copy (p, data, ret);
+			ret = s->pad->TokenIn(data, p->iov.size);
+			usb_packet_copy (p, data, MIN(ret, sizeof(data)));
 		} else {
 			goto fail;
 		}
 		break;
 	case USB_TOKEN_OUT:
-		usb_packet_copy (p, data, p->iov.size);
+		usb_packet_copy (p, data, MIN(p->iov.size, sizeof(data)));
 		last_cmd = data[0];
 		/*fprintf(stderr,"usb-pad: data token out len=0x%X %X,%X,%X,%X,%X,%X,%X,%X\n",len, 
 			data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]);*/
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
 		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
 		//	s->initStage ++;
-		ret = s->pad->TokenOut(data, sizeof(data));
+		ret = s->pad->TokenOut(data, p->iov.size);
 		break;
 	default:
 	fail:
@@ -203,56 +203,18 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 
 	switch(request) {
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
-		switch(value >> 8) {
-		case USB_DT_DEVICE:
-			ret = sizeof(pad_dev_descriptor);
-			memcpy(data, pad_dev_descriptor, ret);
+		ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
+		if (ret < 0)
+			goto fail;
+
+		// Change PID according to selected wheel
+		if ((value >> 8) == USB_DT_DEVICE) {
 			if (t == WT_DRIVING_FORCE_PRO)
 				*(uint16_t*)&data[10] = DFP_PID;
 			else if (t == WT_GT_FORCE)
 				*(uint16_t*)&data[10] = FFGP_PID;
-			break;
-		case USB_DT_CONFIG:
-			if (t == WT_DRIVING_FORCE_PRO)
-			{
-				ret = sizeof(dfp_config_descriptor);
-				memcpy(data, dfp_config_descriptor, ret);
-			}
-			else
-			{
-				ret = sizeof(df_config_descriptor);
-				memcpy(data, df_config_descriptor, ret);
-			}
-			break;
-		case USB_DT_STRING:
-			switch(value & 0xff) {
-			case 0:
-				/* language ids */
-				data[0] = 4;
-				data[1] = USB_DT_STRING;
-				data[2] = 0x09;
-				data[3] = 0x04;
-				ret = 4;
-				break;
-			case 1:
-				/* vendor description */
-				p->actual_length = set_usb_string(data, "Logitech", length);
-				break;
-			case 2:
-				/* product description */
-				p->actual_length = set_usb_string(data, "Driving Force Pro", length);
-				break;
-			case 3:
-				/* serial number */
-				p->actual_length = set_usb_string(data, "1234567890AB", length);
-				break;
-			default:
-				goto fail;
-			}
-			break;
-		default:
-			goto fail;
 		}
+
 		break;
 		/* hid specific requests */
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //Never called?
@@ -275,13 +237,11 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 			goto fail;
 		}
 		break;
-	case GET_REPORT:
-		ret = 0;
-		break;
-	case SET_IDLE:
-		ret = 0;
-		break;
 	default:
+		ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
+		if (ret >= 0) {
+			return;
+		}
 	fail:
 		p->status = USB_RET_STALL;
 		break;
@@ -352,7 +312,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 
 	if (usb_desc_parse_dev (dev_desc, dev_desc_len, s->desc, s->desc_dev) < 0)
 		goto fail;
-	if (usb_desc_parse_config (dfp_config_descriptor, sizeof(dfp_config_descriptor), s->desc_dev) < 0)
+	if (usb_desc_parse_config (config_desc, config_desc_len, s->desc_dev) < 0)
 		goto fail;
 
 	s->f.wheel_type = conf.WheelType[1 - port];
