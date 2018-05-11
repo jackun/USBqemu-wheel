@@ -83,6 +83,4 @@ inline int cpu_physical_memory_write(uint32_t addr,
 	return cpu_physical_memory_rw(addr, (uint8_t *)buf, len, 1);
 }
 
-void *qemu_mallocz(size_t size);
-
 #endif /* VL_H */
