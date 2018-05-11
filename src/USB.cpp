@@ -412,9 +412,12 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					return -1;
 				}
 
-				USBDeviceClass tmp  = usb_device[i]->klass;
-				*usb_device[i] = usbd.device[i].dev;
-				usb_device[i]->klass = tmp;
+				if (usb_device[i])
+				{
+					USBDeviceClass tmp = usb_device[i]->klass;
+					*usb_device[i] = usbd.device[i].dev;
+					usb_device[i]->klass = tmp;
+				}
 
 				proxy->Freeze(FREEZE_LOAD, usb_device[i], ptr);
 			}
@@ -467,7 +470,8 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			if (proxy && usbd.device[i].size)
 			{
 				proxy->Freeze(FREEZE_SAVE, usb_device[i], ptr);
-				usbd.device[i].dev = *usb_device[i];
+				if (usb_device[i])
+					usbd.device[i].dev = *usb_device[i];
 
 				memset (&usbd.device[i].dev.klass, 0, sizeof(USBDeviceClass));
 			}
