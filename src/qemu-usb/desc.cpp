@@ -450,6 +450,7 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 			case USB_DT_INTERFACE_ASSOC:
 				return -1; //TODO
 			break;
+			case USB_DT_HID:
 			case USB_DT_CS_INTERFACE:
 			{
 				if (!iface) return -1;

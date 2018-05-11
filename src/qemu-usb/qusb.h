@@ -143,6 +143,9 @@
 #define USB_DT_INTERFACE_ASSOC          0x0B
 #define USB_DT_BOS                      0x0F
 #define USB_DT_DEVICE_CAPABILITY        0x10
+#define USB_DT_HID                      0x21
+#define USB_DT_REPORT                   0x22
+#define USB_DT_PHYSICAL                 0x23
 #define USB_DT_CS_INTERFACE             0x24
 #define USB_DT_CS_ENDPOINT              0x25
 #define USB_DT_ENDPOINT_COMPANION       0x30
