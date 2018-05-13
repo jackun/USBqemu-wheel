@@ -245,6 +245,9 @@ int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 int usb_desc_handle_control(USBDevice *dev, USBPacket *p,
 		int request, int value, int index, int length, uint8_t *data);
 
+int usb_desc_set_config(USBDevice *dev, int value);
+int usb_desc_set_interface(USBDevice *dev, int index, int value);
+
 /* functions to support old binary blob descriptors */
 int set_usb_string(uint8_t *buf, const char *str);
 int set_usb_string(uint8_t *buf, const char *str, int len);

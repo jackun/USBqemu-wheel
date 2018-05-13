@@ -26,6 +26,7 @@
 #include "osdebugout.h"
 #include "deviceproxy.h"
 #include "version.h" //CMake generated
+#include "qemu-usb/desc.h"
 
 #define PSXCLK	36864000	/* 36.864 Mhz */
 
@@ -49,6 +50,12 @@ typedef struct {
 		u32 size;
 		USBDevice dev;
 	} device[2];
+
+	struct usb_packet {
+		USBEndpoint ep; //usb packet endpoint
+		int dev_index;
+		int data_size;
+	} usb_packet;
 } USBfreezeData;
 
 u8 *ram = 0;
@@ -376,7 +383,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 		s8 *ptr = data->data + sizeof(USBfreezeData);
 		// Load the state of the attached devices
-		if (data->size != sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size)
+		if (data->size != sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
 			return -1;
 
 		RegisterDevice& regInst = RegisterDevice::instance();
@@ -414,9 +421,28 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 				if (usb_device[i])
 				{
-					USBDeviceClass tmp = usb_device[i]->klass;
-					*usb_device[i] = usbd.device[i].dev;
-					usb_device[i]->klass = tmp;
+					USBDevice tmp = usbd.device[i].dev;
+
+					usb_device[i]->addr = tmp.addr;
+					usb_device[i]->attached = tmp.attached;
+					usb_device[i]->auto_attach = tmp.auto_attach;
+					usb_device[i]->configuration = tmp.configuration;
+					usb_device[i]->ninterfaces = tmp.ninterfaces;
+					usb_device[i]->flags = tmp.flags;
+					usb_device[i]->state = tmp.state;
+					usb_device[i]->remote_wakeup = tmp.remote_wakeup;
+					usb_device[i]->setup_state = tmp.setup_state;
+					usb_device[i]->setup_len = tmp.setup_len;
+					usb_device[i]->setup_index = tmp.setup_index;
+
+					memcpy(usb_device[i]->data_buf, tmp.data_buf, sizeof(tmp.data_buf));
+					memcpy(usb_device[i]->setup_buf, tmp.setup_buf, sizeof(tmp.setup_buf));
+
+					usb_desc_set_config(usb_device[i], tmp.configuration);
+					for (int k = 0; k < 16; k++) {
+						usb_device[i]->altsetting[k] = tmp.altsetting[k];
+						usb_desc_set_interface(usb_device[i], k, tmp.altsetting[k]);
+					}
 				}
 
 				proxy->Freeze(FREEZE_LOAD, usb_device[i], ptr);
@@ -426,15 +452,61 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				SysMessage(TEXT("Port %d: unknown device.\nPlugin is probably too old for this save.\n"), 1+(1-i));
 				return -1;
 			}
-
 			ptr += usbd.device[i].size;
 		}
 
+		int dev_index = usbd.usb_packet.dev_index;
+		// restore USBPacket for OHCIState
+		if (usb_device[dev_index])
+		{
+			//if (qemu_ohci->usb_packet.iov.iov)
+			usb_packet_cleanup(&qemu_ohci->usb_packet);
+			usb_packet_init(&qemu_ohci->usb_packet);
+
+			USBPacket *p = &qemu_ohci->usb_packet;
+			p->actual_length = usbd.usb_packet.data_size;
+
+			QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
+			iov_from_buf(iov->iov, iov->niov, p->actual_length, ptr, data->size - (ptr - data->data));
+
+			if (usbd.usb_packet.ep.pid == USB_TOKEN_SETUP)
+			{
+				if (usb_device[dev_index]->ep_ctl.ifnum == usbd.usb_packet.ep.ifnum)
+					qemu_ohci->usb_packet.ep = &usb_device[dev_index]->ep_ctl;
+			}
+			else
+			{
+				USBEndpoint *eps = nullptr;
+				if (usbd.usb_packet.ep.pid == USB_TOKEN_IN)
+					eps = usb_device[dev_index]->ep_in;
+				else //if (usbd.ep.pid == USB_TOKEN_OUT)
+					eps = usb_device[dev_index]->ep_out;
+
+				for (int k = 0; k < USB_MAX_ENDPOINTS; k++) {
+
+					if (usbd.usb_packet.ep.type == eps[k].type
+						&& usbd.usb_packet.ep.nr == eps[k].nr
+						&& usbd.usb_packet.ep.ifnum == eps[k].ifnum
+						&& usbd.usb_packet.ep.pid == eps[k].pid)
+					{
+						qemu_ohci->usb_packet.ep = &eps[k];
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			SysMessage(TEXT("USB packet has invalid device index?\n")); // or just a bug
+			return -1;
+		}
 	}
 	//TODO straight copying of structs can break cross-platform/cross-compiler save states 'cause padding 'n' stuff
 	else if (mode == FREEZE_SAVE) 
 	{
+		memset(data->data, 0, data->size);//maybe it already is...
 		RegisterDevice& regInst = RegisterDevice::instance();
+		usbd.usb_packet.dev_index = -1;
 
 		for (int i=0; i<2; i++)
 		{
@@ -447,10 +519,17 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				usbd.device[i].size = proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr);
 			else
 				usbd.device[i].size = 0;
+
+			if (qemu_ohci->usb_packet.ep->dev == usb_device[i])
+				usbd.usb_packet.dev_index = i;
 		}
 
 		strncpy(usbd.freezeID,  USBfreezeID, strlen(USBfreezeID));
 		usbd.t = *qemu_ohci;
+		usbd.usb_packet.ep = *qemu_ohci->usb_packet.ep;
+		usbd.t.usb_packet.iov = { };
+		usbd.t.usb_packet.ep = nullptr;
+
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
 			usbd.t.rhport[i].port.opaque = nullptr;
@@ -480,8 +559,14 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		}
 
 		*(USBfreezeData*)data->data = usbd;
+
+		USBPacket *p = &qemu_ohci->usb_packet;
+		usbd.usb_packet.data_size = p->actual_length;
+		QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
+		iov_to_buf(iov->iov, iov->niov, p->actual_length, ptr, data->size - (ptr - data->data));
+
 	}
-	else if (mode == FREEZE_SIZE) 
+	else if (mode == FREEZE_SIZE)
 	{
 		RegisterDevice& regInst = RegisterDevice::instance();
 		data->size = sizeof(USBfreezeData);
@@ -493,6 +578,13 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 			if (proxy)
 				data->size += proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr);
+		}
+
+		// PCSX2 queries size before load too, so can't use actual packet length which varies :(
+		data->size += 8192;// qemu_ohci->usb_packet.actual_length;
+		if (qemu_ohci->usb_packet.actual_length > 8192) {
+			fprintf(stderr, "Saving failed! USB packet is larger than 8K, try again later.\n");
+			return -1;
 		}
 	}
 
