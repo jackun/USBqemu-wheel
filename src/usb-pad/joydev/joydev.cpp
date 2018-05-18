@@ -58,8 +58,8 @@ bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.clear();
 		str.str("");
 		str << "map_" << JoyDevMapNames[i];
-		CONFIGVARIANT var(str.str().c_str(), mappings[i]);
-		if (!SaveSetting(port, joyname.c_str(), var))
+		CONFIGVARIANT var(str.str().c_str(), static_cast<int32_t>(mappings[i]));
+		if (!SaveSetting(port, joyname, var))
 			return false;
 	}
 	return true;

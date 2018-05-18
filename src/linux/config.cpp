@@ -144,7 +144,7 @@ bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 			OSDebugOut_noprfx("%d\n", var.intValue);
 			break;
 		case CONFIG_TYPE_TCHAR:
-			ret = LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
+			ret = SaveSettingValue(ini, section.str(), var.name, var.tstrValue);
 			OSDebugOut_noprfx("'%s'\n", var.tstrValue.c_str());
 			break;
 		case CONFIG_TYPE_CHAR:
