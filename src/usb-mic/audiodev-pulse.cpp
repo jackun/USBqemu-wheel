@@ -875,7 +875,7 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		return;
 
 	auto dur = std::chrono::duration_cast<ms>(hrc::now() - padev->mLastGetBuffer).count();
-	if (padev->mPaused /*|| dur > 5000*/) {
+	if (padev->mPaused /*|| dur > 5000*/ || (!padata && nbytes /* hole */)) {
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
 			OSDebugOut("pa_stream_drop %d: %s\n", ret, pa_strerror(ret));
