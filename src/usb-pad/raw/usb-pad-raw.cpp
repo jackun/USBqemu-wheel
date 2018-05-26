@@ -1,29 +1,42 @@
-#include <algorithm>
+#include <thread>
+#include <array>
+#include <atomic>
 #include "../padproxy.h"
 #include "../../USB.h"
 #include "../../Win32/Config-win32.h"
 #include "raw-config.h"
+#include "readerwriterqueue/readerwriterqueue.h"
 
 namespace usb_pad_raw {
-
-static bool sendCrap = false;
 
 class RawInputPad : public Pad
 {
 public:
 	RawInputPad(int port) : Pad(port)
-	, doPassthrough(false)
-	, usbHandle(INVALID_HANDLE_VALUE)
+	, mDoPassthrough(false)
+	, mUsbHandle(INVALID_HANDLE_VALUE)
+	, mThreadIsRunning(false)
 	{
 		if (!InitHid())
 			throw PadError("InitHid() failed!");
 	}
-	~RawInputPad() { Close(); }
+	~RawInputPad()
+	{ 
+		Close();
+		if (mWriterThread.joinable())
+			mWriterThread.join();
+	}
 	int Open();
 	int Close();
 	int TokenIn(uint8_t *buf, int len);
 	int TokenOut(const uint8_t *data, int len);
-	int Reset() { return 0; }
+	int Reset()
+	{
+		uint8_t reset[7] = { 0 };
+		reset[0] = 0xF3; //stop forces
+		TokenOut(reset, sizeof(reset));
+		return 0;
+	}
 
 	static const TCHAR* Name()
 	{
@@ -32,7 +45,8 @@ public:
 
 	static int Configure(int port, void *data);
 protected:
-	HIDP_CAPS caps;
+	static void WriterThread(void *ptr);
+	HIDP_CAPS mCaps;
 	HIDD_ATTRIBUTES attr;
 	//PHIDP_PREPARSED_DATA pPreparsedData;
 	//PHIDP_BUTTON_CAPS pButtonCaps;
@@ -40,35 +54,54 @@ protected:
 	//ULONG value;// = 0;
 	USHORT numberOfButtons;// = 0;
 	USHORT numberOfValues;// = 0;
-	HANDLE usbHandle;// = (HANDLE)-1;
+	HANDLE mUsbHandle;// = (HANDLE)-1;
 	//HANDLE readData;// = (HANDLE)-1;
-	OVERLAPPED ovl;
-	OVERLAPPED ovlW;
+	OVERLAPPED mOLRead;
+	OVERLAPPED mOLWrite;
 	
 	uint32_t reportInSize;// = 0;
 	uint32_t reportOutSize;// = 0;
-	bool doPassthrough;
+	bool mDoPassthrough;
 	wheel_data_t mDataCopy;
+	std::thread mWriterThread;
+	std::atomic<bool> mThreadIsRunning;
+	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 8>, 32> mFFData;
 };
+
+void RawInputPad::WriterThread(void *ptr)
+{
+	DWORD res = 0, res2 = 0, written = 0;
+	std::array<uint8_t, 8> buf;
+
+	RawInputPad *pad = static_cast<RawInputPad *>(ptr);
+	pad->mThreadIsRunning = true;
+
+	while (pad->mUsbHandle != INVALID_HANDLE_VALUE)
+	{
+		if (pad->mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000)))
+		{
+			res = WriteFile(pad->mUsbHandle, buf.data(), buf.size(), &written, nullptr);
+			OSDebugOut(TEXT("last write ffb: %d %d, written %d\n"), res, res2, written);
+		}
+	}
+	OSDebugOut(TEXT("WriterThread exited.\n"));
+
+	pad->mThreadIsRunning = false;
+}
 
 int RawInputPad::TokenIn(uint8_t *buf, int len)
 {
 	uint8_t data[64];
-	DWORD waitRes;
+	DWORD read;
 	ULONG value = 0;
 	int ply = 1 - mPort;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
-	if(this->doPassthrough && this->usbHandle != INVALID_HANDLE_VALUE)
+	if(mDoPassthrough && mUsbHandle != INVALID_HANDLE_VALUE)
 	{
 		//ZeroMemory(buf, len);
-		ReadFile(this->usbHandle, data, MIN(this->caps.InputReportByteLength, sizeof(data)), 0, &this->ovl);
-		waitRes = WaitForSingleObject(this->ovl.hEvent, 50);
-		if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED){
-			CancelIo(this->usbHandle);
-			return 0;
-		}
-		memcpy(buf, data, len);
+		if (ReadFile(mUsbHandle, data, MIN(mCaps.InputReportByteLength, sizeof(data)), &read, nullptr))
+			memcpy(buf, data, MIN(read, len));
 		return len;
 	}
 
@@ -78,44 +111,35 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 	data_summed.hatswitch = 0x8;
 	data_summed.buttons = 0;
 
-	//TODO Atleast GT4 detects DFP then
-	if(sendCrap)
-	{
-		sendCrap = false;
-		pad_copy_data(mType, buf, data_summed);
-		return len;
-	}
-
 	int copied = 0;
 	//TODO fix the logics, also Config.cpp
-	MapVector::iterator it = mapVector.begin();
-	for(; it!=mapVector.end(); ++it)
+	for (auto& it : mapVector)
 	{
 
-		if (data_summed.steering < (*it).data[ply].steering)
+		if (data_summed.steering < it.data[ply].steering)
 		{
-			data_summed.steering = (*it).data[ply].steering;
+			data_summed.steering = it.data[ply].steering;
 			copied |= 1;
 		}
 
-		//if(data_summed.clutch < (*it).data[ply].clutch)
-		//	data_summed.clutch = (*it).data[ply].clutch;
+		//if(data_summed.clutch < it.data[ply].clutch)
+		//	data_summed.clutch = it.data[ply].clutch;
 
-		if (data_summed.throttle < (*it).data[ply].throttle)
+		if (data_summed.throttle < it.data[ply].throttle)
 		{
-			data_summed.throttle = (*it).data[ply].throttle;
+			data_summed.throttle = it.data[ply].throttle;
 			copied |= 2;
 		}
 
-		if (data_summed.brake < (*it).data[ply].brake)
+		if (data_summed.brake < it.data[ply].brake)
 		{
-			data_summed.brake = (*it).data[ply].brake;
+			data_summed.brake = it.data[ply].brake;
 			copied |= 4;
 		}
 
-		data_summed.buttons |= (*it).data[ply].buttons;
-		if(data_summed.hatswitch > (*it).data[ply].hatswitch)
-			data_summed.hatswitch = (*it).data[ply].hatswitch;
+		data_summed.buttons |= it.data[ply].buttons;
+		if(data_summed.hatswitch > it.data[ply].hatswitch)
+			data_summed.hatswitch = it.data[ply].hatswitch;
 	}
 
 	if (!copied)
@@ -140,29 +164,22 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 
 int RawInputPad::TokenOut(const uint8_t *data, int len)
 {
-	DWORD out = 0, err = 0, waitRes = 0;
-	BOOL res;
-	uint8_t outbuf[65];
-	if(this->usbHandle == INVALID_HANDLE_VALUE) return 0;
+	if(mUsbHandle == INVALID_HANDLE_VALUE) return 0;
 
 	if(data[0] == 0x8 || data[0] == 0xB) return len;
-	//if(data[0] == 0xF8 && data[1] == 0x5) 
-	//	sendCrap = true;
+	//if(data[0] == 0xF8 && data[1] == 0x5) sendCrap = true;
 	if (data[0] == 0xF8) return len; //don't send extended commands
+
+	std::array<uint8_t, 8> outbuf{ 0 };
+
 	//If i'm reading it correctly MOMO report size for output has Report Size(8) and Report Count(7), so that's 7 bytes
 	//Now move that 7 bytes over by one and add report id of 0 (right?). Supposedly mandatory for HIDs.
-	memcpy(outbuf + 1, data, len - 1);
-	outbuf[0] = 0;
+	memcpy(outbuf.data() + 1, data, outbuf.size() - 1);
 
-	waitRes = WaitForSingleObject(this->ovlW.hEvent, 30);
-	if(waitRes == WAIT_TIMEOUT || waitRes == WAIT_ABANDONED)
-		CancelIo(this->usbHandle);
-
-	//CancelIo(s->usbHandle); //Mind the ERROR_IO_PENDING, may break FFB
-	res = WriteFile(this->usbHandle, outbuf, this->caps.OutputReportByteLength, &out, &this->ovlW);
-
-	//err = GetLastError();
-	//fprintf(stderr,"usb-pad: wrote %d, res: %d, err: %d\n", out, res, err);
+	if (!mFFData.enqueue(outbuf)) {
+		OSDebugOut(TEXT("Failed to enqueue ffb command\n"));
+		return 0;
+	}
 
 	return len;
 }
@@ -398,15 +415,17 @@ int RawInputPad::Open()
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 
+	Close();
+
 	//TODO Better place?
 	LoadMappings(mapVector);
 
-	memset(&this->ovl, 0, sizeof(OVERLAPPED));
-	memset(&this->ovlW, 0, sizeof(OVERLAPPED));
+	memset(&mOLRead, 0, sizeof(OVERLAPPED));
+	memset(&mOLWrite, 0, sizeof(OVERLAPPED));
 
-	//this->padState.initStage = 0;
-	this->doPassthrough = !!conf.DFPPass;//TODO per player
-	this->usbHandle = INVALID_HANDLE_VALUE;
+	//padState.initStage = 0;
+	mDoPassthrough = !!conf.DFPPass;//TODO per player
+	mUsbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
 	{
 		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
@@ -416,18 +435,25 @@ int RawInputPad::Open()
 			return 1;
 	}
 
-	this->usbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
-		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+	mUsbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
+		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
 
-	if(this->usbHandle != INVALID_HANDLE_VALUE)
+	if(mUsbHandle != INVALID_HANDLE_VALUE)
 	{
-		this->ovl.hEvent = CreateEvent(0, 0, 0, 0);
-		this->ovlW.hEvent = CreateEvent(0, 0, 0, 0);
+		//mOLRead.hEvent = CreateEvent(0, 0, 0, 0);
+		//mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
 
-		HidD_GetAttributes(this->usbHandle, &(this->attr));
-		HidD_GetPreparsedData(this->usbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(this->caps));
+		HidD_GetAttributes(mUsbHandle, &(attr));
+		HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
+		HidP_GetCaps(pPreparsedData, &(mCaps));
 		HidD_FreePreparsedData(pPreparsedData);
+
+		if (!mThreadIsRunning)
+		{
+			if (mWriterThread.joinable())
+				mWriterThread.join();
+			mWriterThread = std::thread(RawInputPad::WriterThread, this);
+		}
 		return 0;
 	}
 	else
@@ -438,14 +464,16 @@ int RawInputPad::Open()
 
 int RawInputPad::Close()
 {
-	if(this->usbHandle != INVALID_HANDLE_VALUE)
+	Reset();
+	if(mUsbHandle != INVALID_HANDLE_VALUE)
 	{
-		CloseHandle(this->usbHandle);
-		CloseHandle(this->ovl.hEvent);
-		CloseHandle(this->ovlW.hEvent);
+		Sleep(100); // give WriterThread some time to write out Reset() commands
+		CloseHandle(mUsbHandle);
+		//CloseHandle(mOLRead.hEvent);
+		//CloseHandle(mOLWrite.hEvent);
 	}
 
-	this->usbHandle = INVALID_HANDLE_VALUE;
+	mUsbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
 };
