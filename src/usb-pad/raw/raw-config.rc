@@ -7,8 +7,7 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "winresrc.h"
-#define IDC_STATIC -1
+#include "WinResrc.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -58,7 +57,7 @@ BEGIN
     CONTROL         "",IDC_LIST1,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,12,42,174,136
     COMBOBOX        IDC_COMBO_FFB,66,199,120,51,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "FFB device:",IDC_STATIC,24,198,38,8
-    CONTROL         "DF Pro pass-through",IDC_DFP_PASS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,234,6,144,12
+    CONTROL         "DF Pro pass-through",IDC_DFP_PASS,"Button",BS_AUTOCHECKBOX | NOT WS_VISIBLE | WS_DISABLED | WS_TABSTOP,234,6,144,12
     PUSHBUTTON      "Unbind",IDC_UNBIND,12,180,50,14
     COMBOBOX        IDC_COMBO_WHEEL_TYPE,66,215,120,51,CBS_DROPDOWNLIST | WS_DISABLED | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Emulated wheel:",IDC_STATIC,12,215,54,8,WS_DISABLED
@@ -86,36 +85,14 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Dialog Info
+// AFX_DIALOG_LAYOUT
 //
-#if !defined(__MINGW32__)
-IDD_RAWCONFIG DLGINIT
+
+IDD_RAWCONFIG AFX_DIALOG_LAYOUT
 BEGIN
-    IDC_COMBO_FFB, 0x403, 10, 0
-0x6f4e, 0x4420, 0x7665, 0x6369, 0x0065, 
-    IDC_COMBO_FFB, 0x403, 9, 0
-0x654b, 0x6279, 0x616f, 0x6472, "\000" 
-    IDC_COMBO_FFB, 0x403, 6, 0
-0x6f4d, 0x7375, 0x0065, 
-    IDC_COMBO_FFB, 0x403, 14, 0
-0x7945, 0x7465, 0x796f, 0x4320, 0x6d61, 0x7265, 0x0061, 
-    IDC_COMBO_FFB, 0x403, 20, 0
-0x6953, 0x676e, 0x7473, 0x7261, 0x4d20, 0x6369, 0x6f72, 0x6870, 0x6e6f, 
-0x0065, 
-    IDC_COMBO_WHEEL_TYPE, 0x403, 10, 0
-0x6f4e, 0x4420, 0x7665, 0x6369, 0x0065, 
-    IDC_COMBO_WHEEL_TYPE, 0x403, 9, 0
-0x654b, 0x6279, 0x616f, 0x6472, "\000" 
-    IDC_COMBO_WHEEL_TYPE, 0x403, 6, 0
-0x6f4d, 0x7375, 0x0065, 
-    IDC_COMBO_WHEEL_TYPE, 0x403, 14, 0
-0x7945, 0x7465, 0x796f, 0x4320, 0x6d61, 0x7265, 0x0061, 
-    IDC_COMBO_WHEEL_TYPE, 0x403, 20, 0
-0x6953, 0x676e, 0x7473, 0x7261, 0x4d20, 0x6369, 0x6f72, 0x6870, 0x6e6f, 
-0x0065, 
     0
 END
-#endif
+
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 

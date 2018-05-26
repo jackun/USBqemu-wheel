@@ -3,6 +3,7 @@
 // Used by raw-config.rc
 //
 #define IDD_RAWCONFIG                   201
+#define IDC_STATIC                      -1
 #define IDC_LOGGING                     1007
 #define IDC_COMBO1                      1008
 #define IDC_COMBO2                      1009
