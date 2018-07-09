@@ -11,7 +11,6 @@ static DWORD calibrationtime = 0;
 static int calidata = 0;
 static bool alternate = false;
 static bool calibrating = false;
-static bool sendCrap = false;
 
 enum CONTROLID
 {
@@ -57,13 +56,6 @@ private:
 	bool mUseRamp;
 };
 
-static inline int range_max(PS2WheelTypes type)
-{
-	if(type == WT_DRIVING_FORCE_PRO)
-		return 0x3FFF;
-	return 0x3FF;
-}
-
 int DInputPad::TokenIn(uint8_t *buf, int len)
 {
 	int range = range_max(mType);
@@ -75,14 +67,6 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 	mWheelData.throttle = 0xFF;
 	mWheelData.brake = 0xFF;
 	mWheelData.hatswitch = 0x8;
-
-	//TODO Atleast GT4 detects DFP then
-	if(sendCrap)
-	{
-		pad_copy_data(mType, buf, mWheelData);
-		sendCrap = false;
-		return len;
-	}
 
 	PollDevices();
 
@@ -352,8 +336,6 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 	else
 	{
 		// 0xF8, 0x05, 0x01, 0x00
-		if(ffdata->type == 5) //TODO
-			sendCrap = true;
 		if (ffdata->type == EXT_CMD_WHEEL_RANGE_900_DEGREES) {}
 		if (ffdata->type == EXT_CMD_WHEEL_RANGE_200_DEGREES) {}
 		OSDebugOut(TEXT("CMD_EXTENDED: unhandled cmd 0x%02X%02X%02X\n"),

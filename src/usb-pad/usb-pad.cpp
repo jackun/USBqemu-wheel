@@ -45,18 +45,19 @@ public:
 #ifdef _DEBUG
 void PrintBits(void * data, int size)
 {
-	char *bits = (char*)malloc(size * 8 + 1);
-	char *ptrD = (char*)data;
-	char *ptrB = bits;
+	std::vector<unsigned char> buf(size * 8 + 1 + size);
+	unsigned char *bits = buf.data();
+	unsigned char *ptrD = (unsigned char*)data;
+	unsigned char *ptrB = bits;
 	for (int i = 0; i < size * 8; i++)
 	{
 		*(ptrB++) = '0' + (*(ptrD + i / 8) & (1 << (i % 8)) ? 1 : 0);
+		if (i % 8 == 7)
+			*(ptrB++) = ' ';
 	}
 	*ptrB = '\0';
 
-	OSDebugOut(TEXT("%") TEXT(SFMTs) TEXT("\n"), bits);
-
-	free(bits);
+	OSDebugOut(TEXT("%S\n"), bits);
 }
 
 #else
@@ -217,7 +218,7 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 
 		break;
 		/* hid specific requests */
-	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //Never called?
+	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //GT3
 		OSDebugOut(TEXT("InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n"), value);
 		switch(value >> 8) {
 		case 0x22:
@@ -227,11 +228,17 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
 			}
+			else if (t == WT_GT_FORCE)
+			{
+				ret = sizeof(pad_gtforce_hid_report_descriptor);
+				memcpy(data, pad_gtforce_hid_report_descriptor, ret);
+			}
 			else
 			{
 				ret = sizeof(pad_driving_force_hid_report_descriptor);
 				memcpy(data, pad_driving_force_hid_report_descriptor, ret);
 			}
+			p->actual_length = ret;
 			break;
 		default:
 			goto fail;
@@ -362,6 +369,62 @@ void ResetData(dfp_data_t *d)
 
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 {
+#if 1
+	struct wheel_data_t {
+		uint32_t lo;
+		uint32_t hi;
+	};
+
+	wheel_data_t *w = (wheel_data_t *)buf;
+	memset(w, 0, 8);
+	
+	switch (type) {
+	case WT_GENERIC:
+		w->lo = data.steering & 0x3FF;
+		w->lo |= (data.buttons & 0xFFF) << 10;
+		w->lo |= 0xFF << 24;
+
+		w->hi = (data.hatswitch & 0xF);
+		w->hi |= (data.throttle & 0xFF) << 8;
+		w->hi |= (data.brake & 0xFF) << 16;
+
+		break;
+
+	case WT_GT_FORCE:
+
+		w->lo = data.steering & 0x3FF;
+		w->lo |= (data.buttons & 0x3F) << 10;
+		w->lo |= 0xFF << 24;
+
+		w->hi = (data.throttle & 0xFF);
+		w->hi |= (data.brake & 0xFF) << 8;
+
+		break;
+	case WT_DRIVING_FORCE_PRO:
+
+		// what's up with the bitmap?
+		// xxxxxxxx xxxxxxbb bbbbbbbb bbbbhhhh ???????? ?01zzzzz 1rrrrrr1 10001000
+		w->lo = data.steering & 0x3FFF;
+		w->lo |= (data.buttons & 0x3FFF) << 14;
+		w->lo |= (data.hatswitch & 0xF ) << 28;
+
+		w->hi = 0x00;
+		//w->hi |= 0 << 9; //bit 9 must be 0
+		w->hi |= (1 | (data.throttle * 0x3F) / 0xFF) << 10; //axis_z
+		w->hi |= 1 << 16; //bit 16 must be 1
+		w->hi |= ((0x3F - (data.brake * 0x3F) / 0xFF) & 0x3F) << 17; //axis_rz
+		w->hi |= 1 << 23; //bit 23 must be 1
+		w->hi |= 0x11 << 24; //enables wheel and pedals?
+
+		//PrintBits(w, sizeof(*w));
+
+		break;
+	default:
+		break;
+	}
+#endif
+
+#if 0
 	u_wheel_data_t *w = (u_wheel_data_t *)buf;
 
 	//fprintf(stderr,"usb-pad: axis x %d\n", data.axis_x);
@@ -403,7 +466,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 			0 << 6 |
 			0 << 7 ;
 
-		//PrintBits(&w->u.dfp_data, sizeof(dfp_data_t));
+		PrintBits(&w->u.dfp_data, sizeof(dfp_data_t));
 
 		break;
 
@@ -421,6 +484,8 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 	default:
 		break;
 	}
+
+#endif
 }
 
 int PadDevice::Configure(int port, const std::string& api, void *data)
