@@ -15,7 +15,8 @@ public:
 	RawInputPad(int port) : Pad(port)
 	, mDoPassthrough(false)
 	, mUsbHandle(INVALID_HANDLE_VALUE)
-	, mThreadIsRunning(false)
+	, mWriterThreadIsRunning(false)
+	, mReaderThreadIsRunning(false)
 	{
 		if (!InitHid())
 			throw PadError("InitHid() failed!");
@@ -40,12 +41,13 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return L"Raw Input";
+		return TEXT("Raw Input");
 	}
 
 	static int Configure(int port, void *data);
 protected:
 	static void WriterThread(void *ptr);
+	static void ReaderThread(void *ptr);
 	HIDP_CAPS mCaps;
 	HIDD_ATTRIBUTES attr;
 	//PHIDP_PREPARSED_DATA pPreparsedData;
@@ -64,8 +66,11 @@ protected:
 	bool mDoPassthrough;
 	wheel_data_t mDataCopy;
 	std::thread mWriterThread;
-	std::atomic<bool> mThreadIsRunning;
+	std::thread mReaderThread;
+	std::atomic<bool> mWriterThreadIsRunning;
+	std::atomic<bool> mReaderThreadIsRunning;
 	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 8>, 32> mFFData;
+	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 32>, 16> mReportData; //TODO 32 is random
 };
 
 void RawInputPad::WriterThread(void *ptr)
@@ -74,35 +79,68 @@ void RawInputPad::WriterThread(void *ptr)
 	std::array<uint8_t, 8> buf;
 
 	RawInputPad *pad = static_cast<RawInputPad *>(ptr);
-	pad->mThreadIsRunning = true;
+	pad->mWriterThreadIsRunning = true;
 
 	while (pad->mUsbHandle != INVALID_HANDLE_VALUE)
 	{
 		if (pad->mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000)))
 		{
-			res = WriteFile(pad->mUsbHandle, buf.data(), buf.size(), &written, nullptr);
-			OSDebugOut(TEXT("last write ffb: %d %d, written %d\n"), res, res2, written);
+			res = WriteFile(pad->mUsbHandle, buf.data(), buf.size(), &written, &pad->mOLWrite);
+			WaitForSingleObject(pad->mOLWrite.hEvent, 1000);
+			if (GetOverlappedResult(pad->mUsbHandle, &pad->mOLWrite, &written, FALSE))
+				OSDebugOut(TEXT("last write ffb: %d %d, written %d\n"), res, res2, written);
 		}
 	}
 	OSDebugOut(TEXT("WriterThread exited.\n"));
 
-	pad->mThreadIsRunning = false;
+	pad->mWriterThreadIsRunning = false;
+}
+
+void RawInputPad::ReaderThread(void *ptr)
+{
+	RawInputPad *pad = static_cast<RawInputPad *>(ptr);
+	DWORD res = 0, res2 = 0, read = 0;
+	std::array<uint8_t, 32> report; //32 is random
+
+	pad->mReaderThreadIsRunning = true;
+	int errCount = 0;
+
+	while (pad->mUsbHandle != INVALID_HANDLE_VALUE)
+	{
+		if (GetOverlappedResult(pad->mUsbHandle, &pad->mOLRead, &read, FALSE)) // TODO check if previous read finally completed after WaitForSingleObject timed out
+			ReadFile(pad->mUsbHandle, report.data(), std::min(pad->mCaps.InputReportByteLength, (USHORT) report.size()), nullptr, &pad->mOLRead); // Seems to only read data when input changes and not current state overall
+
+		if (WaitForSingleObject(pad->mOLRead.hEvent, 1000) == WAIT_OBJECT_0)
+		{
+			if (!pad->mReportData.try_enqueue(report)) // TODO May leave queue with too stale data. Use multi-producer/consumer queue?
+			{
+				if (!errCount)
+					OSDebugOut(TEXT("Could not enqueue report data: %d\n"), pad->mReportData.size_approx());
+				errCount = (++errCount) % 16;
+			}
+		}
+	}
+	OSDebugOut(TEXT("ReaderThread exited.\n"));
+
+	pad->mReaderThreadIsRunning = false;
 }
 
 int RawInputPad::TokenIn(uint8_t *buf, int len)
 {
-	uint8_t data[64];
-	DWORD read;
 	ULONG value = 0;
 	int ply = 1 - mPort;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
-	if(mDoPassthrough && mUsbHandle != INVALID_HANDLE_VALUE)
+	if (mDoPassthrough)
 	{
-		//ZeroMemory(buf, len);
-		if (ReadFile(mUsbHandle, data, MIN(mCaps.InputReportByteLength, sizeof(data)), &read, nullptr))
-			memcpy(buf, data, MIN(read, len));
-		return len;
+		std::array<uint8_t, 32> report; //32 is random
+		if (mReportData.try_dequeue(report)) {
+			//ZeroMemory(buf, len);
+			int size = std::min((int)mCaps.InputReportByteLength, len);
+			memcpy(buf, report.data(), size);
+			return size;
+		}
+		return 0;
 	}
 
 	//in case compiler magic with bitfields interferes
@@ -161,22 +199,24 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 	return len;
 }
 
-
 int RawInputPad::TokenOut(const uint8_t *data, int len)
 {
 	if(mUsbHandle == INVALID_HANDLE_VALUE) return 0;
 
-	if(data[0] == 0x8 || data[0] == 0xB) return len;
+	if (data[0] == 0x8 || data[0] == 0xB) return len;
 	//if(data[0] == 0xF8 && data[1] == 0x5) sendCrap = true;
-	if (data[0] == 0xF8) return len; //don't send extended commands
+	if (data[0] == 0xF8 && 
+		/* Allow range changes */
+		!(data[1] == 0x81 || data[1] == 0x02 || data[1] == 0x03))
+		return len; //don't send extended commands
 
-	std::array<uint8_t, 8> outbuf{ 0 };
+	std::array<uint8_t, 8> report{ 0 };
 
 	//If i'm reading it correctly MOMO report size for output has Report Size(8) and Report Count(7), so that's 7 bytes
 	//Now move that 7 bytes over by one and add report id of 0 (right?). Supposedly mandatory for HIDs.
-	memcpy(outbuf.data() + 1, data, outbuf.size() - 1);
+	memcpy(report.data() + 1, data, report.size() - 1);
 
-	if (!mFFData.enqueue(outbuf)) {
+	if (!mFFData.enqueue(report)) {
 		OSDebugOut(TEXT("Failed to enqueue ffb command\n"));
 		return 0;
 	}
@@ -436,30 +476,44 @@ int RawInputPad::Open()
 	}
 
 	mUsbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
-		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
 
 	if(mUsbHandle != INVALID_HANDLE_VALUE)
 	{
-		//mOLRead.hEvent = CreateEvent(0, 0, 0, 0);
-		//mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
+		mOLRead.hEvent = CreateEvent(0, 0, 0, 0);
+		mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
 
 		HidD_GetAttributes(mUsbHandle, &(attr));
-		HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(mCaps));
-		HidD_FreePreparsedData(pPreparsedData);
+		if (attr.VendorID != 0x046d) {
+			fwprintf(stderr, TEXT("Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
+			Close();
+			return 0;
+		}
 
-		if (!mThreadIsRunning)
+		if (!mWriterThreadIsRunning)
 		{
 			if (mWriterThread.joinable())
 				mWriterThread.join();
 			mWriterThread = std::thread(RawInputPad::WriterThread, this);
+		}
+
+		// for passthrough only
+		HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
+		HidP_GetCaps(pPreparsedData, &(mCaps));
+		HidD_FreePreparsedData(pPreparsedData);
+
+		if (mDoPassthrough && !mReaderThreadIsRunning)
+		{
+			if (mReaderThread.joinable())
+				mReaderThread.join();
+			mReaderThread = std::thread(RawInputPad::ReaderThread, this);
 		}
 		return 0;
 	}
 	else
 		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", path.c_str());
 
-	return 1;
+	return 0;
 }
 
 int RawInputPad::Close()
@@ -469,8 +523,8 @@ int RawInputPad::Close()
 	{
 		Sleep(100); // give WriterThread some time to write out Reset() commands
 		CloseHandle(mUsbHandle);
-		//CloseHandle(mOLRead.hEvent);
-		//CloseHandle(mOLWrite.hEvent);
+		CloseHandle(mOLRead.hEvent);
+		CloseHandle(mOLWrite.hEvent);
 	}
 
 	mUsbHandle = INVALID_HANDLE_VALUE;
@@ -594,13 +648,12 @@ void UninitWindow()
 		//UnhookWindowsHookEx(hHookKB);
 		hHook = 0;
 	}
-	if(eatenWnd != NULL)
-	{
+	if(eatenWnd)
 		RegisterRaw(eatenWnd, RIDEV_REMOVE);
+	if(eatenWnd && eatenWndProc)
 		SetWindowLongPtr(eatenWnd, GWLP_WNDPROC, (LONG_PTR)eatenWndProc);
-		eatenWndProc = NULL;
-		eatenWnd = NULL;
-	}
+	eatenWndProc = NULL;
+	eatenWnd = NULL;
 }
 
 // ---------
