@@ -318,24 +318,31 @@ IF(UNIX)
 		./src/linux/ini.h
 		./src/linux/actualfile.h
 		./src/linux/config.h
+		./src/linux/util.h
 	)
 	LIST(APPEND SRCS_MSD
 		./src/usb-msd/usb-msd-gtk.cpp
 	)
 	LIST(APPEND HDRS_PAD
 		./src/usb-pad/joydev/joydev.h
+		./src/usb-pad/evdev/shared.h
+		./src/usb-pad/evdev/evdev.h
 		./src/usb-pad/evdev/evdev-ff.h
 	)
 	LIST(APPEND SRCS_PAD
 		./src/usb-pad/joydev/joydev.cpp
 		./src/usb-pad/joydev/joydev-gtk.cpp
+		./src/usb-pad/evdev/shared-gtk.cpp
 		./src/usb-pad/evdev/evdev-ff.cpp
+		./src/usb-pad/evdev/evdev.cpp
+		./src/usb-pad/evdev/evdev-gtk.cpp
 	)
 	LIST(APPEND SRCS
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
 		./src/linux/ini.c
 		./src/linux/actualfile.c
+		./src/linux/util.cpp
 	)
 
 	IF(PLUGIN_BUILD_PULSE)
@@ -415,7 +422,7 @@ IF(WIN32)
 		RUNTIME DESTINATION .
 		CONFIGURATIONS Release RelWithDebInfo MinSizeRel Debug) #All
 ELSE(WIN32)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wcast-align")
 	INSTALL(
 		TARGETS ${TargetName}
 		LIBRARY DESTINATION .

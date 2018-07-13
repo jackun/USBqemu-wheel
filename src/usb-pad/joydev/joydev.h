@@ -1,55 +1,9 @@
 #pragma once
-#include "../padproxy.h"
-#include "../../configuration.h"
-#include "../evdev/evdev-ff.h"
 #include <linux/joystick.h>
 #include <unistd.h>
-
-// Keep in sync with PS2Buttons enum
-enum JoyDevMap
-{
-	JOY_CROSS = 0,
-	JOY_SQUARE,
-	JOY_CIRCLE,
-	JOY_TRIANGLE,
-	JOY_R1,
-	JOY_L1,
-	JOY_R2,
-	JOY_L2,
-	JOY_SELECT,
-	JOY_START,
-	JOY_R3, JOY_L3, //order, afaik not used on any PS2 wheel anyway
-	JOY_DOWN,
-	JOY_LEFT,
-	JOY_UP,
-	JOY_RIGHT,
-	JOY_STEERING,
-	JOY_THROTTLE,
-	JOY_BRAKE,
-	JOY_MAPS_COUNT
-};
-
-static const char* JoyDevMapNames [] = {
-	"cross",
-	"square",
-	"circle",
-	"triangle",
-	"r1",
-	"l1",
-	"r2",
-	"l2",
-	"select",
-	"start",
-	"r3",
-	"l3",
-	"down",
-	"left",
-	"up",
-	"right",
-	"steering",
-	"throttle",
-	"brake"
-};
+#include "linux/util.h"
+#include "../evdev/evdev-ff.h"
+#include "../evdev/shared.h"
 
 class JoyDevPad : public Pad
 {
@@ -70,13 +24,11 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return "Input (joydev)";
+		return "Joydev";
 	}
 
 	static int Configure(int port, void *data);
 protected:
-	bool FindPad();
-
 	int mHandle;
 	int mHandleFF;
 	EvdevFF *mEvdevFF;
@@ -114,6 +66,3 @@ bool GetJoystickName(const std::string& path, char (&name)[_Size])
 	}
 	return false;
 }
-
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings);
-bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings);

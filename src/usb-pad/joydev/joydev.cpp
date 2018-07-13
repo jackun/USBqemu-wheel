@@ -8,84 +8,15 @@
 
 extern bool file_exists(std::string path);
 extern bool dir_exists(std::string path);
-static bool sendCrap = false;
 
-#define NORM(x, n) (((uint32_t)(32767 + x) * n)/0xFFFE)
-#define NORM2(x, n) (((uint32_t)(32767 + x) * n)/0x7FFF)
-
-static inline int range_max(PS2WheelTypes type)
-{
-	if(type == WT_DRIVING_FORCE_PRO)
-		return 0x3FFF;
-	return 0x3FF;
-}
-
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
-{
-	assert(JOY_MAPS_COUNT == ARRAYSIZE(JoyDevMapNames));
-	if (joyname.empty())
-		return false;
-
-	mappings.resize(0);
-	std::stringstream str;
-	for (int i=0; i<JOY_MAPS_COUNT; i++)
-	{
-		str.clear();
-		str.str("");
-		str << "map_" << JoyDevMapNames[i];
-		CONFIGVARIANT var(str.str().c_str(), CONFIG_TYPE_INT);
-		if (LoadSetting(port, joyname, var))
-			mappings.push_back(var.intValue);
-		else
-			mappings.push_back(-1);
-	}
-	return true;
-}
-
-bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
-{
-	assert(JOY_MAPS_COUNT == ARRAYSIZE(JoyDevMapNames));
-	if (joyname.empty() || mappings.size() != JOY_MAPS_COUNT)
-		return false;
-
-	std::stringstream str;
-	for (int i=0; i<JOY_MAPS_COUNT; i++)
-	{
-		//XXX save anyway for manual editing
-		//if (mappings[i] == (uint16_t)-1)
-		//	continue;
-
-		str.clear();
-		str.str("");
-		str << "map_" << JoyDevMapNames[i];
-		CONFIGVARIANT var(str.str().c_str(), static_cast<int32_t>(mappings[i]));
-		if (!SaveSetting(port, joyname, var))
-			return false;
-	}
-	return true;
-}
+#define NORM(x, n) (((uint32_t)(32768 + x) * n)/0xFFFF)
+#define NORM2(x, n) (((uint32_t)(32768 + x) * n)/0x7FFF)
 
 int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 {
 	ssize_t len;
 
 	int range = range_max(mType);
-
-	if(sendCrap)
-	{
-		// Setting to unpressed
-		memset(&mWheelData, 0, sizeof(wheel_data_t));
-		mWheelData.steering = range >> 1;
-		mWheelData.clutch = 0xFF;
-		mWheelData.throttle = 0xFF;
-		mWheelData.brake = 0xFF;
-		mWheelData.hatswitch = 0x8;
-		mWheelData.hat_horz = 0x8;
-		mWheelData.hat_vert = 0x8;
-		pad_copy_data(mType, buf, mWheelData);
-		sendCrap = false;
-		return buflen;
-	}
 
 	struct js_event event;
 
@@ -96,6 +27,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 		{
 			if ((event.type & ~JS_EVENT_INIT) == JS_EVENT_AXIS)
 			{
+				OSDebugOut("Axis: %d, mapped: 0x%02x, val: %d\n", event.number, mAxisMap[event.number], event.value);
 				switch (mAxisMap[event.number])
 				{
 					case 0x80 | JOY_STEERING:
@@ -130,6 +62,9 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 
 					//FIXME hatswitch mapping maybe
 					case ABS_HAT0X:
+					case ABS_HAT1X:
+					case ABS_HAT2X:
+					case ABS_HAT3X:
 						if(event.value < 0 ) //left usually
 							mWheelData.hat_horz = PAD_HAT_W;
 						else if(event.value > 0 ) //right
@@ -138,6 +73,9 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 							mWheelData.hat_horz = PAD_HAT_COUNT;
 					break;
 					case ABS_HAT0Y:
+					case ABS_HAT1Y:
+					case ABS_HAT2Y:
+					case ABS_HAT3Y:
 						if(event.value < 0 ) //up usually
 							mWheelData.hat_vert = PAD_HAT_N;
 						else if(event.value > 0 ) //down
@@ -150,7 +88,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 			}
 			else if ((event.type & ~JS_EVENT_INIT) == JS_EVENT_BUTTON)
 			{
-				//OSDebugOut("Button: %d == %x, %d\n", event.number, mBtnMap[event.number], event.value);
+				OSDebugOut("Button: %d, mapped: 0x%02x, val: %d\n", event.number, mBtnMap[event.number], event.value);
 				PS2Buttons button = PAD_BUTTON_COUNT;
 				if (mBtnMap[event.number] >= (0x8000 | JOY_CROSS) &&
 					mBtnMap[event.number] <= (0x8000 | JOY_L3))
@@ -161,7 +99,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 				else if (mBtnMap[event.number] >= BTN_TRIGGER &&
 					mBtnMap[event.number] < BTN_BASE5)
 				{
-					button = (PS2Buttons)(mBtnMap[event.number] - BTN_TRIGGER);
+					button = (PS2Buttons)((mBtnMap[event.number] - BTN_TRIGGER) & ~0x8000);
 				}
 				else
 				{
@@ -240,7 +178,17 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 	return buflen;
 }
 
-bool JoyDevPad::FindPad()
+int JoyDevPad::TokenOut(const uint8_t *data, int len)
+{
+	if (!mEvdevFF) return len;
+	ff_data *ffdata = (ff_data*)data;
+	bool hires = (mType == WT_DRIVING_FORCE_PRO);
+	mEvdevFF->TokenOut(ffdata, hires);
+
+	return len;
+}
+
+int JoyDevPad::Open()
 {
 	memset(&mWheelData, 0, sizeof(wheel_data_t));
 
@@ -268,7 +216,7 @@ bool JoyDevPad::FindPad()
 		else
 		{
 			OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
-			return false;
+			return 1;
 		}
 	}
 
@@ -373,176 +321,12 @@ bool JoyDevPad::FindPad()
 			}
 			else
 				mEvdevFF = new EvdevFF(mHandleFF);
-			return true;
+			return 0;
 		}
 	}
 
 quit:
 	Close();
-	return false;
-}
-
-int JoyDevPad::TokenOut(const uint8_t *data, int len)
-{
-	ff_data *ffdata = (ff_data*)data;
-
-	OSDebugOut(TEXT("FFB %02X, %02X, %02X, %02X : %02X, %02X, %02X, %02X\n"),
-		ffdata->cmdslot, ffdata->type, ffdata->u.params[0], ffdata->u.params[1],
-		ffdata->u.params[2], ffdata->u.params[3], ffdata->u.params[4], ffdata->padd0);
-
-	if (!mEvdevFF) return len;
-
-	bool hires = (mType == WT_DRIVING_FORCE_PRO);
-	if (ffdata->cmdslot != CMD_EXTENDED_CMD)
-	{
-
-		uint8_t slots = (ffdata->cmdslot & 0xF0) >> 4;
-		uint8_t cmd  = ffdata->cmdslot & 0x0F;
-
-		switch (cmd)
-		{
-		case CMD_DOWNLOAD:
-			for (int i = 0; i < 4; i++)
-			{
-				if (slots & (1 << i))
-					mFFstate.slot_type[i] = ffdata->type;
-			}
-			break;
-		case CMD_DOWNLOAD_AND_PLAY: //0x01
-		{
-			for (int i = 0; i < 4; i++)
-			{
-				if (slots & (1 << i))
-				{
-					mFFstate.slot_type[i] = ffdata->type;
-					if (ffdata->type == FTYPE_CONSTANT)
-						mFFstate.slot_force[i] = ffdata->u.params[i];
-				}
-			}
-
-			switch (ffdata->type)
-			{
-			case FTYPE_CONSTANT:
-				mEvdevFF->SetConstantForce(ffdata->u.params[2]); //DF/GTF and GT3
-				break;
-			//case FTYPE_SPRING:
-			//case FTYPE_HIGH_RESOLUTION_SPRING:
-				//mEvdevFF->SetSpringForce(NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, hires);
-				//break;
-			case FTYPE_VARIABLE: //Ramp-like
-				//mEvdevFF->SetRampVariable(ffdata->u.variable);
-				mEvdevFF->SetConstantForce(ffdata->u.params[0]);
-				break;
-			//case FTYPE_FRICTION:
-				//mEvdevFF->SetFrictionForce(ffdata->u.friction);
-				//break;
-			//case FTYPE_DAMPER:
-				//mEvdevFF->SetDamper(ffdata->u.damper, false);
-				//break;
-			//case FTYPE_HIGH_RESOLUTION_DAMPER:
-				//mEvdevFF->SetDamper(ffdata->u.damper, hires);
-				//break;
-			default:
-				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
-				break;
-			}
-		}
-		break;
-		case CMD_STOP: //0x03
-		{
-			if (slots == 0x0F) //disable all effects, usually on startup
-			{
-				mEvdevFF->DisableConstantForce();
-				//mEvdevFF->SetSpringForce(DI_FFNOMINALMAX + 1, spring { 0 }, hires);
-			}
-			else
-			{
-				for (int i = 0; i < 4; i++)
-				{
-					if (slots & (1 << i))
-					{
-						switch (mFFstate.slot_type[i])
-						{
-						case FTYPE_CONSTANT:
-							mEvdevFF->DisableConstantForce();
-							break;
-						case FTYPE_VARIABLE:
-							//mEvdevFF->DisableRamp();
-							mEvdevFF->DisableConstantForce();
-							break;
-						//case FTYPE_SPRING:
-						//case FTYPE_HIGH_RESOLUTION_SPRING:
-							//mEvdevFF->DisableSpring();
-							//break;
-						//case FTYPE_AUTO_CENTER_SPRING:
-							//mEvdevFF->DisableSpring();
-							//break;
-						//case FTYPE_FRICTION:
-							//mEvdevFF->DisableFriction();
-							//break;
-						//case FTYPE_DAMPER:
-						//case FTYPE_HIGH_RESOLUTION_DAMPER:
-							//mEvdevFF->DisableDamper();
-							//break;
-						default:
-							OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
-							break;
-						}
-					}
-				}
-			}
-		}
-		break;
-		case CMD_DEFAULT_SPRING_ON: //0x04
-			OSDebugOut(TEXT("CMD_DEFAULT_SPRING_ON: unhandled cmd\n"));
-			break;
-		case CMD_DEFAULT_SPRING_OFF: //0x05
-		{
-			if (slots == 0x0F) {
-				//just release force
-				mEvdevFF->SetConstantForce(127);
-			}
-			else
-			{
-				OSDebugOut(TEXT("CMD_DEFAULT_SPRING_OFF: unhandled slots 0x%02X\n"), slots);
-			}
-		}
-		break;
-		case CMD_NORMAL_MODE: //0x08
-			OSDebugOut(TEXT("CMD_NORMAL_MODE: unhandled cmd\n"));
-			break;
-		case CMD_SET_LED: //0x09
-			OSDebugOut(TEXT("CMD_SET_LED: unhandled cmd\n"));
-			break;
-		case CMD_RAW_MODE: //0x0B
-			OSDebugOut(TEXT("CMD_RAW_MODE: unhandled cmd\n"));
-			break;
-		case CMD_SET_DEFAULT_SPRING: //0x0E
-			OSDebugOut(TEXT("CMD_SET_DEFAULT_SPRING: unhandled cmd\n"));
-			break;
-		case CMD_SET_DEAD_BAND: //0x0F
-			OSDebugOut(TEXT("CMD_SET_DEAD_BAND: unhandled cmd\n"));
-			break;
-		}
-	}
-	else
-	{
-		// 0xF8, 0x05, 0x01, 0x00
-		if(ffdata->type == 5) //TODO
-			sendCrap = true;
-		if (ffdata->type == EXT_CMD_WHEEL_RANGE_900_DEGREES) {}
-		if (ffdata->type == EXT_CMD_WHEEL_RANGE_200_DEGREES) {}
-		OSDebugOut(TEXT("CMD_EXTENDED: unhandled cmd 0x%02X%02X%02X\n"),
-			ffdata->type, ffdata->u.params[0], ffdata->u.params[1]);
-	}
-
-	return len;
-}
-
-int JoyDevPad::Open()
-{
-	if (FindPad())
-		return 0;
 	return 1;
 }
 

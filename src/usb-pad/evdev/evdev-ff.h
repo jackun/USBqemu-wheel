@@ -3,6 +3,7 @@
 
 #include <linux/input.h>
 #include <cstdint>
+#include "../usb-pad.h"
 
 class EvdevFF
 {
@@ -15,10 +16,12 @@ public:
 	void SetAutoCenter(int value);
 	void SetGain(int gain);
 	void DisableConstantForce();
+	void TokenOut(ff_data *ffdata, bool hires);
 
 private:
 	int mHandle;
-	struct ff_effect mEffConstant;
+	ff_effect mEffConstant;
+	ff_state mFFstate;
 };
 
 #endif
