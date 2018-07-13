@@ -60,9 +60,22 @@ bool SaveSettingValue(const std::string& ini, const std::string& section, const 
 	return INISaveString(ini.c_str(), section.c_str(), param, value.c_str()) == 0;
 }
 
+bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, bool& value)
+{
+	unsigned int intv;
+	bool ret = INILoadUInt(ini.c_str(), section.c_str(), param, &intv) == 0;
+	value = ret && (intv ? true : false);
+	return ret;
+}
+
 bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
 {
 	return INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value) == 0;
+}
+
+bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, bool& value)
+{
+	return INISaveUInt(ini.c_str(), section.c_str(), param, value ? 1 : 0) == 0;
 }
 
 bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
@@ -99,6 +112,10 @@ bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
 			break;
 		//case CONFIG_TYPE_WCHAR:
 		//	return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
+		case CONFIG_TYPE_BOOL:
+			ret = LoadSettingValue(ini, section.str(), var.name, var.boolValue);
+			OSDebugOut_noprfx("%d\n", var.boolValue);
+			break;
 		break;
 		default:
 			OSDebugOut("\nInvalid config type %d for %s\n", var.type, var.name);
@@ -150,6 +167,10 @@ bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
 		case CONFIG_TYPE_CHAR:
 			ret = SaveSettingValue(ini, section.str(), var.name, var.strValue);
 			OSDebugOut_noprfx("'%s'\n", var.strValue.c_str());
+			break;
+		case CONFIG_TYPE_BOOL:
+			ret = SaveSettingValue(ini, section.str(), var.name, var.boolValue);
+			OSDebugOut_noprfx("%s\n", var.boolValue ? "true" : "false");
 			break;
 		break;
 		default:
