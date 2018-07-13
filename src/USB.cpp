@@ -69,6 +69,10 @@ s64 remaining = 0;
 
 #if _WIN32
 HWND gsWnd = nullptr;
+#else
+#include <gtk/gtk.h>
+#include <gdk/gdkx.h>
+#include <X11/X.h>
 #endif
 
 
@@ -244,9 +248,11 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 #if _WIN32
 
 	HWND hWnd=(HWND)pDsp;
+	//HWND hWnd=(HWND)((uptr*)pDsp)[0];
 
-	if (!IsWindow (hWnd) && !IsBadReadPtr ((u32*)hWnd, 4))
+	if (!IsWindow (hWnd))
 		hWnd = *(HWND*)hWnd;
+
 	if (!IsWindow (hWnd))
 		hWnd = NULL;
 	else
@@ -261,6 +267,11 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 		InitWindow(hWnd);
 # endif
 
+#else
+
+	Display *XDisplay = (Display *)((uptr*)pDsp)[0];
+	Window Xwindow = (Window)((uptr*)pDsp)[1];
+	OSDebugOut("X11 display %p Xwindow %p\n", XDisplay, Xwindow);
 #endif
 
 	if (configChanged || (!usb_device[0] && !usb_device[1]))
@@ -573,8 +584,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		for (int i=0; i<2; i++)
 		{
 			//TODO check that current created usb device and conf.Port[n] are the same
-			auto index = regInst.Index(conf.Port[i]);
-			auto proxy = regInst.Device(index);
+			auto proxy = regInst.Device(conf.Port[i]);
 
 			if (proxy)
 				data->size += proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr);
