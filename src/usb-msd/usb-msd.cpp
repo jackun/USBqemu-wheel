@@ -102,8 +102,8 @@ static const uint8_t qemu_msd_dev_descriptor[] = {
     0x08,       /*  u8  bMaxPacketSize0; 8 Bytes */
 
         /* Vendor and product id are arbitrary.  */
-    0x00, 0x00, /*  u16 idVendor; */
-    0x00, 0x00, /*  u16 idProduct; */
+    0xf4, 0x46, /*  u16 idVendor; */
+    0x01, 0x00, /*  u16 idProduct; */
     0x00, 0x00, /*  u16 bcdDevice */
 
     0x01,       /*  u8  iManufacturer; */
@@ -256,7 +256,7 @@ static const USBDescStrings desc_strings = {
 #define ALLOW_MEDIUM_REMOVAL  0x1e
 
 #define SET_WINDOW            0x24
-#define READ_CAPACITY         0x25
+#define READ_CAPACITY_10      0x25
 #define READ_10               0x28
 #define WRITE_10              0x2a
 #define SEEK_10               0x2b
@@ -404,6 +404,10 @@ const struct SCSISense sense_code_INVALID_OPCODE = {
     ILLEGAL_REQUEST, 0x20, 0x00
 };
 
+const struct SCSISense sense_code_OUT_OF_RANGE = {
+    ILLEGAL_REQUEST, 0x21, 0x00
+};
+
 /* Illegal request, Invalid Transfer Tag */
 //const struct SCSISense sense_code_INVALID_TAG = {
 //    .key = ILLEGAL_REQUEST, .asc = 0x4b, .ascq = 0x01
@@ -458,9 +462,9 @@ static void set_sense(void *opaque, SCSISense sense)
     MSDState *s = (MSDState *)opaque;
     memset(s->f.sense_buf, 0, sizeof(s->f.sense_buf));
     //SENSE request
-    s->f.sense_buf[0] = 0x70 | 0x80;//0x70 - current sense, 0x80 - set Valid bit if got sense information
+    s->f.sense_buf[0] = 0x70 | 0x80;//0x70 - current sense, 0x80 - set Valid bit
     //s->f.sense_buf[1] = 0x00;
-    s->f.sense_buf[2] = sense.key;//ILLEGAL_REQUEST;
+    s->f.sense_buf[2] = sense.key & 0x0F;//ILLEGAL_REQUEST;
     //sense information, like LBA where error occured
     //s->f.sense_buf[3] = 0x00; //MSB
     //s->f.sense_buf[4] = 0x00;
@@ -632,18 +636,19 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
             cbw->cmd[4] < sizeof(s->f.sense_buf) ? (size_t)cbw->cmd[4] : sizeof(s->f.sense_buf));
         break;
     case INQUIRY:
+        DPRINTF("INQUIRY evpd: %d page: %d\n", (int)cbw->cmd[1], (int)cbw->cmd[2]);
         memset(s->f.buf, 0, sizeof(s->f.buf));
-        s->f.buf[0] = 0; //0x0 - direct access device, 0x1f - no fdd
+        s->f.buf[0] = 0; //SCSI Peripheral Device Type: 0x0 - direct access device, 0x1f - unknown/no device
         s->f.buf[1] = 1 << 7; //removable
         s->f.buf[3] = 1; //UFI response data format
         //inq data len can be zero
         strncpy((char*)&s->f.buf[8], "QEMU", 8); //8 bytes vendor
         strncpy((char*)&s->f.buf[16], "USB Drive", 16); //16 bytes product
-        strncpy((char*)&s->f.buf[32], "1", 4); //4 bytes product revision
+        strncpy((char*)&s->f.buf[32], "1.00", 4); //4 bytes product revision
         break;
 
-    case READ_CAPACITY:
-        int64_t fsize;
+    case READ_CAPACITY_10:
+        int64_t fsize, lbas;
         uint32_t *last_lba, *blk_len;
 
         memset(s->f.buf, 0, sizeof(s->f.buf));
@@ -661,7 +666,16 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
         blk_len = (uint32_t*)&s->f.buf[4]; //in bytes
         //right?
         *blk_len = LBA_BLOCK_SIZE;//descriptor is currently max 64 bytes for bulk though
-        *last_lba = fsize / *blk_len;
+
+        lbas = fsize / LBA_BLOCK_SIZE;
+        if (lbas > 0xFFFFFFFF) {
+            DPRINTF("Maximum LBA is out of range!\n");
+            s->f.result = COMMAND_FAILED;
+            set_sense(s, SENSE_CODE(OUT_OF_RANGE));
+            *last_lba = 0xFFFFFFFF;
+        }
+        else
+            *last_lba = static_cast<uint32_t>(lbas);
 
         DPRINTF("read capacity lba=0x%x, block=0x%x\n", *last_lba, *blk_len);
 
@@ -687,7 +701,12 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
 
         if(fseeko64(s->file, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
             s->f.result = COMMAND_FAILED;
-            set_sense(s, SENSE_CODE(NO_SEEK_COMPLETE));
+            //TODO use errno
+            int64_t fsize = get_file_size(s->file);
+            if ((lba + xfer_len) * LBA_BLOCK_SIZE > fsize)
+                set_sense(s, SENSE_CODE(OUT_OF_RANGE));
+            else
+                set_sense(s, SENSE_CODE(NO_SEEK_COMPLETE));
             return;
         }
 
@@ -716,7 +735,12 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
           break;
         if(fseeko64(s->file, lba * LBA_BLOCK_SIZE, SEEK_SET)) {
             s->f.result = COMMAND_FAILED;
-            set_sense(s, SENSE_CODE(NO_SEEK_COMPLETE));
+            //TODO use errno
+            int64_t fsize = get_file_size(s->file);
+            if ((lba + xfer_len) * LBA_BLOCK_SIZE > fsize)
+                set_sense(s, SENSE_CODE(OUT_OF_RANGE));
+            else
+                set_sense(s, SENSE_CODE(NO_SEEK_COMPLETE));
             return;
         }
 
@@ -966,7 +990,7 @@ static void usb_msd_handle_data(USBDevice *dev, USBPacket *p)
             if (p->iov.size > s->f.data_len)
             {
                 //len = s->f.data_len;
-                s->f.result = COMMAND_FAILED; //PHASE_ERROR;
+                s->f.result = COMMAND_FAILED;
                 set_sense(s, SENSE_CODE(UNRECOVERED_READ_ERROR));
                 goto fail;
             }
