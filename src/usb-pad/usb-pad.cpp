@@ -57,7 +57,7 @@ void PrintBits(void * data, int size)
 	}
 	*ptrB = '\0';
 
-	OSDebugOut(TEXT("%S\n"), bits);
+	OSDebugOut(TEXT("%" SFMTs "\n"), bits);
 }
 
 #else
@@ -200,7 +200,7 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 	PADState *s = (PADState *)dev;
 	int ret = 0;
 
-	int t = s->port == 1 ? conf.WheelType[0] : conf.WheelType[1];
+	int t = (s->port == PLAYER_ONE_PORT) ? conf.WheelType[0] : conf.WheelType[1];
 
 	switch(request) {
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
@@ -211,9 +211,9 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 		// Change PID according to selected wheel
 		if ((value >> 8) == USB_DT_DEVICE) {
 			if (t == WT_DRIVING_FORCE_PRO)
-				*(uint16_t*)&data[10] = DFP_PID;
+				*(uint16_t*)&data[10] = PID_DFP;
 			else if (t == WT_GT_FORCE)
-				*(uint16_t*)&data[10] = FFGP_PID;
+				*(uint16_t*)&data[10] = PID_FFGP;
 		}
 
 		break;

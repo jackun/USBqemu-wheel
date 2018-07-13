@@ -246,15 +246,16 @@ static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 #define PAD_VID			0x046D
 #define PAD_PID			0xCA03 //black MOMO
 #define GENERIC_PID		0xC294 //actually Driving Force aka PID that most logitech wheels initially report
-#define DF_PID			0xC294
-#define DFP_PID			0xC298 //SELECT + R3 + RIGHT SHIFT PADDLE (R1) ???
-#define DFGT_PID		0xC29A
-#define FORMULA_PID		0xC202 //Yellow Wingman Formula
-#define FGP_PID			0xC20E //Formula GP (maybe GT FORCE LPRC-1000)
-#define FFGP_PID		0xC293 // Formula Force GP
+#define PID_DF			0xC294
+#define PID_DFP			0xC298 //SELECT + R3 + RIGHT SHIFT PADDLE (R1) ???
+#define PID_DFGT		0xC29A
+#define PID_FORMULA		0xC202 //Yellow Wingman Formula
+#define PID_FGP			0xC20E //Formula GP (maybe GT FORCE LPRC-1000)
+#define PID_FFGP		0xC293 // Formula Force GP
+#define PID_G25			0xC299 // OutRun 2 (jp) supports it apparently
 #define MAX_BUTTONS		32
 #define MAX_AXES		7 //random 7: axes + hatswitch
-#define MAX_JOYS		16
+#define MAX_JOYS		32
 
 /**
   linux hid-lg4ff.c
@@ -282,7 +283,7 @@ static const uint8_t dfp_dev_descriptor[] = {
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(DFP_PID),
+	/* idProduct           */ WBVAL(PID_DFP),
 	/* bcdDevice           */ WBVAL(0x0001), //(1)
 	/* iManufacturer       */ 0x01, //(1)
 	/* iProduct            */ 0x02, //(2)
@@ -299,7 +300,7 @@ static const uint8_t ffgp_dev_descriptor[] = {
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(FFGP_PID),
+	/* idProduct           */ WBVAL(PID_FFGP),
 	/* bcdDevice           */ WBVAL(0x0001), //(1)
 	/* iManufacturer       */ 0x01, //(1)
 	/* iProduct            */ 0x02, //(2)
