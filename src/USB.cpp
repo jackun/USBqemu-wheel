@@ -531,13 +531,13 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			else
 				usbd.device[i].size = 0;
 
-			if (qemu_ohci->usb_packet.ep->dev == usb_device[i])
+			if (qemu_ohci->usb_packet.ep && qemu_ohci->usb_packet.ep->dev == usb_device[i])
 				usbd.usb_packet.dev_index = i;
 		}
 
 		strncpy(usbd.freezeID,  USBfreezeID, strlen(USBfreezeID));
 		usbd.t = *qemu_ohci;
-		usbd.usb_packet.ep = *qemu_ohci->usb_packet.ep;
+		usbd.usb_packet.ep = qemu_ohci->usb_packet.ep ? *qemu_ohci->usb_packet.ep : USBEndpoint{0};
 		usbd.t.usb_packet.iov = { };
 		usbd.t.usb_packet.ep = nullptr;
 
