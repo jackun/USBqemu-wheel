@@ -17,6 +17,7 @@
 
 #define N_DEVICE_API	TEXT("device_api")
 #define N_DEVICES		TEXT("devices")
+#define N_WHEEL_PT		TEXT("wheel_pt")
 #define N_DEVICE_PORT0	TEXT("port_0")
 #define N_DEVICE_PORT1	TEXT("port_1")
 #define N_WHEEL_TYPE0	TEXT("wheel_type_0")

@@ -42,6 +42,7 @@ struct RawDlgConfig
 {
 	int port;
 	std::wstring player_joys[2];
+	bool pt[2];
 	RawDlgConfig(int p) : port(p) {}
 };
 

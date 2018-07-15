@@ -234,8 +234,6 @@ void populate(HWND hW, RawDlgConfig *cfg)
 	LvCol.mask=LVCF_TEXT|LVCF_WIDTH|LVCF_SUBITEM;
 	LvCol.pszText=TEXT("Device");
 	LvCol.cx=0x4F;
-	SendDlgItemMessage(hW, IDC_LIST1, LVM_SETEXTENDEDLISTVIEWSTYLE,
-		0,LVS_EX_FULLROWSELECT); // Set style
 	ListView_InsertColumn(GetDlgItem(hW, IDC_LIST1), 0, &LvCol);
 
 	LvCol.pszText=TEXT("PC");
@@ -669,7 +667,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 	TCHAR buf[256];
 	LVITEM lv;
-	RawDlgConfig *cfg = nullptr;
+	RawDlgConfig *cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
 
 	switch(uMsg) {
 		case WM_INITDIALOG:
@@ -678,6 +676,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			dgHwnd = hW;
 			SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 			//SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
+			ListView_SetExtendedListViewStyle(GetDlgItem(hW, IDC_LIST1), LVS_EX_FULLROWSELECT);
 			
 			RAWINPUTDEVICE rid[3];
 			rid[0].usUsagePage = 0x01; 
@@ -714,9 +713,18 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 					cfg->player_joys[1].clear();
 			}
 
+			{
+				CONFIGVARIANT var(N_WHEEL_PT, CONFIG_TYPE_BOOL);
+				if (LoadSetting(PLAYER_ONE_PORT, APINAME, var))
+					cfg->pt[0] = var.boolValue;
+
+				if (LoadSetting(PLAYER_TWO_PORT, APINAME, var))
+					cfg->pt[1] = var.boolValue;
+			}
+
 			LoadMappings(mapVector);
 			//if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
-			//CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
+			CheckDlgButton(hW, IDC_DFP_PASS, cfg->pt[0]);
 			populate(hW, cfg);
 			resetState(hW);
 			return TRUE;
@@ -755,9 +763,19 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 		case WM_NOTIFY:
 			switch (((LPNMHDR)lParam)->code)
 			{
+			/*case LVN_KEYDOWN:
+				int k;
+				k = ((NMLVKEYDOWN*)lParam)->wVKey;
+				break;*/
 			case TCN_SELCHANGE:
-				plyCapturing = SendDlgItemMessage(hW, IDC_TAB1, TCM_GETCURSEL, 0, 0);
-				resetState(hW);
+				switch (LOWORD(wParam))
+				{
+				case IDC_TAB1:
+					plyCapturing = SendDlgItemMessage(hW, IDC_TAB1, TCM_GETCURSEL, 0, 0);
+					CheckDlgButton(hW, IDC_DFP_PASS, cfg->pt[plyCapturing]);
+					resetState(hW);
+					break;
+				}
 				break;
 			}
 			break;
@@ -793,20 +811,26 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				break;
 			case BN_CLICKED:
 				switch(LOWORD(wParam)) {
+				case IDC_DFP_PASS:
+					cfg->pt[plyCapturing] = IsDlgButtonChecked(hW, IDC_DFP_PASS) > 0;
+					break;
 				case IDC_UNBIND:
-					int selection;
-					selection = ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1));
-					if(selection > -1)
-					{
+					int sel;
+					HWND lhW;
+					lhW = GetDlgItem(hW, IDC_LIST1);
+					while (1) {
 						ZeroMemory(&lv, sizeof(LVITEM));
-						lv.iItem = ListView_GetSelectionMark(GetDlgItem(hW, IDC_LIST1));
+						sel = ListView_GetNextItem(lhW, -1, LVNI_SELECTED);
+						if (sel < 0) break;
+						lv.iItem = sel;
 						lv.mask = LVIF_PARAM;
-						ListView_GetItem(GetDlgItem(hW, IDC_LIST1), &lv);
+						ListView_GetItem(lhW, &lv);
+
 						int *map = (int*)lv.lParam;
-						if(map)
-						*map = PLY_UNSET_MAPPED(plyCapturing, *map);
-						resetState(hW);
+						if (map)
+							*map = PLY_UNSET_MAPPED(plyCapturing, *map);
 					}
+					resetState(hW);
 					break;
 				case IDC_BUTTON1://cross
 				case IDC_BUTTON2://square
@@ -857,18 +881,30 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 					return TRUE;
 				case IDOK:
 					cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
-					//conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
 					cfg->player_joys[0] = *(joysDev.begin() + selectedJoy[0]);
 					cfg->player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
 
 					INT_PTR res = RESULT_OK;
-					CONFIGVARIANT var(N_JOYSTICK, cfg->player_joys[0]);
-					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
-						res = RESULT_FAILED;
-					var.wstrValue = cfg->player_joys[1];
-					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
-						res = RESULT_FAILED;
-					SaveMappings(mapVector);
+					{
+						CONFIGVARIANT var(N_JOYSTICK, cfg->player_joys[0]);
+						if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
+							res = RESULT_FAILED;
+
+						var.wstrValue = cfg->player_joys[1];
+						if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
+							res = RESULT_FAILED;
+						SaveMappings(mapVector);
+					}
+
+					{
+						CONFIGVARIANT var(N_WHEEL_PT, cfg->pt[0]);
+						if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
+							res = RESULT_FAILED;
+
+						var.boolValue = cfg->pt[1];
+						if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
+							res = RESULT_FAILED;
+					}
 					EndDialog(hW, res);
 					return TRUE;
 				}

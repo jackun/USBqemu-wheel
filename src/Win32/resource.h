@@ -2,6 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by USBlinuz.rc
 //
+#define IDC_STATIC                      -1
 #define IDC_CONFIGURE1                  3
 #define IDC_CONFIGURE2                  4
 #define IDD_CONFDLG                     101

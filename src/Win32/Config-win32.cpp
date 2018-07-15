@@ -91,7 +91,6 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SendDlgItemMessageA(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			LoadConfig();
 			CheckDlgButton(hW, IDC_LOGGING, conf.Log);
-			CheckDlgButton(hW, IDC_DFP_PASS, conf.DFPPass);
 			//Selected emulated devices.
 			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"None");
 			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"None");
@@ -182,7 +181,6 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					return TRUE;
 				case IDOK:
 					conf.Log = IsDlgButtonChecked(hW, IDC_LOGGING);
-					conf.DFPPass = IsDlgButtonChecked(hW, IDC_DFP_PASS);
 					{
 						auto& regInst = RegisterDevice::instance();
 						int i;

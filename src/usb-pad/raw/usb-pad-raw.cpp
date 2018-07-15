@@ -86,6 +86,10 @@ void RawInputPad::WriterThread(void *ptr)
 		if (pad->mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000)))
 		{
 			res = WriteFile(pad->mUsbHandle, buf.data(), buf.size(), &written, &pad->mOLWrite);
+			uint8_t *d = buf.data();
+			OSDebugOut(TEXT("FFB %02X, %02X : %02X, %02X : %02X, %02X : %02X\n"),
+				d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
+
 			WaitForSingleObject(pad->mOLWrite.hEvent, 1000);
 			if (GetOverlappedResult(pad->mUsbHandle, &pad->mOLWrite, &written, FALSE))
 				OSDebugOut(TEXT("last write ffb: %d %d, written %d\n"), res, res2, written);
@@ -453,18 +457,15 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 
 int RawInputPad::Open()
 {
-	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
+	PHIDP_PREPARSED_DATA pPreparsedData = nullptr;
 
 	Close();
 
-	//TODO Better place?
 	LoadMappings(mapVector);
 
 	memset(&mOLRead, 0, sizeof(OVERLAPPED));
 	memset(&mOLWrite, 0, sizeof(OVERLAPPED));
 
-	//padState.initStage = 0;
-	mDoPassthrough = !!conf.DFPPass;//TODO per player
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
 	{
@@ -473,6 +474,11 @@ int RawInputPad::Open()
 			path = var.wstrValue;
 		else
 			return 1;
+	}
+	{
+		CONFIGVARIANT var(N_WHEEL_PT, CONFIG_TYPE_BOOL);
+		if (LoadSetting(mPort, APINAME, var))
+			mDoPassthrough = var.boolValue;
 	}
 
 	mUsbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
@@ -484,8 +490,9 @@ int RawInputPad::Open()
 		mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
 
 		HidD_GetAttributes(mUsbHandle, &(attr));
-		if (attr.VendorID != 0x046d) {
-			fwprintf(stderr, TEXT("Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
+		if (attr.VendorID != PAD_VID) {
+			fwprintf(stderr, TEXT("USBqemu [" APINAME "]: Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
+			mDoPassthrough = false;
 			Close();
 			return 0;
 		}
@@ -511,7 +518,7 @@ int RawInputPad::Open()
 		return 0;
 	}
 	else
-		fwprintf(stderr, L"Could not open device '%s'.\nPassthrough and FFB will not work.\n", path.c_str());
+		fwprintf(stderr, TEXT("USBqemu [" APINAME "]: Could not open device '%s'.\nPassthrough and FFB will not work.\n"), path.c_str());
 
 	return 0;
 }
