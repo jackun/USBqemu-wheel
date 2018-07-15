@@ -93,7 +93,7 @@ END
 IDD_DIALOG1 DIALOGEX 0, 0, 670, 309
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION 
-"Qemu USB DirectInput Wheel Mod by jackun/Racer_S/EC Sim Hardware v1.2.1"
+"Qemu USB DirectInput Wheel Mod by jackun/Racer_S/EC Sim Hardware"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     GROUPBOX        "STEER LEFT",IDC_GROUP4,6,18,186,36
