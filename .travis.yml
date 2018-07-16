@@ -14,10 +14,10 @@ branches:
 
 matrix:
   include:
-    - env: VERSION=6 BITS=32
+    - env: VERSION=8 BITS=32
       compiler: gcc
       os: linux
-    - env: VERSION=5 BITS=32
+    - env: VERSION=6 BITS=32
       compiler: gcc
       os: linux
     - env: VERSION=4.9 BITS=32
