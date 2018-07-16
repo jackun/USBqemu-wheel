@@ -553,22 +553,23 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 		usb_pad_raw::ParseRawInputHID(pRawInput);
 }
 
-void RegisterRaw(HWND hWnd, DWORD flags)
+void RegisterRaw(HWND hWnd)
 {
+	msgWindow = hWnd;
 	RAWINPUTDEVICE Rid[3];
 	Rid[0].usUsagePage = 0x01; 
 	Rid[0].usUsage = HID_USAGE_GENERIC_GAMEPAD; 
-	Rid[0].dwFlags = flags|RIDEV_INPUTSINK; // adds game pad
+	Rid[0].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds game pad
 	Rid[0].hwndTarget = hWnd;
 
 	Rid[1].usUsagePage = 0x01; 
 	Rid[1].usUsage = HID_USAGE_GENERIC_JOYSTICK; 
-	Rid[1].dwFlags = flags|RIDEV_INPUTSINK; // adds joystick
+	Rid[1].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds joystick
 	Rid[1].hwndTarget = hWnd;
 
 	Rid[2].usUsagePage = 0x01; 
 	Rid[2].usUsage = HID_USAGE_GENERIC_KEYBOARD; 
-	Rid[2].dwFlags = flags|RIDEV_INPUTSINK;// | RIDEV_NOLEGACY;   // adds HID keyboard and also !ignores legacy keyboard messages
+	Rid[2].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE;// | RIDEV_NOLEGACY;   // adds HID keyboard and also !ignores legacy keyboard messages
 	Rid[2].hwndTarget = hWnd;
 
 	if (RegisterRawInputDevices(Rid, 3, sizeof(Rid[0])) == FALSE) {
@@ -581,7 +582,7 @@ LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 {
 	switch(uMsg) {
 	case WM_CREATE:
-		if(eatenWnd == NULL) RegisterRaw(hWnd, 0);
+		if(eatenWnd == NULL) RegisterRaw(hWnd);
 		break;
 	case WM_INPUT:
 		{
@@ -598,7 +599,7 @@ LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		break;
 		}
 	case WM_DESTROY:
-		if(eatenWnd==NULL) RegisterRaw(hWnd, RIDEV_REMOVE);
+		if(eatenWnd==NULL) RegisterRaw(nullptr);
 		UninitWindow();
 		break;
 	}
@@ -634,8 +635,7 @@ int InitWindow(HWND hWnd)
 #if 1
 	if (!InitHid())
 		return 0;
-
-	RegisterRaw(hWnd, 0);
+	RegisterRaw(hWnd);
 	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
 	//hHookKB = SetWindowsHookEx(WH_KEYBOARD_LL, KBHookProc, hInst, 0);
 	int err = GetLastError();
@@ -656,11 +656,11 @@ void UninitWindow()
 		hHook = 0;
 	}
 	if(eatenWnd)
-		RegisterRaw(eatenWnd, RIDEV_REMOVE);
+		RegisterRaw(nullptr);
 	if(eatenWnd && eatenWndProc)
 		SetWindowLongPtr(eatenWnd, GWLP_WNDPROC, (LONG_PTR)eatenWndProc);
-	eatenWndProc = NULL;
-	eatenWnd = NULL;
+	eatenWndProc = nullptr;
+	eatenWnd = nullptr;
 }
 
 // ---------
