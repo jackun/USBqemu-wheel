@@ -341,14 +341,13 @@ void populateMappings(HWND hW)
 	lvItem.iItem = 0;
 	lvItem.iSubItem = 0;
 
-	MapVector::iterator it;
 	TCHAR tmp[256];
 	int m[3];
 
-	for(it = mapVector.begin(); it != mapVector.end(); ++it)
+	for (auto& it : mapVector)
 	{
 		//TODO feels a bit hacky
-		bool isKB = (it->devName == TEXT("Keyboard"));
+		bool isKB = (it.devName == TEXT("Keyboard"));
 		if(isKB)
 		{
 			m[0] = PAD_BUTTON_COUNT;
@@ -366,15 +365,15 @@ void populateMappings(HWND hW)
 		{
 			//if((*it).btnMap[i] >= PAD_BUTTON_COUNT)
 			//	continue;
-			int btn = it->btnMap[i];
+			int btn = it.btnMap[i];
 			int val = PLY_GET_VALUE(plyCapturing, btn);
 		
 			lvItem.iItem = ListView_GetItemCount(lv);
 			if(PLY_IS_MAPPED(plyCapturing, btn) /*&& val < PAD_BUTTON_COUNT*/)
 			{
-				swprintf_s(tmp, 255, L"%s", it->devName.c_str()); //TODO
+				swprintf_s(tmp, 255, L"%s", it.devName.c_str()); //TODO
 				lvItem.pszText = tmp;
-				lvItem.lParam = (LPARAM)&(it->btnMap[i]);
+				lvItem.lParam = (LPARAM)&(it.btnMap[i]);
 				ListView_InsertItem(lv, &lvItem);
 				swprintf_s(tmp, 255, L"P%d: Button %d", plyCapturing+1, isKB ? val : i);
 				ListView_SetItemText(lv, lvItem.iItem, 1, tmp);
@@ -386,17 +385,17 @@ void populateMappings(HWND hW)
 
 		for(int i = 0; i<m[1]; i++)
 		{
-			//if((*it).axisMap[i] >= PAD_AXIS_COUNT)
+			//if(it.axisMap[i] >= PAD_AXIS_COUNT)
 			//	continue;
-			int axis = it->axisMap[i];
+			int axis = it.axisMap[i];
 			int val = PLY_GET_VALUE(plyCapturing, axis);
 
 			if(PLY_IS_MAPPED(plyCapturing, axis)/* && val < PAD_AXIS_COUNT*/)
 			{
 				lvItem.iItem = ListView_GetItemCount(lv);
-				//swprintf_s(tmp, 255, L"%s", it->devName.c_str()); //TODO
-				lvItem.pszText = (LPWSTR)it->devName.c_str();
-				lvItem.lParam = (LPARAM)&(it->axisMap[i]);
+				//swprintf_s(tmp, 255, L"%s", it.devName.c_str()); //TODO
+				lvItem.pszText = (LPWSTR)it.devName.c_str();
+				lvItem.lParam = (LPARAM)&(it.axisMap[i]);
 				ListView_InsertItem(lv, &lvItem);
 
 				swprintf_s(tmp, 255, L"P%d: Axis %d", plyCapturing+1, isKB ? val : i);
@@ -409,14 +408,14 @@ void populateMappings(HWND hW)
 
 		for(int i = 0; i<m[2]; i++)
 		{
-			int hat = it->hatMap[i];
+			int hat = it.hatMap[i];
 			int val = PLY_GET_VALUE(plyCapturing, hat);
 
 			if(PLY_IS_MAPPED(plyCapturing, hat) /*&& val < PAD_HAT_COUNT*/)
 			{
 				lvItem.iItem = ListView_GetItemCount(lv);
-				lvItem.pszText = (LPWSTR)it->devName.c_str();
-				lvItem.lParam = (LPARAM)&(it->hatMap[i]);
+				lvItem.pszText = (LPWSTR)it.devName.c_str();
+				lvItem.lParam = (LPARAM)&(it.hatMap[i]);
 				ListView_InsertItem(lv, &lvItem);
 
 				swprintf_s(tmp, 255, L"P%d: Hat %d", plyCapturing+1, isKB ? val : i);
@@ -429,19 +428,6 @@ void populateMappings(HWND hW)
 	}
 
 }
-
-#define CHECKDIFF(x) \
-	if(axisPass2) {\
-		if((uint32_t)abs((int)(axisDiff[(int)x] - value)) > (logical >> 2)){\
-			mapping->axisMap[x] = PLY_SET_MAPPED(plyCapturing, axisCapturing);\
-			axisPass2 = false;\
-			OSDebugOut(TEXT("Selected axis %d\n"), x);\
-			swprintf_s(buf, TEXT("Captured wheel axis %d"), x); \
-			SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf); \
-			axisCapturing = PAD_AXIS_COUNT;\
-			goto Error;\
-		}\
-	break;}
 
 static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 {
@@ -460,14 +446,13 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 	std::wstring          devName;
 	//DevInfo_t            mapDevInfo;
 	Mappings             *mapping = NULL;
-	MapVector::iterator  it;
+	int axis;
 	TCHAR buf[256];
 	//std::pair<MappingsMap::iterator, bool> iter;
 
 	//
 	// Get the preparsed data block
 	//
-	
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
 	pSize = sizeof(devInfo);
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICEINFO, &devInfo, &pSize);
@@ -486,12 +471,12 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 		devName = name;
 		std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
 	}
-	
-	for(it = mapVector.begin(); it != mapVector.end(); ++it)
+
+	for (auto& it : mapVector)
 	{
-		if(it->hidPath == devName)
+		if (it.hidPath == devName)
 		{
-			mapping = &(*it);
+			mapping = &(it);
 			break;
 		}
 	}
@@ -551,7 +536,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 			CHECK( pButtonCaps = (PHIDP_BUTTON_CAPS)malloc(sizeof(HIDP_BUTTON_CAPS) * Caps.NumberInputButtonCaps) );
 
 			capsLength = Caps.NumberInputButtonCaps;
-			CHECK( HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
+			CHECK(HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS);
 			int numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
 
 			usageLength = numberOfButtons;
@@ -580,7 +565,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 			// Value caps
 			CHECK( pValueCaps = (PHIDP_VALUE_CAPS)malloc(sizeof(HIDP_VALUE_CAPS) * Caps.NumberInputValueCaps) );
 			capsLength = Caps.NumberInputValueCaps;
-			CHECK( HidP_GetValueCaps(HidP_Input, pValueCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS )
+			CHECK(HidP_GetValueCaps(HidP_Input, pValueCaps, &capsLength, pPreparsedData) == HIDP_STATUS_SUCCESS);
 
 			for(i = 0; i < Caps.NumberInputValueCaps && axisCapturing < PAD_AXIS_COUNT; i++)
 			{
@@ -592,40 +577,34 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 
 				uint32_t logical = pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin;
 
-				switch(pValueCaps[i].Range.UsageMin)
+				switch (pValueCaps[i].Range.UsageMin)
 				{
-				case 0x30:	// X-axis
-					CHECKDIFF(0);
-					axisDiff[0] = value;
-					break;
-
-				case 0x31:	// Y-axis
-					CHECKDIFF(1);
-					axisDiff[1] = value;
-					break;
-
-				case 0x32: // Z-axis
-					CHECKDIFF(2);
-					axisDiff[2] = value;
-					break;
-
-				case 0x33: // Rotate-X
-					CHECKDIFF(3);
-					axisDiff[3] = value;
-					break;
-
-				case 0x34: // Rotate-Y
-					CHECKDIFF(4);
-					axisDiff[4] = value;
-					break;
-
-				case 0x35: // Rotate-Z
-					CHECKDIFF(5);
-					axisDiff[5] = value;
+				case HID_USAGE_GENERIC_X:
+				case HID_USAGE_GENERIC_Y:
+				case HID_USAGE_GENERIC_Z:
+				case HID_USAGE_GENERIC_RX:
+				case HID_USAGE_GENERIC_RY:
+				case HID_USAGE_GENERIC_RZ:
+					axis = pValueCaps[i].Range.UsageMin - HID_USAGE_GENERIC_X;
+					if (axisPass2)
+					{
+						if ((uint32_t)abs((int)(axisDiff[axis] - value)) > (logical >> 2))
+						{
+							mapping->axisMap[axis] = PLY_SET_MAPPED(plyCapturing, axisCapturing);
+							axisPass2 = false;
+							OSDebugOut(TEXT("Selected axis %d\n"), axis);
+							swprintf_s(buf, TEXT("Captured wheel axis %d"), axis);
+							SendDlgItemMessage(dgHwnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+							axisCapturing = PAD_AXIS_COUNT;
+							goto Error;
+						}
+						break;
+					}
+					axisDiff[axis] = value;
 					break;
 
 				case 0x39:	// Hat Switch
-					if(value < 0x8) {
+					if (value < 0x8) {
 						mapping->axisMap[6] = PLY_SET_MAPPED(plyCapturing, axisCapturing);
 						axisPass2 = false;
 						OSDebugOut(TEXT("Selected hat switch\n"));
@@ -641,7 +620,6 @@ static void ParseRawInput(PRAWINPUT pRawInput, HWND hW)
 			axisPass2 = true;
 		}
 	}
-
 Error:
 	SAFE_FREE(pPreparsedData);
 	SAFE_FREE(pButtonCaps);
@@ -663,12 +641,35 @@ void resetState(HWND hW)
 	populateMappings(hW);
 }
 
+static void Register(HWND hW)
+{
+	RAWINPUTDEVICE rid[3];
+	rid[0].usUsagePage = 0x01;
+	rid[0].usUsage = 0x05;
+	rid[0].dwFlags = hW ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds game pad
+	rid[0].hwndTarget = hW;
+
+	rid[1].usUsagePage = 0x01;
+	rid[1].usUsage = 0x04;
+	rid[1].dwFlags = hW ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds joystick
+	rid[1].hwndTarget = hW;
+
+	rid[2].usUsagePage = 0x01;
+	rid[2].usUsage = 0x06;
+	rid[2].dwFlags = hW ? RIDEV_INPUTSINK /*| RIDEV_NOLEGACY*/ : RIDEV_REMOVE;   // adds HID keyboard and also ignores legacy keyboard messages
+	rid[2].hwndTarget = hW;
+
+	if (!RegisterRawInputDevices(rid, 3, sizeof(rid[0]))) {
+		SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)TEXT("Could not register raw input devices."));
+	}
+}
+
 BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 	TCHAR buf[256];
 	LVITEM lv;
 	RawDlgConfig *cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
-
+	int ret = 0;
 	switch(uMsg) {
 		case WM_INITDIALOG:
 			if(!InitHid())
@@ -677,26 +678,6 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
 			//SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			ListView_SetExtendedListViewStyle(GetDlgItem(hW, IDC_LIST1), LVS_EX_FULLROWSELECT);
-			
-			RAWINPUTDEVICE rid[3];
-			rid[0].usUsagePage = 0x01; 
-			rid[0].usUsage = 0x05; 
-			rid[0].dwFlags = RIDEV_INPUTSINK; // adds game pad
-			rid[0].hwndTarget = hW;
-
-			rid[1].usUsagePage = 0x01; 
-			rid[1].usUsage = 0x04; 
-			rid[1].dwFlags = RIDEV_INPUTSINK; // adds joystick
-			rid[1].hwndTarget = hW;
-
-			rid[2].usUsagePage = 0x01; 
-			rid[2].usUsage = 0x06; 
-			rid[2].dwFlags = RIDEV_INPUTSINK | RIDEV_NOLEGACY;   // adds HID keyboard and also ignores legacy keyboard messages
-			rid[2].hwndTarget = hW;
-
-			if (!RegisterRawInputDevices(rid, 3, sizeof(rid[0]))) {
-				SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)TEXT("Could not register raw input devices."));
-			}
 
 			//LoadConfig();
 			cfg = (RawDlgConfig *)lParam;
@@ -721,7 +702,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				if (LoadSetting(PLAYER_TWO_PORT, APINAME, var))
 					cfg->pt[1] = var.boolValue;
 			}
-
+			Register(hW);
 			LoadMappings(mapVector);
 			//if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
 			CheckDlgButton(hW, IDC_DFP_PASS, cfg->pt[0]);
@@ -730,28 +711,32 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			return TRUE;
 
 		case WM_INPUT:
-			if(axisCapturing == PAD_AXIS_COUNT &&
+			ret = S_FALSE;
+			if (axisCapturing != PAD_AXIS_COUNT ||
+				btnCapturing != PAD_BUTTON_COUNT ||
+				hatCapturing != PAD_HAT_COUNT)
+			{
+				ret = 0;
+				PRAWINPUT pRawInput;
+				UINT      bufferSize;
+				UINT      cbsize = sizeof(RAWINPUT);
+				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &bufferSize, sizeof(RAWINPUTHEADER));
+				pRawInput = (PRAWINPUT)malloc(bufferSize);
+				if (!pRawInput)
+					break;
+				if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0)
+					ParseRawInput(pRawInput, hW);
+				free(pRawInput);
+
+				if (axisCapturing == PAD_AXIS_COUNT &&
 					btnCapturing == PAD_BUTTON_COUNT &&
 					hatCapturing == PAD_HAT_COUNT)
-				break;
-
-			PRAWINPUT pRawInput;
-			UINT      bufferSize;
-			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &bufferSize, sizeof(RAWINPUTHEADER));
-			pRawInput = (PRAWINPUT)malloc(bufferSize);
-			if(!pRawInput)
-				break;
-			if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0)
-				ParseRawInput(pRawInput, hW);
-			free(pRawInput);
-
-			if(axisCapturing == PAD_AXIS_COUNT && 
-				btnCapturing == PAD_BUTTON_COUNT && 
-				hatCapturing == PAD_HAT_COUNT)
-			{
-				resetState(hW);
+				{
+					resetState(hW);
+				}
 			}
-			return 0;
+			DefWindowProc(hW, uMsg, wParam, lParam); //TODO should call for cleanup?
+			return ret;
 
 		case WM_KEYDOWN:
 			if(LOWORD(lParam) == VK_ESCAPE)
@@ -763,10 +748,6 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 		case WM_NOTIFY:
 			switch (((LPNMHDR)lParam)->code)
 			{
-			/*case LVN_KEYDOWN:
-				int k;
-				k = ((NMLVKEYDOWN*)lParam)->wVKey;
-				break;*/
 			case TCN_SELCHANGE:
 				switch (LOWORD(wParam))
 				{
@@ -778,6 +759,10 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				}
 				break;
 			}
+			break;
+		case WM_TIMER:
+			if (wParam == 1)
+				resetState(hW);
 			break;
 		case WM_COMMAND:
 			switch (HIWORD(wParam))
@@ -810,6 +795,29 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				}
 				break;
 			case BN_CLICKED:
+				if (axisCapturing == PAD_AXIS_COUNT &&
+					btnCapturing == PAD_BUTTON_COUNT &&
+					LOWORD(wParam) >= IDC_BUTTON13 &&
+					LOWORD(wParam) <= IDC_BUTTON16)
+				{
+					switch (LOWORD(wParam)) {
+					case IDC_BUTTON13:
+						hatCapturing = PAD_HAT_N;
+						break;
+					case IDC_BUTTON14:
+						hatCapturing = PAD_HAT_W;
+						break;
+					case IDC_BUTTON15:
+						hatCapturing = PAD_HAT_E;
+						break;
+					case IDC_BUTTON16:
+						hatCapturing = PAD_HAT_S;
+						break;
+					}
+					MSG_PRESS_ESC(hW);
+					SetTimer(hW, 1, 5000, nullptr);
+				}
+
 				switch(LOWORD(wParam)) {
 				case IDC_DFP_PASS:
 					cfg->pt[plyCapturing] = IsDlgButtonChecked(hW, IDC_DFP_PASS) > 0;
@@ -825,6 +833,8 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 						lv.iItem = sel;
 						lv.mask = LVIF_PARAM;
 						ListView_GetItem(lhW, &lv);
+						ListView_DeleteItem(lhW, sel);
+						ListView_EnsureVisible(lhW, sel, 0);
 
 						int *map = (int*)lv.lParam;
 						if (map)
@@ -844,45 +854,39 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 				case IDC_BUTTON10://start
 				case IDC_BUTTON11://L3
 				case IDC_BUTTON12://R3
-					btnCapturing = (PS2Buttons) (LOWORD(wParam) - IDC_BUTTON1);
-					MSG_PRESS_ESC(hW);
+					if (axisCapturing == PAD_AXIS_COUNT &&
+						hatCapturing == PAD_HAT_COUNT) {
+						btnCapturing = (PS2Buttons)(LOWORD(wParam) - IDC_BUTTON1);
+						MSG_PRESS_ESC(hW);
+						SetTimer(hW, 1, 5000, nullptr);
+					}
 					return TRUE;
 				case IDC_BUTTON17://x
 				case IDC_BUTTON18://y
 				case IDC_BUTTON19://z
 				case IDC_BUTTON20://rz
 				case IDC_BUTTON21://hat
-					axisCapturing = (PS2Axis) (LOWORD(wParam) - IDC_BUTTON17);
-					swprintf_s(buf, TEXT("Capturing for axis %u, press ESC to cancel"), axisCapturing);
-					SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+					if (btnCapturing == PAD_BUTTON_COUNT &&
+						hatCapturing == PAD_HAT_COUNT) {
+						axisCapturing = (PS2Axis)(LOWORD(wParam) - IDC_BUTTON17);
+						swprintf_s(buf, TEXT("Capturing for axis %u, press ESC to cancel"), axisCapturing);
+						SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)buf);
+						SetTimer(hW, 1, 5000, nullptr);
+					}
 					return TRUE;
-				case IDC_BUTTON13:
-					hatCapturing = PAD_HAT_N;
-					MSG_PRESS_ESC(hW);
-					break;
-				case IDC_BUTTON14:
-					hatCapturing = PAD_HAT_W;
-					MSG_PRESS_ESC(hW);
-					break;
-				case IDC_BUTTON15:
-					hatCapturing = PAD_HAT_E;
-					MSG_PRESS_ESC(hW);
-					break;
-				case IDC_BUTTON16:
-					hatCapturing = PAD_HAT_S;
-					MSG_PRESS_ESC(hW);
-					break;
 				case IDCANCEL:
 					if(btnCapturing < PAD_BUTTON_COUNT || 
 							axisCapturing < PAD_AXIS_COUNT || 
 							hatCapturing < PAD_HAT_COUNT)
 						return FALSE;
+					Register(nullptr);
 					EndDialog(hW, FALSE);
 					return TRUE;
 				case IDOK:
+					Register(nullptr);
 					cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
-					cfg->player_joys[0] = *(joysDev.begin() + selectedJoy[0]);
-					cfg->player_joys[1] = *(joysDev.begin() + selectedJoy[1]);
+					cfg->player_joys[0] = joysDev[selectedJoy[0]];
+					cfg->player_joys[1] = joysDev[selectedJoy[1]];
 
 					INT_PTR res = RESULT_OK;
 					{
@@ -912,6 +916,6 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 			
 	}
 
-	return FALSE;//DefWindowProc(hW, uMsg, wParam, lParam);
+	return S_OK;//DefWindowProc(hW, uMsg, wParam, lParam);
 }
 #undef APINAME

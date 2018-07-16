@@ -1,6 +1,5 @@
 #define pushAll __asm push eax __asm push ebx __asm push ecx __asm push edx __asm push esi __asm push edi 
 #define popAll  __asm pop  edi __asm pop  esi __asm pop  edx __asm pop  ecx __asm pop  ebx __asm pop  eax
-#define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
 
 
 #include <windows.h>

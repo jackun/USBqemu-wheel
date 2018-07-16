@@ -4,8 +4,8 @@
 #include "../qemu-usb/vl.h"
 #include "../configuration.h"
 
-#define CHECK(exp)		{ if(!(exp)) goto Error; }
-#define SAFE_FREE(p)	{ if(p) { free(p); (p) = NULL; } }
+#define CHECK(exp)		do{ if(!(exp)) goto Error; }while(0)
+#define SAFE_FREE(p)	do{ if(p) { free(p); (p) = NULL; } }while(0)
 
 #define S_CONFIG_JOY TEXT("Joystick")
 #define N_JOYSTICK TEXT("joystick")
