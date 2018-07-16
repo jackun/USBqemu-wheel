@@ -136,12 +136,6 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 	return len;
 }
 
-int NormalizeSteering(int pos, PS2WheelTypes type)
-{
-	int range = range_max(type);
-	return ((range >> 1) - pos) * DI_FFNOMINALMAX / (range >> 1);
-}
-
 int DInputPad::TokenOut(const uint8_t *data, int len)
 {
 	ff_data *ffdata = (ff_data*)data;
@@ -218,10 +212,10 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 				}
 				break;
 			case FTYPE_SPRING:
-				SetSpringForce(mPort, NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, false, isdfp);
+				SetSpringForce(mPort, ffdata->u.spring, false, isdfp);
 				break;
 			case FTYPE_HIGH_RESOLUTION_SPRING:
-				SetSpringForce(mPort, NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, true, isdfp);
+				SetSpringForce(mPort, ffdata->u.spring, true, isdfp);
 				break;
 			case FTYPE_VARIABLE: //Ramp-like
 				if (!calibrating)
@@ -232,15 +226,15 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 						SetConstantForce(mPort, ffdata->u.params[0]);
 				}
 				break;
-			case FTYPE_FRICTION:
+			/*case FTYPE_FRICTION:
 				SetFrictionForce(mPort, ffdata->u.friction);
 				break;
 			case FTYPE_DAMPER:
-				//SetDamper(mPort, ffdata->u.damper, false);
+				SetDamper(mPort, ffdata->u.damper, false);
 				break;
 			case FTYPE_HIGH_RESOLUTION_DAMPER:
-				//SetDamper(mPort, ffdata->u.damper, hires);
-				break;
+				SetDamper(mPort, ffdata->u.damper, isdfp);
+				break;*/
 			default:
 				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
 				break;
@@ -285,13 +279,13 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 						case FTYPE_AUTO_CENTER_SPRING:
 							DisableSpring(mPort);
 							break;
-						case FTYPE_FRICTION:
+						/*case FTYPE_FRICTION:
 							DisableFriction(mPort);
 							break;
 						case FTYPE_DAMPER:
 						case FTYPE_HIGH_RESOLUTION_DAMPER:
 							DisableDamper(mPort);
-							break;
+							break;*/
 						default:
 							OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
 							break;
@@ -302,18 +296,15 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 		}
 		break;
 		case CMD_DEFAULT_SPRING_ON: //0x04
-			OSDebugOut(TEXT("CMD_DEFAULT_SPRING_ON: unhandled cmd\n"));
+			OSDebugOut(TEXT("CMD_DEFAULT_SPRING_ON: slots 0x%X\n"), slots);
+			//if ((slots & 1) || (slots & 2))
+			AutoCenter(AXISID[mPort][0] / 8, true);
 			break;
 		case CMD_DEFAULT_SPRING_OFF: //0x05
 		{
-			if (slots == 0x0F) {
-				//just release force
-				SetConstantForce(mPort, 127);
-			}
-			else
-			{
-				OSDebugOut(TEXT("CMD_DEFAULT_SPRING_OFF: unhandled slots 0x%02X\n"), slots);
-			}
+			//if ((slots & 1) || (slots & 2))
+			AutoCenter(AXISID[mPort][0] / 8, false);
+			OSDebugOut(TEXT("CMD_DEFAULT_SPRING_OFF: slots 0x%X\n"), slots);
 		}
 		break;
 		case CMD_NORMAL_MODE: //0x08
@@ -336,10 +327,19 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 	else
 	{
 		// 0xF8, 0x05, 0x01, 0x00
-		if (ffdata->type == EXT_CMD_WHEEL_RANGE_900_DEGREES) {}
-		if (ffdata->type == EXT_CMD_WHEEL_RANGE_200_DEGREES) {}
-		OSDebugOut(TEXT("CMD_EXTENDED: unhandled cmd 0x%02X%02X%02X\n"),
-			ffdata->type, ffdata->u.params[0], ffdata->u.params[1]);
+		switch (ffdata->type) {
+			case EXT_CMD_WHEEL_RANGE_900_DEGREES:
+				{ OSDebugOut(TEXT("CMD_EXTENDED: unhandled set wheel 900 degrees\n")); }
+				break;
+			case EXT_CMD_WHEEL_RANGE_200_DEGREES:
+				{ OSDebugOut(TEXT("CMD_EXTENDED: unhandled set wheel 200 degrees\n")); }
+				break;
+			default:
+			{
+				OSDebugOut(TEXT("CMD_EXTENDED: unhandled cmd 0x%02X : %02X, %02X\n"),
+					ffdata->type, ffdata->u.params[0], ffdata->u.params[1]);
+			}
+		}
 	}
 	return len;
 }

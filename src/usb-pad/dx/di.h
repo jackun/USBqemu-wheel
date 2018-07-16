@@ -11,8 +11,8 @@ LPDIRECTINPUTDEVICE8 g_pKeyboard = NULL;
 LPDIRECTINPUTDEVICE8 g_pMouse	 = NULL;
 LPDIRECTINPUTDEVICE8 g_pJoysticks[10] = {NULL};
 
-DWORD rgdwAxes[2] = { DIJOFS_X,DIJOFS_Y };
-LONG  rglDirection[2] = { 1, 0 }; // {1,0} from Logitech SDK sample, maybe {0,0} is enough, DIEP_AXES|DIEP_DIRECTION isn't set anyway
+DWORD rgdwAxes[1] = { DIJOFS_X };
+LONG  rglDirection[1] = { 0 };
 
 //only two effect (constant force, spring)
 bool FFB[2] = { false };
@@ -100,22 +100,23 @@ void CreateFFB(int port, DWORD joy)
 		eff.dwGain = MIN(MAX(GAINZ[port][0], 0), 10000);
 		eff.dwTriggerButton = DIEB_NOTRIGGER;
 		eff.dwTriggerRepeatInterval = 0;
-		eff.cAxes = 1;
+		eff.cAxes = ARRAY_SIZE(rgdwAxes);
 		eff.rgdwAxes = rgdwAxes;
 		eff.rglDirection = rglDirection;
 		eff.dwStartDelay = 0;
 		eff.dwDuration = INFINITE;
+
+		// copy default values
+		effSpring = eff;
+		effFriction = eff;
+		effRamp = eff;
+		effDamper = eff;
 
 		cfw.lMagnitude = 0;
 
 		eff.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
 		eff.lpvTypeSpecificParams = &cfw;
 		g_pJoysticks[joy]->CreateEffect(GUID_ConstantForce, &eff, &g_pEffect[port], NULL);
-
-		effSpring = eff;
-		effFriction = eff;
-		effRamp = eff;
-		effDamper = eff;
 
 		cSpring.lNegativeCoefficient = 0;
 		cSpring.lPositiveCoefficient = 0;
@@ -146,7 +147,7 @@ void CreateFFB(int port, DWORD joy)
 	if (g_pEffect[port])
 	{
 		OSDebugOut(TEXT("DINPUT: Start Effect\n"));
-		g_pEffect[port]->SetParameters(&eff, DIEP_START);
+		g_pEffect[port]->SetParameters(&eff, DIEP_START | DIEP_GAIN | DIEP_AXES | DIEP_DIRECTION);
 	}
 }
 
@@ -197,7 +198,8 @@ BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
 BOOL CALLBACK EnumObjectsCallback( const DIDEVICEOBJECTINSTANCE* pdidoi,
                                    VOID* pContext )
 {
-
+    HRESULT hr;
+    LPDIRECTINPUTDEVICE8 pWheel = (LPDIRECTINPUTDEVICE8)pContext;
     // For axes that are returned, set the DIPROP_RANGE property for the
     // enumerated axis in order to scale min/max values.
     if( pdidoi->dwType & DIDFT_AXIS )
@@ -207,13 +209,30 @@ BOOL CALLBACK EnumObjectsCallback( const DIDEVICEOBJECTINSTANCE* pdidoi,
         diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
         diprg.diph.dwHow        = DIPH_BYID;
         diprg.diph.dwObj        = pdidoi->dwType; // Specify the enumerated axis
-        diprg.lMin              = -1000;
-        diprg.lMax              = +1000;
+        diprg.lMin              = 0;
+        diprg.lMax              = 65535;
 
         // Set the range for the axis  (not used, DX defaults 65535 all axis)
-        //if( FAILED( g_pJoystick->SetProperty( DIPROP_RANGE, &diprg.diph ) ) )
-        //    return DIENUM_STOP;
+        if (FAILED(hr = pWheel->SetProperty(DIPROP_RANGE, &diprg.diph)))
+            return DIENUM_STOP;
 
+        //DIPROPDWORD dipdw;
+        //dipdw.diph.dwSize = sizeof(DIPROPDWORD);
+        //dipdw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+        //dipdw.diph.dwHow = DIPH_BYID; //DIPH_DEVICE;
+        //dipdw.diph.dwObj = pdidoi->dwType; //0;
+        //dipdw.dwData = DIPROPAXISMODE_ABS;
+
+        //if (FAILED(hr = pWheel->SetProperty(DIPROP_AXISMODE, &dipdw.diph)))
+        //    return DIENUM_CONTINUE;
+
+        //dipdw.dwData = 0;
+        //if (FAILED(hr = pWheel->SetProperty(DIPROP_DEADZONE, &dipdw.diph)))
+        //    return DIENUM_CONTINUE;
+
+        //dipdw.dwData = DI_FFNOMINALMAX;
+        //if (FAILED(hr = pWheel->SetProperty(DIPROP_SATURATION, &dipdw.diph)))
+        //    return DIENUM_CONTINUE;
     }
 
     return DIENUM_CONTINUE;
@@ -616,7 +635,7 @@ void AutoCenter(int jid, bool onoff)
 	dipdw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
 	dipdw.diph.dwObj        = 0;
 	dipdw.diph.dwHow        = DIPH_DEVICE;
-	dipdw.dwData            = onoff;
+	dipdw.dwData            = onoff ? DIPROPAUTOCENTER_ON : DIPROPAUTOCENTER_OFF;
 
 	g_pJoysticks[jid]->SetProperty( DIPROP_AUTOCENTER, &dipdw.diph );
 }
@@ -625,6 +644,7 @@ void AutoCenter(int jid, bool onoff)
 extern void InitDI(int port);
 void SetConstantForce(int port, LONG magnitude)
 {
+	OSDebugOut(TEXT("constant force: %d\n"), magnitude);
 	if (FFBindex[port] == -1) return;
 
 	if(INVERTFORCES[port])
@@ -702,7 +722,7 @@ void DisableRamp(int port)
 }
 
 //set spring offset  (not used by ps2? only rfactor pc i think.  using as centering spring hack)
-void SetSpringForce(int port, int position, const spring& spring, bool hires, bool isdfp)
+void SetSpringForce(int port, const spring& spring, bool hires, bool isdfp)
 {
 	// broken maths by reversing linux ff-memless-next patch
 	int deadband, center;
@@ -714,11 +734,12 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires, bo
 
 	if (hires) //XXX enthusia doesn't set deadbands' low bits though
 	{
+		// XXX After some testing this seems to be mostly working
 		dead1 = (dead1 << 3) | ((spring.s1 >> 1) & 0x7);
 		dead2 = (dead2 << 3) | ((spring.s2 >> 1) & 0x7);
 
 		//deadband = (dead2 << 5) - (dead1 << 5);
-		deadband = (dead2 * DI_FFNOMINALMAX / 1024) - (dead1 * DI_FFNOMINALMAX / 1024);
+		deadband = ((dead2 * DI_FFNOMINALMAX / 1024) - (dead1 * DI_FFNOMINALMAX / 1024)) / 2; //TODO check math why it seems to need to be divided by 2
 
 		//center = ((dead2 << 5) - 0x8000 + (dead1 << 5) - 0x8000 ) / 2;
 		//center = (((dead2 + dead1) << 5) - 0x10000) / 2; //or above reduced
@@ -727,7 +748,7 @@ void SetSpringForce(int port, int position, const spring& spring, bool hires, bo
 	}
 	else
 	{
-		deadband = (dead2 * DI_FFNOMINALMAX / 128) - (dead1 * DI_FFNOMINALMAX / 128);
+		deadband = ((dead2 * DI_FFNOMINALMAX / 128) - (dead1 * DI_FFNOMINALMAX / 128)) / 2; //TODO check math why it seems to need to be divided by 2 (assumed from hires code :P)
 		center = ((dead2 + dead1) * DI_FFNOMINALMAX / 128 - (2 * DI_FFNOMINALMAX)) / 2;
 	}
 
@@ -786,8 +807,8 @@ void SetDamper(int port, const damper& damper, bool isdfp)
 	//noidea(TM)
 	cDamper.lNegativeCoefficient = DI_FFNOMINALMAX * damper.k1 / 15 * (damper.s1 & 1 ? -1 : 1);
 	cDamper.lPositiveCoefficient = DI_FFNOMINALMAX * damper.k2 / 15 * (damper.s2 & 1 ? -1 : 1);
-	cDamper.dwNegativeSaturation = 0;
-	cDamper.dwPositiveSaturation = 0;
+	cDamper.dwNegativeSaturation = DI_FFNOMINALMAX;
+	cDamper.dwPositiveSaturation = DI_FFNOMINALMAX;
 
 	if (isdfp)
 	{
@@ -818,23 +839,23 @@ void SetSpringSlopeForce(int port, const spring& spring)
 		g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
 
+//LG driver converts it into high-precision damper instead, hmm
 void SetFrictionForce(int port, const friction& frict)
 {
 	//noideaTM
 	cFriction.lOffset = 0;
-	if (frict.s1 & 1)
-		cFriction.lNegativeCoefficient =  (127 - (255 - frict.k1)) * DI_FFNOMINALMAX / 127;
-	else
-		cFriction.lNegativeCoefficient = (127 - frict.k1) * DI_FFNOMINALMAX / 127;
-	cFriction.lNegativeCoefficient = cFriction.lNegativeCoefficient * frict.clip / 255;
-	cFriction.lPositiveCoefficient = cFriction.lNegativeCoefficient;
-
-	if (frict.s2 & 1)
-		cFriction.dwNegativeSaturation = (255 - frict.k2) * DI_FFNOMINALMAX / 255;
-	else
-		cFriction.dwNegativeSaturation = (frict.k2) * DI_FFNOMINALMAX / 255;
-	cFriction.dwPositiveSaturation = cFriction.dwNegativeSaturation;
 	cFriction.lDeadBand = 0;
+	int s1 = frict.s1 & 1 ? -1 : 1;
+	int s2 = frict.s2 & 1 ? -1 : 1;
+
+	cFriction.lNegativeCoefficient = frict.k1 * DI_FFNOMINALMAX / 255 * s1;
+	cFriction.lPositiveCoefficient = frict.k2 * DI_FFNOMINALMAX / 255 * s2;
+
+	//cFriction.lNegativeCoefficient = cFriction.lNegativeCoefficient * frict.clip / 255;
+	//cFriction.lPositiveCoefficient = cFriction.lPositiveCoefficient * frict.clip / 255;
+
+	cFriction.dwNegativeSaturation = DI_FFNOMINALMAX * frict.clip / 255;
+	cFriction.dwPositiveSaturation = cFriction.dwNegativeSaturation;
 
 	if (g_pEffectFriction[port])
 		g_pEffectFriction[port]->SetParameters(&effFriction, DIEP_TYPESPECIFICPARAMS | DIEP_START);
@@ -933,9 +954,16 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 				//Exclusive
 				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
 
-				AutoCenter(i, false);  //just keep it off for all wheels
+				AutoCenter(i, false); //TODO some games set autocenter. Figure out default for ones that don't.
 
 				CreateFFB(port, i);
+
+				/*DIDEVICEINSTANCE instance_;
+				ZeroMemory(&instance_, sizeof(DIDEVICEINSTANCE));
+				instance_.dwSize = sizeof(DIDEVICEINSTANCE);
+				g_pJoysticks[i]->GetDeviceInfo(&instance_);
+				std::stringstream str;
+				str << instance_.guidInstance;*/
 
 			}
 			else
@@ -944,7 +972,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			if (refCount == 1)
 			{
 				OSDebugOut(TEXT("DINPUT: EnumObjects Joystick %i\n"), i);
-				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, (VOID*)hWindow, DIDFT_ALL);
+				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, g_pJoysticks[i], DIDFT_ALL);
 				OSDebugOut(TEXT("DINPUT: Acquire Joystick %i\n"), i);
 				g_pJoysticks[i]->Acquire();
 			}
