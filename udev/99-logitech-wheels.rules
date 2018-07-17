@@ -1,0 +1,30 @@
+# Set permissions read/write for "input" group.
+# Copy this file to /etc/udev/rules.d/ and unplug/replug you device.
+# PID/VID must be lower case hexadecimals.
+
+# WingMan Formula (Yellow)
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c202", MODE="0660", GROUP="input"
+# Formula GP
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c20e", MODE="0660", GROUP="input"
+# WingMan Formula Force GP
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c293", MODE="0660", GROUP="input"
+# Driving Force / EX / RX / Formula Force EX
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c294", MODE="0660", GROUP="input"
+# MOMO Force
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c295", MODE="0660", GROUP="input"
+# Driving Force Pro
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c298", MODE="0660", GROUP="input"
+# G25
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c299", MODE="0660", GROUP="input"
+# Driving Force GT
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29a", MODE="0660", GROUP="input"
+# G27
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29b", MODE="0660", GROUP="input"
+# MOMO Racing
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="ca03", MODE="0660", GROUP="input"
+# Racing wheel
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="ca04", MODE="0660", GROUP="input"
+# G29
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c24f", MODE="0660", GROUP="input"
+# G920
+KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c262", MODE="0660", GROUP="input"
