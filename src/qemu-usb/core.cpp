@@ -135,7 +135,6 @@ static void do_token_setup(USBDevice *s, USBPacket *p)
         return;
     }
 
-    fprintf(stderr, "do_token_setup %d\n", p->iov.size);
     usb_packet_copy(p, s->setup_buf, p->iov.size);
     s->setup_index = 0;
     p->actual_length = 0;
