@@ -21,7 +21,11 @@ public:
 private:
 	int mHandle;
 	ff_effect mEffConstant;
+	ff_effect mEffRumble;
 	ff_state mFFstate;
+
+	bool mUseRumble;
+	int mLastValue;
 };
 
 #endif
