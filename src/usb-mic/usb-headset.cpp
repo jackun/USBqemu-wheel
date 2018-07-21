@@ -896,12 +896,12 @@ static void headset_handle_data(USBDevice *dev, USBPacket *p)
             {
                 if (inChns == outChns)
                 {
-                    for (int cn = 0; cn < outChns; cn++)
+                    for (uint32_t cn = 0; cn < outChns; cn++)
                         s->out_buffer[i * outChns + cn] = SetVolume(src[i * inChns + cn], s->f.out.vol[cn]);
                 }
                 else if (inChns < outChns)
                 {
-                    for (int cn = 0; cn < outChns; cn++)
+                    for (uint32_t cn = 0; cn < outChns; cn++)
                         s->out_buffer[i * outChns + cn] = SetVolume(src[i * inChns], s->f.out.vol[cn]);
                 }
             }
