@@ -11,12 +11,13 @@ GtkWidget *new_combobox(const char* label, GtkWidget *vbox);
 struct ApiCallbacks
 {
 	void (*populate)(vstring& jsdata);
-	bool (*poll)(const std::string &joypath, bool isaxis, int& value);
+	bool (*poll)(const std::string &joypath, bool isaxis, int& value, bool& inverted);
 };
 
 struct ConfigData
 {
 	std::vector<uint16_t> mappings;
+	bool inverted[3];
 	vstring joysticks;
 	vstring::const_iterator js_iter;
 	GtkWidget *label;
@@ -81,5 +82,5 @@ static const char* JoystickMapNames [] = {
 struct Point { int x; int y; JoystickMap type; };
 
 int GtkPadConfigure(int port, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings);
-bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings);
+bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
+bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);

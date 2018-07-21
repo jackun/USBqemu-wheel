@@ -33,7 +33,8 @@ protected:
 	int mHandleFF;
 	EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
-	uint8_t  mAxisMap[ABS_MAX + 1];
+	uint8_t mAxisMap[ABS_MAX + 1];
+	bool mAxisInverted[3];
 	uint16_t mBtnMap[KEY_MAX + 1];
 	int mAxisCount;
 	int mButtonCount;

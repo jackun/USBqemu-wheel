@@ -54,8 +54,8 @@ protected:
 	int mHidHandle;
 	EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
-	uint8_t  mAxisMap[ABS_MAX + 1];
-	uint8_t  mAxisInverted[ABS_MAX + 1];
+	uint8_t mAxisMap[ABS_MAX + 1];
+	bool mAxisInverted[3];
 	//uint8_t
 	uint16_t mBtnMap[KEY_MAX + 1];
 	struct axis_correct mAbsCorrect[ABS_MAX];

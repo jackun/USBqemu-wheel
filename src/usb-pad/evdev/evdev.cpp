@@ -88,7 +88,7 @@ void EvDevPad::SetAxis(int event_code, int value)
 	switch (code)
 	{
 		case 0x80 | JOY_STEERING:
-		case ABS_X: mWheelData.steering = NORM(value, range); break;
+		case ABS_X: mWheelData.steering = mAxisInverted[0] ? range - NORM(value, range) : NORM(value, range); break;
 		//case ABS_Y: mWheelData.clutch = NORM(value, 0xFF); break; //no wheel on PS2 has one, afaik
 		//case ABS_RX: mWheelData.axis_rx = NORM(event.value, 0xFF); break;
 		case ABS_RY:
@@ -105,7 +105,7 @@ void EvDevPad::SetAxis(int event_code, int value)
 			/*if (mIsGamepad)
 				mWheelData.brake = 0xFF - NORM(value, 0xFF);
 			else*/
-				mWheelData.throttle = NORM(value, 0xFF);
+				mWheelData.throttle = mAxisInverted[1] ? NORM(value, 0xFF) : 0xFF - NORM(value, 0xFF);
 		break;
 		case 0x80 | JOY_BRAKE:
 		case ABS_RZ:
@@ -114,7 +114,7 @@ void EvDevPad::SetAxis(int event_code, int value)
 			else if (mIsDualAnalog)
 				goto treat_me_like_ABS_RY;
 			else*/
-				mWheelData.brake = NORM(value, 0xFF);
+				mWheelData.brake = mAxisInverted[2] ? NORM(value, 0xFF) : 0xFF - NORM(value, 0xFF);
 		break;
 
 		//TODO hatswitch mapping maybe
@@ -364,7 +364,7 @@ int EvDevPad::Open()
 	if (GetEvdevName(joypath, buf)) {
 		name << buf;
 		name << " (evdev)";
-		LoadMappings(mPort, name.str().c_str(), mMappings);
+		LoadMappings(mPort, name.str().c_str(), mMappings, mAxisInverted);
 	}
 
 	if ((mHandle = open(joypath.c_str(), O_RDWR | O_NONBLOCK)) < 0)
@@ -452,7 +452,7 @@ int EvDevPad::Open()
 				}
 			}
 
-			//TODO joystick/gamepad is dual an#include "readerwriterqueue/readerwriterqueue.h"alog?
+			//TODO joystick/gamepad is dual analog?
 			if (i == ABS_RZ) {
 				//absinfo.value = AxisCorrect(mAbsCorrect[i], absinfo.value);
 				if (std::abs(absinfo.value) < 200) /* 200 is random, allows for some dead zone */
@@ -550,15 +550,13 @@ void EvDevPad::WriterThread(void *ptr)
 
 	while (pad->mHidHandle != -1)
 	{
-		//if (pad->mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000)))
+		//if (pad->mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000))) //FIXME SIGABORT :S
 		if (pad->mFFData.try_dequeue(buf))
 		{
 			res = write(pad->mHidHandle, buf.data(), buf.size());
 			if (res < 0) {
 				printf("Error: %d\n", errno);
 				perror("write");
-			} else {
-				printf("write() wrote %d bytes\n", res);
 			}
 		} else {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));

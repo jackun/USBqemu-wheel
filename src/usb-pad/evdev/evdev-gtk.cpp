@@ -58,7 +58,7 @@ static void PopulateJoysticks(vstring& jsdata)
 	closedir(dirp);
 }
 
-static bool PollInput(const std::string &joypath, bool isaxis, int& value)
+static bool PollInput(const std::string &joypath, bool isaxis, int& value, bool& inverted)
 {
 	int fd;
 	ssize_t len;
@@ -71,6 +71,8 @@ static bool PollInput(const std::string &joypath, bool isaxis, int& value)
 		OSDebugOut("Cannot open joystick: %s\n", joypath.c_str());
 		return false;
 	}
+
+	inverted = false;
 
 	// empty event queue
 	while ((len = read(fd, &event, sizeof(event))) > 0);
@@ -136,10 +138,11 @@ static bool PollInput(const std::string &joypath, bool isaxis, int& value)
 				{
 					int ac_val = AxisCorrect(abs_correct[event.code], event.value);
 					int diff = ac_val - val.value;
-					OSDebugOut("Axis value difference: %d, corrected %d raw %d\n", diff, ac_val, event.value);
-					if (std::abs(diff) > 900)
+					OSDebugOut("Axis %d value difference: %d, corrected %d raw %d\n", event.code, diff, ac_val, event.value);
+					if (std::abs(diff) > 2047)
 					{
 						value = event.code;
+						inverted = (diff < 0);
 						break;
 					}
 				}

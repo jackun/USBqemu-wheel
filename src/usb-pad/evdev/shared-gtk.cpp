@@ -12,7 +12,7 @@ using ms = std::chrono::milliseconds;
 #define JOYTYPE "joytype"
 #define CFG "cfg"
 
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
+bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3])
 {
 	assert(JOY_MAPS_COUNT == ARRAY_SIZE(JoystickMapNames));
 	if (joyname.empty())
@@ -25,16 +25,30 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.clear();
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
-		CONFIGVARIANT var(str.str().c_str(), CONFIG_TYPE_INT);
+		const std::string& name = str.str();
+		CONFIGVARIANT var(name.c_str(), CONFIG_TYPE_INT);
 		if (LoadSetting(port, joyname, var))
 			mappings.push_back(var.intValue);
 		else
 			mappings.push_back(-1);
 	}
+
+	for (int i=0; i<3; i++)
+	{
+		str.clear();
+		str.str("");
+		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
+		const std::string& name = str.str();
+		CONFIGVARIANT var(name.c_str(), CONFIG_TYPE_BOOL);
+		if (LoadSetting(port, joyname, var))
+			inverted[i] = var.boolValue;
+		else
+			inverted[i] = false;
+	}
 	return true;
 }
 
-bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings)
+bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3])
 {
 	assert(JOY_MAPS_COUNT == ARRAY_SIZE(JoystickMapNames));
 	if (joyname.empty() || mappings.size() != JOY_MAPS_COUNT)
@@ -50,7 +64,19 @@ bool SaveMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.clear();
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
-		CONFIGVARIANT var(str.str().c_str(), static_cast<int32_t>(mappings[i]));
+		const std::string& name = str.str();
+		CONFIGVARIANT var(name.c_str(), static_cast<int32_t>(mappings[i]));
+		if (!SaveSetting(port, joyname, var))
+			return false;
+	}
+
+	for (int i=0; i<3; i++)
+	{
+		str.clear();
+		str.str("");
+		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
+		const std::string& name = str.str();
+		CONFIGVARIANT var(name.c_str(), inverted[i]);
 		if (!SaveSetting(port, joyname, var))
 			return false;
 	}
@@ -89,7 +115,7 @@ static void joystick_changed (GtkComboBox *widget, gpointer data)
 
 	if (idx > 0)
 	{
-		LoadMappings(port, name, cfg->mappings);
+		LoadMappings(port, name, cfg->mappings, cfg->inverted);
 		refresh_store(cfg);
 	}
 	OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
@@ -104,6 +130,7 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 	if (cfg && type < cfg->mappings.size() && cfg->js_iter != cfg->joysticks.end())
 	{
 		int value;
+		bool inverted = false;
 		bool isaxis = (type >= JOY_STEERING && type <= JOY_BRAKE);
 		gtk_label_set_text (GTK_LABEL (cfg->label), "Polling for input...");
 		OSDebugOut("%s isaxis:%d %s\n" , cfg->js_iter->second.c_str(), isaxis, JoystickMapNames[type]);
@@ -112,9 +139,11 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 		while (gtk_events_pending ())
 			gtk_main_iteration_do (FALSE);
 
-		if (cfg->cb->poll(cfg->js_iter->second, isaxis, value))
+		if (cfg->cb->poll(cfg->js_iter->second, isaxis, value, inverted))
 		{
 			cfg->mappings[type] = value;
+			if (isaxis)
+				cfg->inverted[type - JOY_STEERING] = inverted;
 			refresh_store(cfg);
 		}
 		gtk_label_set_text (GTK_LABEL (cfg->label), "");
@@ -227,7 +256,7 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 			sel_idx = idx;
 			if (idx > 0)
 			{
-				LoadMappings (port, it.first, cfg.mappings);
+				LoadMappings (port, it.first, cfg.mappings, cfg.inverted);
 				refresh_store(&cfg);
 			}
 		}
@@ -335,7 +364,7 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 				ret = RESULT_FAILED;
 
 			if (cfg.js_iter != cfg.joysticks.begin()) // if not "None"
-				SaveMappings(port, cfg.js_iter->first, cfg.mappings);
+				SaveMappings(port, cfg.js_iter->first, cfg.mappings, cfg.inverted);
 			if (is_evdev) {
 				CONFIGVARIANT var(N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
 				SaveSetting(port, apiname, var);

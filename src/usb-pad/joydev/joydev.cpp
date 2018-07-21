@@ -31,7 +31,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 				switch (mAxisMap[event.number])
 				{
 					case 0x80 | JOY_STEERING:
-					case ABS_X: mWheelData.steering = NORM(event.value, range); break;
+					case ABS_X: mWheelData.steering = mAxisInverted[0] ? range - NORM(event.value, range) : NORM(event.value, range); break;
 					case ABS_Y: mWheelData.clutch = NORM(event.value, 0xFF); break;
 					//case ABS_RX: mWheelData.axis_rx = NORM(event.value, 0xFF); break;
 					case ABS_RY:
@@ -48,7 +48,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 						if (mIsGamepad)
 							mWheelData.brake = 0xFF - NORM(event.value, 0xFF);
 						else
-							mWheelData.throttle = NORM(event.value, 0xFF);
+							mWheelData.throttle = mAxisInverted[1] ? NORM(event.value, 0xFF) : 0xFF - NORM(event.value, 0xFF);
 					break;
 					case 0x80 | JOY_BRAKE:
 					case ABS_RZ:
@@ -57,7 +57,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 						else if (mIsDualAnalog)
 							goto treat_me_like_ABS_RY;
 						else
-							mWheelData.brake = NORM(event.value, 0xFF);
+							mWheelData.brake = mAxisInverted[2] ? NORM(event.value, 0xFF) : 0xFF - NORM(event.value, 0xFF);
 					break;
 
 					//FIXME hatswitch mapping maybe
@@ -99,7 +99,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 				else if (mBtnMap[event.number] >= BTN_TRIGGER &&
 					mBtnMap[event.number] < BTN_BASE5)
 				{
-					button = (PS2Buttons)((mBtnMap[event.number] - BTN_TRIGGER) & ~0x8000);
+					button = (PS2Buttons)(mBtnMap[event.number] - BTN_TRIGGER);
 				}
 				else
 				{
@@ -224,7 +224,7 @@ int JoyDevPad::Open()
 	{
 		char name[1024];
 		GetJoystickName(joypath, name);
-		LoadMappings(mPort, name, mMappings);
+		LoadMappings(mPort, name, mMappings, mAxisInverted);
 
 		if ((mHandle = open(joypath.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
