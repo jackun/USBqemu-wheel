@@ -94,12 +94,14 @@ linux_64_script() {
 
 linux_after_success() {
 	for file in ../*.deb; do
-		mv -v "${file}" "${file%%.deb}-${CC}-${VERSION}.deb"
+		mv -v "${file}" "${file%%.deb}-${CC}-${VERSION}-${TARGET_DISTRIB}.deb"
 	done
 	ccache -s
 }
 
 # Just in case I do manual testing and accidentally insert "rm -rf /"
+# Run manually with:
+# TARGET_DISTRIB=[ubuntu|debian] TRAVIS_OS_NAME=linux BITS=32 VERSION=8 CC=gcc CXX=g++ ./travis.sh [before_script | script]
 case "${1}" in
 before_install|script)
 	${TRAVIS_OS_NAME}_${BITS}_${1}

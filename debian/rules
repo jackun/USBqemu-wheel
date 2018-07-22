@@ -11,7 +11,7 @@ endif
 
 autogen-files := debian/install
 
-debian/%: debian/%.in
+debian/%: debian/%-$(TARGET_DISTRIB).in
 	sed -e 's/$${DEB_HOST_MULTIARCH}/$(DEB_HOST_MULTIARCH)/g' $< > $@
 
 override_dh_auto_configure: $(autogen-files)
@@ -19,13 +19,13 @@ override_dh_auto_configure: $(autogen-files)
 		-DPACKAGING=ON \
 		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
 		-DCMAKE_TOOLCHAIN_FILE=cmake/linux-compiler-i386-multilib.cmake \
-		-DCMAKE_INSTALL_PREFIX=/usr/lib/i386-linux-gnu/pcsx2
+		-DCMAKE_INSTALL_PREFIX=/usr/lib/${DEB_HOST_MULTIARCH}/pcsx2
 
 override_dh_strip:
 	dh_strip -plibusbqemu-wheel-unstable --dbg-package=libusbqemu-wheel-unstable-dbg
 
 override_dh_shlibdeps:
-	dh_shlibdeps -l/lib/i386-linux-gnu:/usr/lib/i386-linux-gnu
+	dh_shlibdeps -l/lib/${DEB_HOST_MULTIARCH}:/usr/lib/${DEB_HOST_MULTIARCH}
 
 override_dh_builddeb:
 	dh_builddeb -- -Zxz

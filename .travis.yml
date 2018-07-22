@@ -14,18 +14,30 @@ branches:
 
 matrix:
   include:
-    - env: VERSION=8 BITS=32
+    # Debian 9.0+
+    - env: VERSION=8 BITS=32 TARGET_DISTRIB=debian
       compiler: gcc
       os: linux
-    - env: VERSION=6 BITS=32
+    # Ubuntu 18.04+
+    - env: VERSION=8 BITS=32 TARGET_DISTRIB=ubuntu
       compiler: gcc
       os: linux
-    - env: VERSION=4.9 BITS=32
+    # Ubuntu 18.04 LTS gcc 7.3
+    - env: VERSION=7 BITS=32 TARGET_DISTRIB=ubuntu
       compiler: gcc
       os: linux
-#    - env: VERSION=4.9 BITS=64
-#      compiler: gcc
-#      os: linux
+    # Debian 9.0 (stretch) gcc 6.3
+    - env: VERSION=6 BITS=32 TARGET_DISTRIB=debian
+      compiler: gcc
+      os: linux
+    # Ubuntu 16.04.5 gcc 5.4
+    - env: VERSION=5 BITS=32 TARGET_DISTRIB=ubuntu
+      compiler: gcc
+      os: linux
+    # Ubuntu 14.04 LTS (libstdc++6 < 5)
+    - env: VERSION=4.9 BITS=32 TARGET_DISTRIB=ubuntu
+      compiler: gcc
+      os: linux
 
 before_install:
   - ./travis.sh before_install

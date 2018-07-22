@@ -1,0 +1,2 @@
+usr/lib/${DEB_HOST_MULTIARCH}/pcsx2/libUSBqemu-wheel*.so  usr/lib/games/PCSX2/
+usr/share/doc
