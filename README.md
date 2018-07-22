@@ -12,12 +12,17 @@ PCSX2 usb plugin based on linuzappz, shadow, gigaherz et al. usb plugin using us
 USB packets with FFB commands are passed staight to the wheel when using raw input API mode.
 As they are pretty much vendor specific, force feedback probably works with Logitech wheels only.
 
-As such, DInput (DirectX) mode is recommended.
+As such, DInput (DirectX) mode is recommended for non-Logitech wheels.
 
 Linux note: if joystick is type of "gamepad" (xbox etc) then analog sticks/buttons should work mostly out-of-the-box.
 No rumble effect though yet. Also axis input is (too) linear so steering is a little _spazzy_.
 
 For info about Logitech's FF protocol, go to https://opensource.logitech.com/opensource/index.php/Technical_Information
+
+Linux Hidraw support
+-------
+
+Raw force feedback commands can be sent directly to Logitech wheels that support it when using `evdev` API through `hidraw` device. Copy the udev rule to (usually) `/etc/udev/rules.d`. Add your account to `plugdev` group if it is not already or modify the udev rules to fit your needs.
 
 Mass storage device
 =======
