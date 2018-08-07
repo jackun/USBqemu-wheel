@@ -566,7 +566,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 			std::vector<int16_t> dst_alloc(0); //TODO
 			size_t len = p->iov.size;
 			//Divide 'len' bytes between 2 channels of 16 bits
-			uint32_t maxPerChnFrames = len / (outChns * sizeof(uint16_t));
+			uint32_t max_frames = len / (outChns * sizeof(uint16_t));
 
 			if (p->iov.niov == 1)
 				dst = (int16_t *)p->iov.iov[0].iov_base;
@@ -580,11 +580,11 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 
 			for(int i = 0; i<2; i++)
 			{
-				frames = maxPerChnFrames;
+				frames = max_frames;
 				if(s->audsrc[i] &&
 					s->audsrc[i]->GetFrames(&frames))
 				{
-					frames = MIN(maxPerChnFrames, frames); //max 50 frames usually
+					frames = MIN(max_frames, frames); //max 50 frames usually
 					outlen[i] = s->audsrc[i]->GetBuffer(s->buffer[i].data(), frames);
 				}
 			}
@@ -602,7 +602,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				frames = outlen[k];
 
 				uint32_t i = 0;
-				for(; i < frames && i < maxPerChnFrames; i++)
+				for(; i < frames && i < max_frames; i++)
 				{
 					dst[i * outChns + off] = SetVolume(s->buffer[k][i * chn], s->f.vol[0]);
 					//dst[i * 2 + 1] = 0;
@@ -620,7 +620,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				src1 = s->buffer[k].data();
 
 				uint32_t i = 0;
-				for(; i < frames && i < maxPerChnFrames; i++)
+				for(; i < frames && i < max_frames; i++)
 				{
 					dst[i * outChns] = SetVolume(src1[i * chn], s->f.vol[k]);
 					if (outChns > 1)
@@ -646,7 +646,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				src2 = s->buffer[1].data();
 
 				uint32_t i = 0;
-				for(; i < minLen && i < maxPerChnFrames; i++)
+				for(; i < minLen && i < max_frames; i++)
 				{
 					dst[i * outChns] = SetVolume(src1[i * cn1], s->f.vol[0]);
 					if(outChns > 1)
