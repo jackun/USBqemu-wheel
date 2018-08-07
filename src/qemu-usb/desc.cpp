@@ -414,7 +414,8 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 			break;
 			case USB_DT_INTERFACE:
 			{
-				if (!config) return -1;
+				if (!config)
+					return -1;
 				config->ifs.push_back ({});
 				iface = &config->ifs.back();
 
@@ -429,7 +430,8 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 			break;
 			case USB_DT_ENDPOINT:
 			{
-				if (!iface) return -1;
+				if (!iface)
+					return -1;
 				USBDescEndpoint ep = {};
 				ep.bEndpointAddress = d->u.endpoint.bEndpointAddress;
 				ep.bmAttributes     = d->u.endpoint.bmAttributes;
@@ -452,11 +454,14 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 			break;
 			case USB_DT_HID:
 			case USB_DT_CS_INTERFACE:
+			case USB_DT_CS_ENDPOINT:
 			{
-				if (!iface) return -1;
+				if (!iface)
+					return -1;
 				iface->descs.push_back ({d->bLength, data + pos});
 			}
 			break;
+			case 0x00: // terminator, if any
 			case USB_DT_OTHER_SPEED_CONFIG:
 			case USB_DT_DEBUG:
 			break;
@@ -759,7 +764,7 @@ int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 	bool msos = (dev->flags & (1 << USB_DEV_FLAG_MSOS_DESC_IN_USE));
 	const USBDesc *desc = usb_device_get_usb_desc(dev);
 	const USBDescDevice *other_dev;
-	uint8_t buf[256];
+	uint8_t buf[1024];
 	uint8_t type = value >> 8;
 	uint8_t index = value & 0xff;
 	int flags, ret = -1;
@@ -788,6 +793,7 @@ int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 		//trace_usb_desc_config(dev->addr, index, len, ret);
 		break;
 	case USB_DT_STRING:
+		memset(buf, 0, sizeof(buf));
 		ret = usb_desc_string(dev, index, buf, sizeof(buf));
 		//trace_usb_desc_string(dev->addr, index, len, ret);
 		break;
