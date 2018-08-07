@@ -56,7 +56,6 @@ typedef struct HeadsetState {
 
     struct freeze {
         int intf;
-        int altset[3];
         MicMode mode;
 
         /* state */
@@ -465,7 +464,7 @@ static const uint8_t headset_config_descriptor[] = {
 
 static const USBDescStrings desc_strings = {
 	"",
-	"Logitech"
+	"Logitech", // Atleast SOCOM II checks this (liblgaud?)
 	"Logitech USB Headset",
 	"00000000"
 };
@@ -750,7 +749,7 @@ static void headset_handle_control(USBDevice *dev, USBPacket *p, int request, in
                                     length, data);
         if (ret < 0) {
             //if (s->debug) {
-                fprintf(stderr, "singstar: fail: get control\n");
+                fprintf(stderr, "headset: fail: get control\n");
             //}
             goto fail;
         }
@@ -765,7 +764,7 @@ static void headset_handle_control(USBDevice *dev, USBPacket *p, int request, in
                                     length, data);
         if (ret < 0) {
             //if (s->debug) {
-                fprintf(stderr, "singstar: fail: set control\n data:");
+                fprintf(stderr, "headset: fail: set control\n data:");
             //}
             goto fail;
         }
@@ -807,9 +806,9 @@ static void headset_handle_data(USBDevice *dev, USBPacket *p)
     case USB_TOKEN_IN:
         //fprintf(stderr, "token in ep: %d len: %zd\n", devep, p->iov.size);
         OSDebugOut(TEXT("token in ep: %d len: %zd\n"), devep, p->iov.size);
-        if (devep == 4 && s->f.altset[2] && s->audsrc) {
+        if (devep == 4 && s->dev.altsetting[2] && s->audsrc) {
 
-            uint32_t outChns = 1; //s->f.altset[2] == 1 ? 2 : 1;
+            uint32_t outChns = 1; //s->dev.altsetting[2] == 1 ? 2 : 1;
             uint32_t inChns  = s->audsrc->GetChannels();
 			int16_t *dst = nullptr;
 			std::vector<int16_t> dst_alloc(0); //TODO
@@ -866,14 +865,14 @@ static void headset_handle_data(USBDevice *dev, USBPacket *p)
         break;
     case USB_TOKEN_OUT:
 
-        //OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, len);
+        //OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, p->iov.size);
         if (!s->audsink)
             return;
 
-        if (devep == 1 && s->f.altset[1]) {
-            uint32_t inChns = s->f.altset[1] == 1 ? 2 : 1;
+        if (devep == 1 && s->dev.altsetting[1]) {
+            uint32_t inChns = s->dev.altsetting[1] == 1 ? 2 : 1;
             uint32_t outChns = s->audsink->GetChannels();
-            size_t len = p->actual_length; //p->iov.size;
+            size_t len = p->iov.size;
             //Divide 'len' bytes between n channels of 16 bits
             uint32_t frames = len / (inChns * sizeof(int16_t));
             int16_t *src = nullptr;
@@ -883,7 +882,7 @@ static void headset_handle_data(USBDevice *dev, USBPacket *p)
 				src = (int16_t *)p->iov.iov[0].iov_base;
 			else
 			{
-				//Copy iov data into contiguous space
+				//Copy iov data into continuous space
 				src_alloc.resize(len / sizeof(int16_t));
 				src = src_alloc.data();
 				usb_packet_copy (p, src, len);
@@ -922,6 +921,7 @@ static void headset_handle_data(USBDevice *dev, USBPacket *p)
 
             p->actual_length = frames * inChns * sizeof(int16_t);
         }
+        break;
     default:
     fail:
         p->status = USB_RET_STALL;
