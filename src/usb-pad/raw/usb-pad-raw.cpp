@@ -665,7 +665,7 @@ void UninitWindow()
 
 // ---------
 #include "raw-config-res.h"
-BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 int usb_pad_raw::RawInputPad::Configure(int port, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;

@@ -1023,12 +1023,12 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 	switch (uMsg) {
 	case WM_CREATE:
-		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
+		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 		break;
 	case WM_INITDIALOG:
 	{
 		s = (WASAPISettings *)lParam;
-		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
+		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 		int buffering = 50;
 		{
 			CONFIGVARIANT var(N_BUFFER_LEN_SRC, CONFIG_TYPE_INT);
@@ -1107,7 +1107,7 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 			case IDOK:
 			{
 				int p[3];
-				s = (WASAPISettings *)GetWindowLong(hW, GWL_USERDATA);
+				s = (WASAPISettings *)GetWindowLongPtr(hW, GWLP_USERDATA);
 				INT_PTR res = RESULT_OK;
 				p[0] = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
 				p[1] = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);

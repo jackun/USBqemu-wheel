@@ -664,18 +664,18 @@ static void Register(HWND hW)
 	}
 }
 
-BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 	TCHAR buf[256];
 	LVITEM lv;
-	RawDlgConfig *cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
+	RawDlgConfig *cfg = (RawDlgConfig *)GetWindowLongPtr(hW, GWLP_USERDATA);
 	int ret = 0;
 	switch(uMsg) {
 		case WM_INITDIALOG:
 			if(!InitHid())
 				return FALSE;
 			dgHwnd = hW;
-			SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
+			SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 			//SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			ListView_SetExtendedListViewStyle(GetDlgItem(hW, IDC_LIST1), LVS_EX_FULLROWSELECT);
 
@@ -884,7 +884,7 @@ BOOL CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPar
 					return TRUE;
 				case IDOK:
 					Register(nullptr);
-					cfg = (RawDlgConfig *)GetWindowLong(hW, GWL_USERDATA);
+					cfg = (RawDlgConfig *)GetWindowLongPtr(hW, GWLP_USERDATA);
 					cfg->player_joys[0] = joysDev[selectedJoy[0]];
 					cfg->player_joys[1] = joysDev[selectedJoy[1]];
 

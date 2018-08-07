@@ -477,7 +477,7 @@ static void set_sense(void *opaque, SCSISense sense)
 
 static void usb_msd_send_status(MSDState *s, USBPacket *p)
 {
-    int len;
+    size_t len;
 
     DPRINTF("Command status %d tag 0x%x, len %zd\n",
             s->f.csw.status, le32_to_cpu(s->f.csw.tag), p->iov.size);

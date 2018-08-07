@@ -36,7 +36,7 @@ void GetIniFile(std::wstring &iniFile)
 		GetModuleFileName(GetModuleHandle((LPWSTR)hInst), tmp, MAX_PATH);
 
 		std::wstring path(tmp);
-		unsigned last = path.find_last_of(L'\\');
+		size_t last = path.find_last_of(L'\\');
 		iniFile = path.substr(0, last);
 		iniFile.append(L"\\inis");
 		CreateDirectory(iniFile.c_str(), NULL);

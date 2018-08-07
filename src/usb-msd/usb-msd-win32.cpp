@@ -14,7 +14,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	{
 		memset(buff, 0, sizeof(buff));
 		port = (int)lParam;
-		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
+		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 		CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_WCHAR);
 		if (LoadSetting(port, APINAME, var))
 			wcsncpy_s(buff, var.wstrValue.c_str(), ARRAYSIZE(buff));
@@ -22,7 +22,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		return TRUE;
 	}
 	case WM_CREATE:
-		SetWindowLong(hW, GWL_USERDATA, (LONG)lParam);
+		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 		break;
 	case WM_COMMAND:
 
@@ -50,7 +50,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			{
 				INT_PTR res = RESULT_OK;
 				GetWindowTextW(GetDlgItem(hW, IDC_EDIT1), buff, ARRAYSIZE(buff));
-				port = (int)GetWindowLong(hW, GWL_USERDATA);
+				port = (int)GetWindowLongPtr(hW, GWLP_USERDATA);
 				CONFIGVARIANT var(N_CONFIG_PATH, buff);
 				if (!SaveSetting(port, APINAME, var))
 					res = RESULT_FAILED;

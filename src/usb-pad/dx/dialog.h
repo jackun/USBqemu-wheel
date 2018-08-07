@@ -545,14 +545,14 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 	switch(uMsg)
 	{
 		case WM_CREATE:
-			SetWindowLong(hDlg, GWL_USERDATA, (LONG)lParam);
+			SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
 		break;
 
 		case WM_INITDIALOG:
 			{
 				hWnd = hDlg;
-				SetWindowLong(hDlg, GWL_USERDATA, (LONG)lParam);
-				InitDialog((LONG)lParam);
+				SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
+				InitDialog((int)lParam);
 			}break;
 		case  WM_CTLCOLORSTATIC:
 			{
@@ -560,7 +560,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					SetTextColor((HDC) wParam, RGB(79,97,117));
 					SetBkMode((HDC) wParam, TRANSPARENT);
-					return (LONG) GetStockObject(NULL_BRUSH);
+					return (INT_PTR) GetStockObject(NULL_BRUSH);
 				}
 				break;
 			}
@@ -571,7 +571,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					case 22:
 						{
-							int port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+							int port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
 							if(listening) ListenForControl(port);
 							ControlTest(port);
 							break;
@@ -582,7 +582,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 
 		case WM_COMMAND:
-			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+			port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
 			switch(LOWORD(wParam))
 			{
 				case IDC_COMBO1:
@@ -708,11 +708,11 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return TRUE;
 			break;
 		case WM_HSCROLL:
-			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+			port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
 			ApplyFilter(port);
 			break;
 		case WM_PAINT:
-			port = (int)GetWindowLong(hDlg, GWL_USERDATA);
+			port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
 			OnPaint(port);
 			break;
 	}
