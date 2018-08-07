@@ -244,10 +244,13 @@ public:
 			return NULL;
 
 		SINGSTARMICMINIState *s = (SINGSTARMICMINIState *)dev;
+		const USBDescDevice *full = s->desc.full;
 		s->desc = {};
 		s->desc_dev = {};
 
 		s->desc.str = lt_desc_strings;
+		s->desc.full = &s->desc_dev;
+
 		if (usb_desc_parse_dev (logitech_mic_dev_descriptor, sizeof(logitech_mic_dev_descriptor), s->desc, s->desc_dev) < 0)
 			goto fail;
 		if (usb_desc_parse_config (logitech_mic_config_descriptor, sizeof(logitech_mic_config_descriptor), s->desc_dev) < 0)
