@@ -752,14 +752,6 @@ void SetSpringForce(int port, const spring& spring, bool hires, bool isdfp)
 		center = ((dead2 + dead1) * DI_FFNOMINALMAX / 128 - (2 * DI_FFNOMINALMAX)) / 2;
 	}
 
-	//int offset;
-	//int off1 = std::abs(-dead1 - position);
-	//int off2 = std::abs(dead2 - position);
-	//if (off1 < off2)
-		//offset = off1;
-	//else
-		//offset = off2;
-
 	static const float coeffs1[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 2.f, 3.f, 4.f };
 	static const float coeffs2[] = { 0.25f, 0.5f, 0.75f, 1.f, 1.5f, 3.f, 2.f, 4.f }; //DFP
 	const float *coeffs = isdfp ? coeffs2 : coeffs1;
