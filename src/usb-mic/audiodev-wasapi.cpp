@@ -564,7 +564,7 @@ error:
 			if (FAILED(hr))
 				goto device_error;
 
-			numFramesAvailable = bufferFrameCount - numFramesPadding;
+			numFramesAvailable = std::min(bufferFrameCount - numFramesPadding, src->mInBuffer.size<short>() / src->GetChannels());
 
 			if (src->mInBuffer.size<short>())
 			{
@@ -577,6 +577,7 @@ error:
 					src_short_to_float_array(src->mInBuffer.front<short>(),
 						buffer.data(), samples);
 
+					//XXX May get AUDCLNT_E_BUFFER_TOO_LARGE
 					hr = src->mmRender->GetBuffer(numFramesAvailable, &pData);
 					if (FAILED(hr))
 						goto device_error;
@@ -593,8 +594,8 @@ error:
 					if (FAILED(hr))
 						goto device_error;
 
-					read -= samples;
-					src->mInBuffer.read<short>(samples);
+					read -= srcData.input_frames_used * src->GetChannels();
+					src->mInBuffer.read<short>(srcData.input_frames_used * src->GetChannels());
 
 				}
 			}
