@@ -576,6 +576,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				dst = dst_alloc.data();
 			}
 
+			memset(dst, 0, len);
 
 			for(int i = 0; i<2; i++)
 			{
