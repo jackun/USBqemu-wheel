@@ -168,7 +168,7 @@ size_t qemu_iovec_concat_iov(QEMUIOVector *dst,
                              struct iovec *src_iov, unsigned int src_cnt,
                              size_t soffset, size_t sbytes)
 {
-    int i;
+    unsigned int i;
     size_t done;
 
     if (!sbytes) {

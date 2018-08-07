@@ -587,6 +587,7 @@ void usb_packet_copy(USBPacket *p, void *ptr, size_t bytes)
 {
     QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
 
+    assert(bytes <= INT_MAX);
     assert(p->actual_length >= 0);
     assert(p->actual_length + bytes <= iov->size);
     switch (p->pid) {
@@ -608,6 +609,7 @@ void usb_packet_skip(USBPacket *p, size_t bytes)
 {
     QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
 
+    assert(bytes <= INT_MAX);
     assert(p->actual_length >= 0);
     assert(p->actual_length + bytes <= iov->size);
     if (p->pid == USB_TOKEN_IN) {

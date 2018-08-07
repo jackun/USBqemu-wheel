@@ -426,7 +426,7 @@ static inline int ohci_put_hcca(OHCIState *ohci,
 }
 
 /* Read/Write the contents of a TD from/to main memory.  */
-static int ohci_copy_td(OHCIState *ohci, struct ohci_td *td, uint8_t *buf, int len, int write)
+static int ohci_copy_td(OHCIState *ohci, struct ohci_td *td, uint8_t *buf, uint32_t len, int write)
 {
     uint32_t ptr, n;
 
@@ -446,7 +446,7 @@ static int ohci_copy_td(OHCIState *ohci, struct ohci_td *td, uint8_t *buf, int l
 
 /* Read/Write the contents of an ISO TD from/to main memory.  */
 static int ohci_copy_iso_td(OHCIState *ohci, uint32_t start_addr, uint32_t end_addr,
-                            uint8_t *buf, int len, int write)
+                            uint8_t *buf, uint32_t len, int write)
 {
     uint32_t ptr, n;
 
@@ -481,7 +481,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
                                int completion)
 {
     int dir;
-    size_t len = 0;
+    uint32_t len = 0;
     const char *str = NULL;
     int pid;
     int ret;
@@ -611,7 +611,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
     }
 
     if (len && dir != OHCI_TD_DIR_IN) {
-        if (!ohci_copy_iso_td(ohci, start_addr, end_addr, ohci->usb_buf, len,
+        if (ohci_copy_iso_td(ohci, start_addr, end_addr, ohci->usb_buf, len,
                              DMA_DIRECTION_TO_DEVICE)) {
             ohci_die(ohci);
             return 1;
@@ -643,7 +643,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
     /* Writeback */
     if (dir == OHCI_TD_DIR_IN && ret >= 0 && ret <= len) {
         /* IN transfer succeeded */
-        if (!ohci_copy_iso_td(ohci, start_addr, end_addr, ohci->usb_buf, ret,
+        if (ohci_copy_iso_td(ohci, start_addr, end_addr, ohci->usb_buf, ret,
                              DMA_DIRECTION_FROM_DEVICE)) {
             ohci_die(ohci);
             return 1;
@@ -716,7 +716,7 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
 static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
 {
     int dir;
-    size_t len = 0, pktlen = 0;
+    uint32_t len = 0, pktlen = 0;
     const char *str = NULL;
     int pid;
     int ret;
