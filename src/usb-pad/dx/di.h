@@ -100,7 +100,7 @@ void CreateFFB(int port, DWORD joy)
 		eff.dwGain = MIN(MAX(GAINZ[port][0], 0), 10000);
 		eff.dwTriggerButton = DIEB_NOTRIGGER;
 		eff.dwTriggerRepeatInterval = 0;
-		eff.cAxes = ARRAY_SIZE(rgdwAxes);
+		eff.cAxes = countof(rgdwAxes);
 		eff.rgdwAxes = rgdwAxes;
 		eff.rglDirection = rglDirection;
 		eff.dwStartDelay = 0;

@@ -72,7 +72,7 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	//if(data)
 	{
-		uint8_t port = MIN((unsigned)data, 1);
+		uint8_t port = MIN(reinterpret_cast<uintptr_t>(data), 1);
 
 		conf.WheelType[1 - port] = idx;
 		OSDebugOut("Selected wheel type, port %d idx: %d\n", port, idx);
@@ -309,14 +309,14 @@ void CALLBACK USBconfigure() {
 
 		sel_idx = 0;
 
-		for (int i = 0; i < ARRAYSIZE(wt); i++)
+		for (int i = 0; i < countof(wt); i++)
 		{
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), wt[i]);
 			if(conf.WheelType[1 - port] == i)
 				sel_idx = i;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)port);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), reinterpret_cast<gpointer> (port));
 	}
 
 	gtk_widget_show_all (dlg);

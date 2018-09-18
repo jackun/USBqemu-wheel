@@ -14,7 +14,7 @@ using ms = std::chrono::milliseconds;
 
 bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3])
 {
-	assert(JOY_MAPS_COUNT == ARRAY_SIZE(JoystickMapNames));
+	assert(JOY_MAPS_COUNT == countof(JoystickMapNames));
 	if (joyname.empty())
 		return false;
 
@@ -99,7 +99,7 @@ static void refresh_store(ConfigData *cfg)
 static void joystick_changed (GtkComboBox *widget, gpointer data)
 {
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-	int port = (int) data;
+	int port = reinterpret_cast<uintptr_t> (data);
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 
 	if (!cfg)
@@ -118,8 +118,8 @@ static void joystick_changed (GtkComboBox *widget, gpointer data)
 
 static void button_clicked (GtkComboBox *widget, gpointer data)
 {
-	int port = (int)data;
-	int type = (int)g_object_get_data (G_OBJECT (widget), JOYTYPE);
+	int port = reinterpret_cast<uintptr_t> (data);
+	int type = reinterpret_cast<uintptr_t> (g_object_get_data (G_OBJECT (widget), JOYTYPE));
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 
 	if (cfg && type < cfg->mappings.size() && cfg->js_iter != cfg->joysticks.end())
@@ -155,7 +155,7 @@ static void clear_all_clicked (GtkComboBox *widget, gpointer data)
 
 static void hidraw_toggled (GtkToggleButton *widget, gpointer data)
 {
-	int port = (int) data;
+	int port = reinterpret_cast<uintptr_t> (data);
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 	if (cfg) {
 		cfg->use_hidraw_ff_pt = (bool) gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
@@ -253,7 +253,7 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 	}
 
 	g_object_set_data (G_OBJECT (rs_cb), CFG, &cfg);
-	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystick_changed), (gpointer)port);
+	g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (joystick_changed), reinterpret_cast<gpointer> (port));
 	gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
 
 	// Remapping
@@ -286,12 +286,12 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 			{4, 3, JOY_START},
 		};
 
-		for (int i=0; i<ARRAY_SIZE(button_labels); i++)
+		for (int i=0; i<countof(button_labels); i++)
 		{
 			GtkWidget *button = gtk_button_new_with_label (button_labels[i]);
-			g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), (gpointer)port);
+			g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), reinterpret_cast<gpointer> (port));
 
-			g_object_set_data (G_OBJECT (button), JOYTYPE, (gpointer)button_pos[i].type);
+			g_object_set_data (G_OBJECT (button), JOYTYPE, reinterpret_cast<gpointer> (button_pos[i].type));
 			g_object_set_data (G_OBJECT (button), CFG, &cfg);
 
 			gtk_table_attach (GTK_TABLE (table), button,
@@ -306,28 +306,28 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 
 		button = gtk_button_new_with_label ("Steering");
 		gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 5);
-		g_object_set_data (G_OBJECT (button), JOYTYPE, (gpointer)JOY_STEERING);
+		g_object_set_data (G_OBJECT (button), JOYTYPE, reinterpret_cast<gpointer> (JOY_STEERING));
 		g_object_set_data (G_OBJECT (button), CFG, &cfg);
-		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), (gpointer)port);
+		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), reinterpret_cast<gpointer> (port));
 
 		button = gtk_button_new_with_label ("Throttle");
 		gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 5);
-		g_object_set_data (G_OBJECT (button), JOYTYPE, (gpointer)JOY_THROTTLE);
+		g_object_set_data (G_OBJECT (button), JOYTYPE, reinterpret_cast<gpointer> (JOY_THROTTLE));
 		g_object_set_data (G_OBJECT (button), CFG, &cfg);
-		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), (gpointer)port);
+		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), reinterpret_cast<gpointer> (port));
 
 		button = gtk_button_new_with_label ("Brake");
 		gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 5);
-		g_object_set_data (G_OBJECT (button), JOYTYPE, (gpointer)JOY_BRAKE);
+		g_object_set_data (G_OBJECT (button), JOYTYPE, reinterpret_cast<gpointer> (JOY_BRAKE));
 		g_object_set_data (G_OBJECT (button), CFG, &cfg);
-		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), (gpointer)port);
+		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked), reinterpret_cast<gpointer> (port));
 
 		gtk_box_pack_start (GTK_BOX (right_vbox), cfg.label, TRUE, TRUE, 5);
 
 		button = gtk_button_new_with_label ("Clear All");
 		gtk_box_pack_start (GTK_BOX (right_vbox), button, TRUE, TRUE, 5);
 		g_object_set_data (G_OBJECT (button), CFG, &cfg);
-		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (clear_all_clicked), (gpointer)port);
+		g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (clear_all_clicked), reinterpret_cast<gpointer> (port));
 	}
 
 	if (is_evdev)
@@ -335,7 +335,7 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 		GtkWidget *chk_btn = gtk_check_button_new_with_label("Pass-through raw force feedback commands (hidraw, if supported)");
 		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (chk_btn), (gboolean)cfg.use_hidraw_ff_pt);
 		g_object_set_data (G_OBJECT (chk_btn), CFG, &cfg);
-		g_signal_connect (G_OBJECT (chk_btn), "toggled", G_CALLBACK (hidraw_toggled), (gpointer)port);
+		g_signal_connect (G_OBJECT (chk_btn), "toggled", G_CALLBACK (hidraw_toggled), reinterpret_cast<gpointer> (port));
 		gtk_container_add (GTK_CONTAINER(right_vbox), chk_btn);
 	}
 	// ---------------------------
