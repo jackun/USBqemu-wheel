@@ -1,5 +1,4 @@
 #include "evdev.h"
-#include "USB.h"
 #include "osdebugout.h"
 #include <cassert>
 #include <sstream>
@@ -341,22 +340,13 @@ int EvDevPad::Open()
 	memset(&info, 0x0, sizeof(info));
 
 	std::string joypath;
+	if (!LoadSetting(mPort, APINAME, N_JOYSTICK, joypath))
 	{
-		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
-		if(LoadSetting(mPort, APINAME, var))
-			joypath = var.strValue;
-		else
-		{
-			OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
-			return 1;
-		}
+		OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
+		return 1;
 	}
 
-	{
-		CONFIGVARIANT var(N_HIDRAW_FF_PT, CONFIG_TYPE_BOOL);
-		if (LoadSetting(mPort, APINAME, var))
-			mUseRawFF = var.boolValue;
-	}
+	LoadSetting(mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
 
 	if(joypath.empty() || !file_exists(joypath))
 		goto quit;

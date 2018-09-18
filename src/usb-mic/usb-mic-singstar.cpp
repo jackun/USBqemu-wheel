@@ -24,7 +24,6 @@
 
 // Most stuff is based on Qemu 1.7 USB soundcard passthrough code.
 
-#include "../USB.h"
 #include "../qemu-usb/vl.h"
 #include "../qemu-usb/desc.h"
 #include "usb-mic-singstar.h"
@@ -738,11 +737,7 @@ static void singstar_mic_handle_close(USBDevice *dev)
 USBDevice* SingstarDevice::CreateDevice(int port)
 {
 	std::string api;
-	{
-		CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		if (LoadSetting(port, DEVICENAME, var))
-			api = var.strValue;
-	}
+	LoadSetting(port, DEVICENAME, N_DEVICE_API, api);
 	return SingstarDevice::CreateDevice(port, api);
 }
 USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)

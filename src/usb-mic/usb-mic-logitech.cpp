@@ -233,15 +233,12 @@ public:
 	static USBDevice* CreateDevice(int port)
 	{
 		std::string api;
-		{
-			CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-			if (LoadSetting(port, DEVICENAME, var))
-				api = var.strValue;
-		}
+		if (!LoadSetting(port, DEVICENAME, N_DEVICE_API, api))
+			return nullptr;
 
 		USBDevice* dev = SingstarDevice::CreateDevice(port, api);
 		if (!dev)
-			return NULL;
+			return nullptr;
 
 		SINGSTARMICMINIState *s = (SINGSTARMICMINIState *)dev;
 		const USBDescDevice *full = s->desc.full;
@@ -262,7 +259,7 @@ public:
 		return dev;
 fail:
 		s->dev.klass.unrealize (dev);
-		return NULL;
+		return nullptr;
 	}
 	static const char* TypeName()
 	{

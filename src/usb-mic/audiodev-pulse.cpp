@@ -215,9 +215,7 @@ static int GtkConfigure(int port, void *data)
 	for (int i=0; i<2; i++)
 	{
 		std::string devName;
-		CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_CHAR);
-		if (LoadSetting(port, APINAME, var))
-			devName = var.strValue;
+		LoadSetting(port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), devName);
 
 		GtkWidget *cb = new_combobox(labels[i], frame_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
@@ -228,9 +226,7 @@ static int GtkConfigure(int port, void *data)
 	for (int i=2; i<3 /*4*/; i++)
 	{
 		std::string devName;
-		CONFIGVARIANT var(i-2 ? N_AUDIO_SINK1 : N_AUDIO_SINK0, CONFIG_TYPE_CHAR);
-		if (LoadSetting(port, APINAME, var))
-			devName = var.strValue;
+		LoadSetting(port, APINAME, (i-2 ? N_AUDIO_SINK1 : N_AUDIO_SINK0), devName);
 
 		GtkWidget *cb = new_combobox(labels[i], frame_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
@@ -267,9 +263,9 @@ static int GtkConfigure(int port, void *data)
 					0 + i, 1 + i,
 					opt, opt, 5, 1);
 
-		CONFIGVARIANT var(buff_var_name[i], CONFIG_TYPE_INT);
-		if (LoadSetting(port, APINAME, var))
-			gtk_range_set_value (GTK_RANGE (scales[i]), var.intValue);
+		int32_t var;
+		if (LoadSetting(port, APINAME, buff_var_name[i], var))
+			gtk_range_set_value (GTK_RANGE (scales[i]), var);
 		else
 			gtk_range_set_value (GTK_RANGE (scales[i]), 50);
 	}
@@ -297,32 +293,29 @@ static int GtkConfigure(int port, void *data)
 		{
 			int idx = dev_idxs[i];
 			{
-				CONFIGVARIANT var(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, "");
+				std::string var;
 
 				if (idx > 0)
-					var.strValue = srcDevs[idx - 1].strID;
+					var = srcDevs[idx - 1].strID;
 
-				if (!SaveSetting(port, APINAME, var))
+				if (!SaveSetting(port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), var))
 					ret = RESULT_FAILED;
 			}
 
 			idx = dev_idxs[i+2];
 			{
-				CONFIGVARIANT var(i ? N_AUDIO_SINK1 : N_AUDIO_SINK0, "");
+				std::string var;
 
 				if (idx > 0)
-					var.strValue = sinkDevs[idx - 1].strID;
+					var = sinkDevs[idx - 1].strID;
 
-				if (!SaveSetting(port, APINAME, var))
+				if (!SaveSetting(port, APINAME, (i ? N_AUDIO_SINK1 : N_AUDIO_SINK0), var))
 					ret = RESULT_FAILED;
 			}
 
 			// Save buffer lengths
-			{
-				CONFIGVARIANT var(buff_var_name[i], scale_vals[i]);
-				if (!SaveSetting(port, APINAME, var))
-					ret = RESULT_FAILED;
-			}
+			if (!SaveSetting(port, APINAME, buff_var_name[i], scale_vals[i]))
+				ret = RESULT_FAILED;
 		}
 	}
 
@@ -357,19 +350,11 @@ public:
 			N_AUDIO_SINK1
 		};
 
-		CONFIGVARIANT var(device ? var_names[i + 1] : var_names[i], CONFIG_TYPE_CHAR);
-		if(LoadSetting(mPort, APINAME, var) && !var.strValue.empty())
-		{
-			mDeviceName = var.strValue;
-		}
-		else
+		if (!LoadSetting(mPort, APINAME, (device ? var_names[i + 1] : var_names[i]), mDeviceName) || mDeviceName.empty())
 			throw AudioDeviceError(APINAME ": failed to load device settings");
 
-		{
-			CONFIGVARIANT var(dir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK, CONFIG_TYPE_INT);
-			if(LoadSetting(mPort, APINAME, var))
-				mBuffering = MIN(1000, MAX(1, var.intValue));
-		}
+		LoadSetting(mPort, APINAME, (dir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), mBuffering);
+		mBuffering = MIN(1000, MAX(1, mBuffering));
 
 		if (!AudioInit())
 			throw AudioDeviceError(APINAME ": failed to bind pulseaudio library");
@@ -538,8 +523,8 @@ public:
 			return MIC_MODE_SEPARATE;
 		}
 
-		CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_CHAR);
-		if(LoadSetting(mPort, APINAME, var) && var.strValue == mDeviceName)
+		std::string var;
+		if (LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1), var) && var == mDeviceName)
 			return MIC_MODE_SHARED;
 
 		return MIC_MODE_SINGLE;

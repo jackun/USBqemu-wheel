@@ -1,29 +1,27 @@
 #include <string>
 #include <stdlib.h>
-#include <sstream>
-
-#include "../USB.h"
+#include "Config.h"
 #include "../configuration.h"
 
 extern HINSTANCE hInst;
 std::wstring IniDir;
 std::wstring LogDir;
 
-void CALLBACK USBsetSettingsDir( const char* dir )
+EXPORT_C_(void) USBsetSettingsDir( const char* dir )
 {
 	OSDebugOut(L"USBsetSettingsDir: %S\n", dir);
 	wchar_t dst[4096] = {0};
 	size_t num = 0;
-	mbstowcs_s(&num, dst, dir, ARRAYSIZE(dst));
+	mbstowcs_s(&num, dst, dir, countof(dst));
 	IniDir = dst;
 }
 
-void CALLBACK USBsetLogDir( const char* dir )
+EXPORT_C_(void) USBsetLogDir( const char* dir )
 {
 	OSDebugOut(L"USBsetLogDir: %S\n", dir);
 	wchar_t dst[4096] = {0};
 	size_t num = 0;
-	mbstowcs_s(&num, dst, dir, ARRAYSIZE(dst));
+	mbstowcs_s(&num, dst, dir, countof(dst));
 	LogDir = dst;
 }
 
@@ -107,6 +105,11 @@ bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	return !!WritePrivateProfileStringW(section.c_str(), param, value.c_str(), ini.c_str());
 }
 
+bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const wchar_t* value)
+{
+	return !!WritePrivateProfileStringW(section.c_str(), param, value, ini.c_str());
+}
+
 bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const bool value)
 {
 	wchar_t tmp[2] = { 0 };
@@ -119,84 +122,6 @@ bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, cons
 	wchar_t tmp[32] = { 0 };
 	swprintf_s(tmp, L"%d", value);
 	return !!WritePrivateProfileStringW(section.c_str(), param, tmp, ini.c_str());
-}
-
-bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
-{
-	OSDebugOut(L"USBqemu load \"%s\" from [%S %d]\n", var.name, key.c_str(), port);
-
-	std::wstringstream section;
-	std::wstring wkey;
-	wkey.assign(key.begin(), key.end());
-	section << wkey << " " << port;
-
-	std::wstring ini;
-	GetIniFile(ini);
-
-	switch (var.type)
-	{
-	case CONFIG_TYPE_BOOL:
-		return LoadSettingValue(ini, section.str(), var.name, var.boolValue);
-	case CONFIG_TYPE_INT:
-		return LoadSettingValue(ini, section.str(), var.name, var.intValue);
-		//case CONFIG_TYPE_DOUBLE:
-		//	return LoadSettingValue(ini, section.str(), var.name, var.doubleValue);
-	case CONFIG_TYPE_TCHAR:
-		return LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
-	case CONFIG_TYPE_CHAR:
-		return LoadSettingValue(ini, section.str(), var.name, var.strValue);
-	case CONFIG_TYPE_WCHAR:
-		return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
-	default:
-		OSDebugOut(L"Invalid config type %d for %s\n", var.type, var.name);
-		break;
-	};
-	return false;
-}
-
-/**
-*
-* [devices]
-* portX = pad
-*
-* [pad X]
-* api = joydev
-*
-* [joydev X]
-* button0 = 1
-* button1 = 2
-* ...
-*
-* */
-bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
-{
-	OSDebugOut(L"USBqemu save \"%s\" to [%S %d]\n", var.name, key.c_str(), port);
-
-	std::wstringstream section;
-	std::wstring wkey;
-	wkey.assign(key.begin(), key.end());
-	section << wkey << " " << port;
-
-	std::wstring ini;
-	GetIniFile(ini);
-
-	switch (var.type)
-	{
-	case CONFIG_TYPE_BOOL:
-		return SaveSettingValue(ini, section.str(), var.name, var.boolValue);
-	case CONFIG_TYPE_INT:
-		return SaveSettingValue(ini, section.str(), var.name, var.intValue);
-	case CONFIG_TYPE_TCHAR:
-		return SaveSettingValue(ini, section.str(), var.name, var.wstrValue);
-	case CONFIG_TYPE_WCHAR:
-		return SaveSettingValue(ini, section.str(), var.name, var.wstrValue);
-	case CONFIG_TYPE_CHAR:
-		return SaveSettingValue(ini, section.str(), var.name, var.strValue);
-	default:
-		OSDebugOut(L"Invalid config type %d for %s\n", var.type, var.name);
-		break;
-	};
-	return false;
 }
 
 void SaveConfig()
@@ -234,8 +159,7 @@ void SaveConfig()
 
 	for (auto &kp : changedAPIs)
 	{
-		CONFIGVARIANT var(N_DEVICE_API, kp.second);
-		SaveSetting(kp.first.first, kp.first.second, var);
+		SaveSetting(kp.first.first, kp.first.second, N_DEVICE_API, kp.second);
 	}
 	changedAPIs.clear();
 }
@@ -266,11 +190,11 @@ void LoadConfig() {
 	GetPrivateProfileStringW(N_DEVICES, TEXT("DFP Passthrough"), NULL, szValue, 20, szIniFile.c_str());
 	Conf1->DFPPass = wcstoul(szValue, NULL, 10);
 
-	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT0, NULL, szValue, ARRAYSIZE(szValue), szIniFile.c_str());
+	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT0, NULL, szValue, countof(szValue), szIniFile.c_str());
 	wcstombs_s(&num, tmpA, szValue, sizeof(tmpA));//TODO error-check
 	Conf1->Port[0] = tmpA;
 
-	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, NULL, szValue, ARRAYSIZE(szValue), szIniFile.c_str());
+	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, NULL, szValue, countof(szValue), szIniFile.c_str());
 	wcstombs_s(&num, tmpA, szValue, sizeof(tmpA));//TODO error-check
 	Conf1->Port[1] = tmpA;
 

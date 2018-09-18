@@ -1,7 +1,5 @@
 // Used OBS as example
 
-#include "../USB.h"
-//#include "audiodev.h"
 #include "audiodeviceproxy.h"
 #include "../libsamplerate/samplerate.h"
 #include "../Win32/Config-win32.h"
@@ -146,30 +144,26 @@ public:
 
 		if (mAudioDir == AUDIODIR_SOURCE)
 		{
-			CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
-			if (!LoadSetting(mPort, APINAME, var))
+			if (!LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), mDevID))
 			{
 				throw AudioDeviceError("MMAudioDevice:: failed to load source from ini!");
 			}
-			mDevID = var.wstrValue;
 		}
 		else
 		{
-			CONFIGVARIANT var(mDevice ? N_AUDIO_SINK1 : N_AUDIO_SINK0, CONFIG_TYPE_WCHAR);
-			if (!LoadSetting(mPort, APINAME, var))
+			if (!LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SINK1 : N_AUDIO_SINK0), mDevID))
 			{
 				throw AudioDeviceError("MMAudioDevice:: failed to load sink from ini!");
 			}
-			mDevID = var.wstrValue;
 		}
 
 		if (!mDevID.length())
 			return false;
 
 		{
-			CONFIGVARIANT var(mAudioDir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK, CONFIG_TYPE_INT);
-			if (LoadSetting(mPort, APINAME, var))
-				mBuffering = std::min(1000, std::max(1, var.intValue));
+			int var;
+			if (LoadSetting(mPort, APINAME, (mAudioDir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), var))
+				mBuffering = std::min(1000, std::max(1, var));
 		}
 
 
@@ -815,8 +809,8 @@ error:
 			return MIC_MODE_SEPARATE;
 		}
 
-		CONFIGVARIANT var(mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1, CONFIG_TYPE_WCHAR);
-		if (LoadSetting(mPort, APINAME, var) && var.wstrValue == mDevID)
+		std::wstring var;
+		if (LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1), var) && var == mDevID)
 			return MIC_MODE_SHARED;
 
 		return MIC_MODE_SINGLE;
@@ -829,7 +823,7 @@ error:
 
 	static const TCHAR* Name()
 	{
-		return L"WASAPI";
+		return TEXT("WASAPI");
 	}
 
 	static bool AudioInit()
@@ -1031,22 +1025,16 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 		s = (WASAPISettings *)lParam;
 		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 		int buffering = 50;
-		{
-			CONFIGVARIANT var(N_BUFFER_LEN_SRC, CONFIG_TYPE_INT);
-			if (LoadSetting(s->port, APINAME, var))
-				buffering = var.intValue;
-		}
+		LoadSetting(s->port, APINAME, N_BUFFER_LEN_SRC, buffering);
+
 		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETRANGEMIN, TRUE, 1);
 		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETRANGEMAX, TRUE, 1000);
 		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETPOS, TRUE, buffering);
 		SetDlgItemInt(hW, IDC_BUFFER1, buffering, FALSE);
 
 		buffering = 50;
-		{
-			CONFIGVARIANT var(N_BUFFER_LEN_SINK, CONFIG_TYPE_INT);
-			if (LoadSetting(s->port, APINAME, var))
-				buffering = var.intValue;
-		}
+		LoadSetting(s->port, APINAME, N_BUFFER_LEN_SINK, buffering);
+
 		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETRANGEMIN, TRUE, 1);
 		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETRANGEMAX, TRUE, 1000);
 		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETPOS, TRUE, buffering);
@@ -1054,16 +1042,10 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 		for (int i = 0; i < 2; i++)
 		{
-			CONFIGVARIANT var0(i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0, CONFIG_TYPE_WCHAR);
-			if (LoadSetting(s->port, APINAME, var0))
-				s->selectedDev[i] = var0.wstrValue;
+			LoadSetting(s->port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), s->selectedDev[i]);
 		}
 
-		{
-			CONFIGVARIANT var1(N_AUDIO_SINK0, CONFIG_TYPE_WCHAR);
-			if (LoadSetting(s->port, APINAME, var1))
-				s->selectedDev[2] = var1.wstrValue;
-		}
+		LoadSetting(s->port, APINAME, N_AUDIO_SINK0, s->selectedDev[2]);
 
 		RefreshInputAudioList(hW, -1, s);
 		RefreshOutputAudioList(hW, -1, s);
@@ -1125,22 +1107,15 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 				const wchar_t *n[] = { N_AUDIO_SOURCE0, N_AUDIO_SOURCE1, N_AUDIO_SINK0 };
 				for (int i = 0; i < 3; i++)
 				{
-					CONFIGVARIANT var(n[i], s->selectedDev[i]);
-					if (!SaveSetting(s->port, APINAME, var))
+					if (!SaveSetting(s->port, APINAME, n[i], s->selectedDev[i]))
 						res = RESULT_FAILED;
 				}
 
-				{
-					CONFIGVARIANT var(N_BUFFER_LEN_SRC, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0));
-					if (!SaveSetting(s->port, APINAME, var))
-						res = RESULT_FAILED;
-				}
+				if (!SaveSetting(s->port, APINAME, N_BUFFER_LEN_SRC, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0)))
+					res = RESULT_FAILED;
 
-				{
-					CONFIGVARIANT var(N_BUFFER_LEN_SINK, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER2, TBM_GETPOS, 0, 0));
-					if (!SaveSetting(s->port, APINAME, var))
-						res = RESULT_FAILED;
-				}
+				if (!SaveSetting(s->port, APINAME, N_BUFFER_LEN_SINK, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER2, TBM_GETPOS, 0, 0)))
+					res = RESULT_FAILED;
 
 				EndDialog(hW, res);
 				return TRUE;

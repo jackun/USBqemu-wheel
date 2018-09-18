@@ -26,14 +26,6 @@
 #include <string>
 #include <limits.h>
 
-#ifndef EXPORT_C_
-#ifdef _MSC_VER
-#define EXPORT_C_(type) extern "C" type CALLBACK
-#else
-#define EXPORT_C_(type) extern "C" __attribute__((stdcall,externally_visible,visibility("default"))) type
-#endif
-#endif
-
 #include "platcompat.h"
 #include "osdebugout.h"
 
@@ -42,23 +34,6 @@
 #include "PS2Edefs.h"
 
 #define USB_LOG __Log
-#define PLAYER_TWO_PORT 0
-#define PLAYER_ONE_PORT 1
-#define USB_PORT PLAYER_ONE_PORT
-
-typedef struct _Config {
-  int Log;
-  std::string Port[2];
-  int DFPPass; //[2]; //TODO per player
-  int WheelType[2];
-
-  _Config(): Log(0), DFPPass(0)
-  {
-    memset(&WheelType, 0, sizeof(WheelType));
-  }
-} Config;
-
-extern Config conf;
 extern u8 *ram;
 
 // ---------------------------------------------------------------------
@@ -66,25 +41,11 @@ extern u8 *ram;
 extern USBcallback _USBirq;
 void USBirq(int);
 
-void SaveConfig();
-void LoadConfig();
 void DestroyDevices();
 void CreateDevices();
 
 extern FILE *usbLog;
 void __Log(const char *fmt, ...);
-// Hah, for l10n that will not happen anyway probably
-#ifndef _WIN32
-void SysMessage(const char *fmt, ...);
-#else
-#if _UNICODE
-void SysMessageW(const wchar_t *fmt, ...);
-#define SysMessage SysMessageW
-#else
-void SysMessageA(const char *fmt, ...);
-#define SysMessage SysMessageA
-#endif
-#endif
 s64 get_clock();
 
 /* usb-pad-raw.cpp */

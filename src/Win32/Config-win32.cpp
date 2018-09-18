@@ -59,9 +59,9 @@ void PopulateAPIs(HWND hW, int port)
 
 	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
-	CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	if(LoadSetting(port, rd.Name(devtype), var))
-		OSDebugOut(L"Current API: %S\n", var.strValue.c_str());
+	std::string var;
+	if(LoadSetting(port, rd.Name(devtype), N_DEVICE_API, var))
+		OSDebugOut(L"Current API: %S\n", var.c_str());
 	else
 	{
 		if (apis.begin() != apis.end())
@@ -76,7 +76,7 @@ void PopulateAPIs(HWND hW, int port)
 	{
 		auto name = dev->LongAPIName(api);
 		SendDlgItemMessageW(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_ADDSTRING, 0, (LPARAM)name);
-		if (api == var.strValue)
+		if (api == var)
 			sel = i;
 		i++;
 	}

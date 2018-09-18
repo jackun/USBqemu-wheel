@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <map>
-#include "../../USB.h"
 #include "../../configuration.h"
 #include "raw-config.h"
 #include "raw-config-res.h"
@@ -681,27 +680,16 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 
 			//LoadConfig();
 			cfg = (RawDlgConfig *)lParam;
-			{
-				CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
-				if (LoadSetting(PLAYER_ONE_PORT, APINAME, var))
-					cfg->player_joys[0] = var.wstrValue;
-				else
-					cfg->player_joys[0].clear();
 
-				if (LoadSetting(PLAYER_TWO_PORT, APINAME, var))
-					cfg->player_joys[1] = var.wstrValue;
-				else
-					cfg->player_joys[1].clear();
-			}
+			if (!LoadSetting(PLAYER_ONE_PORT, APINAME, N_JOYSTICK, cfg->player_joys[0]))
+				cfg->player_joys[0].clear();
 
-			{
-				CONFIGVARIANT var(N_WHEEL_PT, CONFIG_TYPE_BOOL);
-				if (LoadSetting(PLAYER_ONE_PORT, APINAME, var))
-					cfg->pt[0] = var.boolValue;
+			if (!LoadSetting(PLAYER_TWO_PORT, APINAME, N_JOYSTICK, cfg->player_joys[1]))
+				cfg->player_joys[1].clear();
 
-				if (LoadSetting(PLAYER_TWO_PORT, APINAME, var))
-					cfg->pt[1] = var.boolValue;
-			}
+			LoadSetting(PLAYER_ONE_PORT, APINAME, N_WHEEL_PT, cfg->pt[0]);
+			LoadSetting(PLAYER_TWO_PORT, APINAME, N_WHEEL_PT, cfg->pt[1]);
+
 			Register(hW);
 			LoadMappings(mapVector);
 			//if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
@@ -889,26 +877,19 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 					cfg->player_joys[1] = joysDev[selectedJoy[1]];
 
 					INT_PTR res = RESULT_OK;
-					{
-						CONFIGVARIANT var(N_JOYSTICK, cfg->player_joys[0]);
-						if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
-							res = RESULT_FAILED;
 
-						var.wstrValue = cfg->player_joys[1];
-						if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
-							res = RESULT_FAILED;
-						SaveMappings(mapVector);
-					}
+					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, N_JOYSTICK, cfg->player_joys[0]))
+						res = RESULT_FAILED;
+					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, N_JOYSTICK, cfg->player_joys[1]))
+						res = RESULT_FAILED;
 
-					{
-						CONFIGVARIANT var(N_WHEEL_PT, cfg->pt[0]);
-						if (!SaveSetting(PLAYER_ONE_PORT, APINAME, var))
-							res = RESULT_FAILED;
+					SaveMappings(mapVector);
 
-						var.boolValue = cfg->pt[1];
-						if (!SaveSetting(PLAYER_TWO_PORT, APINAME, var))
-							res = RESULT_FAILED;
-					}
+					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, N_WHEEL_PT, cfg->pt[0]))
+						res = RESULT_FAILED;
+					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, N_WHEEL_PT, cfg->pt[1]))
+						res = RESULT_FAILED;
+
 					EndDialog(hW, res);
 					return TRUE;
 				}

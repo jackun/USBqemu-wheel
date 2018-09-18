@@ -1,4 +1,3 @@
-#include "../USB.h"
 #include "../deviceproxy.h"
 #include "../qemu-usb/desc.h"
 #include "padproxy.h"
@@ -278,9 +277,9 @@ void pad_close(USBDevice *dev)
 
 USBDevice *PadDevice::CreateDevice(int port)
 {
-	CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	LoadSetting(port, DEVICENAME, varApi);
-	PadProxyBase *proxy = RegisterPad::instance().Proxy(varApi.strValue);
+	std::string varApi;
+	LoadSetting(port, DEVICENAME, N_DEVICE_API, varApi);
+	PadProxyBase *proxy = RegisterPad::instance().Proxy(varApi);
 	if (!proxy)
 	{
 		SysMessage(TEXT("Invalid pad API.\n"));

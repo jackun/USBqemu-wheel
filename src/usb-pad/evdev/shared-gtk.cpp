@@ -26,9 +26,9 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
 		const std::string& name = str.str();
-		CONFIGVARIANT var(name.c_str(), CONFIG_TYPE_INT);
-		if (LoadSetting(port, joyname, var))
-			mappings.push_back(var.intValue);
+		int32_t var;
+		if (LoadSetting(port, joyname, name.c_str(), var))
+			mappings.push_back(var);
 		else
 			mappings.push_back(-1);
 	}
@@ -39,10 +39,7 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.str("");
 		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
 		const std::string& name = str.str();
-		CONFIGVARIANT var(name.c_str(), CONFIG_TYPE_BOOL);
-		if (LoadSetting(port, joyname, var))
-			inverted[i] = var.boolValue;
-		else
+		if (!LoadSetting(port, joyname, name.c_str(), inverted[i]))
 			inverted[i] = false;
 	}
 	return true;
@@ -50,7 +47,7 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 
 bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3])
 {
-	assert(JOY_MAPS_COUNT == ARRAY_SIZE(JoystickMapNames));
+	assert(JOY_MAPS_COUNT == countof(JoystickMapNames));
 	if (joyname.empty() || mappings.size() != JOY_MAPS_COUNT)
 		return false;
 
@@ -65,8 +62,7 @@ bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
 		const std::string& name = str.str();
-		CONFIGVARIANT var(name.c_str(), static_cast<int32_t>(mappings[i]));
-		if (!SaveSetting(port, joyname, var))
+		if (!SaveSetting(port, joyname, name.c_str(), static_cast<int32_t>(mappings[i])))
 			return false;
 	}
 
@@ -76,8 +72,7 @@ bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16
 		str.str("");
 		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
 		const std::string& name = str.str();
-		CONFIGVARIANT var(name.c_str(), inverted[i]);
-		if (!SaveSetting(port, joyname, var))
+		if (!SaveSetting(port, joyname, name.c_str(), inverted[i]))
 			return false;
 	}
 	return true;
@@ -180,19 +175,13 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 
 	apicbs.populate(cfg.joysticks);
 	std::string path;
-	{
-		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
-		if (LoadSetting(port, apiname, var))
-			path = var.strValue;
-	}
+	LoadSetting(port, apiname, N_JOYSTICK, path);
 
 	cfg.use_hidraw_ff_pt = false;
 	bool is_evdev = (strncmp(apiname, "evdev", 5) == 0);
 	if (is_evdev) //TODO idk about joydev
 	{
-		CONFIGVARIANT var(N_HIDRAW_FF_PT, CONFIG_TYPE_BOOL);
-		if (LoadSetting(port, apiname, var))
-			cfg.use_hidraw_ff_pt = var.boolValue;
+		LoadSetting(port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
 	}
 
 	// ---------------------------
@@ -359,15 +348,13 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 	if (result == GTK_RESPONSE_OK)
 	{
 		if (cfg.js_iter != cfg.joysticks.end()) {
-			CONFIGVARIANT var(N_JOYSTICK, cfg.js_iter->second);
-			if(!SaveSetting(port, apiname, var))
+			if (!SaveSetting(port, apiname, N_JOYSTICK, cfg.js_iter->second))
 				ret = RESULT_FAILED;
 
 			if (cfg.js_iter != cfg.joysticks.begin()) // if not "None"
 				SaveMappings(port, cfg.js_iter->first, cfg.mappings, cfg.inverted);
 			if (is_evdev) {
-				CONFIGVARIANT var(N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
-				SaveSetting(port, apiname, var);
+				SaveSetting(port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
 			}
 		}
 	}

@@ -75,6 +75,10 @@ HWND gsWnd = nullptr;
 #include <X11/X.h>
 #endif
 
+_Config::_Config(): Log(0), DFPPass(0)
+{
+	memset(&WheelType, 0, sizeof(WheelType));
+}
 
 void USBirq(int cycles)
 {

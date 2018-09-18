@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 #include <vector>
@@ -8,6 +10,11 @@
 #define RESULT_CANCELED 0
 #define RESULT_OK       1
 #define RESULT_FAILED   2
+
+// freeze modes:
+#define FREEZE_LOAD			0
+#define FREEZE_SAVE			1
+#define FREEZE_SIZE			2
 
 // Device-level config related defines
 #define S_DEVICE_API	TEXT("Device API")
@@ -23,63 +30,34 @@
 #define N_WHEEL_TYPE0	TEXT("wheel_type_0")
 #define N_WHEEL_TYPE1	TEXT("wheel_type_1")
 
-extern std::map<std::pair<int, std::string>, std::string> changedAPIs;
-std::string GetSelectedAPI(const std::pair<int, std::string>& pair);
+#define PLAYER_TWO_PORT 0
+#define PLAYER_ONE_PORT 1
+#define USB_PORT PLAYER_ONE_PORT
 
-enum CONFIG_VARIANT_TYPE
-{
-	CONFIG_TYPE_EMPTY,
-	CONFIG_TYPE_INT,
-	CONFIG_TYPE_DOUBLE,
-	CONFIG_TYPE_CHAR,
-	CONFIG_TYPE_WCHAR,
-	CONFIG_TYPE_TCHAR,
-	CONFIG_TYPE_BOOL,
-	CONFIG_TYPE_PTR
-};
+typedef struct _Config {
+  int Log;
+  std::string Port[2];
+  int DFPPass; //[2]; //TODO per player
+  int WheelType[2];
 
-struct CONFIGVARIANT
-{
-	const CONFIG_VARIANT_TYPE	type;
-	const TCHAR*	desc;
-	const TCHAR*	name;
+  _Config();
+} Config;
 
-	union
-	{
-		bool		boolValue;
-		int32_t		intValue;
-		double		doubleValue;
-		//char*		charValue;
-		//wchar_t*	wcharValue;
-		void*		ptrValue;
-	};
+extern Config conf;
+void SaveConfig();
+void LoadConfig();
 
-	//TODO Can't define as pointers and who would free them then?
-	std::string strValue;
-	std::wstring wstrValue;
-	TSTDSTRING tstrValue;
+extern std::map<std::pair<int /*port*/, std::string /*devname*/>, std::string> changedAPIs;
+std::string GetSelectedAPI(const std::pair<int /*port*/, std::string /*devname*/>& pair);
 
-	CONFIGVARIANT() : type(CONFIG_TYPE_EMPTY), ptrValue(0), desc(nullptr), name(nullptr) {}
-	CONFIGVARIANT(const TCHAR* n, CONFIG_VARIANT_TYPE t) : name(n), type(t), ptrValue(0), desc(nullptr) {}
-	CONFIGVARIANT(const TCHAR* d, const TCHAR* n, CONFIG_VARIANT_TYPE t)
-		: desc(d), name(n), type(t), ptrValue(0) {}
-
-	CONFIGVARIANT(const TCHAR* n, bool val) : CONFIGVARIANT(n, CONFIG_TYPE_BOOL)
-	{ boolValue = val; }
-	CONFIGVARIANT(const TCHAR* n, int32_t val) : CONFIGVARIANT(n, CONFIG_TYPE_INT)
-	{ intValue = val; }
-	CONFIGVARIANT(const TCHAR* n, std::string val) : CONFIGVARIANT(n, CONFIG_TYPE_CHAR)
-	{ strValue = val; }
-	CONFIGVARIANT(const TCHAR* n, std::wstring val) : CONFIGVARIANT(n, CONFIG_TYPE_WCHAR)
-	{ wstrValue = val; }
-
-	CONFIGVARIANT(const TCHAR* n, const char* val) : CONFIGVARIANT(n, CONFIG_TYPE_CHAR)
-	{ strValue = val; }
-	CONFIGVARIANT(const TCHAR* n, const wchar_t* val) : CONFIGVARIANT(n, CONFIG_TYPE_WCHAR)
-	{ wstrValue = val; }
-};
-
-bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var);
-bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var);
+#ifdef _WIN32
+#include "Win32/Config.h"
+#else
+#ifdef __POSIX__
+#include "linux/config.h"
+#else
+#error No configuration methods implemented for current platform.
+#endif
+#endif
 
 #endif

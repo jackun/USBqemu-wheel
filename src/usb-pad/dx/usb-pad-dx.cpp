@@ -1,4 +1,3 @@
-#include "../../USB.h"
 #include "../padproxy.h"
 #include "../../Win32/Config-win32.h"
 #include "global.h"
@@ -346,9 +345,7 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 
 int DInputPad::Open()
 {
-	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
-	if (LoadSetting(mPort, APINAME, var))
-		mUseRamp = var.boolValue;
+	LoadSetting(mPort, APINAME, TEXT("UseRamp"), mUseRamp);
 	InitDI(mPort);
 	return 0;
 }

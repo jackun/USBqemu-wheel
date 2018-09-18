@@ -24,7 +24,6 @@
 
 // Most stuff is based on Qemu 1.7 USB soundcard passthrough code.
 
-#include "../USB.h"
 #include "../qemu-usb/vl.h"
 #include "../qemu-usb/desc.h"
 #include "../deviceproxy.h"
@@ -988,11 +987,8 @@ static void headset_handle_close(USBDevice *dev)
 USBDevice* HeadsetDevice::CreateDevice(int port)
 {
     std::string api;
-    {
-        CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-        if (LoadSetting(port, DEVICENAME, var))
-            api = var.strValue;
-    }
+    if (!LoadSetting(port, DEVICENAME, N_DEVICE_API, api))
+        return nullptr;
     return HeadsetDevice::CreateDevice(port, api);
 }
 

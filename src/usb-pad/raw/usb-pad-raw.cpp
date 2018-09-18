@@ -468,18 +468,10 @@ int RawInputPad::Open()
 
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
-	{
-		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
-		if (LoadSetting(mPort, APINAME, var))
-			path = var.wstrValue;
-		else
-			return 1;
-	}
-	{
-		CONFIGVARIANT var(N_WHEEL_PT, CONFIG_TYPE_BOOL);
-		if (LoadSetting(mPort, APINAME, var))
-			mDoPassthrough = var.boolValue;
-	}
+	if (!LoadSetting(mPort, APINAME, N_JOYSTICK, path))
+		return 1;
+
+	LoadSetting(mPort, APINAME, N_WHEEL_PT, mDoPassthrough);
 
 	mUsbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);

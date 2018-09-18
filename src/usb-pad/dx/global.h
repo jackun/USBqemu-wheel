@@ -187,8 +187,7 @@ void SaveMain(int port)
 	swprintf_s(strTemp, L"%i", GAINZ[port][0]); WriteToFile(section, TEXT("GAINZ"), strTemp);
 	swprintf_s(strTemp, L"%i", FFMULTI[port][0]); WriteToFile(section, TEXT("FFMULTI"), strTemp);
 	//only for config dialog
-	CONFIGVARIANT var(L"UseRamp", useRamp);
-	SaveSetting(port, "dinput", var);
+	SaveSetting(port, "dinput", TEXT("UseRamp"), useRamp);
 }
 
 void LoadMain(int port)
@@ -241,9 +240,7 @@ void LoadMain(int port)
 		FFMULTI[port][0] = 0;
 
 	//only for config dialog
-	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
-	if (LoadSetting(port, "dinput", var))
-		useRamp = var.boolValue;
+	LoadSetting(port, "dinput", TEXT("UseRamp"), useRamp);
 }
 
 //use direct input

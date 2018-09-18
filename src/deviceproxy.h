@@ -1,6 +1,5 @@
 #ifndef DEVICEPROXY_H
 #define DEVICEPROXY_H
-#include "USB.h"
 #include "configuration.h"
 #include <string>
 #include <map>

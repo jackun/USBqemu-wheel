@@ -1,5 +1,4 @@
 #include "joydev.h"
-#include "../../USB.h"
 #include "../../osdebugout.h"
 #include <cassert>
 #include <sstream>
@@ -209,15 +208,10 @@ int JoyDevPad::Open()
 	mHandleFF = -1;
 
 	std::string joypath;
+	if (!LoadSetting(mPort, APINAME, N_JOYSTICK, joypath))
 	{
-		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_CHAR);
-		if(LoadSetting(mPort, APINAME, var))
-			joypath = var.strValue;
-		else
-		{
-			OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
-			return 1;
-		}
+		OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
+		return 1;
 	}
 
 	if(!joypath.empty() && file_exists(joypath))

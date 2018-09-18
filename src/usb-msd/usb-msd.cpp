@@ -7,7 +7,6 @@
  * This code is licenced under the LGPL.
  */
 
-#include "../USB.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1051,17 +1050,17 @@ USBDevice *MsdDevice::CreateDevice(int port)
     //LoadSetting(port, DEVICENAME, varApi);
     std::string api = *MsdDevice::ListAPIs().begin();
 
-    CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
+    TSTDSTRING var;
 
-    if (!LoadSetting(port, api, var))
+    if (!LoadSetting(port, api, N_CONFIG_PATH, var))
     {
         fprintf(stderr, "usb-msd: Could not load settings\n");
         return NULL;
     }
 
-    s->file = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
+    s->file = wfopen(var.c_str(), TEXT("r+b"));
     if (!s->file) {
-        SysMessage(TEXT("usb-msd: Could not open image file '%s'\n"), var.tstrValue.c_str());
+        SysMessage(TEXT("usb-msd: Could not open image file '%s'\n"), var.c_str());
         goto fail;
     }
 

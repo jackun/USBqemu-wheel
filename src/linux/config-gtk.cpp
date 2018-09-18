@@ -17,7 +17,6 @@
 #include <linux/input.h>
 #include <linux/joystick.h>
 
-#include "../USB.h"
 #include "../osdebugout.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
@@ -94,9 +93,7 @@ static void populateApiWidget(SettingsCB *settingsCB, const std::string& device)
 		auto it = changedAPIs.find(std::make_pair(port, device));
 		if (it == changedAPIs.end())
 		{
-			CONFIGVARIANT currAPI(N_DEVICE_API, CONFIG_TYPE_CHAR);
-			LoadSetting(port, device, currAPI);
-			api = currAPI.strValue;
+			LoadSetting(port, device, N_DEVICE_API, api);
 			if (!dev->IsValidAPI(api))
 				api.clear();
 		}
