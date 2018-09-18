@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdio>
+#include <iostream>
 
 #ifdef _WIN32
 #include "platcompat.h"
@@ -50,9 +51,11 @@ static void _OSDebugOut(const TCHAR *psz_fmt, ...)
 #ifdef _DEBUG
 #define OSDebugOut(psz_fmt, ...) do{ fprintf(stderr, "[USBqemu] [%s]:%d\t" psz_fmt, __func__, __LINE__, ##__VA_ARGS__); }while(0)
 #define OSDebugOut_noprfx(psz_fmt, ...) do{ fprintf(stderr, psz_fmt, ##__VA_ARGS__); }while(0)
+#define OSDebugOutStream_noprfx(str) do{ std::cerr << str << std::endl; }while(0)
 #else
 #define OSDebugOut(psz_fmt, ...) do{}while(0)
 #define OSDebugOut_noprfx(psz_fmt, ...) do{}while(0)
+#define OSDebugOutStream_noprfx(str) do{}while(0)
 #endif
 
 #endif //_WIN32
