@@ -833,8 +833,10 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 		case FREEZE_LOAD:
 			if (!s) return -1;
 			s->f = *(SINGSTARMICState::freeze *)data;
-			s->audsrc[0]->SetResampling(s->f.srate[0]);
-			s->audsrc[1]->SetResampling(s->f.srate[1]);
+			if (s->audsrc[0])
+				s->audsrc[0]->SetResampling(s->f.srate[0]);
+			if (s->audsrc[1])
+				s->audsrc[1]->SetResampling(s->f.srate[1]);
 			return sizeof(SINGSTARMICState::freeze);
 		case FREEZE_SAVE:
 			if (!s) return -1;
