@@ -426,7 +426,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				USBAttach(i, usb_device[i], index != DEVTYPE_MSD);
 			}
 
-			if (proxy)
+			if (proxy && usb_device[i]) /* usb device creation may have failed for some reason */
 			{
 				if (proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr) != usbd.device[i].size)
 				{
@@ -434,35 +434,32 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					return -1;
 				}
 
-				if (usb_device[i])
-				{
-					USBDevice tmp = usbd.device[i].dev;
+				USBDevice tmp = usbd.device[i].dev;
 
-					usb_device[i]->addr = tmp.addr;
-					usb_device[i]->attached = tmp.attached;
-					usb_device[i]->auto_attach = tmp.auto_attach;
-					usb_device[i]->configuration = tmp.configuration;
-					usb_device[i]->ninterfaces = tmp.ninterfaces;
-					usb_device[i]->flags = tmp.flags;
-					usb_device[i]->state = tmp.state;
-					usb_device[i]->remote_wakeup = tmp.remote_wakeup;
-					usb_device[i]->setup_state = tmp.setup_state;
-					usb_device[i]->setup_len = tmp.setup_len;
-					usb_device[i]->setup_index = tmp.setup_index;
+				usb_device[i]->addr = tmp.addr;
+				usb_device[i]->attached = tmp.attached;
+				usb_device[i]->auto_attach = tmp.auto_attach;
+				usb_device[i]->configuration = tmp.configuration;
+				usb_device[i]->ninterfaces = tmp.ninterfaces;
+				usb_device[i]->flags = tmp.flags;
+				usb_device[i]->state = tmp.state;
+				usb_device[i]->remote_wakeup = tmp.remote_wakeup;
+				usb_device[i]->setup_state = tmp.setup_state;
+				usb_device[i]->setup_len = tmp.setup_len;
+				usb_device[i]->setup_index = tmp.setup_index;
 
-					memcpy(usb_device[i]->data_buf, tmp.data_buf, sizeof(tmp.data_buf));
-					memcpy(usb_device[i]->setup_buf, tmp.setup_buf, sizeof(tmp.setup_buf));
+				memcpy(usb_device[i]->data_buf, tmp.data_buf, sizeof(tmp.data_buf));
+				memcpy(usb_device[i]->setup_buf, tmp.setup_buf, sizeof(tmp.setup_buf));
 
-					usb_desc_set_config(usb_device[i], tmp.configuration);
-					for (int k = 0; k < 16; k++) {
-						usb_device[i]->altsetting[k] = tmp.altsetting[k];
-						usb_desc_set_interface(usb_device[i], k, tmp.altsetting[k]);
-					}
+				usb_desc_set_config(usb_device[i], tmp.configuration);
+				for (int k = 0; k < 16; k++) {
+					usb_device[i]->altsetting[k] = tmp.altsetting[k];
+					usb_desc_set_interface(usb_device[i], k, tmp.altsetting[k]);
 				}
 
 				proxy->Freeze(FREEZE_LOAD, usb_device[i], ptr);
 			}
-			else if (index != DEVTYPE_NONE)
+			else if (!proxy && index != DEVTYPE_NONE)
 			{
 				SysMessage(TEXT("Port %d: unknown device.\nPlugin is probably too old for this save.\n"), 1+(1-i));
 				return -1;
@@ -472,12 +469,12 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 		int dev_index = usbd.usb_packet.dev_index;
 		// restore USBPacket for OHCIState
+		//if (qemu_ohci->usb_packet.iov.iov)
+		usb_packet_cleanup(&qemu_ohci->usb_packet);
+		usb_packet_init(&qemu_ohci->usb_packet);
+
 		if (usb_device[dev_index])
 		{
-			//if (qemu_ohci->usb_packet.iov.iov)
-			usb_packet_cleanup(&qemu_ohci->usb_packet);
-			usb_packet_init(&qemu_ohci->usb_packet);
-
 			USBPacket *p = &qemu_ohci->usb_packet;
 			p->actual_length = usbd.usb_packet.data_size;
 
