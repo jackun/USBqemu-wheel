@@ -35,6 +35,10 @@
 #define ftello64 _ftelli64
 #define TSTDSTRING std::wstring
 
+#ifdef _MSC_VER
+typedef SSIZE_T ssize_t;
+#endif
+
 //FIXME narrow string fmt
 #ifdef UNICODE
 #define SFMTs "S"
@@ -101,7 +105,7 @@ errno_t wcstombs_s(
 #define ARRAY_SIZE(x) ((sizeof(x) / sizeof((x)[0])))
 #endif
 
-#include <cstdint>
+#include <cstddef>
 
 template <class T, std::size_t N>
 constexpr std::size_t countof(const T (&)[N]) noexcept
@@ -114,9 +118,5 @@ constexpr std::size_t countof(const T (&)[N]) noexcept
 #define PACK(def,name) __pragma( pack(push, 1) ) def name __pragma( pack(pop) )
 #else
 #define PACK(def,name) def __attribute__((gcc_struct, packed)) name
-#endif
-
-#ifdef _WIN64
-typedef __int64 ssize_t;
 #endif
 #endif
