@@ -28,12 +28,13 @@ bool LoadSetting(int port, const std::string& key, const char* name, Type& var)
 
 	std::stringstream section;
 	section << key << " " << port;
+	std::string str = section.str();
 
 	std::string ini(IniDir);
 	ini.append(iniFile);
 
-	OSDebugOut("[%s %d] '%s'=", key.c_str(), port, name);
-	ret = LoadSettingValue(ini, section.str(), name, var);
+	OSDebugOut("[%s] '%s'=", str.c_str(), name);
+	ret = LoadSettingValue(ini, str, name, var);
 	OSDebugOutStream_noprfx(var);
 	return ret;
 }
@@ -64,13 +65,14 @@ bool SaveSetting(int port, const std::string& key, const char* name, const Type 
 
 	std::stringstream section;
 	section << key << " " << port;
+	std::string str = section.str();
 
 	std::string ini(IniDir);
 	ini.append(iniFile);
 
-	OSDebugOut("[%s %d] '%s'=", key.c_str(), port, name);
+	OSDebugOut("[%s] '%s'=", str.c_str(), name);
 
-	ret = SaveSettingValue(ini, section.str(), name, var);
+	ret = SaveSettingValue(ini, str, name, var);
 	OSDebugOutStream_noprfx(var);
 	return ret;
 }
