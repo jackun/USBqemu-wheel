@@ -411,12 +411,14 @@ public:
 		while (samples_to_read > 0)
 		{
 			ssize_t samples = std::min(samples_to_read, (ssize_t)mOutBuffer.peek_read<short>());
+			if (!samples)
+				break;
 			memcpy(pDst, mOutBuffer.front(), samples * sizeof(short));
 			mOutBuffer.read<short>(samples);
 			pDst += samples;
 			samples_to_read -= samples;
 		}
-		return (frames - samples_to_read * GetChannels());
+		return (frames - (samples_to_read / GetChannels()));
 	}
 
 	uint32_t SetBuffer(short *buff, uint32_t frames)

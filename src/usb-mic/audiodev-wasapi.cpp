@@ -673,6 +673,8 @@ error:
 		while (samples_to_read > 0)
 		{
 			int samples = std::min(samples_to_read, (int)mOutBuffer.peek_read<short>());
+			if (!samples)
+				break;
 			memcpy(pDst, mOutBuffer.front(), samples * sizeof(short));
 
 			mOutBuffer.read<short>(samples);
@@ -683,7 +685,7 @@ error:
 		if (!ReleaseMutex(mMutex))
 			OSDebugOut(TEXT("Mutex release failed\n"));
 
-		return (outFrames - samples_to_read * mDeviceChannels);
+		return (outFrames - (samples_to_read / mDeviceChannels));
 	}
 
 	virtual uint32_t SetBuffer(int16_t *inBuf, uint32_t inFrames)
