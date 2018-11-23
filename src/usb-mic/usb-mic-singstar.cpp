@@ -471,6 +471,14 @@ static void singstar_mic_set_interface(USBDevice *dev, int intf,
 {
 	SINGSTARMICState *s = (SINGSTARMICState *)dev;
 	s->f.intf = alt_new;
+	OSDebugOut(TEXT("singstar: intf:%d alt:%d -> %d\n"), intf, alt_old, alt_new);
+#if defined(_DEBUG)
+	/* close previous debug audio output file */
+	if (file && intf > 0 && alt_old != alt_new) {
+		fclose (file);
+		file = nullptr;
+	}
+#endif
 }
 
 static void singstar_mic_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
@@ -659,6 +667,14 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				break;
 			}
 
+			ret = ret * outChns * sizeof(int16_t);
+			if (p->iov.niov > 1)
+			{
+				usb_packet_copy (p, dst_alloc.data(), ret);
+			}
+			else
+				p->actual_length = ret;
+
 #if defined(_DEBUG) && _MSC_VER > 1800
 			if (!file)
 			{
@@ -670,13 +686,6 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 			if (file)
 				fwrite(dst, sizeof(*dst), ret * outChns, file);
 #endif
-			ret = ret * outChns * sizeof(int16_t);
-			if (p->iov.niov > 1)
-			{
-				usb_packet_copy (p, dst_alloc.data(), ret);
-			}
-			else
-				p->actual_length = ret;
         }
         break;
     case USB_TOKEN_OUT:
