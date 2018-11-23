@@ -1071,8 +1071,10 @@ int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
         case FREEZE_LOAD:
             if (!s) return -1;
             s->f = *(HeadsetState::freeze *)data;
-            s->audsrc->SetResampling(s->f.in.srate);
-            s->audsink->SetResampling(s->f.out.srate);
+            if (s->audsrc)
+                s->audsrc->SetResampling(s->f.in.srate);
+            if (s->audsink)
+                s->audsink->SetResampling(s->f.out.srate);
             return sizeof(HeadsetState::freeze);
         case FREEZE_SAVE:
             if (!s) return -1;
