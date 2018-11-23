@@ -759,21 +759,19 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 	s->audsrc[0] = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SOURCE);
 	s->audsrc[1] = s->audsrcproxy->CreateObject(port, 1, AUDIODIR_SOURCE);
 
-	s->f.mode = MIC_MODE_SEPARATE;
-	auto src = s->audsrc[0] ? s->audsrc[0] : (s->audsrc[1] ? s->audsrc[1] : nullptr);
+	if(!s->audsrc[0] && !s->audsrc[1])
+		goto fail;
 
-	if (src)
-		s->f.mode = src->GetMicMode(nullptr);
-
-	if(s->f.mode != MIC_MODE_SHARED && (!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1])))
+	if (s->audsrc[0] && s->audsrc[1] && s->audsrc[0]->Compare(s->audsrc[1]))
+		s->f.mode = MIC_MODE_SHARED;
+	else if(!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1]))
 		s->f.mode = MIC_MODE_SINGLE;
+	else
+		s->f.mode = MIC_MODE_SEPARATE;
 
 	for (int i = 0; i < 2; i++)
 		if (s->audsrc[i])
 			s->buffer[i].resize(BUFFER_FRAMES * s->audsrc[i]->GetChannels());
-
-	if(!s->audsrc[0] && !s->audsrc[1])
-		goto fail;
 
 	s->desc.full = &s->desc_dev;
 	s->desc.str = desc_strings;

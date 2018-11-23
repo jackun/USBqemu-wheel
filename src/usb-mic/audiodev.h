@@ -75,7 +75,8 @@ public:
 	virtual void Start() {}
 	virtual void Stop() {}
 
-	virtual MicMode GetMicMode(AudioDevice* compare) = 0;
+	// Compare if another instance is using the same device
+	virtual bool Compare(AudioDevice* compare) = 0;
 
 	//Remember to add to your class
 	//static const wchar_t* GetName();

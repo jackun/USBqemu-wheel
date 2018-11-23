@@ -28,9 +28,9 @@ public:
 		return 1;
 	}
 
-	virtual MicMode GetMicMode(AudioDevice* compare)
+	virtual bool Compare(AudioDevice* compare)
 	{
-		return MIC_MODE_SINGLE;
+		return false;
 	}
 
 	static const TCHAR* Name()

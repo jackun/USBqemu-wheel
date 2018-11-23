@@ -512,24 +512,15 @@ public:
 		}
 	}
 
-	virtual MicMode GetMicMode(AudioDevice* compare)
+	virtual bool Compare(AudioDevice* compare)
 	{
-		if(compare && typeid(compare) != typeid(this))
-			return MIC_MODE_SEPARATE; //atleast, if not single altogether
-
 		if (compare)
 		{
-			PulseAudioDevice *src = dynamic_cast<PulseAudioDevice *>(compare);
+			PulseAudioDevice *src = static_cast<PulseAudioDevice *>(compare);
 			if (src && mDeviceName == src->mDeviceName)
-				return MIC_MODE_SHARED;
-			return MIC_MODE_SEPARATE;
+				return true;
 		}
-
-		std::string var;
-		if (LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1), var) && var == mDeviceName)
-			return MIC_MODE_SHARED;
-
-		return MIC_MODE_SINGLE;
+		return false;
 	}
 
 	void Uninit()

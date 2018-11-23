@@ -798,24 +798,15 @@ error:
 		return mDeviceChannels;
 	}
 
-	virtual MicMode GetMicMode(AudioDevice* compare)
+	virtual bool Compare(AudioDevice* compare)
 	{
-		if (compare && typeid(compare) != typeid(this))
-			return MIC_MODE_SEPARATE; //atleast, if not single altogether
-
 		if (compare)
 		{
-			MMAudioDevice *src = dynamic_cast<MMAudioDevice *>(compare);
+			MMAudioDevice *src = static_cast<MMAudioDevice *>(compare);
 			if (src && mDevID == src->mDevID)
-				return MIC_MODE_SHARED;
-			return MIC_MODE_SEPARATE;
+				return true;
 		}
-
-		std::wstring var;
-		if (LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SOURCE0 : N_AUDIO_SOURCE1), var) && var == mDevID)
-			return MIC_MODE_SHARED;
-
-		return MIC_MODE_SINGLE;
+		return false;
 	}
 
 	static const char* TypeName()
