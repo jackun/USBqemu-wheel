@@ -768,59 +768,6 @@ static void usb_msd_handle_control(USBDevice *dev, USBPacket *p, int request, in
     OSDebugOut (TEXT("request %04x %04x %04x\n"), request, value, index);
 
     switch (request) {
-    case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
-        OSDebugOut (TEXT("USB_REQ_GET_DESCRIPTOR\n"));
-        switch(value >> 8) {
-        case USB_DT_DEVICE:
-            memcpy(data, qemu_msd_dev_descriptor,
-                   sizeof(qemu_msd_dev_descriptor));
-            ret = sizeof(qemu_msd_dev_descriptor);
-            break;
-        case USB_DT_CONFIG:
-            memcpy(data, qemu_msd_config_descriptor,
-                   sizeof(qemu_msd_config_descriptor));
-            ret = sizeof(qemu_msd_config_descriptor);
-            break;
-        case USB_DT_STRING:
-            switch(value & 0xff) {
-            case 0:
-                /* language ids */
-                data[0] = 4;
-                data[1] = 3;
-                data[2] = 0x09;
-                data[3] = 0x04;
-                p->actual_length = 4;
-                break;
-            case 1:
-                /* vendor description */
-                p->actual_length = set_usb_string(data, "QEMU ", length);
-                break;
-            case 2:
-                /* product description */
-                p->actual_length = set_usb_string(data, "QEMU USB HARDDRIVE", length);
-                break;
-            case 3:
-                /* serial number */
-                p->actual_length = set_usb_string(data, "1", length);
-                break;
-            default:
-                goto fail;
-            }
-            break;
-        default:
-            goto fail;
-        }
-        break;
-    case DeviceRequest | USB_REQ_GET_INTERFACE:
-        data[0] = 0;
-        p->actual_length = 1;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_INTERFACE:
-        break;
-    case EndpointOutRequest | USB_REQ_CLEAR_FEATURE:
-        break;
-    case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
-        break;
         /* Class specific requests.  */
     case ClassInterfaceOutRequest | MassStorageReset:
         /* Reset state ready for the next CBW.  */
