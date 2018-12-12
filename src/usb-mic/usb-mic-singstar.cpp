@@ -618,31 +618,28 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				ret = i;
 			}
 			break;
-			//else if(s->isCombined && (s->buffer[0] || s->buffer[1]))
 			case MIC_MODE_SHARED:
 			{
-				int k = 0;//(s->buffer[0]) ? 0 : 1; //TODO No need? Should be always first one anyway
-				chn = s->audsrc[k]->GetChannels();
-				frames = outlen[k];
-				src1 = s->buffer[k].data();
+				chn = s->audsrc[0]->GetChannels();
+				frames = outlen[0];
+				src1 = s->buffer[0].data();
 
 				uint32_t i = 0;
 				for(; i < frames && i < max_frames; i++)
 				{
-					dst[i * outChns] = SetVolume(src1[i * chn], s->f.vol[k]);
+					dst[i * outChns] = SetVolume(src1[i * chn], s->f.vol[0]);
 					if (outChns > 1)
 					{
 						if (chn == 1)
 							dst[i * 2 + 1] = dst[i * 2];
 						else
-							dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->f.vol[k]);
+							dst[i * 2 + 1] = SetVolume(src1[i * chn + 1], s->f.vol[0]);
 					}
 				}
 
 				ret = i;
 			}
 			break;
-			//else if(s->buffer[0] && s->buffer[1])
 			case MIC_MODE_SEPARATE:
 			{
 				uint32_t cn1 = s->audsrc[0]->GetChannels();
@@ -772,8 +769,14 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 		goto fail;
 
 	if (s->audsrc[0] && s->audsrc[1] && s->audsrc[0]->Compare(s->audsrc[1]))
+	{
 		s->f.mode = MIC_MODE_SHARED;
-	else if(!s->audsrc[0] || (s->audsrc[0] && !s->audsrc[1]))
+		// And don't capture the same source twice
+		s->audsrc[1]->Stop();
+		delete s->audsrc[1];
+		s->audsrc[1] = nullptr;
+	}
+	else if (!s->audsrc[0] || !s->audsrc[1])
 		s->f.mode = MIC_MODE_SINGLE;
 	else
 		s->f.mode = MIC_MODE_SEPARATE;
