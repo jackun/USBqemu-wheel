@@ -930,29 +930,3 @@ int usb_desc_handle_control(USBDevice *dev, USBPacket *p,
 	}
 	return ret;
 }
-
-/* function to support old binary blob descriptors */
-int set_usb_string(uint8_t *dest, const char *str, int len)
-{
-	uint8_t bLength, pos, i;
-	if (len < 4) {
-		return -1;
-	}
-
-	bLength = strlen(str) * 2 + 2;
-	dest[0] = bLength;
-	dest[1] = USB_DT_STRING;
-	i = 0; pos = 2;
-	while (pos+1 < bLength && pos+1 < len) {
-		dest[pos++] = str[i++];
-		dest[pos++] = 0;
-	}
-	return pos;
-}
-
-/* function to support old binary blob descriptors */
-/* XXX: fix overflow */
-int set_usb_string(uint8_t *dest, const char *str)
-{
-	return set_usb_string(dest, str, 254);
-}
