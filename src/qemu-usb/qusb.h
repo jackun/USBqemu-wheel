@@ -394,8 +394,6 @@ struct USBDevice {
     USBDeviceClass klass;
     USBPort *port;
     USBBus *bus;
-    //char *port_path;
-    char *serial;
     void *opaque;
     uint32_t flags;
 
@@ -420,7 +418,6 @@ struct USBDevice {
     USBEndpoint ep_in[USB_MAX_ENDPOINTS];
     USBEndpoint ep_out[USB_MAX_ENDPOINTS];
 
-    QLIST_HEAD(, USBDescString) strings;
     const USBDesc *usb_desc; /* Overrides class usb_desc if not NULL */
     const USBDescDevice *device;
 

@@ -1044,7 +1044,6 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->f.in.srate = 48000;
 
     usb_desc_init(&s->dev);
-    usb_desc_create_serial(&s->dev);
     usb_ep_init(&s->dev);
     headset_handle_reset ((USBDevice *)s);
 

@@ -811,7 +811,6 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
     s->f.srate[1] = 48000;
 
 	usb_desc_init(&s->dev);
-	//usb_desc_create_serial(&s->dev);
 	usb_ep_init(&s->dev);
 	singstar_mic_handle_reset ((USBDevice *)s);
 

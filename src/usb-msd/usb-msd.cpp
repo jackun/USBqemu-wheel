@@ -1032,7 +1032,6 @@ USBDevice *MsdDevice::CreateDevice(int port)
     s->dev.klass.product_desc   = desc_strings[STR_PRODUCT];
 
     usb_desc_init(&s->dev);
-    usb_desc_create_serial(&s->dev);
     usb_ep_init(&s->dev);
 
     usb_msd_handle_reset((USBDevice *)s);

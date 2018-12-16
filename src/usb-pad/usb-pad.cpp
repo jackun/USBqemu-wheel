@@ -337,7 +337,6 @@ USBDevice *PadDevice::CreateDevice(int port)
 	s->port = port;
 
 	usb_desc_init(&s->dev);
-	usb_desc_create_serial(&s->dev);
 	usb_ep_init(&s->dev);
 	pad_handle_reset ((USBDevice *)s);
 
