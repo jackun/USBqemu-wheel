@@ -30,8 +30,18 @@
 #define SET_IDLE     0x210a
 #define SET_PROTOCOL 0x210b
 
+/* HID descriptor types */
+#define USB_DT_HID    0x21
+#define USB_DT_REPORT 0x22
+#define USB_DT_PHY    0x23
+
 #define USB_MOUSE  1
 #define USB_TABLET 2
+
+typedef struct USBKeyboardState {
+    USBDevice dev;
+	int keyboard_grabbed;
+} USBKeyboardState;
 
 typedef struct USBMouseState {
     USBDevice dev;
@@ -40,6 +50,84 @@ typedef struct USBMouseState {
     int kind;
     int mouse_grabbed;
 } USBMouseState;
+
+/* mostly the same values as the Bochs USB Keyboard device */
+static const uint8_t qemu_keyboard_dev_descriptor[] = {
+	0x12,       /*  u8 bLength; */
+	0x01,       /*  u8 bDescriptorType; Device */
+	0x10, 0x00, /*  u16 bcdUSB; v1.0 */
+
+	0x00,	    /*  u8  bDeviceClass; */
+	0x00,	    /*  u8  bDeviceSubClass; */
+	0x00,       /*  u8  bDeviceProtocol; [ low/full speeds only ] */
+	0x08,       /*  u8  bMaxPacketSize0; 8 Bytes */
+
+//	0x27, 0x06, /*  u16 idVendor; */
+	0x4C, 0x05,
+ //	0x01, 0x00, /*  u16 idProduct; */
+	0x00, 0x10,
+	0x00, 0x00, /*  u16 bcdDevice */
+
+	0x03,       /*  u8  iManufacturer; */
+	0x02,       /*  u8  iProduct; */
+	0x01,       /*  u8  iSerialNumber; */
+	0x01        /*  u8  bNumConfigurations; */
+};
+
+static const uint8_t qemu_keyboard_config_descriptor[] = {
+	/* one configuration */
+	0x09,       /*  u8  bLength; */
+	0x02,       /*  u8  bDescriptorType; Configuration */
+	0x22, 0x00, /*  u16 wTotalLength; */
+	0x01,       /*  u8  bNumInterfaces; (1) */
+	0x01,       /*  u8  bConfigurationValue; */
+	0x04,       /*  u8  iConfiguration; */
+	0xa0,       /*  u8  bmAttributes; 
+				 Bit 7: must be set,
+				     6: Self-powered,
+				     5: Remote wakeup,
+				     4..0: resvd */
+	50,         /*  u8  MaxPower; */
+      
+	/* USB 1.1:
+	 * USB 2.0, single TT organization (mandatory):
+	 *	one interface, protocol 0
+	 *
+	 * USB 2.0, multiple TT organization (optional):
+	 *	two interfaces, protocols 1 (like single TT)
+	 *	and 2 (multiple TT mode) ... config is
+	 *	sometimes settable
+	 *	NOT IMPLEMENTED
+	 */
+
+	/* one interface */
+	0x09,       /*  u8  if_bLength; */
+	0x04,       /*  u8  if_bDescriptorType; Interface */
+	0x00,       /*  u8  if_bInterfaceNumber; */
+	0x00,       /*  u8  if_bAlternateSetting; */
+	0x01,       /*  u8  if_bNumEndpoints; */
+	0x03,       /*  u8  if_bInterfaceClass; */
+	0x01,       /*  u8  if_bInterfaceSubClass; */
+	0x01,       /*  u8  if_bInterfaceProtocol; [usb1.1 or single tt] */
+	0x05,       /*  u8  if_iInterface; */
+     
+        /* HID descriptor */
+        0x09,        /*  u8  bLength; */
+        0x21,        /*  u8 bDescriptorType; */
+        0x01, 0x00,  /*  u16 HID_class */
+        0x00,        /*  u8 country_code */
+        0x01,        /*  u8 num_descriptors */
+        0x22,        /*  u8 type; Report */
+        50, 0,       /*  u16 len */
+
+	/* one endpoint (status change endpoint) */
+	0x07,       /*  u8  ep_bLength; */
+	0x05,       /*  u8  ep_bDescriptorType; Endpoint */
+	0x81,       /*  u8  ep_bEndpointAddress; IN Endpoint 1 */
+ 	0x03,       /*  u8  ep_bmAttributes; Interrupt */
+ 	0x03, 0x00, /*  u16 ep_wMaxPacketSize; */
+	0x0a,       /*  u8  ep_bInterval; (255ms -- usb 2.0 spec) */
+};
 
 /* mostly the same values as the Bochs USB Mouse device */
 static const uint8_t qemu_mouse_dev_descriptor[] = {
@@ -173,13 +261,33 @@ static const uint8_t qemu_tablet_config_descriptor[] = {
 };
 
 static const uint8_t qemu_mouse_hid_report_descriptor[] = {
-    0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x09, 0x01, 
-    0xA1, 0x00, 0x05, 0x09, 0x19, 0x01, 0x29, 0x03,
-    0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 
-    0x81, 0x02, 0x95, 0x01, 0x75, 0x05, 0x81, 0x01,
-    0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x15, 0x81, 
-    0x25, 0x7F, 0x75, 0x08, 0x95, 0x02, 0x81, 0x06,
-    0xC0, 0xC0,
+    0x05, 0x01,		/* Usage Page (Generic Desktop) */
+    0x09, 0x02,		/* Usage (Mouse) */
+    0xa1, 0x01,		/* Collection (Application) */
+    0x09, 0x01,		/*   Usage (Pointer) */
+    0xa1, 0x00,		/*   Collection (Physical) */
+    0x05, 0x09,		/*     Usage Page (Button) */
+    0x19, 0x01,		/*     Usage Minimum (1) */
+    0x29, 0x03,		/*     Usage Maximum (3) */
+    0x15, 0x00,		/*     Logical Minimum (0) */
+    0x25, 0x01,		/*     Logical Maximum (1) */
+    0x95, 0x03,		/*     Report Count (3) */
+    0x75, 0x01,		/*     Report Size (1) */
+    0x81, 0x02,		/*     Input (Data, Variable, Absolute) */
+    0x95, 0x01,		/*     Report Count (1) */
+    0x75, 0x05,		/*     Report Size (5) */
+    0x81, 0x01,		/*     Input (Constant) */
+    0x05, 0x01,		/*     Usage Page (Generic Desktop) */
+    0x09, 0x30,		/*     Usage (X) */
+    0x09, 0x31,		/*     Usage (Y) */
+    0x09, 0x38,		/*     Usage (Wheel) */
+    0x15, 0x81,		/*     Logical Minimum (-0x7f) */
+    0x25, 0x7f,		/*     Logical Maximum (0x7f) */
+    0x75, 0x08,		/*     Report Size (8) */
+    0x95, 0x03,		/*     Report Count (3) */
+    0x81, 0x06,		/*     Input (Data, Variable, Relative) */
+    0xc0,		/*   End Collection */
+    0xc0,		/* End Collection */
 };
 
 static const uint8_t qemu_tablet_hid_report_descriptor[] = {
@@ -220,6 +328,41 @@ static const uint8_t qemu_tablet_hid_report_descriptor[] = {
         0x81, 0x02, /* Input (Data, Var, Rel) */
         0xC0,       /* End Collection */
         0xC0,       /* End Collection */
+};
+
+static const uint8_t qemu_keyboard_hid_report_descriptor[] = {
+    0x05, 0x01,		/* Usage Page (Generic Desktop) */
+    0x09, 0x06,		/* Usage (Keyboard) */
+    0xa1, 0x01,		/* Collection (Application) */
+    0x75, 0x01,		/*   Report Size (1) */
+    0x95, 0x08,		/*   Report Count (8) */
+    0x05, 0x07,		/*   Usage Page (Key Codes) */
+    0x19, 0xe0,		/*   Usage Minimum (224) */
+    0x29, 0xe7,		/*   Usage Maximum (231) */
+    0x15, 0x00,		/*   Logical Minimum (0) */
+    0x25, 0x01,		/*   Logical Maximum (1) */
+    0x81, 0x02,		/*   Input (Data, Variable, Absolute) */
+    0x95, 0x01,		/*   Report Count (1) */
+    0x75, 0x08,		/*   Report Size (8) */
+    0x81, 0x01,		/*   Input (Constant) */
+    0x95, 0x05,		/*   Report Count (5) */
+    0x75, 0x01,		/*   Report Size (1) */
+    0x05, 0x08,		/*   Usage Page (LEDs) */
+    0x19, 0x01,		/*   Usage Minimum (1) */
+    0x29, 0x05,		/*   Usage Maximum (5) */
+    0x91, 0x02,		/*   Output (Data, Variable, Absolute) */
+    0x95, 0x01,		/*   Report Count (1) */
+    0x75, 0x03,		/*   Report Size (3) */
+    0x91, 0x01,		/*   Output (Constant) */
+    0x95, 0x06,		/*   Report Count (6) */
+    0x75, 0x08,		/*   Report Size (8) */
+    0x15, 0x00,		/*   Logical Minimum (0) */
+    0x25, 0xff,		/*   Logical Maximum (255) */
+    0x05, 0x07,		/*   Usage Page (Key Codes) */
+    0x19, 0x00,		/*   Usage Minimum (0) */
+    0x29, 0xff,		/*   Usage Maximum (255) */
+    0x81, 0x00,		/*   Input (Data, Array) */
+    0xc0,		/* End Collection */
 };
 
 static void usb_mouse_event(void *opaque,

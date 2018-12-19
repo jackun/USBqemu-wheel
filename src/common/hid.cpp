@@ -1,4 +1,6 @@
-#include "raw-config.h"
+#include <windows.h>
+#include <setupapi.h>
+#include "hid.h"
 
 _HidD_GetHidGuid HidD_GetHidGuid = NULL;
 _HidD_GetAttributes HidD_GetAttributes = NULL;

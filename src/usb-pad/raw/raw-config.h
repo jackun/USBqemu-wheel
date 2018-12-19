@@ -2,8 +2,7 @@
 #define RAWCONFIG_H
 
 #include "../usb-pad.h"
-#include <setupapi.h>
-#include "hid.h"
+#include "common/rawinput.h"
 
 #define APINAME "rawinput"
 

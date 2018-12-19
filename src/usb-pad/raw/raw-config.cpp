@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <map>
 #include "../../configuration.h"
+#include "common/rawinput.h"
 #include "raw-config.h"
 #include "raw-config-res.h"
 #include <strsafe.h>

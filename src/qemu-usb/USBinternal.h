@@ -26,7 +26,7 @@ typedef uint32_t target_phys_addr_t;
 typedef struct OHCIState {
     target_phys_addr_t mem_base;
     int mem;
-    int num_ports;
+    uint32_t num_ports;
 
     uint64_t eof_timer;
     int64_t sof_time;
@@ -43,7 +43,7 @@ typedef struct OHCIState {
     uint32_t bulk_head, bulk_cur;
     uint32_t per_cur;
     uint32_t done;
-    int done_count;
+    int32_t done_count;
 
     /* Frame counter partition */
     uint32_t fsmps:15;

@@ -101,6 +101,10 @@ FILE( APPEND ${hdr_file} "#define G_MAXSIZE G_MAXUINT32")
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
+#
+# Source files
+#
+
 SET(HDRS_SAMPLERATE
 	./src/libsamplerate/common.h
 	./src/libsamplerate/config.h
@@ -116,33 +120,6 @@ SET(SRCS_SAMPLERATE
 	./src/libsamplerate/src_linear.c
 	./src/libsamplerate/src_sinc.c
 	./src/libsamplerate/src_zoh.c
-)
-
-# Some unneeded headers too
-SET(HDRS_MIC
-	./src/usb-mic/audio.h
-	./src/usb-mic/audiodev.h
-	./src/usb-mic/audiodeviceproxy.h
-	./src/usb-mic/usb-mic-singstar.h
-)
-
-SET(HDRS_QEMU
-	./src/qemu-usb/glib.h
-	./src/qemu-usb/vl.h
-	./src/qemu-usb/qusb.h
-	./src/qemu-usb/USBinternal.h
-	./src/qemu-usb/desc.h
-	./src/qemu-usb/iov.h
-	./src/qemu-usb/queue.h
-)
-
-SET(HDRS_MSD
-	./src/usb-msd/usb-msd.h
-)
-
-SET(HDRS_PAD
-	./src/usb-pad/usb-pad.h
-	./src/usb-pad/padproxy.h
 )
 
 SET(HDRS_PLG
@@ -164,8 +141,17 @@ SET(SRCS_PLG
 	./src/ringbuffer.cpp
 )
 
+SET(HDRS_QEMU
+	./src/qemu-usb/glib.h
+	./src/qemu-usb/vl.h
+	./src/qemu-usb/qusb.h
+	./src/qemu-usb/USBinternal.h
+	./src/qemu-usb/desc.h
+	./src/qemu-usb/iov.h
+	./src/qemu-usb/queue.h
+)
+
 SET(SRCS_QEMU
-	#./src/qemu-usb/usb-hid.cpp
 	#./src/qemu-usb/usb-hub.cpp
 	./src/qemu-usb/glib.cpp
 	./src/qemu-usb/vl.cpp
@@ -176,14 +162,30 @@ SET(SRCS_QEMU
 	./src/qemu-usb/usb-ohci.cpp
 )
 
+SET(HDRS_MSD
+	./src/usb-msd/usb-msd.h
+)
+
 SET(SRCS_MSD
 	./src/usb-msd/usb-msd.cpp
+)
+
+SET(HDRS_PAD
+	./src/usb-pad/usb-pad.h
+	./src/usb-pad/padproxy.h
 )
 
 SET(SRCS_PAD
 #	./src/usb-pad/bitjuggling.cpp
 	./src/usb-pad/usb-pad.cpp
 	./src/usb-pad/padproxy.cpp
+)
+
+SET(HDRS_MIC
+	./src/usb-mic/audio.h
+	./src/usb-mic/audiodev.h
+	./src/usb-mic/audiodeviceproxy.h
+	./src/usb-mic/usb-mic-singstar.h
 )
 
 SET(SRCS_MIC
@@ -195,10 +197,29 @@ SET(SRCS_MIC
 	#./src/usb-eyetoy/usb-eyetoy.cpp
 )
 
+SET(HDRS_HID
+)
+
+SET(SRCS_HID
+)
+
+# shared/global functions
+SET(HDRS_COMMON
+	./src/common/common.h
+)
+
+SET(SRCS_COMMON
+	./src/common/common.cpp
+)
+
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
 ADD_DEFINITIONS(-DLIBSRC_ONLY_FAST -DHAVE_LRINT=1 -DHAVE_LRINTF=1)
 ADD_DEFINITIONS(-DHAVE_LIBM=1 -DHAVE_INTTYPES_H=1 -DHAVE_DLFCN_H=1)
 ADD_DEFINITIONS(-DGCC_MAJOR_VERSION=6)
+
+#
+# WIN32 specific source files
+#
 
 IF(WIN32)
 	ADD_DEFINITIONS(-DUNICODE)
@@ -227,7 +248,21 @@ IF(WIN32)
 	LIST(APPEND SRCS_MSD
 		./src/usb-msd/usb-msd-win32.cpp
 	)
-	
+
+	LIST(APPEND HDRS_COMMON
+		./src/common/hid.h
+		./src/common/rawinput.h
+	)
+
+	LIST(APPEND SRCS_COMMON
+		./src/common/hid.cpp
+		./src/common/rawinput.cpp
+	)
+
+	LIST(APPEND SRCS_HID
+	#	./src/usb-hid/win32/mouse.cpp
+	)
+
 	# These two eventually contain only code that manages raw/dx configurations
 	LIST(APPEND HDRS ${HDRS_WIN32})
 	LIST(APPEND SRCS ${SRCS_WIN32})
@@ -238,6 +273,8 @@ IF(WIN32)
 	SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
 	SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
+	SOURCE_GROUP("Header Files\\usb-hid" FILES ${HDRS_HID})
+	SOURCE_GROUP("Header Files\\common" FILES ${HDRS_COMMON})
 	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
 	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
@@ -246,6 +283,8 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
 	SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
+	SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
+	SOURCE_GROUP("Source Files\\common" FILES ${SRCS_COMMON})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
 
 	IF(PLUGIN_BUILD_DX)
@@ -286,14 +325,12 @@ IF(WIN32)
 	IF(PLUGIN_BUILD_RAW)
 		ADD_DEFINITIONS(-DBUILD_RAW=1)
 		LIST(APPEND HDRS_RAW
-			./src/usb-pad/raw/hid.h
 			./src/usb-pad/raw/raw-config.h
 			./src/usb-pad/raw/raw-config-res.h
 		)
 		LIST(APPEND SRCS_RAW
 			./src/usb-pad/raw/usb-pad-raw.cpp
 			./src/usb-pad/raw/raw-config.cpp
-			./src/usb-pad/raw/hid.cpp
 		)
 		SOURCE_GROUP("Header Files\\usb-pad\\Raw" FILES ${HDRS_RAW})
 		SOURCE_GROUP("Source Files\\usb-pad\\Raw" FILES ${SRCS_RAW})
@@ -312,6 +349,10 @@ IF(WIN32)
 		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 	ENDIF()
 ENDIF(WIN32)
+
+#
+# Linux specific source files
+#
 
 IF(UNIX)
 	LIST(APPEND HDRS 
@@ -376,8 +417,12 @@ IF(UNIX)
 	#INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 ENDIF()
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD})
+#
+# Now smash it all together
+#
+
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_COMMON} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_COMMON})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)

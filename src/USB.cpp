@@ -15,7 +15,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
+ 
+#include <stdexcept>
 #include <cstdlib>
 #include <string>
 #include <cerrno>
@@ -27,6 +28,7 @@
 #include "deviceproxy.h"
 #include "version.h" //CMake generated
 #include "qemu-usb/desc.h"
+#include "common/common.h"
 
 #define PSXCLK	36864000	/* 36.864 Mhz */
 
@@ -265,18 +267,18 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 			hWnd = GetParent (hWnd);
 	}
 	gsWnd = hWnd;
-
-# if defined(BUILD_RAW)
-	if(msgWindow == NULL)
-		InitWindow(hWnd);
-# endif
-
 #else
 
 	Display *XDisplay = (Display *)((uptr*)pDsp)[0];
 	Window Xwindow = (Window)((uptr*)pDsp)[1];
 	OSDebugOut("X11 display %p Xwindow %p\n", XDisplay, Xwindow);
 #endif
+
+	try {
+		common::Initialize(pDsp);
+	} catch (std::runtime_error &e) {
+		SysMessage(TEXT("%" SFMTs "\n"), e.what());
+	}
 
 	if (configChanged || (!usb_device[0] && !usb_device[1]))
 	{
@@ -303,9 +305,7 @@ EXPORT_C_(void) USBclose() {
 	if(usb_device[1] && usb_device[1]->klass.close)
 		usb_device[1]->klass.close(usb_device[1]);
 
-#if defined(_WIN32) && defined(BUILD_RAW)
-	UninitWindow();
-#endif
+	common::Uninitialize();
 }
 
 EXPORT_C_(u8) USBread8(u32 addr) {

@@ -7,7 +7,7 @@
 #include "raw-config.h"
 #include "readerwriterqueue/readerwriterqueue.h"
 
-namespace usb_pad_raw {
+namespace usb_pad{ namespace raw{
 
 class RawInputPad : public Pad
 {
@@ -243,7 +243,6 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	USHORT               capsLength = 0;
 	USAGE                usage[MAX_BUTTONS] = {0};
 	Mappings             *mapping = NULL;
-	MapVector::iterator  it;
 	int                  numberOfButtons;
 
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
@@ -251,11 +250,11 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	devName = name;
 	std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
 
-	for(it = mapVector.begin(); it != mapVector.end(); ++it)
+	for(auto& it : mapVector)
 	{
-		if((*it).hidPath == devName)
+		if(it.hidPath == devName)
 		{
-			mapping = &(*it);
+			mapping = &it;
 			break;
 		}
 	}
@@ -404,7 +403,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 
 static void ParseRawInputKB(PRAWINPUT pRawInput)
 {
-	Mappings			*mapping = NULL;
+	Mappings *mapping = nullptr;
 
 	for(auto& it : mapVector)
 	{
@@ -529,148 +528,31 @@ int RawInputPad::Close()
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
-};
-
-HWND msgWindow = NULL;
-WNDPROC eatenWndProc = NULL;
-HWND eatenWnd = NULL;
-HHOOK hHook = NULL, hHookKB = NULL;
-extern HINSTANCE hInst;
 
 static void ParseRawInput(PRAWINPUT pRawInput)
 {
 	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
-		usb_pad_raw::ParseRawInputKB(pRawInput);
+		ParseRawInputKB(pRawInput);
 	else
-		usb_pad_raw::ParseRawInputHID(pRawInput);
+		ParseRawInputHID(pRawInput);
 }
 
-void RegisterRaw(HWND hWnd)
-{
-	msgWindow = hWnd;
-	RAWINPUTDEVICE Rid[3];
-	Rid[0].usUsagePage = 0x01; 
-	Rid[0].usUsage = HID_USAGE_GENERIC_GAMEPAD; 
-	Rid[0].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds game pad
-	Rid[0].hwndTarget = hWnd;
+REGISTER_PAD(APINAME, RawInputPad);
 
-	Rid[1].usUsagePage = 0x01; 
-	Rid[1].usUsage = HID_USAGE_GENERIC_JOYSTICK; 
-	Rid[1].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds joystick
-	Rid[1].hwndTarget = hWnd;
-
-	Rid[2].usUsagePage = 0x01; 
-	Rid[2].usUsage = HID_USAGE_GENERIC_KEYBOARD; 
-	Rid[2].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE;// | RIDEV_NOLEGACY;   // adds HID keyboard and also !ignores legacy keyboard messages
-	Rid[2].hwndTarget = hWnd;
-
-	if (RegisterRawInputDevices(Rid, 3, sizeof(Rid[0])) == FALSE) {
-		//registration failed. Call GetLastError for the cause of the error.
-		fprintf(stderr, "Could not (de)register raw input devices.\n");
-	}
-}
-
-LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch(uMsg) {
-	case WM_CREATE:
-		if(eatenWnd == NULL) RegisterRaw(hWnd);
-		break;
-	case WM_INPUT:
-		{
-		//if(skipInput) return;
-		PRAWINPUT pRawInput;
-		UINT      bufferSize=0;
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &bufferSize, sizeof(RAWINPUTHEADER));
-		pRawInput = (PRAWINPUT)malloc(bufferSize);
-		if(!pRawInput)
-			break;
-		if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0)
-			ParseRawInput(pRawInput);
-		free(pRawInput);
-		break;
-		}
-	case WM_DESTROY:
-		if(eatenWnd==NULL) RegisterRaw(nullptr);
-		UninitWindow();
-		break;
-	}
-	
-	if(eatenWndProc)
-		return CallWindowProc(eatenWndProc, hWnd, uMsg, wParam, lParam);
-	//else
-	//	return DefWindowProc(hWnd, uMsg, wParam, lParam);
-	return 0;
-}
-
-LRESULT CALLBACK HookProc(INT code, WPARAM wParam, LPARAM lParam)
-{
-	MSG *msg = (MSG*)lParam;
-	
-	//fprintf(stderr, "hook: %d, %d, %d\n", code, wParam, lParam);
-	if(code == HC_ACTION)
-		RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-	return CallNextHookEx(hHook, code, wParam, lParam);
-}
-
-LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
-{
-	fprintf(stderr, "kb hook: %d, %u, %d\n", code, wParam, lParam);
-	KBDLLHOOKSTRUCT *kb = (KBDLLHOOKSTRUCT*) lParam;
-	//if(code == HC_ACTION)
-	//	RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-	return CallNextHookEx(0, code, wParam, lParam);
-}
-
-int InitWindow(HWND hWnd)
-{
-#if 1
-	if (!InitHid())
-		return 0;
-	RegisterRaw(hWnd);
-	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
-	//hHookKB = SetWindowsHookEx(WH_KEYBOARD_LL, KBHookProc, hInst, 0);
-	int err = GetLastError();
-#else
-	eatenWnd = hWnd;
-	eatenWndProc = (WNDPROC) SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)RawInputProc);
-	RegisterRaw(hWnd, 0);
-#endif
-	return 1;
-}
-
-void UninitWindow()
-{
-	if(hHook)
-	{
-		UnhookWindowsHookEx(hHook);
-		//UnhookWindowsHookEx(hHookKB);
-		hHook = 0;
-	}
-	if(eatenWnd)
-		RegisterRaw(nullptr);
-	if(eatenWnd && eatenWndProc)
-		SetWindowLongPtr(eatenWnd, GWLP_WNDPROC, (LONG_PTR)eatenWndProc);
-	eatenWndProc = nullptr;
-	eatenWnd = nullptr;
-}
+}};
 
 // ---------
 #include "raw-config-res.h"
 INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
-int usb_pad_raw::RawInputPad::Configure(int port, void *data)
+int usb_pad::raw::RawInputPad::Configure(int port, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_FAILED;
-	if (InitWindow(h->hWnd))
+	if (common::rawinput::Initialize(h->hWnd))
 	{
 		RawDlgConfig config(port);
 		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
-		UninitWindow();
+		common::rawinput::Uninitialize();
 	}
 	return res;
 }
-
-namespace usb_pad_raw {
-REGISTER_PAD(APINAME, RawInputPad);
-};
