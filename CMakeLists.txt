@@ -250,12 +250,12 @@ IF(WIN32)
 	)
 
 	LIST(APPEND HDRS_COMMON
-		./src/common/hid.h
+		./src/common/hidapi.h
 		./src/common/rawinput.h
 	)
 
 	LIST(APPEND SRCS_COMMON
-		./src/common/hid.cpp
+		./src/common/hidapi.cpp
 		./src/common/rawinput.cpp
 	)
 

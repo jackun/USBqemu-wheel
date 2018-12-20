@@ -1,6 +1,6 @@
 #include <windows.h>
 #include <setupapi.h>
-#include "hid.h"
+#include "hidapi.h"
 
 namespace common{ namespace rawinput{
 	typedef void (*pParseRawInput)(PRAWINPUT pRawInput);
