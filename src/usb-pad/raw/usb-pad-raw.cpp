@@ -539,7 +539,7 @@ static void ParseRawInput(PRAWINPUT pRawInput)
 
 REGISTER_PAD(APINAME, RawInputPad);
 
-}};
+}} //namespace
 
 // ---------
 #include "raw-config-res.h"

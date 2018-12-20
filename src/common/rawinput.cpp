@@ -143,4 +143,4 @@ void Uninitialize()
 	eatenWnd = nullptr;
 }
 
-}}; //namespace
+}} //namespace
