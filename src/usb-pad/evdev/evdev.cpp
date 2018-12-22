@@ -4,6 +4,8 @@
 #include <sstream>
 #include <linux/hidraw.h>
 
+namespace usb_pad { namespace evdev {
+
 #define APINAME "evdev"
 
 // hidraw* to input/event*:
@@ -558,3 +560,5 @@ void EvDevPad::WriterThread(void *ptr)
 }
 REGISTER_PAD(APINAME, EvDevPad);
 #undef APINAME
+
+}} //namespace

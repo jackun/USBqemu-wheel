@@ -5,6 +5,8 @@
 #include "../evdev/evdev-ff.h"
 #include "../evdev/shared.h"
 
+namespace usb_pad { namespace joydev {
+
 class JoyDevPad : public Pad
 {
 public:
@@ -31,7 +33,7 @@ public:
 protected:
 	int mHandle;
 	int mHandleFF;
-	EvdevFF *mEvdevFF;
+	evdev::EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
 	uint8_t mAxisMap[ABS_MAX + 1];
 	bool mAxisInverted[3];
@@ -67,3 +69,5 @@ bool GetJoystickName(const std::string& path, char (&name)[_Size])
 	}
 	return false;
 }
+
+}} //namespace

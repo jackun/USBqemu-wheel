@@ -9,6 +9,8 @@
 #include "shared.h"
 #include "readerwriterqueue/readerwriterqueue.h"
 
+namespace usb_pad { namespace evdev {
+
 #define test_bit(nr, addr) \
 	(((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
@@ -122,3 +124,5 @@ static int AxisCorrect(axis_correct& correct, int value)
 
 	return value;
 }
+
+}} //namespace

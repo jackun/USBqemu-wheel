@@ -4,6 +4,8 @@
 #include <cerrno>
 #include <cstring>
 
+namespace usb_pad { namespace evdev {
+
 #define BITS_TO_UCHAR(x) \
 	(((x) + 8 * sizeof (unsigned char) - 1) / (8 * sizeof (unsigned char)))
 #define testBit(bit, array) ( (((uint8_t*)(array))[(bit) / 8] >> ((bit) % 8)) & 1 )
@@ -81,7 +83,6 @@ EvdevFF::~EvdevFF()
 		OSDebugOut("Failed to unload rumble effect.\n");
 	}
 }
-
 
 void EvdevFF::SetConstantForce(int force)
 {
@@ -334,3 +335,5 @@ void EvdevFF::TokenOut(ff_data *ffdata, bool hires)
 			ffdata->type, ffdata->u.params[0], ffdata->u.params[1]);
 	}
 }
+
+}} //namespace

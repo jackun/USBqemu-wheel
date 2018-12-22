@@ -7,6 +7,8 @@
 #include <sstream>
 #include <gtk/gtk.h>
 
+namespace usb_pad { namespace evdev {
+
 using sys_clock = std::chrono::system_clock;
 using ms = std::chrono::milliseconds;
 
@@ -184,3 +186,4 @@ int EvDevPad::Configure(int port, void *data)
 }
 
 #undef APINAME
+}} //namespace

@@ -7,6 +7,8 @@
 #include <sstream>
 #include <gtk/gtk.h>
 
+namespace usb_pad { namespace joydev {
+
 using sys_clock = std::chrono::system_clock;
 using ms = std::chrono::milliseconds;
 
@@ -126,3 +128,5 @@ int JoyDevPad::Configure(int port, void *data)
 	int ret = GtkPadConfigure(port, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
 	return ret;
 }
+
+}} //namespace

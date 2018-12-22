@@ -3,6 +3,8 @@
 #include <cassert>
 #include <sstream>
 
+namespace usb_pad { namespace joydev {
+
 #define APINAME "joydev"
 
 extern bool file_exists(std::string path);
@@ -314,7 +316,7 @@ int JoyDevPad::Open()
 				OSDebugOut(APINAME ": Cannot open '%s'\n", event.str().c_str());
 			}
 			else
-				mEvdevFF = new EvdevFF(mHandleFF);
+				mEvdevFF = new evdev::EvdevFF(mHandleFF);
 			return 0;
 		}
 	}
@@ -341,3 +343,5 @@ int JoyDevPad::Close()
 
 REGISTER_PAD(APINAME, JoyDevPad);
 #undef APINAME
+
+}} //namespace

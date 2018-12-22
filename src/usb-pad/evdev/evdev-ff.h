@@ -5,6 +5,8 @@
 #include <cstdint>
 #include "../usb-pad.h"
 
+namespace usb_pad { namespace evdev {
+
 class EvdevFF
 {
 public:
@@ -28,4 +30,5 @@ private:
 	int mLastValue;
 };
 
+}} //namespace
 #endif
