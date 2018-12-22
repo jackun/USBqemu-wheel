@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <vector>
 #include <map>
-#include <atomic>
 #include <sstream>
 
 #include "stdio.h"
@@ -22,10 +21,16 @@
 #include "stdio.h"
 #include "../../configuration.h"
 #include "../../osdebugout.h"
+#include "di.h"
 
-static std::atomic<int> refCount (0);
+//dialog window stuff
+//HINSTANCE hInstance = NULL;
+extern HINSTANCE hInst;
+extern HWND gsWnd;
+
+namespace usb_pad { namespace dx {
+
 DWORD LOG = 0;
-DWORD INVERTFORCES[2] = { 0 };
 DWORD BYPASSCAL = 0;
 
 TCHAR	*pStr, strPath[255], strTemp[255];
@@ -33,12 +38,7 @@ static bool useRamp = false;
 
 char key[255]={0};
 
-//dialog window stuff
-//HINSTANCE hInstance = NULL;
-extern HINSTANCE hInst;
-
 bool dialogOpen = false;
-extern HWND gsWnd;
 HWND hWin = NULL;
 DWORD pid = 0;
 DWORD old = 0;
@@ -68,23 +68,6 @@ HDC m_hAADC;
 HBITMAP m_hOldMemBitmap;
 HBITMAP m_hMemBitmap;
 HDC m_hMemDC;
-
-
-
-
-//dinput control mappings
-
-const DWORD numc = 20; //total control maps
-
-LONG AXISID[2][numc] = { { 0 } };
-LONG INVERT[2][numc] = { { 0 } };
-LONG HALF[2][numc] = { { 0 } };
-LONG BUTTON[2][numc] = { { 0 } };
-LONG LINEAR[2][numc] = { { 0 } };
-LONG OFFSET[2][numc] = { { 0 } };
-LONG DEADZONE[2][numc] = { { 0 } };
-LONG GAINZ[2][1] = { { 0 } };
-LONG FFMULTI[2][1] = { { 0 } };
 
 
 //label enum
@@ -244,7 +227,6 @@ void LoadMain(int port)
 }
 
 //use direct input
-#include "di.h"
 void InitDI(int port)
 {
 
@@ -306,3 +288,5 @@ float GetControl(int port, int id,  bool axisbutton)
 	}
 	return 0.f;
 }
+
+}} //namespace

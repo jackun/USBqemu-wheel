@@ -2,6 +2,8 @@
 // floats to int
 #pragma warning (disable : 4244)
 
+namespace usb_pad { namespace dx {
+
 void ApplyFilter(int port)
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
@@ -725,4 +727,5 @@ void LoadDialog()
 	DialogBoxParam (hInst, MAKEINTRESOURCE(IDD_DIALOG1), 0, DxDialogProc, 0);
 }
 
+}} //namespace
 #pragma warning (pop)

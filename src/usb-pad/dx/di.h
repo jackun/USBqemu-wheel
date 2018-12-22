@@ -1,10 +1,14 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
+#include <atomic>
 
 #define SAFE_DELETE(p)  { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }
 
 #define SAMPLE_BUFFER_SIZE 16
+namespace usb_pad { namespace dx {
+
+static std::atomic<int> refCount (0);
 
 LPDIRECTINPUT8       g_pDI       = NULL;
 LPDIRECTINPUTDEVICE8 g_pKeyboard = NULL;
@@ -44,6 +48,20 @@ DIJOYSTATE2 jsi[10] = {0};           // DInput joystick initial state
 DWORD numj = 0;							//current attached joysticks
 DWORD maxj = 10;						//maximum attached joysticks
 
+//dinput control mappings
+
+const DWORD numc = 20; //total control maps
+
+LONG AXISID[2][numc] = { { 0 } };
+LONG INVERT[2][numc] = { { 0 } };
+LONG HALF[2][numc] = { { 0 } };
+LONG BUTTON[2][numc] = { { 0 } };
+LONG LINEAR[2][numc] = { { 0 } };
+LONG OFFSET[2][numc] = { { 0 } };
+LONG DEADZONE[2][numc] = { { 0 } };
+LONG GAINZ[2][1] = { { 0 } };
+LONG FFMULTI[2][1] = { { 0 } };
+DWORD INVERTFORCES[2] = { 0 };
 
 bool listening = false;
 DWORD listenend = 0;
@@ -976,3 +994,4 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 }
 
+}} //namespace

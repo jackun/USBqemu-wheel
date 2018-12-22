@@ -3,6 +3,7 @@
 #include "global.h"
 #include "dialog.h"
 
+namespace usb_pad { namespace dx {
 #define APINAME "dinput"
 
 static bool bdown=false;
@@ -364,3 +365,4 @@ int DInputPad::Configure(int port, void *data)
 
 REGISTER_PAD(APINAME, DInputPad);
 #undef APINAME
+}} //namespace
