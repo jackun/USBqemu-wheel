@@ -165,7 +165,7 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 				changedAPIs[pair] = *it;
 			settingsCB->api = *it;
 
-			OSDebugOut("selected api: %s\napi settings:\n", it->c_str());
+			OSDebugOut("selected api: %s\n", it->c_str());
 		}
 	}
 }
