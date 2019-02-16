@@ -1,17 +1,17 @@
-#include "common.h"
+#include "shared.h"
 #include <stdexcept>
 
 #if defined(BUILD_RAW)
 #include "rawinput.h"
 #endif
 
-namespace common {
+namespace shared {
 
 	void Initialize(void *ptr)
 	{
 		// Keeping it simple, for now
 		#if defined(BUILD_RAW)
-			if (!common::rawinput::Initialize(ptr))
+			if (!shared::rawinput::Initialize(ptr))
 				throw std::runtime_error("Failed to initialize raw input!");
 		#endif
 	}
@@ -19,7 +19,7 @@ namespace common {
 	void Uninitialize(/*void *ptr*/)
 	{
 		#if defined(BUILD_RAW)
-			common::rawinput::Uninitialize(/*ptr*/);
+			shared::rawinput::Uninitialize(/*ptr*/);
 		#endif
 	}
 

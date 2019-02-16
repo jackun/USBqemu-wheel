@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <map>
 #include "../../configuration.h"
-#include "common/rawinput.h"
 #include "raw-config.h"
 #include "raw-config-res.h"
 #include <strsafe.h>
@@ -18,6 +17,8 @@ extern char *szIni;
 extern std::wstring szIniDir;
 extern void GetIniFile(std::wstring &iniFile);
 #define MSG_PRESS_ESC(wnd) SendDlgItemMessageW(wnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel")
+
+namespace usb_pad { namespace raw {
 
 inline bool MapExists(const MapVector& maps, TCHAR* hid)
 {
@@ -901,3 +902,5 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 	return S_OK;//DefWindowProc(hW, uMsg, wParam, lParam);
 }
 #undef APINAME
+
+}} //namespace

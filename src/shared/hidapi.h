@@ -1,5 +1,5 @@
-#ifndef HID_H
-#define HID_H
+#ifndef HIDAPI_H
+#define HIDAPI_H
 
 #include <pshpack4.h>
 

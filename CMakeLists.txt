@@ -22,6 +22,7 @@ SET (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VE
 SET (TargetNameVer "${TargetName}-${PLUGIN_VERSION}")
 SET (DEBIAN_PACKAGE "libusbqemu-wheel-unstable")
 
+# Breaks win32 resources' defines
 OPTION (PLUGIN_ENABLE_UNITY_BUILD "Enable unity build. Concatenate source files into one unit." FALSE)
 
 IF(WIN32)
@@ -40,6 +41,7 @@ ELSE(WIN32)
 	ELSE(_DEBUG)
 		MESSAGE("Define _DEBUG for debug print.")
 	ENDIF(_DEBUG)
+	#ADD_DEFINITIONS(-DUSING_X11=1)
 ENDIF(WIN32)
 
 # 64 bits specific configuration
@@ -149,6 +151,8 @@ SET(HDRS_QEMU
 	./src/qemu-usb/desc.h
 	./src/qemu-usb/iov.h
 	./src/qemu-usb/queue.h
+	./src/qemu-usb/hid.h
+	./src/qemu-usb/input-keymap.h
 )
 
 SET(SRCS_QEMU
@@ -160,6 +164,8 @@ SET(SRCS_QEMU
 	./src/qemu-usb/core.cpp
 	./src/qemu-usb/bus.cpp
 	./src/qemu-usb/usb-ohci.cpp
+	./src/qemu-usb/hid.cpp
+	./src/qemu-usb/input-keymap-qcode-to-qnum.cpp
 )
 
 SET(HDRS_MSD
@@ -198,18 +204,22 @@ SET(SRCS_MIC
 )
 
 SET(HDRS_HID
+	./src/usb-hid/hidproxy.h
 )
 
 SET(SRCS_HID
+	./src/usb-hid/usb-hid.cpp
+	./src/usb-hid/hidproxy.cpp
+	./src/usb-hid/noop.cpp
 )
 
 # shared/global functions
-SET(HDRS_COMMON
-	./src/common/common.h
+SET(HDRS_SHARED
+	./src/shared/shared.h
 )
 
-SET(SRCS_COMMON
-	./src/common/common.cpp
+SET(SRCS_SHARED
+	./src/shared/shared.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
@@ -249,18 +259,23 @@ IF(WIN32)
 		./src/usb-msd/usb-msd-win32.cpp
 	)
 
-	LIST(APPEND HDRS_COMMON
-		./src/common/hidapi.h
-		./src/common/rawinput.h
+	LIST(APPEND HDRS_SHARED
+		./src/shared/hidapi.h
+		./src/shared/rawinput.h
 	)
 
-	LIST(APPEND SRCS_COMMON
-		./src/common/hidapi.cpp
-		./src/common/rawinput.cpp
+	LIST(APPEND SRCS_SHARED
+		./src/shared/hidapi.cpp
+		./src/shared/rawinput.cpp
+	)
+
+	LIST(APPEND SRCS_QEMU
+		./src/qemu-usb/input-keymap-win32-to-qcode.cpp
 	)
 
 	LIST(APPEND SRCS_HID
 	#	./src/usb-hid/win32/mouse.cpp
+		./src/usb-hid/raw/usb-hid-raw.cpp
 	)
 
 	# These two eventually contain only code that manages raw/dx configurations
@@ -274,7 +289,7 @@ IF(WIN32)
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
 	SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
 	SOURCE_GROUP("Header Files\\usb-hid" FILES ${HDRS_HID})
-	SOURCE_GROUP("Header Files\\common" FILES ${HDRS_COMMON})
+	SOURCE_GROUP("Header Files\\shared" FILES ${HDRS_SHARED})
 	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
 	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
@@ -284,7 +299,7 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
 	SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
 	SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
-	SOURCE_GROUP("Source Files\\common" FILES ${SRCS_COMMON})
+	SOURCE_GROUP("Source Files\\shared" FILES ${SRCS_SHARED})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
 
 	IF(PLUGIN_BUILD_DX)
@@ -378,12 +393,22 @@ IF(UNIX)
 		./src/usb-pad/evdev/evdev.cpp
 		./src/usb-pad/evdev/evdev-gtk.cpp
 	)
+	LIST(APPEND HDRS_HID
+		./src/usb-hid/evdev/evdev.h
+	)
+	LIST(APPEND SRCS_HID
+		./src/usb-hid/evdev/evdev.cpp
+		./src/usb-hid/evdev/evdev-gtk.cpp
+	)
 	LIST(APPEND SRCS
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
 		./src/linux/ini.c
 		./src/linux/actualfile.c
 		./src/linux/util.cpp
+	)
+	LIST(APPEND SRCS_QEMU
+		./src/qemu-usb/input-keymap-linux-to-qcode.cpp
 	)
 
 	IF(PLUGIN_BUILD_PULSE)
@@ -410,6 +435,7 @@ IF(UNIX)
 	FIND_PACKAGE(GTK2 REQUIRED)
 	LIST(APPEND LIBS ${GTK2_LIBRARIES})
 	INCLUDE_DIRECTORIES(${GTK2_INCLUDE_DIRS})
+	LIST(APPEND LIBS Xfixes)
 
 	#INCLUDE(FindPkgConfig)
 	#PKG_CHECK_MODULES(GTK3 gtk+-3.0)
@@ -421,8 +447,8 @@ ENDIF()
 # Now smash it all together
 #
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_COMMON} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_COMMON})
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_SHARED} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_SHARED})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)

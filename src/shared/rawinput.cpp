@@ -2,35 +2,37 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
+#include "platcompat.h"
+#include "osdebugout.h"
 
 extern HINSTANCE hInst;
 
-namespace common{ namespace rawinput{
+namespace shared{ namespace rawinput{
 
-static std::vector<pParseRawInput> callbacks;
+static std::vector<ParseRawInputCB *> callbacks;
 
-HWND msgWindow = NULL;
-WNDPROC eatenWndProc = NULL;
-HWND eatenWnd = NULL;
-HHOOK hHook = NULL, hHookKB = NULL;
+HWND msgWindow = nullptr;
+WNDPROC eatenWndProc = nullptr;
+HWND eatenWnd = nullptr;
+HHOOK hHook = nullptr, hHookWnd = nullptr, hHookKB = nullptr;
 
-void RegisterCallback(pParseRawInput cb)
+void RegisterCallback(ParseRawInputCB *cb)
 {
-	if (std::find(callbacks.begin(), callbacks.end(), cb) == callbacks.end())
+	if (cb && std::find(callbacks.begin(), callbacks.end(), cb) == callbacks.end())
 		callbacks.push_back(cb);
 }
 
-void UnregisterCallback(pParseRawInput cb)
+void UnregisterCallback(ParseRawInputCB *cb)
 {
 	auto it = std::find(callbacks.begin(), callbacks.end(), cb);
 	if (it != callbacks.end())
 		callbacks.erase(it);
 }
 
-static void RegisterRaw(HWND hWnd)
+static int RegisterRaw(HWND hWnd)
 {
 	msgWindow = hWnd;
-	RAWINPUTDEVICE Rid[3];
+	RAWINPUTDEVICE Rid[4];
 	Rid[0].usUsagePage = 0x01; 
 	Rid[0].usUsage = HID_USAGE_GENERIC_GAMEPAD; 
 	Rid[0].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds game pad
@@ -46,14 +48,39 @@ static void RegisterRaw(HWND hWnd)
 	Rid[2].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE;// | RIDEV_NOLEGACY;   // adds HID keyboard //and also !ignores legacy keyboard messages
 	Rid[2].hwndTarget = hWnd;
 
-	if (RegisterRawInputDevices(Rid, 3, sizeof(Rid[0])) == FALSE) {
+	Rid[3].usUsagePage = 0x01;
+	Rid[3].usUsage = HID_USAGE_GENERIC_MOUSE;
+	Rid[3].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE;
+	Rid[3].hwndTarget = hWnd;
+
+	if (RegisterRawInputDevices(Rid, countof(Rid), sizeof(Rid[0])) == FALSE) {
 		//registration failed. Call GetLastError for the cause of the error.
 		fprintf(stderr, "Could not (de)register raw input devices.\n");
+		return 0;
 	}
+	return 1;
+}
+
+static LRESULT CALLBACK MyWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg) {
+	case WM_ACTIVATE:
+		OSDebugOut(TEXT("******      WM_ACTIVATE        ****** %p %d\n"), hWnd, LOWORD(wParam) != WA_INACTIVE);
+		break;
+	case WM_SETFOCUS:
+		OSDebugOut(TEXT("******      WM_SETFOCUS        ****** %p\n"), hWnd);
+		break;
+	case WM_KILLFOCUS:
+		OSDebugOut(TEXT("******      WM_KILLFOCUS        ****** %p\n"), hWnd);
+		break;
+	}
+	return 0;
 }
 
 static LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	MyWndProc(hWnd, uMsg, wParam, lParam);
+
 	switch(uMsg) {
 	case WM_CREATE:
 		if (eatenWnd == nullptr)
@@ -69,13 +96,15 @@ static LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		if(!pRawInput)
 			break;
 		if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0) {
-			//ParseRawInput(pRawInput);
 			for (auto cb : callbacks)
-				cb(pRawInput);
+				cb->ParseRawInput(pRawInput);
 		}
 		free(pRawInput);
 		break;
 		}
+	case WM_ACTIVATE:
+		OSDebugOut(TEXT("******      WM_ACTIVATE        ******\n"));
+		break;
 	case WM_DESTROY:
 		if (eatenWnd == nullptr)
 			RegisterRaw(nullptr);
@@ -100,6 +129,16 @@ static LRESULT CALLBACK HookProc(INT code, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(hHook, code, wParam, lParam);
 }
 
+static LRESULT CALLBACK HookWndProc(INT code, WPARAM wParam, LPARAM lParam)
+{
+	MSG *msg = reinterpret_cast<MSG*> (lParam);
+
+	//fprintf(stderr, "hook: %d, %d, %d\n", code, wParam, lParam);
+	if (code == HC_ACTION)
+		MyWndProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
+	return CallNextHookEx(hHookWnd, code, wParam, lParam);
+}
+
 static LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
 {
 	fprintf(stderr, "kb hook: %d, %u, %d\n", code, wParam, lParam);
@@ -112,17 +151,20 @@ static LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
 int Initialize(void *ptr)
 {
 	HWND hWnd = reinterpret_cast<HWND> (ptr);
-#if 1
 	if (!InitHid())
 		return 0;
-	RegisterRaw(hWnd);
+
+#if 0
+	if (!RegisterRaw(hWnd))
+		return 0;
 	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
+	//hHookWnd = SetWindowsHookEx(WH_CALLWNDPROC, HookWndProc, hInst, 0);
 	//hHookKB = SetWindowsHookEx(WH_KEYBOARD_LL, KBHookProc, hInst, 0);
 	int err = GetLastError();
 #else
 	eatenWnd = hWnd;
 	eatenWndProc = (WNDPROC) SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)RawInputProc);
-	RegisterRaw(hWnd, 0);
+	RegisterRaw(hWnd);
 #endif
 	return 1;
 }

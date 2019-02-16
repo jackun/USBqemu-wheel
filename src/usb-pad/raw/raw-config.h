@@ -2,7 +2,9 @@
 #define RAWCONFIG_H
 
 #include "../usb-pad.h"
-#include "common/rawinput.h"
+#include "shared/rawinput.h"
+
+namespace usb_pad { namespace raw {
 
 #define APINAME "rawinput"
 
@@ -51,4 +53,5 @@ static MapVector mapVector;
 void LoadMappings(MapVector& maps);
 void SaveMappings(MapVector& maps);
 
+}} //namespace
 #endif

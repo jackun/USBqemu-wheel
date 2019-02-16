@@ -28,7 +28,7 @@
 #include "deviceproxy.h"
 #include "version.h" //CMake generated
 #include "qemu-usb/desc.h"
-#include "common/common.h"
+#include "shared/shared.h"
 
 #define PSXCLK	36864000	/* 36.864 Mhz */
 
@@ -278,7 +278,7 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 #endif
 
 	try {
-		common::Initialize(pDsp);
+		shared::Initialize(pDsp);
 	} catch (std::runtime_error &e) {
 		SysMessage(TEXT("%" SFMTs "\n"), e.what());
 	}
@@ -308,7 +308,7 @@ EXPORT_C_(void) USBclose() {
 	if(usb_device[1] && usb_device[1]->klass.close)
 		usb_device[1]->klass.close(usb_device[1]);
 
-	common::Uninitialize();
+	shared::Uninitialize();
 }
 
 EXPORT_C_(u8) USBread8(u32 addr) {

@@ -1,5 +1,5 @@
 #pragma once
-namespace common {
+namespace shared {
 	void Initialize(void *ptr);
 	void Uninitialize(/*void *ptr*/);
 };

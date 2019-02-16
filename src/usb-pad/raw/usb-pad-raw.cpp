@@ -7,9 +7,9 @@
 #include "raw-config.h"
 #include "readerwriterqueue/readerwriterqueue.h"
 
-namespace usb_pad{ namespace raw{
+namespace usb_pad { namespace raw {
 
-class RawInputPad : public Pad
+class RawInputPad : public Pad, shared::rawinput::ParseRawInputCB
 {
 public:
 	RawInputPad(int port) : Pad(port)
@@ -38,6 +38,7 @@ public:
 		TokenOut(reset, sizeof(reset));
 		return 0;
 	}
+	void ParseRawInput(PRAWINPUT pRawInput);
 
 	static const TCHAR* Name()
 	{
@@ -49,20 +50,10 @@ protected:
 	static void WriterThread(void *ptr);
 	static void ReaderThread(void *ptr);
 	HIDP_CAPS mCaps;
-	HIDD_ATTRIBUTES attr;
-	//PHIDP_PREPARSED_DATA pPreparsedData;
-	//PHIDP_BUTTON_CAPS pButtonCaps;
-	//PHIDP_VALUE_CAPS pValueCaps;
-	//ULONG value;// = 0;
-	USHORT numberOfButtons;// = 0;
-	USHORT numberOfValues;// = 0;
-	HANDLE mUsbHandle;// = (HANDLE)-1;
-	//HANDLE readData;// = (HANDLE)-1;
+	HANDLE mUsbHandle = (HANDLE)-1;
 	OVERLAPPED mOLRead;
 	OVERLAPPED mOLWrite;
-	
-	uint32_t reportInSize;// = 0;
-	uint32_t reportOutSize;// = 0;
+
 	bool mDoPassthrough;
 	wheel_data_t mDataCopy;
 	std::thread mWriterThread;
@@ -132,7 +123,7 @@ void RawInputPad::ReaderThread(void *ptr)
 int RawInputPad::TokenIn(uint8_t *buf, int len)
 {
 	ULONG value = 0;
-	int ply = 1 - mPort;
+	int player = 1 - mPort;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
 	if (mDoPassthrough)
@@ -158,30 +149,30 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 	for (auto& it : mapVector)
 	{
 
-		if (data_summed.steering < it.data[ply].steering)
+		if (data_summed.steering < it.data[player].steering)
 		{
-			data_summed.steering = it.data[ply].steering;
+			data_summed.steering = it.data[player].steering;
 			copied |= 1;
 		}
 
-		//if(data_summed.clutch < it.data[ply].clutch)
-		//	data_summed.clutch = it.data[ply].clutch;
+		//if(data_summed.clutch < it.data[player].clutch)
+		//	data_summed.clutch = it.data[player].clutch;
 
-		if (data_summed.throttle < it.data[ply].throttle)
+		if (data_summed.throttle < it.data[player].throttle)
 		{
-			data_summed.throttle = it.data[ply].throttle;
+			data_summed.throttle = it.data[player].throttle;
 			copied |= 2;
 		}
 
-		if (data_summed.brake < it.data[ply].brake)
+		if (data_summed.brake < it.data[player].brake)
 		{
-			data_summed.brake = it.data[ply].brake;
+			data_summed.brake = it.data[player].brake;
 			copied |= 4;
 		}
 
-		data_summed.buttons |= it.data[ply].buttons;
-		if(data_summed.hatswitch > it.data[ply].hatswitch)
-			data_summed.hatswitch = it.data[ply].hatswitch;
+		data_summed.buttons |= it.data[player].buttons;
+		if(data_summed.hatswitch > it.data[player].hatswitch)
+			data_summed.hatswitch = it.data[player].hatswitch;
 	}
 
 	if (!copied)
@@ -286,7 +277,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData);
 
 	numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
-	usageLength = numberOfButtons;
+	usageLength = countof(usage);
 	NTSTATUS stat;
 	if((stat = HidP_GetUsages(
 			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
@@ -324,7 +315,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			}
 
 			//fprintf(stderr, "Min/max %d/%d\t", pValueCaps[i].LogicalMin, pValueCaps[i].LogicalMax);
-			//TODO can be simpler?
+
 			//Get mapped axis for physical axis
 			uint16_t v = 0;
 			switch(pValueCaps[i].Range.UsageMin)
@@ -454,9 +445,18 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 	}
 }
 
+void RawInputPad::ParseRawInput(PRAWINPUT pRawInput)
+{
+	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
+		ParseRawInputKB(pRawInput);
+	else
+		ParseRawInputHID(pRawInput);
+}
+
 int RawInputPad::Open()
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = nullptr;
+	HIDD_ATTRIBUTES attr;
 
 	Close();
 
@@ -506,6 +506,8 @@ int RawInputPad::Open()
 				mReaderThread.join();
 			mReaderThread = std::thread(RawInputPad::ReaderThread, this);
 		}
+
+		shared::rawinput::RegisterCallback(this);
 		return 0;
 	}
 	else
@@ -525,34 +527,28 @@ int RawInputPad::Close()
 		CloseHandle(mOLWrite.hEvent);
 	}
 
+	shared::rawinput::UnregisterCallback(this);
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
 
-static void ParseRawInput(PRAWINPUT pRawInput)
-{
-	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
-		ParseRawInputKB(pRawInput);
-	else
-		ParseRawInputHID(pRawInput);
-}
-
 REGISTER_PAD(APINAME, RawInputPad);
-
-}} //namespace
 
 // ---------
 #include "raw-config-res.h"
+
 INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
-int usb_pad::raw::RawInputPad::Configure(int port, void *data)
+int RawInputPad::Configure(int port, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_FAILED;
-	if (common::rawinput::Initialize(h->hWnd))
+	if (shared::rawinput::Initialize(h->hWnd))
 	{
 		RawDlgConfig config(port);
 		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
-		common::rawinput::Uninitialize();
+		shared::rawinput::Uninitialize();
 	}
 	return res;
 }
+
+}} //namespace
