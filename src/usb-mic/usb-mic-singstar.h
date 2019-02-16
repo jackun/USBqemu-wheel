@@ -26,7 +26,10 @@ public:
 	}
 	static const TCHAR* LongAPIName(const std::string& name)
 	{
-		return RegisterAudioDevice::instance().Proxy(name)->Name();
+		auto proxy = RegisterAudioDevice::instance().Proxy(name);
+		if (proxy)
+			return proxy->Name();
+		return nullptr;
 	}
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
