@@ -2,7 +2,6 @@
 #define EVDEV_FF_H
 
 #include <linux/input.h>
-#include <cstdint>
 #include "../usb-pad.h"
 
 namespace usb_pad { namespace evdev {

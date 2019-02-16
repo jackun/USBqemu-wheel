@@ -8,6 +8,8 @@
 typedef std::vector< std::pair<std::string, std::string> > vstring;
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox);
 
+namespace usb_pad { namespace evdev {
+
 struct ApiCallbacks
 {
 	void (*populate)(vstring& jsdata);
@@ -84,3 +86,4 @@ struct Point { int x; int y; JoystickMap type; };
 int GtkPadConfigure(int port, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
 bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
 bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
+}} //namespace

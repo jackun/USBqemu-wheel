@@ -1,7 +1,7 @@
 #pragma once
 #include "linux/util.h"
-#include <linux/input.h>
 #include <unistd.h>
+//#include <dirent.h> //gtk.h pulls in?
 #include <thread>
 #include <array>
 #include <atomic>

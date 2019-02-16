@@ -186,4 +186,5 @@ int EvDevPad::Configure(int port, void *data)
 }
 
 #undef APINAME
+#undef EVDEV_DIR
 }} //namespace

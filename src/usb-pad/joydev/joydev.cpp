@@ -2,13 +2,13 @@
 #include "../../osdebugout.h"
 #include <cassert>
 #include <sstream>
+#include "linux/util.h"
 
 namespace usb_pad { namespace joydev {
 
-#define APINAME "joydev"
+using namespace evdev;
 
-extern bool file_exists(std::string path);
-extern bool dir_exists(std::string path);
+#define APINAME "joydev"
 
 #define NORM(x, n) (((uint32_t)(32768 + x) * n)/0xFFFF)
 #define NORM2(x, n) (((uint32_t)(32768 + x) * n)/0x7FFF)

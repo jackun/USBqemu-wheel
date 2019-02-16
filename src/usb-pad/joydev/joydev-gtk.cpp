@@ -124,8 +124,8 @@ error:
 
 int JoyDevPad::Configure(int port, void *data)
 {
-	ApiCallbacks apicbs {PopulateJoysticks, PollInput};
-	int ret = GtkPadConfigure(port, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
+	evdev::ApiCallbacks apicbs {PopulateJoysticks, PollInput};
+	int ret = evdev::GtkPadConfigure(port, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
 	return ret;
 }
 
