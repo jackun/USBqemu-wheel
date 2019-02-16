@@ -75,6 +75,8 @@ HWND gsWnd = nullptr;
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
 #include <X11/X.h>
+Display *g_GSdsp;
+Window g_GSwin;
 #endif
 
 _Config::_Config(): Log(0), DFPPass(0)
@@ -267,11 +269,12 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 			hWnd = GetParent (hWnd);
 	}
 	gsWnd = hWnd;
+	pDsp = gsWnd;
 #else
 
-	Display *XDisplay = (Display *)((uptr*)pDsp)[0];
-	Window Xwindow = (Window)((uptr*)pDsp)[1];
-	OSDebugOut("X11 display %p Xwindow %p\n", XDisplay, Xwindow);
+	g_GSdsp = (Display *)((uptr*)pDsp)[0];
+	g_GSwin = (Window)((uptr*)pDsp)[1];
+	OSDebugOut("X11 display %p Xwindow %p\n", g_GSdsp, g_GSwin);
 #endif
 
 	try {
