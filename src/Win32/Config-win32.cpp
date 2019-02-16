@@ -75,6 +75,8 @@ void PopulateAPIs(HWND hW, int port)
 	for (auto& api : apis)
 	{
 		auto name = dev->LongAPIName(api);
+		if (!name)
+			continue;
 		SendDlgItemMessageW(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_ADDSTRING, 0, (LPARAM)name);
 		if (api == var)
 			sel = i;
