@@ -2,6 +2,8 @@
 #include "../qemu-usb/desc.h"
 #include "padproxy.h"
 
+namespace usb_pad {
+
 #define DEVICENAME "pad"
 
 static const USBDescStrings pad_desc_strings = {
@@ -35,7 +37,10 @@ public:
 	}
 	static const TCHAR* LongAPIName(const std::string& name)
 	{
-		return RegisterPad::instance().Proxy(name)->Name();
+		auto proxy = RegisterPad::instance().Proxy(name);
+		if (proxy)
+			return proxy->Name();
+		return nullptr;
 	}
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
@@ -68,7 +73,6 @@ typedef struct PADState {
 	USBDevice		dev;
 	USBDesc desc;
 	USBDescDevice desc_dev;
-	PadProxyBase*	padProxy;
 	Pad*			pad;
 	uint8_t			port;
 	int				initStage;
@@ -323,7 +327,6 @@ USBDevice *PadDevice::CreateDevice(int port)
 
 	s->f.wheel_type = conf.WheelType[1 - port];
 	s->pad = pad;
-	//s->padProxy = proxy;
 	s->dev.speed = USB_SPEED_FULL;
 	s->dev.klass.handle_attach  = usb_desc_attach;
 	s->dev.klass.handle_reset   = pad_handle_reset;
@@ -344,7 +347,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 
 fail:
 	pad_handle_destroy ((USBDevice *)s);
-	return NULL;
+	return nullptr;
 }
 
 void ResetData(generic_data_t *d)
@@ -519,3 +522,4 @@ int PadDevice::Freeze(int mode, USBDevice *dev, void *data)
 
 REGISTER_DEVICE(DEVTYPE_PAD, DEVICENAME, PadDevice);
 #undef DEVICENAME
+} //namespace

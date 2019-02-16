@@ -4,6 +4,8 @@
 #include "../qemu-usb/vl.h"
 #include "../configuration.h"
 
+namespace usb_pad {
+
 #define CHECK(exp)		do{ if(!(exp)) goto Error; }while(0)
 #define SAFE_FREE(p)	do{ if(p) { free(p); (p) = NULL; } }while(0)
 
@@ -807,4 +809,6 @@ void ResetData(dfp_data_t *d);
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data);
 //Convert DF Pro buttons to selected wheel type
 uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn);
+
+} //namespace
 #endif

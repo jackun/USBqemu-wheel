@@ -9,6 +9,8 @@
 #include "../helpers.h"
 #include "../proxybase.h"
 
+namespace usb_pad {
+
 class PadError : public std::runtime_error
 {
 public:
@@ -105,4 +107,5 @@ private:
 };
 
 #define REGISTER_PAD(name,cls) PadProxy<cls> g##cls##Proxy(name)
+} //namespace
 #endif
