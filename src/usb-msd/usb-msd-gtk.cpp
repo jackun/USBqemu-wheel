@@ -71,7 +71,7 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 	gtk_entry_set_max_length (GTK_ENTRY (entry), MAX_PATH); //TODO max length
 
 	std::string var;
-	if (LoadSetting(port, APINAME, N_CONFIG_PATH, var))
+	if (LoadSetting(TypeName(), port, APINAME, N_CONFIG_PATH, var))
 		gtk_entry_set_text(GTK_ENTRY(entry), var.c_str());
 
 	g_signal_connect (entry, "changed", G_CALLBACK (entryChanged), NULL);
@@ -94,7 +94,7 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 
 	if (result == GTK_RESPONSE_OK)
 	{
-		if(SaveSetting(port, APINAME, N_CONFIG_PATH, path))
+		if(SaveSetting(TypeName(), port, APINAME, N_CONFIG_PATH, path))
 			return RESULT_OK;
 		else
 			return RESULT_FAILED;

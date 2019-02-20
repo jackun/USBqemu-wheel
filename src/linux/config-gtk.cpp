@@ -93,7 +93,7 @@ static void populateApiWidget(SettingsCB *settingsCB, const std::string& device)
 		auto it = changedAPIs.find(std::make_pair(port, device));
 		if (it == changedAPIs.end())
 		{
-			LoadSetting(port, device, N_DEVICE_API, api);
+			LoadSetting(nullptr, port, device, N_DEVICE_API, api);
 			if (!dev->IsValidAPI(api))
 				api.clear();
 		}
@@ -232,7 +232,7 @@ void CALLBACK USBconfigure() {
 	settingsCB[0].player = 0;
 	settingsCB[1].player = 1;
 
-	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
+	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force", "Rock Band drum kit"};
 	const char *ports[] = {"Port 1:", "Port 2:"};
 
 	GtkWidget *rs_cb, *vbox;

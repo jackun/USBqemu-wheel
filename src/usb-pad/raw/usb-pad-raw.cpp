@@ -12,7 +12,7 @@ namespace usb_pad { namespace raw {
 class RawInputPad : public Pad, shared::rawinput::ParseRawInputCB
 {
 public:
-	RawInputPad(int port) : Pad(port)
+	RawInputPad(int port, const char* dev_type) : Pad(port, dev_type)
 	, mDoPassthrough(false)
 	, mUsbHandle(INVALID_HANDLE_VALUE)
 	, mWriterThreadIsRunning(false)
@@ -45,7 +45,7 @@ public:
 		return TEXT("Raw Input");
 	}
 
-	static int Configure(int port, void *data);
+	static int Configure(int port, const char* dev_type, void *data);
 protected:
 	static void WriterThread(void *ptr);
 	static void ReaderThread(void *ptr);
@@ -460,17 +460,17 @@ int RawInputPad::Open()
 
 	Close();
 
-	LoadMappings(mapVector);
+	LoadMappings(mDevType, mapVector);
 
 	memset(&mOLRead, 0, sizeof(OVERLAPPED));
 	memset(&mOLWrite, 0, sizeof(OVERLAPPED));
 
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
-	if (!LoadSetting(mPort, APINAME, N_JOYSTICK, path))
+	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, path))
 		return 1;
 
-	LoadSetting(mPort, APINAME, N_WHEEL_PT, mDoPassthrough);
+	LoadSetting(mDevType, mPort, APINAME, N_WHEEL_PT, mDoPassthrough);
 
 	mUsbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
@@ -538,13 +538,13 @@ REGISTER_PAD(APINAME, RawInputPad);
 #include "raw-config-res.h"
 
 INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
-int RawInputPad::Configure(int port, void *data)
+int RawInputPad::Configure(int port, const char* dev_type, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_FAILED;
 	if (shared::rawinput::Initialize(h->hWnd))
 	{
-		RawDlgConfig config(port);
+		RawDlgConfig config(port, dev_type);
 		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
 		shared::rawinput::Uninitialize();
 	}

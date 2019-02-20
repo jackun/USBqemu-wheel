@@ -14,8 +14,6 @@
 #include "../qemu-usb/desc.h"
 #include "usb-msd.h"
 
-#define DEVICENAME "msd"
-
 #define le32_to_cpu(x) (x)
 #define cpu_to_le32(x) (x)
 
@@ -999,7 +997,7 @@ USBDevice *MsdDevice::CreateDevice(int port)
 
     TSTDSTRING var;
 
-    if (!LoadSetting(port, api, N_CONFIG_PATH, var))
+    if (!LoadSetting(TypeName(), port, api, N_CONFIG_PATH, var))
     {
         fprintf(stderr, "usb-msd: Could not load settings\n");
         return NULL;
@@ -1044,7 +1042,7 @@ fail:
 
 const char* MsdDevice::TypeName()
 {
-    return DEVICENAME;
+    return "msd";
 }
 
 int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
@@ -1084,7 +1082,6 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
     return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_MSD, DEVICENAME, MsdDevice);
+REGISTER_DEVICE(DEVTYPE_MSD, MsdDevice);
 #undef DPRINTF
-#undef DEVICENAME
 #undef APINAME

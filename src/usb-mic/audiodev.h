@@ -60,6 +60,13 @@ struct AudioDeviceInfoW
 class AudioDevice
 {
 public:
+	AudioDevice(int port, const char* dev_type, int device, AudioDir dir): mPort(port)
+	, mDevType(dev_type)
+	, mDevice(device)
+	, mAudioDir(dir)
+	{
+
+	}
 	virtual ~AudioDevice() {}
 	//get buffer, converted to 16bit int format
 	virtual uint32_t GetBuffer(int16_t *buff, uint32_t len) = 0;
@@ -80,6 +87,11 @@ public:
 
 	//Remember to add to your class
 	//static const wchar_t* GetName();
+protected:
+	int mPort;
+	int mDevice;
+	AudioDir mAudioDir;
+	const char *mDevType;
 };
 
 typedef std::vector<AudioDeviceInfo> AudioDeviceInfoList;

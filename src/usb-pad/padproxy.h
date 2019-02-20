@@ -24,7 +24,7 @@ class PadProxyBase : public ProxyBase
 
 	public:
 	PadProxyBase(const std::string& name);
-	virtual Pad* CreateObject(int port) const = 0;
+	virtual Pad* CreateObject(int port, const char* dev_type) const = 0;
 };
 
 template <class T>
@@ -34,11 +34,11 @@ class PadProxy : public PadProxyBase
 
 	public:
 	PadProxy(const std::string& name): PadProxyBase(name) {}
-	Pad* CreateObject(int port) const
+	Pad* CreateObject(int port, const char *dev_type) const
 	{
 		try
 		{
-			return new T(port);
+			return new T(port, dev_type);
 		}
 		catch(PadError& err)
 		{
@@ -50,9 +50,9 @@ class PadProxy : public PadProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, void *data)
+	virtual int Configure(int port, const char *dev_type, void *data)
 	{
-		return T::Configure(port, data);
+		return T::Configure(port, dev_type, data);
 	}
 };
 
@@ -106,6 +106,8 @@ private:
 	RegisterPadMap registerPadMap;
 };
 
+#ifndef REGISTER_PAD
 #define REGISTER_PAD(name,cls) PadProxy<cls> g##cls##Proxy(name)
+#endif
 } //namespace
 #endif

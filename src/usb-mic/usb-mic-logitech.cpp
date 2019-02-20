@@ -2,8 +2,6 @@
 #include "audio.h"
 #include "../qemu-usb/desc.h"
 
-#define DEVICENAME "logitech_usbmic"
-
 namespace usb_mic_singstar {
 
 static const uint8_t logitech_mic_dev_descriptor[] = {
@@ -233,7 +231,7 @@ public:
 	static USBDevice* CreateDevice(int port)
 	{
 		std::string api;
-		if (!LoadSetting(port, DEVICENAME, N_DEVICE_API, api))
+		if (!LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, api))
 			return nullptr;
 
 		USBDevice* dev = SingstarDevice::CreateDevice(port, api);
@@ -263,7 +261,7 @@ fail:
 	}
 	static const char* TypeName()
 	{
-		return DEVICENAME;
+		return "logitech_usbmic";
 	}
 	static const TCHAR* Name()
 	{
@@ -271,6 +269,5 @@ fail:
 	}
 };
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_MIC, DEVICENAME, LogitechMicDevice);
+REGISTER_DEVICE(DEVTYPE_LOGITECH_MIC, LogitechMicDevice);
 };
-#undef DEVICENAME

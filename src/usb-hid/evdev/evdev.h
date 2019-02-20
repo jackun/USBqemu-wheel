@@ -9,12 +9,10 @@
 
 namespace usb_hid { namespace evdev {
 
-const char* const n_device_by_type[] = {N_DEVICE "_kbd", N_DEVICE "_mouse"};
-
 class EvDev : public UsbHID
 {
 public:
-	EvDev(int port): UsbHID(port)
+	EvDev(int port, const char* dev_type): UsbHID(port, dev_type)
 	, mHandle(-1)
 	, mReaderThreadIsRunning(false)
 	{
@@ -32,7 +30,7 @@ public:
 		return "Evdev";
 	}
 
-	static int Configure(int port, HIDType devtype, void *data);
+	static int Configure(int port, const char* dev_type, HIDType hid_type, void *data);
 protected:
 	static void ReaderThread(void *ptr);
 

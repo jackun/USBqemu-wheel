@@ -10,7 +10,7 @@ namespace usb_pad { namespace joydev {
 class JoyDevPad : public Pad
 {
 public:
-	JoyDevPad(int port): Pad(port)
+	JoyDevPad(int port, const char* dev_type): Pad(port, dev_type)
 	, mIsGamepad(false)
 	, mIsDualAnalog(false)
 	, mEvdevFF(nullptr)
@@ -29,7 +29,7 @@ public:
 		return "Joydev";
 	}
 
-	static int Configure(int port, void *data);
+	static int Configure(int port, const char* dev_type, void *data);
 protected:
 	int mHandle;
 	int mHandleFF;

@@ -122,10 +122,10 @@ error:
 	return false;
 }
 
-int JoyDevPad::Configure(int port, void *data)
+int JoyDevPad::Configure(int port, const char* dev_type, void *data)
 {
 	evdev::ApiCallbacks apicbs {PopulateJoysticks, PollInput};
-	int ret = evdev::GtkPadConfigure(port, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
+	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
 	return ret;
 }
 

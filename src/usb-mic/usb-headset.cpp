@@ -30,8 +30,6 @@
 #include "audiodeviceproxy.h"
 #include <assert.h>
 
-#define DEVICENAME "headset"
-
 #include "audio.h"
 
 #define BUFFER_FRAMES 200
@@ -91,7 +89,7 @@ public:
     static USBDevice* CreateDevice(int port, const std::string& api);
     static const char* TypeName()
     {
-        return DEVICENAME;
+        return "headset";
     }
     static const TCHAR* Name()
     {
@@ -987,7 +985,7 @@ static void headset_handle_close(USBDevice *dev)
 USBDevice* HeadsetDevice::CreateDevice(int port)
 {
     std::string api;
-    if (!LoadSetting(port, DEVICENAME, N_DEVICE_API, api))
+    if (!LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, api))
         return nullptr;
     return HeadsetDevice::CreateDevice(port, api);
 }
@@ -1008,8 +1006,8 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
 
     s->audsrcproxy->AudioInit();
 
-    s->audsrc  = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SOURCE);
-    s->audsink = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SINK);
+    s->audsrc  = s->audsrcproxy->CreateObject(port, TypeName(), 0, AUDIODIR_SOURCE);
+    s->audsink = s->audsrcproxy->CreateObject(port, TypeName(), 0, AUDIODIR_SINK);
     s->f.mode = MIC_MODE_SINGLE;
 
     if(!s->audsrc || !s->audsink)
@@ -1058,7 +1056,7 @@ int HeadsetDevice::Configure(int port, const std::string& api, void *data)
 {
     auto proxy = RegisterAudioDevice::instance().Proxy(api);
     if (proxy)
-        return proxy->Configure(port, data);
+        return proxy->Configure(port, TypeName(), data);
     return RESULT_CANCELED;
 }
 
@@ -1087,6 +1085,5 @@ int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
     return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, DEVICENAME, HeadsetDevice);
+REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, HeadsetDevice);
 };
-#undef DEVICENAME

@@ -29,8 +29,6 @@
 #include "usb-mic-singstar.h"
 #include <assert.h>
 
-#define DEVICENAME "singstar"
-
 static FILE *file = NULL;
 
 #include "audio.h"
@@ -743,7 +741,7 @@ static void singstar_mic_handle_close(USBDevice *dev)
 USBDevice* SingstarDevice::CreateDevice(int port)
 {
 	std::string api;
-	LoadSetting(port, DEVICENAME, N_DEVICE_API, api);
+	LoadSetting(nullptr, port, SingstarDevice::TypeName(), N_DEVICE_API, api);
 	return SingstarDevice::CreateDevice(port, api);
 }
 USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
@@ -762,8 +760,8 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 
 	s->audsrcproxy->AudioInit();
 
-	s->audsrc[0] = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SOURCE);
-	s->audsrc[1] = s->audsrcproxy->CreateObject(port, 1, AUDIODIR_SOURCE);
+	s->audsrc[0] = s->audsrcproxy->CreateObject(port, TypeName(), 0, AUDIODIR_SOURCE);
+	s->audsrc[1] = s->audsrcproxy->CreateObject(port, TypeName(), 1, AUDIODIR_SOURCE);
 
 	if(!s->audsrc[0] && !s->audsrc[1])
 		goto fail;
@@ -825,7 +823,7 @@ int SingstarDevice::Configure(int port, const std::string& api, void *data)
 {
 	auto proxy = RegisterAudioDevice::instance().Proxy(api);
 	if (proxy)
-		return proxy->Configure(port, data);
+		return proxy->Configure(port, TypeName(), data);
 	return RESULT_CANCELED;
 }
 
@@ -854,6 +852,5 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 	return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_SINGSTAR, DEVICENAME, SingstarDevice);
+REGISTER_DEVICE(DEVTYPE_SINGSTAR, SingstarDevice);
 };
-#undef DEVICENAME

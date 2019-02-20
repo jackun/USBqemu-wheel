@@ -60,7 +60,7 @@ void PopulateAPIs(HWND hW, int port)
 	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
 	std::string var;
-	if(LoadSetting(port, rd.Name(devtype), N_DEVICE_API, var))
+	if (LoadSetting(nullptr, port, rd.Name(devtype), N_DEVICE_API, var))
 		OSDebugOut(L"Current API: %S\n", var.c_str());
 	else
 	{

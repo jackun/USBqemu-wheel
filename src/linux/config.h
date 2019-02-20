@@ -17,7 +17,7 @@ bool SaveSettingValue(const std::string& ini, const std::string& section, const 
 bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, const bool value);
 
 template<typename Type>
-bool LoadSetting(int port, const std::string& key, const char* name, Type& var)
+bool LoadSetting(const char* dev_type, int port, const std::string& key, const char* name, Type& var)
 {
 	bool ret = false;
 	if (key.empty())
@@ -27,6 +27,8 @@ bool LoadSetting(int port, const std::string& key, const char* name, Type& var)
 	}
 
 	std::stringstream section;
+	if (dev_type)
+		section << dev_type << " ";
 	section << key << " " << port;
 	std::string str = section.str();
 
@@ -54,7 +56,7 @@ bool LoadSetting(int port, const std::string& key, const char* name, Type& var)
  * 
  * */
 template<typename Type>
-bool SaveSetting(int port, const std::string& key, const char* name, const Type var)
+bool SaveSetting(const char* dev_type, int port, const std::string& key, const char* name, const Type var)
 {
 	bool ret = false;
 	if (key.empty())
@@ -64,6 +66,8 @@ bool SaveSetting(int port, const std::string& key, const char* name, const Type 
 	}
 
 	std::stringstream section;
+	if (dev_type)
+		section << dev_type << " ";
 	section << key << " " << port;
 	std::string str = section.str();
 

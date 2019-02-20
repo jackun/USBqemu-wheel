@@ -172,7 +172,7 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 	*(int*) data = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 }
 
-static int GtkConfigure(int port, void *data)
+static int GtkConfigure(int port, const char* dev_type, void *data)
 {
 	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
 
@@ -215,7 +215,7 @@ static int GtkConfigure(int port, void *data)
 	for (int i=0; i<2; i++)
 	{
 		std::string devName;
-		LoadSetting(port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), devName);
+		LoadSetting(dev_type, port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), devName);
 
 		GtkWidget *cb = new_combobox(labels[i], frame_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
@@ -226,7 +226,7 @@ static int GtkConfigure(int port, void *data)
 	for (int i=2; i<3 /*4*/; i++)
 	{
 		std::string devName;
-		LoadSetting(port, APINAME, (i-2 ? N_AUDIO_SINK1 : N_AUDIO_SINK0), devName);
+		LoadSetting(dev_type, port, APINAME, (i-2 ? N_AUDIO_SINK1 : N_AUDIO_SINK0), devName);
 
 		GtkWidget *cb = new_combobox(labels[i], frame_vbox);
 		g_signal_connect (G_OBJECT (cb), "changed", G_CALLBACK (deviceChanged), (gpointer)&dev_idxs[i]);
@@ -264,7 +264,7 @@ static int GtkConfigure(int port, void *data)
 					opt, opt, 5, 1);
 
 		int32_t var;
-		if (LoadSetting(port, APINAME, buff_var_name[i], var))
+		if (LoadSetting(dev_type, port, APINAME, buff_var_name[i], var))
 			gtk_range_set_value (GTK_RANGE (scales[i]), var);
 		else
 			gtk_range_set_value (GTK_RANGE (scales[i]), 50);
@@ -298,7 +298,7 @@ static int GtkConfigure(int port, void *data)
 				if (idx > 0)
 					var = srcDevs[idx - 1].strID;
 
-				if (!SaveSetting(port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), var))
+				if (!SaveSetting(dev_type, port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), var))
 					ret = RESULT_FAILED;
 			}
 
@@ -309,12 +309,12 @@ static int GtkConfigure(int port, void *data)
 				if (idx > 0)
 					var = sinkDevs[idx - 1].strID;
 
-				if (!SaveSetting(port, APINAME, (i ? N_AUDIO_SINK1 : N_AUDIO_SINK0), var))
+				if (!SaveSetting(dev_type, port, APINAME, (i ? N_AUDIO_SINK1 : N_AUDIO_SINK0), var))
 					ret = RESULT_FAILED;
 			}
 
 			// Save buffer lengths
-			if (!SaveSetting(port, APINAME, buff_var_name[i], scale_vals[i]))
+			if (!SaveSetting(dev_type, port, APINAME, buff_var_name[i], scale_vals[i]))
 				ret = RESULT_FAILED;
 		}
 	}
@@ -325,8 +325,7 @@ static int GtkConfigure(int port, void *data)
 class PulseAudioDevice : public AudioDevice
 {
 public:
-	PulseAudioDevice(int port, int device, AudioDir dir): mPort(port)
-	, mDevice(device)
+	PulseAudioDevice(int port, const char* dev_type, int device, AudioDir dir): AudioDevice(port, dev_type, device, dir)
 	, mBuffering(50)
 	, mPaused(true)
 	, mQuit(false)
@@ -340,7 +339,6 @@ public:
 	, mSamplesPerSec(48000)
 	, mResampler(nullptr)
 	, mOutSamples(0)
-	, mAudioDir(dir)
 	{
 		int i = dir == AUDIODIR_SOURCE ? 0 : 2;
 		const char* var_names[] = {
@@ -350,10 +348,10 @@ public:
 			N_AUDIO_SINK1
 		};
 
-		if (!LoadSetting(mPort, APINAME, (device ? var_names[i + 1] : var_names[i]), mDeviceName) || mDeviceName.empty())
+		if (!LoadSetting(mDevType, mPort, APINAME, (device ? var_names[i + 1] : var_names[i]), mDeviceName) || mDeviceName.empty())
 			throw AudioDeviceError(APINAME ": failed to load device settings");
 
-		LoadSetting(mPort, APINAME, (dir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), mBuffering);
+		LoadSetting(mDevType, mPort, APINAME, (dir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), mBuffering);
 		mBuffering = MIN(1000, MAX(1, mBuffering));
 
 		if (!AudioInit())
@@ -729,12 +727,12 @@ public:
 		return "PulseAudio";
 	}
 
-	static int Configure(int port, void *data)
+	static int Configure(int port, const char* dev_type, void *data)
 	{
 		int ret = RESULT_FAILED;
 		if (PulseAudioDevice::AudioInit())
 		{
-			ret = GtkConfigure(port, data);
+			ret = GtkConfigure(port, dev_type, data);
 			PulseAudioDevice::AudioDeinit();
 		}
 		return ret;
@@ -767,14 +765,11 @@ public:
 	static void stream_success_cb (pa_stream *p, int success, void *userdata) {}
 
 protected:
-	int mPort;
-	int mDevice;
 	int mChannels;
 	int mBuffering;
 	std::string mDeviceName;
 	int mSamplesPerSec;
 	pa_sample_spec mSSpec;
-	AudioDir mAudioDir;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;

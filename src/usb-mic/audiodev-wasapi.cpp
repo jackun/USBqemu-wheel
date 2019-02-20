@@ -28,6 +28,7 @@ static FILE* file = nullptr;
 struct WASAPISettings
 {
 	int port;
+	const char* dev_type;
 	AudioDeviceInfoList sourceDevs;
 	AudioDeviceInfoList sinkDevs;
 	std::wstring selectedDev[3];
@@ -75,9 +76,7 @@ LONGLONG GetQPCTime100NS()
 class MMAudioDevice : public AudioDevice
 {
 public:
-	MMAudioDevice(int port, int device, AudioDir dir)
-	: mPort(port)
-	, mDevice(device)
+	MMAudioDevice(int port, const char* dev_type, int device, AudioDir dir): AudioDevice(port, dev_type, device, dir)
 	, mmCapture(NULL)
 	, mmRender(NULL)
 	, mmClient(NULL)
@@ -96,7 +95,6 @@ public:
 	, mPaused(true)
 	, mLastGetBufferMS(0)
 	, mBuffering(50)
-	, mAudioDir(dir)
 	{
 		mMutex = CreateMutex(NULL, FALSE, TEXT("ResampledQueueMutex"));
 		if(!Init())
@@ -144,14 +142,14 @@ public:
 
 		if (mAudioDir == AUDIODIR_SOURCE)
 		{
-			if (!LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), mDevID))
+			if (!LoadSetting(mDevType, mPort, APINAME, (mDevice ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), mDevID))
 			{
 				throw AudioDeviceError("MMAudioDevice:: failed to load source from ini!");
 			}
 		}
 		else
 		{
-			if (!LoadSetting(mPort, APINAME, (mDevice ? N_AUDIO_SINK1 : N_AUDIO_SINK0), mDevID))
+			if (!LoadSetting(mDevType, mPort, APINAME, (mDevice ? N_AUDIO_SINK1 : N_AUDIO_SINK0), mDevID))
 			{
 				throw AudioDeviceError("MMAudioDevice:: failed to load sink from ini!");
 			}
@@ -162,7 +160,7 @@ public:
 
 		{
 			int var;
-			if (LoadSetting(mPort, APINAME, (mAudioDir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), var))
+			if (LoadSetting(mDevType, mPort, APINAME, (mAudioDir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), var))
 				mBuffering = std::min(1000, std::max(1, var));
 		}
 
@@ -897,11 +895,12 @@ error:
 		SafeRelease(mmEnumerator);
 	}
 
-	static int Configure(int port, void *data)
+	static int Configure(int port, const char* dev_type, void *data)
 	{
 		Win32Handles h = *(Win32Handles*)data;
 		WASAPISettings settings;
 		settings.port = port;
+		settings.dev_type = dev_type;
 
 		return DialogBoxParam(h.hInst,
 			MAKEINTRESOURCE(IDD_DLGWASAPI),
@@ -931,10 +930,7 @@ private:
 	std::wstring mDevID;
 	bool mDeviceLost;
 	std::wstring mDeviceName;
-	int mDevice;
-	int mPort;
 	int mBuffering;
-	AudioDir mAudioDir;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
@@ -1018,7 +1014,7 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 		s = (WASAPISettings *)lParam;
 		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 		int buffering = 50;
-		LoadSetting(s->port, APINAME, N_BUFFER_LEN_SRC, buffering);
+		LoadSetting(s->dev_type, s->port, APINAME, N_BUFFER_LEN_SRC, buffering);
 
 		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETRANGEMIN, TRUE, 1);
 		SendDlgItemMessage(hW, IDC_SLIDER1, TBM_SETRANGEMAX, TRUE, 1000);
@@ -1026,7 +1022,7 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 		SetDlgItemInt(hW, IDC_BUFFER1, buffering, FALSE);
 
 		buffering = 50;
-		LoadSetting(s->port, APINAME, N_BUFFER_LEN_SINK, buffering);
+		LoadSetting(s->dev_type, s->port, APINAME, N_BUFFER_LEN_SINK, buffering);
 
 		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETRANGEMIN, TRUE, 1);
 		SendDlgItemMessage(hW, IDC_SLIDER2, TBM_SETRANGEMAX, TRUE, 1000);
@@ -1035,10 +1031,10 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 		for (int i = 0; i < 2; i++)
 		{
-			LoadSetting(s->port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), s->selectedDev[i]);
+			LoadSetting(s->dev_type, s->port, APINAME, (i ? N_AUDIO_SOURCE1 : N_AUDIO_SOURCE0), s->selectedDev[i]);
 		}
 
-		LoadSetting(s->port, APINAME, N_AUDIO_SINK0, s->selectedDev[2]);
+		LoadSetting(s->dev_type, s->port, APINAME, N_AUDIO_SINK0, s->selectedDev[2]);
 
 		RefreshInputAudioList(hW, -1, s);
 		RefreshOutputAudioList(hW, -1, s);
@@ -1100,14 +1096,14 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 				const wchar_t *n[] = { N_AUDIO_SOURCE0, N_AUDIO_SOURCE1, N_AUDIO_SINK0 };
 				for (int i = 0; i < 3; i++)
 				{
-					if (!SaveSetting(s->port, APINAME, n[i], s->selectedDev[i]))
+					if (!SaveSetting(s->dev_type, s->port, APINAME, n[i], s->selectedDev[i]))
 						res = RESULT_FAILED;
 				}
 
-				if (!SaveSetting(s->port, APINAME, N_BUFFER_LEN_SRC, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0)))
+				if (!SaveSetting(s->dev_type, s->port, APINAME, N_BUFFER_LEN_SRC, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER1, TBM_GETPOS, 0, 0)))
 					res = RESULT_FAILED;
 
-				if (!SaveSetting(s->port, APINAME, N_BUFFER_LEN_SINK, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER2, TBM_GETPOS, 0, 0)))
+				if (!SaveSetting(s->dev_type, s->port, APINAME, N_BUFFER_LEN_SINK, (int32_t)SendDlgItemMessage(hW, IDC_SLIDER2, TBM_GETPOS, 0, 0)))
 					res = RESULT_FAILED;
 
 				EndDialog(hW, res);

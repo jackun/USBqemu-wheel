@@ -6,7 +6,7 @@ namespace usb_hid { namespace noop {
 class NOOP : public UsbHID
 {
 public:
-	NOOP(int port): UsbHID(port) {}
+	NOOP(int port, const char* dev_type): UsbHID(port, dev_type) {}
 	~NOOP() {}
 	int Open() { return 0; }
 	int Close() { return 0; }
@@ -19,7 +19,7 @@ public:
 		return TEXT("NOOP");
 	}
 
-	static int Configure(int port, HIDType type, void *data)
+	static int Configure(int port, const char* dev_type, HIDType type, void *data)
 	{
 		return RESULT_CANCELED;
 	}

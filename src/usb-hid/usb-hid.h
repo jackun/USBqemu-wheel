@@ -11,7 +11,7 @@ enum HIDType
 class UsbHID
 {
 public:
-	UsbHID(int port) : mPort(port) {}
+	UsbHID(int port, const char* dev_type) : mPort(port), mDevType(dev_type) {}
 	virtual ~UsbHID() {}
 	virtual int Open() = 0;
 	virtual int Close() = 0;
@@ -28,4 +28,5 @@ protected:
 	int mPort;
 	HIDState *mHIDState;
 	HIDType mHIDType;
+	const char *mDevType;
 };

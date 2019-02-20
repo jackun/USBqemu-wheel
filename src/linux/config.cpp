@@ -102,7 +102,7 @@ void SaveConfig() {
 
 	for (auto& k : changedAPIs)
 	{
-		SaveSetting(k.first.first, k.first.second, N_DEVICE_API, k.second);
+		SaveSetting(nullptr, k.first.first, k.first.second, N_DEVICE_API, k.second);
 	}
 }
 
@@ -129,7 +129,7 @@ void LoadConfig() {
 	{
 		auto& instance = RegisterDevice::instance();
 		std::string api;
-		LoadSetting(i, conf.Port[i], N_DEVICE_API, api);
+		LoadSetting(nullptr, i, conf.Port[i], N_DEVICE_API, api);
 		auto dev = instance.Device(conf.Port[i]);
 
 		if (dev)

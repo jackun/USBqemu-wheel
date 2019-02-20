@@ -6,7 +6,7 @@
 class NoopAudioDevice : public AudioDevice
 {
 public:
-	NoopAudioDevice(int port, int mic, AudioDir dir) {}
+	NoopAudioDevice(int port, const char* dev_type, int mic, AudioDir dir): AudioDevice(port, dev_type, mic, dir) {}
 	~NoopAudioDevice() {}
 	void Start() {}
 	void Stop() {}
@@ -55,7 +55,7 @@ public:
 		devices.push_back(info);
 	}
 
-	static int Configure(int port, void *data)
+	static int Configure(int port, const char* dev_type, void *data)
 	{
 		return RESULT_OK;
 	}

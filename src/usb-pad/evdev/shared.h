@@ -26,6 +26,7 @@ struct ConfigData
 	GtkListStore *store;
 	ApiCallbacks *cb;
 	bool use_hidraw_ff_pt;
+	const char *dev_type;
 };
 
 enum
@@ -83,7 +84,7 @@ static const char* JoystickMapNames [] = {
 
 struct Point { int x; int y; JoystickMap type; };
 
-int GtkPadConfigure(int port, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
-bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
+int GtkPadConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
 }} //namespace

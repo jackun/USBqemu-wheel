@@ -24,7 +24,7 @@ class AudioDeviceProxyBase : public ProxyBase
 
 	public:
 	AudioDeviceProxyBase(const std::string& name);
-	virtual AudioDevice* CreateObject(int port, int mic, AudioDir dir) const = 0; //Can be generalized? Probably not
+	virtual AudioDevice* CreateObject(int port, const char* dev_type, int mic, AudioDir dir) const = 0; //Can be generalized? Probably not
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
@@ -37,11 +37,11 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 
 	public:
 	AudioDeviceProxy(const std::string& name): AudioDeviceProxyBase(name) {} //Why can't it automagically, ugh
-	AudioDevice* CreateObject(int port, int mic, AudioDir dir) const
+	AudioDevice* CreateObject(int port, const char* dev_type, int mic, AudioDir dir) const
 	{
 		try
 		{
-			return new T(port, mic, dir);
+			return new T(port, dev_type, mic, dir);
 		}
 		catch(AudioDeviceError& err)
 		{
@@ -54,9 +54,9 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, void *data)
+	virtual int Configure(int port, const char* dev_type, void *data)
 	{
-		return T::Configure(port, data);
+		return T::Configure(port, dev_type, data);
 	}
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir dir) const
 	{

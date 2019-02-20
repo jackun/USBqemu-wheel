@@ -28,8 +28,6 @@
 #include "usb-hid.h"
 #include "osdebugout.h"
 
-#define DEVICENAME_KBD "hidkbd"
-#define DEVICENAME_MOUSE "hidmouse"
 #define CONTAINER_OF(p, type, field) ((type*) ((char*)p - ((ptrdiff_t)&((type*)0)->field)))
 
 
@@ -75,7 +73,7 @@ public:
     }
     static const char* TypeName()
     {
-        return DEVICENAME_KBD;
+        return "hidkbd";
     }
     static std::list<std::string> ListAPIs()
     {
@@ -103,7 +101,7 @@ public:
     }
     static const char* TypeName()
     {
-        return DEVICENAME_MOUSE;
+        return "hidmouse";
     }
     static std::list<std::string> ListAPIs()
     {
@@ -539,6 +537,7 @@ static void usb_hid_handle_control(USBDevice *dev, USBPacket *p,
         break;
     case SET_IDLE:
         hs->idle = (uint8_t) (value >> 8);
+        OSDebugOut(TEXT("IDLE %d\n"), hs->idle);
         hid_set_next_idle(hs);
         if (hs->kind == HID_MOUSE || hs->kind == HID_TABLET) {
             hid_pointer_activate(hs);
@@ -615,7 +614,7 @@ USBDevice *HIDKbdDevice::CreateDevice(int port){
     UsbHIDState *s;
 
     std::string varApi;
-    LoadSetting(port, DEVICENAME_KBD, N_DEVICE_API, varApi);
+    LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
     UsbHIDProxyBase *proxy = RegisterUsbHID::instance().Proxy(varApi);
     if (!proxy)
     {
@@ -623,7 +622,7 @@ USBDevice *HIDKbdDevice::CreateDevice(int port){
         return nullptr;
     }
 
-    UsbHID *usbhid = proxy->CreateObject(port);
+    UsbHID *usbhid = proxy->CreateObject(port, TypeName());
 
     if (!usbhid)
         return nullptr;
@@ -670,7 +669,7 @@ int HIDKbdDevice::Configure(int port, const std::string& api, void *data)
 {
     auto proxy = RegisterUsbHID::instance().Proxy(api);
     if (proxy)
-        return proxy->Configure(port, HIDTYPE_KBD, data);
+        return proxy->Configure(port, TypeName(), HIDTYPE_KBD, data);
     return RESULT_CANCELED;
 }
 
@@ -701,7 +700,7 @@ USBDevice *HIDMouseDevice::CreateDevice(int port) {
     UsbHIDState *s;
 
     std::string varApi;
-    LoadSetting(port, DEVICENAME_MOUSE, N_DEVICE_API, varApi);
+    LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
     UsbHIDProxyBase *proxy = RegisterUsbHID::instance().Proxy(varApi);
     if (!proxy)
     {
@@ -709,7 +708,7 @@ USBDevice *HIDMouseDevice::CreateDevice(int port) {
         return nullptr;
     }
 
-    UsbHID *usbhid = proxy->CreateObject(port);
+    UsbHID *usbhid = proxy->CreateObject(port, TypeName());
 
     if (!usbhid)
         return nullptr;
@@ -756,7 +755,7 @@ int HIDMouseDevice::Configure(int port, const std::string& api, void *data)
 {
     auto proxy = RegisterUsbHID::instance().Proxy(api);
     if (proxy)
-        return proxy->Configure(port, HIDTYPE_MOUSE, data);
+        return proxy->Configure(port, TypeName(), HIDTYPE_MOUSE, data);
     return RESULT_CANCELED;
 }
 
@@ -765,8 +764,6 @@ int HIDMouseDevice::Freeze(int mode, USBDevice *dev, void *data)
     return HIDKbdDevice::Freeze(mode, dev, data);
 }
 
-REGISTER_DEVICE(DEVTYPE_HIDKBD, DEVICENAME_KBD, HIDKbdDevice);
-REGISTER_DEVICE(DEVTYPE_HIDMOUSE, DEVICENAME_MOUSE, HIDMouseDevice);
-#undef DEVICENAME_KBD
-#undef DEVICENAME_MOUSE
+REGISTER_DEVICE(DEVTYPE_HIDKBD, HIDKbdDevice);
+REGISTER_DEVICE(DEVTYPE_HIDMOUSE, HIDMouseDevice);
 } //namespace

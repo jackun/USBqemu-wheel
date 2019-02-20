@@ -19,6 +19,8 @@ static void PopulateJoysticks(vstring& jsdata)
 	std::stringstream str;
 	struct dirent* dp;
 
+	const char* devstr[] = {"event-joystick", "event-kbd", "event-mouse"};
+
 	jsdata.clear();
 	jsdata.push_back(std::make_pair("None", ""));
 	//jsdata.push_back(std::make_pair("Fake Vendor FakePad", "/dev/null"));
@@ -43,16 +45,17 @@ static void PopulateJoysticks(vstring& jsdata)
 
 				str.clear(); str.str("");
 				str << EVDEV_DIR << dp->d_name;
+				std::string sstr = str.str();
 
 				char name[1024];
-				if (!GetEvdevName(str.str(), name))
+				if (!GetEvdevName(sstr, name))
 				{
 					//XXX though it also could mean that controller is unusable
-					jsdata.push_back(std::make_pair(dp->d_name, str.str()));
+					jsdata.push_back(std::make_pair(dp->d_name, sstr));
 				}
 				else
 				{
-					jsdata.push_back(std::make_pair(std::string(name) + " (evdev)", str.str()));
+					jsdata.push_back(std::make_pair(std::string(name) + " (evdev)", sstr));
 				}
 			}
 		}
@@ -178,10 +181,10 @@ error:
 	return false;
 }
 
-int EvDevPad::Configure(int port, void *data)
+int EvDevPad::Configure(int port, const char* dev_type, void *data)
 {
 	ApiCallbacks apicbs {PopulateJoysticks, PollInput};
-	int ret = GtkPadConfigure(port, "Evdev Settings", "evdev", GTK_WINDOW (data), apicbs);
+	int ret = GtkPadConfigure(port, dev_type, "Evdev Settings", "evdev", GTK_WINDOW (data), apicbs);
 	return ret;
 }
 

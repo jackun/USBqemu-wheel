@@ -18,7 +18,7 @@ namespace usb_hid { namespace raw {
 class RawInputHID : public UsbHID, shared::rawinput::ParseRawInputCB
 {
 public:
-	RawInputHID(int port) : UsbHID(port)
+	RawInputHID(int port, const char* dev_type) : UsbHID(port, dev_type)
 	{
 	}
 	~RawInputHID()
@@ -37,7 +37,7 @@ public:
 		return TEXT("Raw Input");
 	}
 
-	static int Configure(int port, HIDType, void *data);
+	static int Configure(int port, const char* dev_type, HIDType, void *data);
 protected:
 };
 
@@ -291,7 +291,7 @@ int RawInputHID::Close()
 	return 0;
 }
 
-int RawInputHID::Configure(int port, HIDType type, void *data)
+int RawInputHID::Configure(int port, const char* dev_type, HIDType type, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_CANCELED;

@@ -159,7 +159,7 @@ void SaveConfig()
 
 	for (auto &kp : changedAPIs)
 	{
-		SaveSetting(kp.first.first, kp.first.second, N_DEVICE_API, kp.second);
+		SaveSetting(nullptr, kp.first.first, kp.first.second, N_DEVICE_API, kp.second);
 	}
 	changedAPIs.clear();
 }

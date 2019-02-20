@@ -22,9 +22,9 @@ class UsbHIDProxyBase : public ProxyBase
 
 	public:
 	UsbHIDProxyBase(const std::string& name);
-	virtual UsbHID* CreateObject(int port) const = 0;
+	virtual UsbHID* CreateObject(int port, const char* dev_type) const = 0;
 	// ProxyBase::Configure is ignored
-	virtual int Configure(int port, HIDType type, void *data) = 0;
+	virtual int Configure(int port, const char* dev_type, HIDType hid_type, void *data) = 0;
 };
 
 template <class T>
@@ -34,11 +34,11 @@ class UsbHIDProxy : public UsbHIDProxyBase
 
 	public:
 	UsbHIDProxy(const std::string& name): UsbHIDProxyBase(name) {}
-	UsbHID* CreateObject(int port) const
+	UsbHID* CreateObject(int port, const char* dev_type) const
 	{
 		try
 		{
-			return new T(port);
+			return new T(port, dev_type);
 		}
 		catch(UsbHIDError& err)
 		{
@@ -50,14 +50,13 @@ class UsbHIDProxy : public UsbHIDProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, void *data)
+	virtual int Configure(int port, const char* dev_type, void *data)
 	{
 		return RESULT_CANCELED;
 	}
-
-	virtual int Configure(int port, HIDType type, void *data)
+	virtual int Configure(int port, const char* dev_type, HIDType hid_type, void *data)
 	{
-		return T::Configure(port, type, data);
+		return T::Configure(port, dev_type, hid_type, data);
 	}
 };
 

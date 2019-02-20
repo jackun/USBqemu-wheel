@@ -342,21 +342,19 @@ int EvDevPad::Open()
 	memset(&info, 0x0, sizeof(info));
 
 	std::string joypath;
-	if (!LoadSetting(mPort, APINAME, N_JOYSTICK, joypath))
+	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
 	{
 		OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
 		return 1;
 	}
 
-	LoadSetting(mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
+	LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
 
 	if(joypath.empty() || !file_exists(joypath))
 		goto quit;
 
 	if (GetEvdevName(joypath, buf)) {
-		name << buf;
-		name << " (evdev)";
-		LoadMappings(mPort, name.str().c_str(), mMappings, mAxisInverted);
+		LoadMappings(mDevType, mPort, buf, mMappings, mAxisInverted);
 	}
 
 	if ((mHandle = open(joypath.c_str(), O_RDWR | O_NONBLOCK)) < 0)

@@ -28,7 +28,7 @@ inline bool MapExists(const MapVector& maps, TCHAR* hid)
 	return false;
 }
 
-void LoadMappings(MapVector& maps)
+void LoadMappings(const char *dev_type, MapVector& maps)
 {
 	std::wstring szIniFile;
 
@@ -36,12 +36,12 @@ void LoadMappings(MapVector& maps)
 
 	maps.clear();
 	
-	WCHAR sec[32] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
+	WCHAR sec[1024] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
 	int j = 0, v = 0;
 	while(j < 25)
 	{
 		hid[0] = 0;
-		swprintf_s(sec, TEXT("RAW DEVICE %d"), j++);
+		swprintf_s(sec, TEXT("%S RAW DEVICE %d"), dev_type, j++);
 		if(GetPrivateProfileStringW(sec, TEXT("HID"), NULL, hid, MAX_PATH, szIniFile.c_str())
 			&& hid[0] && !MapExists(maps, hid))
 		{
@@ -86,7 +86,7 @@ void LoadMappings(MapVector& maps)
 	return;
 }
 
-void SaveMappings(MapVector& maps)
+void SaveMappings(const char *dev_type, MapVector& maps)
 {
 	std::wstring szIniFile;
 
@@ -95,9 +95,9 @@ void SaveMappings(MapVector& maps)
 	uint32_t numDevice = 0;
 	for(auto& it : maps)
 	{
-		WCHAR dev[32] = {0}, tmp[16] = {0}, bind[32] = {0};
+		WCHAR dev[1024] = {0}, tmp[16] = {0}, bind[32] = {0};
 
-		swprintf_s(dev, L"RAW DEVICE %u", numDevice++);
+		swprintf_s(dev, L"%S RAW DEVICE %u", dev_type, numDevice++);
 		WritePrivateProfileStringW(dev, L"HID", it.hidPath.c_str(), szIniFile.c_str());
 
 		//writing everything separately, then string lengths are more predictable
@@ -683,17 +683,17 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 			//LoadConfig();
 			cfg = (RawDlgConfig *)lParam;
 
-			if (!LoadSetting(PLAYER_ONE_PORT, APINAME, N_JOYSTICK, cfg->player_joys[0]))
+			if (!LoadSetting(cfg->dev_type, PLAYER_ONE_PORT, APINAME, N_JOYSTICK, cfg->player_joys[0]))
 				cfg->player_joys[0].clear();
 
-			if (!LoadSetting(PLAYER_TWO_PORT, APINAME, N_JOYSTICK, cfg->player_joys[1]))
+			if (!LoadSetting(cfg->dev_type, PLAYER_TWO_PORT, APINAME, N_JOYSTICK, cfg->player_joys[1]))
 				cfg->player_joys[1].clear();
 
-			LoadSetting(PLAYER_ONE_PORT, APINAME, N_WHEEL_PT, cfg->pt[0]);
-			LoadSetting(PLAYER_TWO_PORT, APINAME, N_WHEEL_PT, cfg->pt[1]);
+			LoadSetting(cfg->dev_type, PLAYER_ONE_PORT, APINAME, N_WHEEL_PT, cfg->pt[0]);
+			LoadSetting(cfg->dev_type, PLAYER_TWO_PORT, APINAME, N_WHEEL_PT, cfg->pt[1]);
 
 			Register(hW);
-			LoadMappings(mapVector);
+			LoadMappings(cfg->dev_type, mapVector);
 			//if (conf.Log) CheckDlgButton(hW, IDC_LOGGING, TRUE);
 			CheckDlgButton(hW, IDC_DFP_PASS, cfg->pt[0]);
 			populate(hW, cfg);
@@ -880,16 +880,16 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 
 					INT_PTR res = RESULT_OK;
 
-					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, N_JOYSTICK, cfg->player_joys[0]))
+					if (!SaveSetting(cfg->dev_type, PLAYER_ONE_PORT, APINAME, N_JOYSTICK, cfg->player_joys[0]))
 						res = RESULT_FAILED;
-					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, N_JOYSTICK, cfg->player_joys[1]))
+					if (!SaveSetting(cfg->dev_type, PLAYER_TWO_PORT, APINAME, N_JOYSTICK, cfg->player_joys[1]))
 						res = RESULT_FAILED;
 
-					SaveMappings(mapVector);
+					SaveMappings(cfg->dev_type, mapVector);
 
-					if (!SaveSetting(PLAYER_ONE_PORT, APINAME, N_WHEEL_PT, cfg->pt[0]))
+					if (!SaveSetting(cfg->dev_type, PLAYER_ONE_PORT, APINAME, N_WHEEL_PT, cfg->pt[0]))
 						res = RESULT_FAILED;
-					if (!SaveSetting(PLAYER_TWO_PORT, APINAME, N_WHEEL_PT, cfg->pt[1]))
+					if (!SaveSetting(cfg->dev_type, PLAYER_TWO_PORT, APINAME, N_WHEEL_PT, cfg->pt[1]))
 						res = RESULT_FAILED;
 
 					EndDialog(hW, res);

@@ -14,7 +14,7 @@ extern Window g_GSwin;
 
 namespace usb_hid { namespace evdev {
 
-#define APINAME "hid_evdev"
+#define APINAME "evdev"
 #define test_bit(nr, addr) \
 	(((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
@@ -93,9 +93,9 @@ int EvDev::Open()
 	mHandle = -1;
 
 	std::string path;
-	if (!LoadSetting(mPort, APINAME, n_device_by_type[mHIDType], path))
+	if (!LoadSetting(mDevType, mPort, APINAME, N_DEVICE, path))
 	{
-		OSDebugOut("Cannot load joystick setting: %s\n", n_device_by_type[mHIDType]);
+		OSDebugOut("Cannot load evdev hid device setting!\n");
 		return 1;
 	}
 

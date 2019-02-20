@@ -10,23 +10,24 @@ GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config
 
 namespace usb_hid { namespace evdev {
 
-#define APINAME "hid_evdev"
+#define APINAME "evdev"
 #define EVDEV_DIR "/dev/input/by-path/"
 
+typedef std::vector< std::pair<std::string, std::string> > devs_t;
 struct ConfigData {
 	int port;
-	std::vector<std::string> devs;
-	std::vector<std::string>::const_iterator iter;
+	devs_t devs;
+	devs_t::const_iterator iter;
 };
 
-static void PopulateHIDs(ConfigData &cfg, HIDType devtype)
+static void PopulateHIDs(ConfigData &cfg, HIDType hid_type)
 {
 	std::stringstream str;
 	struct dirent* dp;
 	const char* devstr[] = {"event-kbd", "event-mouse"};
 
 	cfg.devs.clear();
-	cfg.devs.push_back("None");
+	cfg.devs.push_back(std::make_pair("None", ""));
 
 	DIR* dirp = opendir(EVDEV_DIR);
 	if(dirp == NULL) {
@@ -35,7 +36,7 @@ static void PopulateHIDs(ConfigData &cfg, HIDType devtype)
 	}
 
 	// Loop over dir entries using readdir
-	int len = strlen(devstr[devtype]);
+	int len = strlen(devstr[hid_type]);
 	while((dp = readdir(dirp)) != NULL)
 	{
 		// Only select names that end in 'event-joystick'
@@ -43,7 +44,7 @@ static void PopulateHIDs(ConfigData &cfg, HIDType devtype)
 		if(devlen >= len)
 		{
 			const char* const start = dp->d_name + devlen - len;
-			if(strncmp(start, devstr[devtype], len) == 0) {
+			if(strncmp(start, devstr[hid_type], len) == 0) {
 				OSDebugOut("%s%s\n", EVDEV_DIR, dp->d_name);
 
 				str.clear(); str.str("");
@@ -53,14 +54,14 @@ static void PopulateHIDs(ConfigData &cfg, HIDType devtype)
 				std::string dev_path = str.str();
 				if (!GetEvdevName(dev_path, name))
 				{
-					OSDebugOut("Name: %s\n", name);
+					OSDebugOut("Failed to get name: %s\n", dev_path.c_str());
 					//XXX though it also could mean that controller is unusable
-					cfg.devs.push_back(dev_path);//std::make_pair(dp->d_name, str.str()));
+					cfg.devs.push_back(std::make_pair(dp->d_name, dev_path));
 				}
 				else
 				{
-					OSDebugOut("Failed to get name: %s\n", dev_path.c_str());
-					cfg.devs.push_back(dev_path);//jsdata.push_back(std::make_pair(std::string(name) + " (evdev)", str.str()));
+					OSDebugOut("Name: %s\n", name);
+					cfg.devs.push_back(std::make_pair(std::string(name), dev_path));
 				}
 			}
 		}
@@ -76,7 +77,7 @@ static void combo_changed (GtkComboBox *widget, gpointer data)
 	if (!cfg)
 		return;
 
-	std::string &name = *(cfg->devs.begin() + idx);
+	std::string &name = (cfg->devs.begin() + idx)->first;
 	cfg->iter = (cfg->devs.begin() + idx);
 
 	if (idx > 0)
@@ -85,7 +86,7 @@ static void combo_changed (GtkComboBox *widget, gpointer data)
 	OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - cfg->port, idx, name.c_str());
 }
 
-int GtkHidConfigure(int port, HIDType type, GtkWindow *parent)
+int GtkHidConfigure(int port, const char* dev_type, HIDType hid_type, GtkWindow *parent)
 {
 	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb;
 	GtkWidget *main_hbox, *right_vbox, *left_vbox;
@@ -95,11 +96,11 @@ int GtkHidConfigure(int port, HIDType type, GtkWindow *parent)
 	ConfigData cfg;
 	cfg.port = port;
 
-	PopulateHIDs(cfg, type);
+	PopulateHIDs(cfg, hid_type);
 	cfg.iter = cfg.devs.end();
 
 	std::string path;
-	LoadSetting(port, APINAME, n_device_by_type[type], path);
+	LoadSetting(dev_type, port, APINAME, N_DEVICE, path);
 
 	// ---------------------------
 	GtkWidget *dlg = gtk_dialog_new_with_buttons (
@@ -125,16 +126,17 @@ int GtkHidConfigure(int port, HIDType type, GtkWindow *parent)
 	// ---------------------------
 	rs_cb = new_combobox ("Device:", right_vbox);
 
+	const int evdev_dir_len = strlen(EVDEV_DIR);
 	int idx = 0, sel_idx = 0;
 	for (auto& it : cfg.devs)
 	{
-		/*std::stringstream str;
+		std::stringstream str;
 		str << it.first;
 		if (!it.second.empty())
-			str << " [" << it.second << "]";*/
+			str << " [" << it.second.substr(evdev_dir_len) << "]";
 
-		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), it.c_str());
-		if (!path.empty() && it == path)
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), str.str().c_str());
+		if (!path.empty() && it.second == path)
 		{
 			sel_idx = idx;
 		}
@@ -153,7 +155,7 @@ int GtkHidConfigure(int port, HIDType type, GtkWindow *parent)
 	if (result == GTK_RESPONSE_OK)
 	{
 		if (cfg.iter != cfg.devs.end()) {
-			if (!SaveSetting(port, APINAME, n_device_by_type[type], *cfg.iter))
+			if (!SaveSetting(dev_type, port, APINAME, N_DEVICE, cfg.iter->second))
 				ret = RESULT_FAILED;
 		}
 	}
@@ -164,9 +166,9 @@ int GtkHidConfigure(int port, HIDType type, GtkWindow *parent)
 	return ret;
 }
 
-int EvDev::Configure(int port, HIDType type, void *data)
+int EvDev::Configure(int port, const char* dev_type, HIDType hid_type, void *data)
 {
-	return GtkHidConfigure(port, type, GTK_WINDOW (data));
+	return GtkHidConfigure(port, dev_type, hid_type, GTK_WINDOW (data));
 }
 
 #undef APINAME

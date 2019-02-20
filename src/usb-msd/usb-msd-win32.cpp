@@ -17,7 +17,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 
 		std::wstring var;
-		if (LoadSetting(port, APINAME, N_CONFIG_PATH, var))
+		if (LoadSetting(MsdDevice::TypeName(), port, APINAME, N_CONFIG_PATH, var))
 			wcsncpy_s(buff, sizeof(buff), var.c_str(), countof(buff));
 		SetWindowTextW(GetDlgItem(hW, IDC_EDIT1), buff);
 		return TRUE;
@@ -52,7 +52,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				INT_PTR res = RESULT_OK;
 				GetWindowTextW(GetDlgItem(hW, IDC_EDIT1), buff, countof(buff));
 				port = (int)GetWindowLongPtr(hW, GWLP_USERDATA);
-				if (!SaveSetting(port, APINAME, N_CONFIG_PATH, buff))
+				if (!SaveSetting(MsdDevice::TypeName(), port, APINAME, N_CONFIG_PATH, buff))
 					res = RESULT_FAILED;
 				//strcpy_s(conf.usb_img, ofn.lpstrFile);
 				EndDialog(hW, res);

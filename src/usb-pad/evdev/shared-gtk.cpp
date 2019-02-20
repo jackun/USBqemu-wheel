@@ -14,7 +14,7 @@ using ms = std::chrono::milliseconds;
 #define JOYTYPE "joytype"
 #define CFG "cfg"
 
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3])
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3])
 {
 	assert(JOY_MAPS_COUNT == countof(JoystickMapNames));
 	if (joyname.empty())
@@ -29,7 +29,7 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str << "map_" << JoystickMapNames[i];
 		const std::string& name = str.str();
 		int32_t var;
-		if (LoadSetting(port, joyname, name.c_str(), var))
+		if (LoadSetting(dev_type, port, joyname, name.c_str(), var))
 			mappings.push_back(var);
 		else
 			mappings.push_back(-1);
@@ -41,13 +41,13 @@ bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& m
 		str.str("");
 		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
 		const std::string& name = str.str();
-		if (!LoadSetting(port, joyname, name.c_str(), inverted[i]))
+		if (!LoadSetting(dev_type, port, joyname, name.c_str(), inverted[i]))
 			inverted[i] = false;
 	}
 	return true;
 }
 
-bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3])
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3])
 {
 	assert(JOY_MAPS_COUNT == countof(JoystickMapNames));
 	if (joyname.empty() || mappings.size() != JOY_MAPS_COUNT)
@@ -64,7 +64,7 @@ bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
 		const std::string& name = str.str();
-		if (!SaveSetting(port, joyname, name.c_str(), static_cast<int32_t>(mappings[i])))
+		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(mappings[i])))
 			return false;
 	}
 
@@ -74,7 +74,7 @@ bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16
 		str.str("");
 		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
 		const std::string& name = str.str();
-		if (!SaveSetting(port, joyname, name.c_str(), inverted[i]))
+		if (!SaveSetting(dev_type, port, joyname, name.c_str(), inverted[i]))
 			return false;
 	}
 	return true;
@@ -112,7 +112,7 @@ static void joystick_changed (GtkComboBox *widget, gpointer data)
 
 	if (idx > 0)
 	{
-		LoadMappings(port, name, cfg->mappings, cfg->inverted);
+		LoadMappings(cfg->dev_type, port, name, cfg->mappings, cfg->inverted);
 		refresh_store(cfg);
 	}
 	OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
@@ -164,7 +164,7 @@ static void hidraw_toggled (GtkToggleButton *widget, gpointer data)
 	}
 }
 
-int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs)
+int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs)
 {
 	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb;
 	GtkWidget *main_hbox, *right_vbox, *left_vbox, *treeview;
@@ -174,16 +174,17 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 	cfg.label = gtk_label_new ("");
 	cfg.store = gtk_list_store_new (NUM_COLS, G_TYPE_STRING, G_TYPE_UINT);
 	cfg.cb = &apicbs;
+	cfg.dev_type = dev_type;
 
 	apicbs.populate(cfg.joysticks);
 	std::string path;
-	LoadSetting(port, apiname, N_JOYSTICK, path);
+	LoadSetting(dev_type, port, apiname, N_JOYSTICK, path);
 
 	cfg.use_hidraw_ff_pt = false;
 	bool is_evdev = (strncmp(apiname, "evdev", 5) == 0);
 	if (is_evdev) //TODO idk about joydev
 	{
-		LoadSetting(port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
+		LoadSetting(dev_type, port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
 	}
 
 	// ---------------------------
@@ -247,7 +248,7 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 			sel_idx = idx;
 			if (idx > 0)
 			{
-				LoadMappings (port, it.first, cfg.mappings, cfg.inverted);
+				LoadMappings (cfg.dev_type, port, it.first, cfg.mappings, cfg.inverted);
 				refresh_store(&cfg);
 			}
 		}
@@ -265,9 +266,9 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 		GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
 
 		const char* button_labels[] = {
-			"L2", "L1", "R2", "R1",
+			"L2", "L1 / L", "R2", "R1 / R / Orange",
 			"Left", "Up", "Right", "Down",
-			"Square", "Cross", "Circle", "Triangle",
+			"Square / X / Green", "Cross / A / Blue", "Circle / B / Red", "Triangle / Y / Yellow",
 			"Select", "Start",
 		};
 
@@ -350,13 +351,13 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 	if (result == GTK_RESPONSE_OK)
 	{
 		if (cfg.js_iter != cfg.joysticks.end()) {
-			if (!SaveSetting(port, apiname, N_JOYSTICK, cfg.js_iter->second))
+			if (!SaveSetting(dev_type, port, apiname, N_JOYSTICK, cfg.js_iter->second))
 				ret = RESULT_FAILED;
 
 			if (cfg.js_iter != cfg.joysticks.begin()) // if not "None"
-				SaveMappings(port, cfg.js_iter->first, cfg.mappings, cfg.inverted);
+				SaveMappings(dev_type, port, cfg.js_iter->first, cfg.mappings, cfg.inverted);
 			if (is_evdev) {
-				SaveSetting(port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
+				SaveSetting(dev_type, port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
 			}
 		}
 	}
@@ -367,5 +368,4 @@ int GtkPadConfigure(int port, const char *apititle, const char *apiname, GtkWind
 	return ret;
 }
 
-#undef APINAME
 }} //namespace

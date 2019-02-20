@@ -18,13 +18,15 @@ bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, cons
 
 #include <sstream>
 template<typename Type>
-bool LoadSetting(int port, const std::string& key, const TCHAR* name, Type& var)
+bool LoadSetting(const char* dev_type, int port, const std::string& key, const TCHAR* name, Type& var)
 {
 	OSDebugOut(L"USBqemu load \"%s\" from [%S %d]\n", name, key.c_str(), port);
 
 	std::wstringstream section;
 	std::wstring wkey;
 	wkey.assign(key.begin(), key.end());
+	if (dev_type)
+		section << dev_type << " ";
 	section << wkey << " " << port;
 	std::wstring str = section.str();
 
@@ -49,13 +51,15 @@ bool LoadSetting(int port, const std::string& key, const TCHAR* name, Type& var)
 *
 * */
 template<typename Type>
-bool SaveSetting(int port, const std::string& key, const TCHAR* name, const Type var)
+bool SaveSetting(const char* dev_type, int port, const std::string& key, const TCHAR* name, const Type var)
 {
 	OSDebugOut(L"USBqemu save \"%s\" to [%S %d]\n", name, key.c_str(), port);
 
 	std::wstringstream section;
 	std::wstring wkey;
 	wkey.assign(key.begin(), key.end());
+	if (dev_type)
+		section << dev_type << " ";
 	section << wkey << " " << port;
 	std::wstring str = section.str();
 

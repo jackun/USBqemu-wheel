@@ -22,6 +22,7 @@ enum DeviceType
 	DEVTYPE_LOGITECH_HEADSET,
 	DEVTYPE_HIDKBD,
 	DEVTYPE_HIDMOUSE,
+	DEVTYPE_RBKIT,
 };
 
 struct SelectDeviceName {
@@ -188,6 +189,6 @@ class RegisterDevice
 	RegisterDeviceMap registerDeviceMap;
 };
 
-#define REGISTER_DEVICE(idx,name,cls) DeviceProxy<cls> g##cls##Proxy(idx)
+#define REGISTER_DEVICE(idx,cls) DeviceProxy<cls> g##cls##Proxy(idx)
 //#define REGISTER_DEVICE(idx,name,cls) static std::unique_ptr< DeviceProxy<cls> > g##cls##Proxy(new DeviceProxy<cls>(DeviceKey(idx, name)))
 #endif

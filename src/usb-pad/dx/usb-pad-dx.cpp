@@ -38,7 +38,7 @@ enum CONTROLID
 class DInputPad : public Pad
 {
 public:
-	DInputPad(int port) : Pad(port), mUseRamp(false){}
+	DInputPad(int port, const char* dev_type) : Pad(port, dev_type), mUseRamp(false){}
 	~DInputPad() { FreeDirectInput(); }
 	int Open();
 	int Close();
@@ -51,7 +51,7 @@ public:
 		return TEXT("DInput");
 	}
 
-	static int Configure(int port, void *data);
+	static int Configure(int port, const char* dev_type, void *data);
 private:
 	bool mUseRamp;
 };
@@ -346,8 +346,8 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 
 int DInputPad::Open()
 {
-	LoadSetting(mPort, APINAME, TEXT("UseRamp"), mUseRamp);
-	InitDI(mPort);
+	LoadSetting(mDevType, mPort, APINAME, TEXT("UseRamp"), mUseRamp);
+	InitDI(mPort, mDevType);
 	return 0;
 }
 
@@ -357,10 +357,13 @@ int DInputPad::Close()
 	return 0;
 }
 
-int DInputPad::Configure(int port, void *data)
+int DInputPad::Configure(int port, const char* dev_type, void *data)
 {
 	Win32Handles h = *(Win32Handles*)data;
-	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, port);
+	struct DXDlgSettings s;
+	s.port = port;
+	s.dev_type = dev_type;
+	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, (LPARAM)&s);
 }
 
 REGISTER_PAD(APINAME, DInputPad);

@@ -4,6 +4,12 @@
 
 namespace usb_pad { namespace dx {
 
+struct DXDlgSettings
+{
+	int port;
+	const char* dev_type;
+};
+
 void ApplyFilter(int port)
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
@@ -429,7 +435,7 @@ INT_PTR CALLBACK StaticProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return TRUE;
 }
 
-void InitDialog(int port)
+void InitDialog(int port, const char *dev_type)
 {
 	hFont = CreateFont(18,
 					0,
@@ -461,7 +467,7 @@ void InitDialog(int port)
 					TEXT("Tahoma"));
 	
 	//pFnPrevFunc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hWnd,IDC_PICTURE),GWLP_WNDPROC,(LONG_PTR) StaticProc);
-	LoadMain(port);
+	LoadMain(port, dev_type);
 
 	InitDirectInput(hWnd, port);
 
@@ -542,7 +548,7 @@ void InitDialog(int port)
 
 INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	int port;
+	DXDlgSettings *s = nullptr;
 	//return false;
 	switch(uMsg)
 	{
@@ -552,9 +558,10 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 		case WM_INITDIALOG:
 			{
+				s = (DXDlgSettings *)lParam;
 				hWnd = hDlg;
 				SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
-				InitDialog((int)lParam);
+				InitDialog(s->port, s->dev_type);
 			}break;
 		case  WM_CTLCOLORSTATIC:
 			{
@@ -573,9 +580,9 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				{
 					case 22:
 						{
-							int port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-							if(listening) ListenForControl(port);
-							ControlTest(port);
+							s = (DXDlgSettings*)GetWindowLongPtr(hDlg, GWLP_USERDATA);
+							if(listening) ListenForControl(s->port);
+							ControlTest(s->port);
 							break;
 						}
 					
@@ -584,14 +591,14 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 
 		case WM_COMMAND:
-			port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
+			s = (DXDlgSettings*)GetWindowLongPtr(hDlg, GWLP_USERDATA);
 			switch(LOWORD(wParam))
 			{
 				case IDC_COMBO1:
 					switch(HIWORD(wParam))
 					{
 						case CBN_SELCHANGE:
-							LoadFilter(port);
+							LoadFilter(s->port);
 							break;
 					}			
 					break;
@@ -599,7 +606,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 					switch(HIWORD(wParam))
 					{
 						case CBN_SELCHANGE:
-							DefaultFilters(port, SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_GETCURSEL, 0, 0));
+							DefaultFilters(s->port, SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_GETCURSEL, 0, 0));
 							SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_SETCURSEL, -1, 0);
 							break;
 					}			
@@ -615,12 +622,12 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				case IDOK:
 					{
-						INVERTFORCES[port] = SendDlgItemMessage(hWnd, IDC_CHECK1, BM_GETCHECK, 0, 0);
+						INVERTFORCES[s->port] = SendDlgItemMessage(hWnd, IDC_CHECK1, BM_GETCHECK, 0, 0);
 						BYPASSCAL = SendDlgItemMessage(hWnd, IDC_CHECK2, BM_GETCHECK, 0, 0);
 						useRamp = !!SendDlgItemMessage(hWnd, IDC_CHECK3, BM_GETCHECK, 0, 0);
-						GAINZ[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_GETPOS, 0, 0);
-						FFMULTI[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
-						SaveMain(port);
+						GAINZ[s->port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_GETPOS, 0, 0);
+						FFMULTI[s->port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
+						SaveMain(s->port, s->dev_type);
 						//Seems to create some dead locks
 						//SendMessage(hWnd, WM_CLOSE, 0, 0);
 						//return TRUE;
@@ -645,7 +652,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_BUTTON1:
 					{
 						//MessageBeep(MB_ICONEXCLAMATION);
-						TestForce(port);
+						TestForce(s->port);
 					}
 					break;
 
@@ -669,26 +676,26 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_ASS17:{StartListen(17);break;}
 				case IDC_ASS18:{StartListen(18);break;}
 				case IDC_ASS19:{StartListen(19);break;}
-				case IDC_DEL0:{DeleteControl(port, 0);break;}
-				case IDC_DEL1:{DeleteControl(port, 1);break;}
-				case IDC_DEL2:{DeleteControl(port, 2);break;}
-				case IDC_DEL3:{DeleteControl(port, 3);break;}
-				case IDC_DEL4:{DeleteControl(port, 4);break;}
-				case IDC_DEL5:{DeleteControl(port, 5);break;}
-				case IDC_DEL6:{DeleteControl(port, 6);break;}
-				case IDC_DEL7:{DeleteControl(port, 7);break;}
-				case IDC_DEL8:{DeleteControl(port, 8);break;}
-				case IDC_DEL9:{DeleteControl(port, 9);break;}
-				case IDC_DEL10:{DeleteControl(port, 10);break;}
-				case IDC_DEL11:{DeleteControl(port, 11);break;}
-				case IDC_DEL12:{DeleteControl(port, 12);break;}
-				case IDC_DEL13:{DeleteControl(port, 13);break;}
-				case IDC_DEL14:{DeleteControl(port, 14);break;}
-				case IDC_DEL15:{DeleteControl(port, 15);break;}
-				case IDC_DEL16:{DeleteControl(port, 16);break;}
-				case IDC_DEL17:{DeleteControl(port, 17);break;}
-				case IDC_DEL18:{DeleteControl(port, 18);break;}
-				case IDC_DEL19:{DeleteControl(port, 19);break;}
+				case IDC_DEL0:{DeleteControl(s->port, 0);break;}
+				case IDC_DEL1:{DeleteControl(s->port, 1);break;}
+				case IDC_DEL2:{DeleteControl(s->port, 2);break;}
+				case IDC_DEL3:{DeleteControl(s->port, 3);break;}
+				case IDC_DEL4:{DeleteControl(s->port, 4);break;}
+				case IDC_DEL5:{DeleteControl(s->port, 5);break;}
+				case IDC_DEL6:{DeleteControl(s->port, 6);break;}
+				case IDC_DEL7:{DeleteControl(s->port, 7);break;}
+				case IDC_DEL8:{DeleteControl(s->port, 8);break;}
+				case IDC_DEL9:{DeleteControl(s->port, 9);break;}
+				case IDC_DEL10:{DeleteControl(s->port, 10);break;}
+				case IDC_DEL11:{DeleteControl(s->port, 11);break;}
+				case IDC_DEL12:{DeleteControl(s->port, 12);break;}
+				case IDC_DEL13:{DeleteControl(s->port, 13);break;}
+				case IDC_DEL14:{DeleteControl(s->port, 14);break;}
+				case IDC_DEL15:{DeleteControl(s->port, 15);break;}
+				case IDC_DEL16:{DeleteControl(s->port, 16);break;}
+				case IDC_DEL17:{DeleteControl(s->port, 17);break;}
+				case IDC_DEL18:{DeleteControl(s->port, 18);break;}
+				case IDC_DEL19:{DeleteControl(s->port, 19);break;}
 
 
 				case IDC_PICTURELINK1:{ShellExecuteA(NULL, "open", "http://www.ecsimhardware.com",NULL, NULL, SW_SHOWNORMAL);break;}
@@ -710,21 +717,16 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 			return TRUE;
 			break;
 		case WM_HSCROLL:
-			port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-			ApplyFilter(port);
+			s = (DXDlgSettings*)GetWindowLongPtr(hDlg, GWLP_USERDATA);
+			ApplyFilter(s->port);
 			break;
 		case WM_PAINT:
-			port = (int)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-			OnPaint(port);
+			s = (DXDlgSettings*)GetWindowLongPtr(hDlg, GWLP_USERDATA);
+			OnPaint(s->port);
 			break;
 	}
 
 	return FALSE;
-}
-
-void LoadDialog()
-{
-	DialogBoxParam (hInst, MAKEINTRESOURCE(IDD_DIALOG1), 0, DxDialogProc, 0);
 }
 
 }} //namespace

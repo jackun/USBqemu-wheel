@@ -56,6 +56,7 @@ enum PS2WheelTypes {
 	WT_GENERIC, // DF or any other LT wheel in non-native mode
 	WT_DRIVING_FORCE_PRO, //LPRC-11000? DF GT can be downgraded to Pro (?)
 	WT_GT_FORCE, //formula gp
+	WT_ROCKBAND1_DRUMKIT,
 };
 
 inline int range_max(PS2WheelTypes type)
@@ -164,7 +165,7 @@ struct ff_state
 class Pad
 {
 public:
-	Pad(int port) : mPort(port), mFFstate({ 0 }) {}
+	Pad(int port, const char* dev_type) : mPort(port), mDevType(dev_type), mFFstate({ 0 }) {}
 	virtual ~Pad() {}
 	virtual int Open() = 0;
 	virtual int Close() = 0;
@@ -179,9 +180,10 @@ public:
 
 protected:
 	PS2WheelTypes mType = PS2WheelTypes::WT_GENERIC;
-	wheel_data_t mWheelData = { 0 };
+	wheel_data_t mWheelData { };
 	ff_state mFFstate;
 	int mPort;
+	const char* mDevType;
 };
 
 
@@ -687,6 +689,140 @@ static const uint8_t dfp_config_descriptor[] = {
 	0x02,                        //Interval 0x2 - 2ms (G27) , 0x0A default?
 };
 
+// Should be usb 2.0, but seems to make no difference with Rock Band games 
+static const uint8_t rb1_dev_descriptor[] = {
+	/* bLength             */ 0x12, //(18)
+	/* bDescriptorType     */ 0x01, //(1)
+	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bDeviceClass        */ 0x00, //(0)
+	/* bDeviceSubClass     */ 0x00, //(0)
+	/* bDeviceProtocol     */ 0x00, //(0)
+	/* bMaxPacketSize0     */ 0x40, //(64)
+	/* idVendor            */ WBVAL(0x12ba),
+	/* idProduct           */ WBVAL(0x0210),
+	/* bcdDevice           */ WBVAL(0x1000), //(26.00)
+	/* iManufacturer       */ 0x01, //(1)
+	/* iProduct            */ 0x02, //(2)
+	/* iSerialNumber       */ 0x00, //(0)
+	/* bNumConfigurations  */ 0x01, //(1)
+};
+
+//Wii Rock Band drum kit
+static const uint8_t rb1_config_descriptor[] = {
+	0x09,        // bLength
+	0x02,        // bDescriptorType (Configuration)
+	0x29, 0x00,  // wTotalLength 41
+	0x01,        // bNumInterfaces 1
+	0x01,        // bConfigurationValue
+	0x00,        // iConfiguration (String Index)
+	0x80,        // bmAttributes
+	0x32,        // bMaxPower 100mA
+
+	0x09,        // bLength
+	0x04,        // bDescriptorType (Interface)
+	0x00,        // bInterfaceNumber 0
+	0x00,        // bAlternateSetting
+	0x02,        // bNumEndpoints 2
+	0x03,        // bInterfaceClass
+	0x00,        // bInterfaceSubClass
+	0x00,        // bInterfaceProtocol
+	0x00,        // iInterface (String Index)
+
+	0x09,        // bLength
+	0x21,        // bDescriptorType (HID)
+	0x11, 0x01,  // bcdHID 1.11
+	0x00,        // bCountryCode
+	0x01,        // bNumDescriptors
+	0x22,        // bDescriptorType[0] (HID)
+	0x89, 0x00,  // wDescriptorLength[0] 137
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x02,        // bEndpointAddress (OUT/H2D)
+	0x03,        // bmAttributes (Interrupt)
+	0x40, 0x00,  // wMaxPacketSize 64
+	0x0A,        // bInterval 10 (unit depends on device speed)
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x81,        // bEndpointAddress (IN/D2H)
+	0x03,        // bmAttributes (Interrupt)
+	0x40, 0x00,  // wMaxPacketSize 64
+	0x0A,        // bInterval 10 (unit depends on device speed)
+	// 41 bytes
+};
+
+//Wii Rock Band drum kit
+static const uint8_t rb1_hid_report_descriptor[] = {
+	0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+	0x09, 0x05,        // Usage (Game Pad)
+	0xA1, 0x01,        // Collection (Application)
+	0x15, 0x00,        //   Logical Minimum (0)
+	0x25, 0x01,        //   Logical Maximum (1)
+	0x35, 0x00,        //   Physical Minimum (0)
+	0x45, 0x01,        //   Physical Maximum (1)
+	0x75, 0x01,        //   Report Size (1)
+	0x95, 0x0D,        //   Report Count (13)
+	0x05, 0x09,        //   Usage Page (Button)
+	0x19, 0x01,        //   Usage Minimum (0x01)
+	0x29, 0x0D,        //   Usage Maximum (0x0D)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x03,        //   Report Count (3)
+	0x81, 0x01,        //   Input (Const,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x05, 0x01,        //   Usage Page (Generic Desktop Ctrls)
+	0x25, 0x07,        //   Logical Maximum (7)
+	0x46, 0x3B, 0x01,  //   Physical Maximum (315)
+	0x75, 0x04,        //   Report Size (4)
+	0x95, 0x01,        //   Report Count (1)
+	0x65, 0x14,        //   Unit (System: English Rotation, Length: Centimeter)
+	0x09, 0x39,        //   Usage (Hat switch)
+	0x81, 0x42,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,Null State)
+	0x65, 0x00,        //   Unit (None)
+	0x95, 0x01,        //   Report Count (1)
+	0x81, 0x01,        //   Input (Const,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //   Physical Maximum (255)
+	0x09, 0x30,        //   Usage (X)
+	0x09, 0x31,        //   Usage (Y)
+	0x09, 0x32,        //   Usage (Z)
+	0x09, 0x35,        //   Usage (Rz)
+	0x75, 0x08,        //   Report Size (8)
+	0x95, 0x04,        //   Report Count (4)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x06, 0x00, 0xFF,  //   Usage Page (Vendor Defined 0xFF00)
+	0x09, 0x20,        //   Usage (0x20)
+	0x09, 0x21,        //   Usage (0x21)
+	0x09, 0x22,        //   Usage (0x22)
+	0x09, 0x23,        //   Usage (0x23)
+	0x09, 0x24,        //   Usage (0x24)
+	0x09, 0x25,        //   Usage (0x25)
+	0x09, 0x26,        //   Usage (0x26)
+	0x09, 0x27,        //   Usage (0x27)
+	0x09, 0x28,        //   Usage (0x28)
+	0x09, 0x29,        //   Usage (0x29)
+	0x09, 0x2A,        //   Usage (0x2A)
+	0x09, 0x2B,        //   Usage (0x2B)
+	0x95, 0x0C,        //   Report Count (12)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x0A, 0x21, 0x26,  //   Usage (0x2621)
+	0x95, 0x08,        //   Report Count (8)
+	0xB1, 0x02,        //   Feature (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0x0A, 0x21, 0x26,  //   Usage (0x2621)
+	0x91, 0x02,        //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0x26, 0xFF, 0x03,  //   Logical Maximum (1023)
+	0x46, 0xFF, 0x03,  //   Physical Maximum (1023)
+	0x09, 0x2C,        //   Usage (0x2C)
+	0x09, 0x2D,        //   Usage (0x2D)
+	0x09, 0x2E,        //   Usage (0x2E)
+	0x09, 0x2F,        //   Usage (0x2F)
+	0x75, 0x10,        //   Report Size (16)
+	0x95, 0x04,        //   Report Count (4)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0xC0,              // End Collection
+
+	// 137 bytes
+};
+
 struct dfp_buttons_t
 {
 	uint16_t cross : 1;
@@ -802,6 +938,27 @@ struct random_data_t
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
 	uint32_t pad2 : 8;
+};
+
+struct rb1drumkit_t
+{
+	union u {
+		uint16_t buttons;
+		struct s {
+			uint16_t blue: 1;
+			uint16_t green: 1;
+			uint16_t red: 1;
+			uint16_t yellow: 1;
+			uint16_t orange: 1;
+			uint16_t something0: 3;
+
+			uint16_t select: 1;
+			uint16_t start: 1;
+			uint16_t something1: 6;
+		} s;
+	} u;
+
+	uint8_t hatswitch;
 };
 
 void ResetData(generic_data_t *d);

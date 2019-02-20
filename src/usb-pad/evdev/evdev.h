@@ -24,7 +24,7 @@ struct axis_correct
 class EvDevPad : public Pad
 {
 public:
-	EvDevPad(int port): Pad(port)
+	EvDevPad(int port, const char* dev_type): Pad(port, dev_type)
 	, mIsGamepad(false)
 	, mIsDualAnalog(false)
 	, mUseRawFF(false)
@@ -46,7 +46,7 @@ public:
 		return "Evdev";
 	}
 
-	static int Configure(int port, void *data);
+	static int Configure(int port, const char* dev_type, void *data);
 protected:
 	void PollAxesValues();
 	void SetAxis(int code, int value);

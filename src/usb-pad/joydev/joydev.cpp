@@ -210,7 +210,7 @@ int JoyDevPad::Open()
 	mHandleFF = -1;
 
 	std::string joypath;
-	if (!LoadSetting(mPort, APINAME, N_JOYSTICK, joypath))
+	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
 	{
 		OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
 		return 1;
@@ -220,7 +220,7 @@ int JoyDevPad::Open()
 	{
 		char name[1024];
 		GetJoystickName(joypath, name);
-		LoadMappings(mPort, name, mMappings, mAxisInverted);
+		LoadMappings(mDevType, mPort, name, mMappings, mAxisInverted);
 
 		if ((mHandle = open(joypath.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
