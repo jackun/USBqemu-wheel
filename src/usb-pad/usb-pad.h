@@ -277,41 +277,6 @@ static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 //#define pad_hid_report_descriptor pad_momo_hid_report_descriptor
 //#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
 
-/* descriptor Logitech Driving Force Pro */
-static const uint8_t dfp_dev_descriptor[] = {
-	/* bLength             */ 0x12, //(18)
-	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
-	/* bDeviceClass        */ 0x00, //(0)
-	/* bDeviceSubClass     */ 0x00, //(0)
-	/* bDeviceProtocol     */ 0x00, //(0)
-	/* bMaxPacketSize0     */ 0x08, //(8)
-	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(PID_DFP),
-	/* bcdDevice           */ WBVAL(0x0001), //(1)
-	/* iManufacturer       */ 0x01, //(1)
-	/* iProduct            */ 0x02, //(2)
-	/* iSerialNumber       */ 0x00, //(0)
-	/* bNumConfigurations  */ 0x01, //(1)
-};
-
-static const uint8_t ffgp_dev_descriptor[] = {
-	/* bLength             */ 0x12, //(18)
-	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
-	/* bDeviceClass        */ 0x00, //(0)
-	/* bDeviceSubClass     */ 0x00, //(0)
-	/* bDeviceProtocol     */ 0x00, //(0)
-	/* bMaxPacketSize0     */ 0x08, //(8)
-	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(PID_FFGP),
-	/* bcdDevice           */ WBVAL(0x0001), //(1)
-	/* iManufacturer       */ 0x01, //(1)
-	/* iProduct            */ 0x02, //(2)
-	/* iSerialNumber       */ 0x00, //(0)
-	/* bNumConfigurations  */ 0x01, //(1)
-};
-
 static const uint8_t pad_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
@@ -321,13 +286,12 @@ static const uint8_t pad_dev_descriptor[] = {
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(GENERIC_PID), //WBVAL(0xc294), 0xc298 dfp
+	/* idProduct           */ WBVAL(GENERIC_PID),
 	/* bcdDevice           */ WBVAL(0x0001), //(1)
 	/* iManufacturer       */ 0x01, //(1)
 	/* iProduct            */ 0x02, //(2)
 	/* iSerialNumber       */ 0x00, //(0)
 	/* bNumConfigurations  */ 0x01, //(1)
-
 };
 
 //https://lkml.org/lkml/2011/5/28/140
@@ -454,8 +418,8 @@ static const uint8_t pad_momo_hid_report_descriptor[] = {
 	0xA1, 0x02, /* Collection (Logical), */
 	0x95, 0x01, /* Report Count (1), */
 	0x75, 0x0A, /* Report Size (10), */
-	0x14, 0x00, /* Logical Minimum (0), */
-	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x14, /* Logical Minimum (0), */
+	0x26, 0xFF, 0x03, /* Logical Maximum (1023), */
 	0x35, 0x00, /* Physical Minimum (0), */
 	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
 	0x09, 0x30, /* Usage (X), */
@@ -500,8 +464,8 @@ static const uint8_t pad_generic_hid_report_descriptor[] = {
 	0xA1, 0x02, /* Collection (Logical), */
 	0x95, 0x01, /* Report Count (1), */
 	0x75, 0x0A, /* Report Size (10), */
-	0x14, 0x00, /* Logical Minimum (0), */
-	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x14, /* Logical Minimum (0), */
+	0x26, 0xFF, 0x03, /* Logical Maximum (1023), */
 	0x35, 0x00, /* Physical Minimum (0), */
 	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
 	0x09, 0x30, /* Usage (X), */
@@ -549,8 +513,8 @@ static const uint8_t pad_gtforce_hid_report_descriptor[] = {
 	0xA1, 0x02, /* Collection (Logical), */
 	0x95, 0x01, /* Report Count (1), */
 	0x75, 0x0A, /* Report Size (10), */
-	0x14, 0x00, /* Logical Minimum (0), */
-	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x14, /* Logical Minimum (0), */
+	0x26, 0xFF, 0x03, /* Logical Maximum (1023), */
 	0x35, 0x00, /* Physical Minimum (0), */
 	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
 	0x09, 0x30, /* Usage (X), */
@@ -678,6 +642,53 @@ static const uint8_t dfp_config_descriptor[] = {
 	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
 	0x03, //_INTERRUPT,                 //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size, might be 16 bytes
+	0x02,                       //Interval
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x02,                        //Interval 0x2 - 2ms (G27) , 0x0A default?
+};
+
+static const uint8_t gtforce_config_descriptor[] = {
+	0x09,   /* bLength */
+	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
+	WBVAL(41),                        /* wTotalLength */
+	0x01,                                 /* bNumInterfaces */
+	0x01,                                 /* bConfigurationValue */
+	0x00,                                 /* iConfiguration */
+	0xc0,               /* bmAttributes */
+	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
+
+	/* Interface Descriptor */
+	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
+	0x04,                   // INTERFACE descriptor type
+	0,                      // Interface Number
+	0,                      // Alternate Setting Number
+	2,                      // Number of endpoints in this intf
+	USB_CLASS_HID,               // Class code
+	0,     // Subclass code
+	0,     // Protocol code
+	0,                      // Interface string index
+
+	/* HID Class-Specific Descriptor */
+	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
+	0x21,                // HID descriptor type
+	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
+	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
+	1,                      // Number of class descriptors, see usbcfg.h
+	0x22,//DSC_RPT,                // Report descriptor type
+	DESC_CONFIG_WORD(sizeof(pad_gtforce_hid_report_descriptor)), // Size of the report descriptor
+
+	/* Endpoint Descriptor */
+	0x07,/*sizeof(USB_EP_DSC)*/
+	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
+	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
+	0x03, //_INTERRUPT,                 //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
 	0x02,                       //Interval
 
 	/* Endpoint Descriptor */
