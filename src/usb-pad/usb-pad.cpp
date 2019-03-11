@@ -107,9 +107,6 @@ typedef struct PADState {
 	USBDescDevice desc_dev;
 	Pad*			pad;
 	uint8_t			port;
-	int				initStage;
-	//Config instead?
-	bool			doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
 	struct freeze {
 		int wheel_type;
 	} f;
@@ -182,7 +179,10 @@ static void pad_handle_data(USBDevice *dev, USBPacket *p)
 	case USB_TOKEN_IN:
 		if (devep == 1 && s->pad) {
 			ret = s->pad->TokenIn(data, p->iov.size);
-			usb_packet_copy (p, data, MIN(ret, sizeof(data)));
+			if (ret > 0)
+				usb_packet_copy (p, data, MIN(ret, sizeof(data)));
+			else
+				p->status = ret;
 		} else {
 			goto fail;
 		}
@@ -253,7 +253,7 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 		switch(value >> 8) {
 		case 0x22:
 			OSDebugOut(TEXT("Sending hid report desc.\n"));
-			if(/*s->initStage > 2 &&*/ t == WT_DRIVING_FORCE_PRO)
+			if (t == WT_DRIVING_FORCE_PRO)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
@@ -481,8 +481,6 @@ USBDevice *PadDevice::CreateDevice(int port)
 	s->desc.full = &s->desc_dev;
 	s->desc.str = pad_desc_strings;
 
-	int dev_desc_len = sizeof(pad_dev_descriptor);
-	const uint8_t *dev_desc = pad_dev_descriptor;
 	const uint8_t *config_desc = df_config_descriptor;
 	int config_desc_len = sizeof(df_config_descriptor);
 
@@ -490,22 +488,20 @@ USBDevice *PadDevice::CreateDevice(int port)
 		case WT_DRIVING_FORCE_PRO:
 		{
 			s->desc.str = pad_dfp_desc_strings;
-			dev_desc = dfp_dev_descriptor;
 			config_desc = dfp_config_descriptor;
 			config_desc_len = sizeof(dfp_config_descriptor);
 		}
 		break;
 		case WT_GT_FORCE:
 		{
-			dev_desc = ffgp_dev_descriptor;
-			//config_desc = pad_driving_force_hid_report_descriptor; //TODO
-			//config_desc_len = sizeof(pad_driving_force_hid_report_descriptor);
+			config_desc = gtforce_config_descriptor; //TODO
+			config_desc_len = sizeof(gtforce_config_descriptor);
 		}
 		default:
 		break;
 	}
 
-	if (usb_desc_parse_dev (dev_desc, dev_desc_len, s->desc, s->desc_dev) < 0)
+	if (usb_desc_parse_dev (pad_dev_descriptor, sizeof(pad_dev_descriptor), s->desc, s->desc_dev) < 0)
 		goto fail;
 	if (usb_desc_parse_config (config_desc, config_desc_len, s->desc_dev) < 0)
 		goto fail;
@@ -584,7 +580,7 @@ USBDevice *RBDrumKitDevice::CreateDevice(int port)
 	if (!pad)
 		return NULL;
 
-	pad->Type(PS2WheelTypes::WT_ROCKBAND1_DRUMKIT);
+	pad->Type(WT_ROCKBAND1_DRUMKIT);
 	PADState *s = new PADState();
 
 	s->desc.full = &s->desc_dev;
@@ -595,8 +591,9 @@ USBDevice *RBDrumKitDevice::CreateDevice(int port)
 	if (usb_desc_parse_config(rb1_config_descriptor, sizeof(rb1_config_descriptor), s->desc_dev) < 0)
 		goto fail;
 
-	s->f.wheel_type = conf.WheelType[1 - port];
+	s->f.wheel_type = pad->Type();
 	s->pad = pad;
+	s->port = port;
 	s->dev.speed = USB_SPEED_FULL;
 	s->dev.klass.handle_attach = usb_desc_attach;
 	s->dev.klass.handle_reset = pad_handle_reset;
@@ -607,7 +604,6 @@ USBDevice *RBDrumKitDevice::CreateDevice(int port)
 	s->dev.klass.close = pad_close;
 	s->dev.klass.usb_desc = &s->desc;
 	s->dev.klass.product_desc = s->desc.str[2];
-	s->port = port;
 
 	usb_desc_init(&s->dev);
 	usb_ep_init(&s->dev);
