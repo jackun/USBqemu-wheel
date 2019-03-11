@@ -437,7 +437,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					return -1;
 				}
 
-				USBDevice tmp = usbd.device[i].dev;
+				USBDevice& tmp = usbd.device[i].dev;
 
 				usb_device[i]->addr = tmp.addr;
 				usb_device[i]->attached = tmp.attached;
