@@ -15,7 +15,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
- 
+
 #include <stdexcept>
 #include <cstdlib>
 #include <string>
@@ -201,7 +201,7 @@ EXPORT_C_(char*) PS2EgetLibName() {
 #else
 	sprintf
 #endif
-	( libraryName, "Qemu USB Driver (Wheel) (" __DATE__ ")" 
+	( libraryName, "Qemu USB Driver (Wheel) (" __DATE__ ")"
 #ifdef _DEBUG
 		" (debug)"
 #endif
@@ -350,7 +350,7 @@ EXPORT_C_(void) USBirqCallback(USBcallback callback) {
 
 extern u32 bits;
 
-EXPORT_C_(int) _USBirqHandler(void) 
+EXPORT_C_(int) _USBirqHandler(void)
 {
 	//fprintf(stderr," * USB: IRQ Acknowledged.\n");
 	//qemu_ohci->intr_status&=~bits;
@@ -370,7 +370,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 	USBfreezeData usbd = { 0 };
 
 	//TODO FREEZE_SIZE mismatch causes loading to fail in PCSX2 beforehand
-	if (mode == FREEZE_LOAD) 
+	if (mode == FREEZE_LOAD)
 	{
 		if(data->size < sizeof(USBfreezeData))
 		{
@@ -517,7 +517,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		}
 	}
 	//TODO straight copying of structs can break cross-platform/cross-compiler save states 'cause padding 'n' stuff
-	else if (mode == FREEZE_SAVE) 
+	else if (mode == FREEZE_SAVE)
 	{
 		memset(data->data, 0, data->size);//maybe it already is...
 		RegisterDevice& regInst = RegisterDevice::instance();
