@@ -37,7 +37,10 @@ bool LoadSetting(const char* dev_type, int port, const std::string& key, const c
 
 	OSDebugOut("[%s] '%s'=", str.c_str(), name);
 	ret = LoadSettingValue(ini, str, name, var);
-	OSDebugOutStream_noprfx(var);
+	if (ret)
+		OSDebugOutStream_noprfx(var);
+	else
+		OSDebugOut_noprfx("<failed>\n");
 	return ret;
 }
 
