@@ -15,54 +15,65 @@ using ms = std::chrono::milliseconds;
 #define JOYTYPE "joytype"
 #define CFG "cfg"
 
-static void PopulateJoysticks(vstring& jsdata)
+static bool GetEventName(int map, int event, const char **name)
 {
-	jsdata.clear();
-	jsdata.push_back(std::make_pair("None", ""));
-	//jsdata.push_back(std::make_pair("Fake Vendor FakePad", "/dev/null"));
-
-	std::stringstream str;
-	// up to 32?
-	for (int count = 0; count < MAX_JOYS; count++)
-	{
-		str.clear();
-		str.str(""); str << "/dev/input/js" << count;
-		/* Check if joystick device exists */
-		if (file_exists(str.str()))
-		{
-			char name[1024];
-			if (!GetJoystickName(str.str(), name))
-			{
-				//XXX though it also could mean that controller is unusable
-				jsdata.push_back(std::make_pair(str.str(), str.str()));
-			}
-			else
-			{
-				jsdata.push_back(std::make_pair(std::string(name), str.str()));
-			}
-		}
+	static char buf[256] = {0};
+	if (map < evdev::JOY_STEERING) {
+		snprintf(buf, sizeof(buf), "Button %d", event);
+	} else {
+		// assuming that PS2 axes are always mapped to PC axes
+		snprintf(buf, sizeof(buf), "Axis %d", event);
 	}
+	*name = buf;
+	return true;
 }
 
-static bool PollInput(const std::string &joypath, bool isaxis, int& value, bool& inverted)
+static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted)
 {
-	int fd;
+	int event_fd = -1;
 	ssize_t len;
 	struct js_event event;
 
-	if ((fd = open(joypath.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
-	{
-		OSDebugOut("Cannot open joystick: %s\n", joypath.c_str());
-		return false;
+	fd_set fdset;
+	int maxfd = -1;
+
+	FD_ZERO(&fdset);
+	for (const auto& js: fds) {
+		FD_SET(js.second.fd, &fdset);
+		if (maxfd < js.second.fd) maxfd = js.second.fd;
 	}
 
 	inverted = false;
 
-	// empty event queue
-	while ((len = read(fd, &event, sizeof(event))) > 0);
+	// empty event queues
+	for (const auto& js: fds)
+		while ((len = read(js.second.fd, &event, sizeof(event))) > 0);
 
 	struct axis_value { int16_t value; bool initial; };
 	axis_value axisVal[ABS_MAX + 1] = { 0 };
+
+	struct timeval timeout {};
+	timeout.tv_sec = 5;
+	int result = select(maxfd+1, &fdset, NULL, NULL, &timeout);
+
+	if (!result)
+		return false;
+
+	if (result == -1) {
+		return false;
+	}
+
+	for (const auto& js: fds)
+	{
+		if (FD_ISSET(js.second.fd, &fdset)) {
+			event_fd = js.second.fd;
+			dev_name = js.first;
+			break;
+		}
+	}
+
+	if (event_fd == -1)
+		return false;
 
 	auto last = sys_clock::now();
 	//Non-blocking read sets len to -1 and errno to EAGAIN if no new data
@@ -71,7 +82,7 @@ static bool PollInput(const std::string &joypath, bool isaxis, int& value, bool&
 		auto dur = std::chrono::duration_cast<ms>(sys_clock::now()-last).count();
 		if (dur > 5000) goto error;
 
-		if ((len = read(fd, &event, sizeof(event))) > -1 && (len == sizeof(event)))
+		if ((len = read(event_fd, &event, sizeof(event))) > -1 && (len == sizeof(event)))
 		{
 			if (isaxis && event.type == JS_EVENT_AXIS)
 			{
@@ -115,16 +126,15 @@ static bool PollInput(const std::string &joypath, bool isaxis, int& value, bool&
 		}
 	}
 
-	close(fd);
 	return true;
+
 error:
-	close(fd);
 	return false;
 }
 
 int JoyDevPad::Configure(int port, const char* dev_type, void *data)
 {
-	evdev::ApiCallbacks apicbs {PopulateJoysticks, PollInput};
+	evdev::ApiCallbacks apicbs {GetEventName, EnumerateDevices, PollInput};
 	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
 	return ret;
 }

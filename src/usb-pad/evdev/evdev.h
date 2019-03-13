@@ -15,18 +15,36 @@ namespace usb_pad { namespace evdev {
 	(((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
 
+void EnumerateDevices(vstring& list);
+
 struct axis_correct
 {
 	int used;
 	int coef[3];
 };
 
+struct device_data
+{
+	int fd;
+	std::string name;
+	uint8_t axis_map[ABS_MAX + 1];
+	bool axis_inverted[3];
+	//uint8_t
+	uint16_t btn_map[KEY_MAX + 1];
+	struct axis_correct abs_correct[ABS_MAX];
+	int axes = 0;
+	int buttons = 0;
+	std::vector<uint16_t> mappings;
+	bool is_gamepad; //xboxish gamepad
+	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
+					// determine if its unpressed value is zero
+};
+
+
 class EvDevPad : public Pad
 {
 public:
 	EvDevPad(int port, const char* dev_type): Pad(port, dev_type)
-	, mIsGamepad(false)
-	, mIsDualAnalog(false)
 	, mUseRawFF(false)
 	, mEvdevFF(nullptr)
 	, mHidHandle(-1)
@@ -48,28 +66,14 @@ public:
 
 	static int Configure(int port, const char* dev_type, void *data);
 protected:
-	void PollAxesValues();
-	void SetAxis(int code, int value);
+	void PollAxesValues(const device_data& device);
+	void SetAxis(const device_data& device, int code, int value);
 	static void WriterThread(void *ptr);
 
-	int mHandle;
 	int mHidHandle;
 	EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
-	uint8_t mAxisMap[ABS_MAX + 1];
-	bool mAxisInverted[3];
-	//uint8_t
-	uint16_t mBtnMap[KEY_MAX + 1];
-	struct axis_correct mAbsCorrect[ABS_MAX];
-
-	int mAxisCount;
-	int mButtonCount;
-
-	std::vector<uint16_t> mMappings;
-
-	bool mIsGamepad; //xboxish gamepad
-	bool mIsDualAnalog; // tricky, have to read the AXIS_RZ somehow and
-						// determine if its unpressed value is zero
+	std::vector<device_data> mDevices;
 	bool mUseRawFF;
 	std::thread mWriterThread;
 	std::atomic<bool> mWriterThreadIsRunning;
@@ -100,7 +104,7 @@ bool GetEvdevName(const std::string& path, char (&name)[_Size])
 
 // SDL2
 // convert values into 16 bit range
-static int AxisCorrect(axis_correct& correct, int value)
+static int AxisCorrect(const axis_correct& correct, int value)
 {
 	if (correct.used) {
 		value *= 2;
