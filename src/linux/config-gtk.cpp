@@ -232,7 +232,7 @@ void CALLBACK USBconfigure() {
 	settingsCB[0].player = 0;
 	settingsCB[1].player = 1;
 
-	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force", "Rock Band drum kit"};
+	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
 	const char *ports[] = {"Port 1:", "Port 2:"};
 
 	GtkWidget *rs_cb, *vbox;
@@ -300,7 +300,7 @@ void CALLBACK USBconfigure() {
 	}
 
 	/** Wheel type **/
-	vbox = new_frame("Wheel types:", main_vbox);
+	vbox = new_frame("Emulated wheel model:", main_vbox);
 
 	for(int ply = 0; ply < 2; ply++)
 	{

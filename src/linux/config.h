@@ -4,7 +4,7 @@
 #include <string>
 #include "osdebugout.h"
 
-extern std::string IniDir;
+extern std::string IniPath;
 extern std::string LogDir;
 extern const char* iniFile;
 
@@ -32,11 +32,8 @@ bool LoadSetting(const char* dev_type, int port, const std::string& key, const c
 	section << key << " " << port;
 	std::string str = section.str();
 
-	std::string ini(IniDir);
-	ini.append(iniFile);
-
 	OSDebugOut("[%s] '%s'=", str.c_str(), name);
-	ret = LoadSettingValue(ini, str, name, var);
+	ret = LoadSettingValue(IniPath, str, name, var);
 	if (ret)
 		OSDebugOutStream_noprfx(var);
 	else
@@ -74,12 +71,9 @@ bool SaveSetting(const char* dev_type, int port, const std::string& key, const c
 	section << key << " " << port;
 	std::string str = section.str();
 
-	std::string ini(IniDir);
-	ini.append(iniFile);
-
 	OSDebugOut("[%s] '%s'=", str.c_str(), name);
 
-	ret = SaveSettingValue(ini, str, name, var);
+	ret = SaveSettingValue(IniPath, str, name, var);
 	OSDebugOutStream_noprfx(var);
 	return ret;
 }

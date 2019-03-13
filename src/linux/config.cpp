@@ -13,10 +13,10 @@
 //Hopefully PCSX2 has inited all the GTK stuff already
 using namespace std;
 
-static std::string usb_path;
-std::string IniDir;
-std::string LogDir;
 const char* iniFile = "USBqemu-wheel.ini";
+static std::string usb_path;
+std::string IniPath = std::string("./inis/") + iniFile; // default path, just in case
+std::string LogDir;
 
 void SysMessage_stderr(const char *fmt, ...)
 {
@@ -29,7 +29,8 @@ void SysMessage_stderr(const char *fmt, ...)
 
 EXPORT_C_(void) USBsetSettingsDir( const char* dir )
 {
-	IniDir = dir;
+	IniPath = dir;
+	IniPath.append(iniFile);
 }
 
 EXPORT_C_(void) USBsetLogDir( const char* dir )
@@ -82,9 +83,7 @@ void SaveConfig() {
 	//	return;
 	//char path[1024];
 	//snprintf(path, sizeof(path), "%s/.config/PCSX2/inis/USBqemu-wheel.ini", envptr);
-	std::string iniPath(IniDir);
-	iniPath.append(iniFile);
-	const char *path = iniPath.c_str();
+	const char *path = IniPath.c_str();
 
 	//OSDebugOut("%s\n", path);
 
@@ -114,9 +113,7 @@ void LoadConfig() {
 	//	return;
 	//char path[1024];
 	//sprintf(path, "%s/.config/PCSX2/inis/USBqemu-wheel.ini", envptr);
-	std::string iniPath(IniDir);
-	iniPath.append(iniFile);
-	const char *path = iniPath.c_str();
+	const char *path = IniPath.c_str();
 
 	INILoadString(path, N_DEVICES, N_DEVICE_PORT0, tmp);
 	conf.Port[0] = tmp;
@@ -125,9 +122,10 @@ void LoadConfig() {
 	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE0, (uint32_t*)&conf.WheelType[0]);
 	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE1, (uint32_t*)&conf.WheelType[1]);
 
+	auto& instance = RegisterDevice::instance();
+
 	for (int i=0; i<2; i++)
 	{
-		auto& instance = RegisterDevice::instance();
 		std::string api;
 		LoadSetting(nullptr, i, conf.Port[i], N_DEVICE_API, api);
 		auto dev = instance.Device(conf.Port[i]);
@@ -137,6 +135,7 @@ void LoadConfig() {
 			OSDebugOut("Checking device '%s' api: '%s'...\n", conf.Port[i].c_str(), api.c_str());
 			if (!dev->IsValidAPI(api))
 			{
+				api = "<invalid>";
 				const auto& apis = dev->ListAPIs();
 				if (!apis.empty())
 					api = *apis.begin();
