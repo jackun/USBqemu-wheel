@@ -21,6 +21,7 @@
 #define S_WHEEL_TYPE	TEXT("Wheel type")
 #define S_DEVICE_PORT0	TEXT("Port 0")
 #define S_DEVICE_PORT1	TEXT("Port 1")
+#define S_CONFIG_PATH	TEXT("Path")
 
 #define N_DEVICE_API	TEXT("device_api")
 #define N_DEVICES		TEXT("devices")
@@ -30,6 +31,7 @@
 #define N_DEVICE_PORT1	TEXT("port_1")
 #define N_WHEEL_TYPE0	TEXT("wheel_type_0")
 #define N_WHEEL_TYPE1	TEXT("wheel_type_1")
+#define N_CONFIG_PATH	TEXT("path")
 
 #define PLAYER_TWO_PORT 0
 #define PLAYER_ONE_PORT 1
