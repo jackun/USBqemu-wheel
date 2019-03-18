@@ -482,7 +482,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			p->actual_length = usbd.usb_packet.data_size;
 
 			QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
-			iov_from_buf(iov->iov, iov->niov, p->actual_length, ptr, data->size - (ptr - data->data));
+			iov_from_buf(iov->iov, iov->niov, 0, ptr, p->actual_length);
 
 			if (usbd.usb_packet.ep.pid == USB_TOKEN_SETUP)
 			{
@@ -578,7 +578,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		USBPacket *p = &qemu_ohci->usb_packet;
 		usbd.usb_packet.data_size = p->actual_length;
 		QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
-		iov_to_buf(iov->iov, iov->niov, p->actual_length, ptr, data->size - (ptr - data->data));
+		iov_to_buf(iov->iov, iov->niov, 0, ptr, p->actual_length);
 
 	}
 	else if (mode == FREEZE_SIZE)
