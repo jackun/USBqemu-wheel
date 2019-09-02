@@ -225,6 +225,7 @@ EXPORT_C_(BOOL) AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 }
 
 EXPORT_C_(void) USBconfigure() {
+	RegisterDevice::Initialize();
     DialogBox(hInst,
               MAKEINTRESOURCE(IDD_CONFIG),
               GetActiveWindow(),

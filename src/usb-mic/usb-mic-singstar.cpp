@@ -565,7 +565,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 
 			//TODO
 			int outChns = s->f.intf == 1 ? 1 : 2;
-			uint32_t frames, outlen[2] = {0}, chn;
+			uint32_t frames, out_frames[2] = {0}, chn;
 			int16_t *src1, *src2;
 			int16_t *dst = nullptr;
 			std::vector<int16_t> dst_alloc(0); //TODO
@@ -590,11 +590,18 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 					s->audsrc[i]->GetFrames(&frames))
 				{
 					frames = MIN(max_frames, frames); //max 50 frames usually
-					outlen[i] = s->audsrc[i]->GetBuffer(s->buffer[i].data(), frames);
+					out_frames[i] = s->audsrc[i]->GetBuffer(s->buffer[i].data(), frames);
 				}
 			}
 
-			OSDebugOut(TEXT("data len: %d bytes, src[0]: %d frames, src[1]: %d frames\n"), len, outlen[0], outlen[1]);
+			//if (frames < max_frames)
+			if (!frames)
+			{
+				p->status = USB_RET_NAK;
+				return;
+			}
+
+			OSDebugOut(TEXT("data len: %d bytes, src[0]: %d frames, src[1]: %d frames\n"), len, out_frames[0], out_frames[1]);
 
 			//TODO well, it is 16bit interleaved, right?
 			//Merge with MIC_MODE_SHARED case?
@@ -604,7 +611,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				int k = s->audsrc[0] ? 0 : 1;
 				int off = s->f.intf == 1 ? 0 : k;
 				chn = s->audsrc[k]->GetChannels();
-				frames = outlen[k];
+				frames = out_frames[k];
 
 				uint32_t i = 0;
 				for(; i < frames && i < max_frames; i++)
@@ -614,12 +621,13 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				}
 
 				ret = i;
+				OSDebugOut("RET %d == %d/%d\n", ret, frames, max_frames);
 			}
 			break;
 			case MIC_MODE_SHARED:
 			{
 				chn = s->audsrc[0]->GetChannels();
-				frames = outlen[0];
+				frames = out_frames[0];
 				src1 = s->buffer[0].data();
 
 				uint32_t i = 0;
@@ -642,7 +650,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 			{
 				uint32_t cn1 = s->audsrc[0]->GetChannels();
 				uint32_t cn2 = s->audsrc[1]->GetChannels();
-				uint32_t minLen = MIN(outlen[0], outlen[1]);
+				uint32_t minLen = MIN(out_frames[0], out_frames[1]);
 
 				src1 = s->buffer[0].data();
 				src2 = s->buffer[1].data();

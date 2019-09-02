@@ -216,6 +216,8 @@ EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
 
 EXPORT_C_(s32) USBinit() {
 	OSDebugOut(TEXT("USBinit\n"));
+
+	RegisterDevice::Initialize();
 	LoadConfig();
 
 	if (conf.Log)
@@ -239,6 +241,7 @@ EXPORT_C_(void) USBshutdown() {
 
 	OSDebugOut(TEXT("USBshutdown\n"));
 	DestroyDevices();
+	RegisterDevice::instance().Clear();
 
 	free(qemu_ohci);
 

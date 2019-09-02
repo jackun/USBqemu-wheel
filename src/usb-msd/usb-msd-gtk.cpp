@@ -3,6 +3,8 @@
 #include "../configuration.h"
 #include <gtk/gtk.h>
 
+namespace usb_msd {
+
 #define APINAME "cstdio"
 
 static void entryChanged(GtkWidget *widget, gpointer data)
@@ -103,3 +105,4 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 	return RESULT_CANCELED;
 }
 #undef APINAME
+}

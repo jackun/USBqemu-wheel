@@ -9,6 +9,8 @@
 #include "../helpers.h"
 #include "../proxybase.h"
 
+namespace usb_hid {
+
 class UsbHIDError : public std::runtime_error
 {
 public:
@@ -21,6 +23,7 @@ class UsbHIDProxyBase : public ProxyBase
 	UsbHIDProxyBase(const UsbHIDProxyBase&) = delete;
 
 	public:
+	UsbHIDProxyBase() {}
 	UsbHIDProxyBase(const std::string& name);
 	virtual UsbHID* CreateObject(int port, const char* dev_type) const = 0;
 	// ProxyBase::Configure is ignored
@@ -33,6 +36,7 @@ class UsbHIDProxy : public UsbHIDProxyBase
 	UsbHIDProxy(const UsbHIDProxy&) = delete;
 
 	public:
+	UsbHIDProxy() {}
 	UsbHIDProxy(const std::string& name): UsbHIDProxyBase(name) {}
 	UsbHID* CreateObject(int port, const char* dev_type) const
 	{
@@ -72,9 +76,18 @@ class RegisterUsbHID
 		return registerUsbHID;
 	}
 
+	~RegisterUsbHID() { Clear(); OSDebugOut("%p\n", this); }
+
+	static void Initialize();
+
 	void Add(const std::string& name, UsbHIDProxyBase* creator)
 	{
 		registerUsbHIDMap[name] = creator;
+	}
+
+	void Clear()
+	{
+		registerUsbHIDMap.clear();
 	}
 
 	UsbHIDProxyBase* Proxy(const std::string& name)
@@ -110,5 +123,6 @@ private:
 	RegisterUsbHIDMap registerUsbHIDMap;
 };
 
-#define REGISTER_USBHID(name,cls) UsbHIDProxy<cls> g##cls##Proxy(name)
+#define REGISTER_USBHID(name,cls) //UsbHIDProxy<cls> g##cls##Proxy(name)
+}
 #endif

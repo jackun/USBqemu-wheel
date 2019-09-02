@@ -3,6 +3,7 @@
 #include <cassert>
 #include <sstream>
 #include <linux/hidraw.h>
+#include "linux/util.h"
 
 namespace usb_pad { namespace evdev {
 
@@ -74,20 +75,39 @@ void EnumerateDevices(vstring& list)
 	std::stringstream str;
 	struct dirent* dp;
 
+	//TODO do some caching? ioctl is "very" slow
+	static vstring list_cache;
+
 	DIR* dirp = opendir("/dev/input/");
 	if (!dirp) {
 		perror("Error opening /dev/input/");
 		return;
 	}
 
+	// get rid of unplugged devices
+	for (int i=0; i < list_cache.size(); ) {
+		if (!file_exists(list_cache[i].second))
+			list_cache.erase(list_cache.begin() + i);
+		else
+			i++;
+	}
+
 	while ((dp = readdir(dirp)))
 	{
 		if (strncmp(dp->d_name, "event", 5) == 0) {
-			OSDebugOut("%s\n", dp->d_name);
+			OSDebugOut("/dev/input/%s\n", dp->d_name);
 
 			str.clear(); str.str("");
 			str << "/dev/input/" << dp->d_name;
 			std::string path = str.str();
+
+			auto it = std::find_if(list_cache.begin(), list_cache.end(),
+				[&path](auto& pair){
+					return pair.second == path;
+			});
+			if (it != list_cache.end())
+				continue;
+
 			fd = open(path.c_str(), O_RDWR|O_NONBLOCK);
 
 			if (fd < 0) {
@@ -101,12 +121,14 @@ void EnumerateDevices(vstring& list)
 			else
 			{
 				OSDebugOut("Evdev device name: %s\n", buf);
-				list.push_back(std::make_pair(std::string(buf) + " (evdev)", path));
+				list_cache.push_back(std::make_pair(std::string(buf) + " (evdev)", path));
 			}
 
 			close(fd);
 		}
 	}
+
+	list.assign(list_cache.begin(), list_cache.end());
 quit:
 	closedir(dirp);
 }
@@ -477,6 +499,7 @@ int EvDevPad::Open()
 
 	for (const auto& it : device_list)
 	{
+		bool has_mappings = false;
 		mDevices.push_back({});
 
 		struct device_data& device = mDevices.back();
@@ -490,6 +513,8 @@ int EvDevPad::Open()
 
 		int ret_abs = ioctl(device.fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit);
 		int ret_key = ioctl(device.fd, EVIOCGBIT(EV_KEY, sizeof(keybit)), keybit);
+		memset(device.axis_map, 0xFF, sizeof(device.axis_map));
+		memset(device.btn_map, 0xFF, sizeof(device.btn_map));
 
 		if ((ret_abs < 0) && (ret_key < 0)) {
 			// Probably isn't a evdev joystick
@@ -508,6 +533,7 @@ int EvDevPad::Open()
 			device.mappings, device.axis_inverted);
 
 		// Map hatswitches automatically
+		//FIXME has_mappings is gonna ignore hatsw only devices
 		for (int i = ABS_HAT0X; i <= ABS_HAT3Y; ++i) {
 			device.axis_map[i] = i;
 		}
@@ -553,6 +579,7 @@ int EvDevPad::Open()
 				for (int k = JOY_STEERING; k < JOY_MAPS_COUNT; k++)
 				{
 					if (i == device.mappings[k]) {
+						has_mappings = true;
 						device.axis_map[i] = 0x80 | k;
 						if (k == JOY_STEERING && !mEvdevFF)
 							mEvdevFF = new EvdevFF(device.fd);
@@ -580,6 +607,7 @@ int EvDevPad::Open()
 				for (int k = 0; k < JOY_STEERING; k++)
 				{
 					if (i == device.mappings[k]) {
+						has_mappings = true;
 						device.btn_map[i] = 0x8000 | k;
 						OSDebugOut("Remap button: 0x%x -> %s\n", i, JoystickMapNames[k]);
 					}
@@ -593,10 +621,17 @@ int EvDevPad::Open()
 				++device.buttons;
 				for (int k = 0; k < JOY_STEERING; k++)
 				{
-					if (i == device.mappings[k])
+					if (i == device.mappings[k]) {
+						has_mappings = true;
 						device.btn_map[i] = 0x8000 | k;
+					}
 				}
 			}
+		}
+		if (!has_mappings) {
+			OSDebugOut("Device %s [%s] has no mappings, discarding\n", device.name.c_str(), it.second.c_str());
+			close(device.fd);
+			mDevices.pop_back();
 		}
 	}
 
@@ -648,7 +683,7 @@ void EvDevPad::WriterThread(void *ptr)
 				printf("Error: %d\n", errno);
 				perror("write");
 			}
-		} else {
+		} else { // TODO skip sleep for few while cycles?
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		}
 	}

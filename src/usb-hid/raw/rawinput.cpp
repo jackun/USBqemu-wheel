@@ -1,13 +1,10 @@
-#include "shared/rawinput.h"
-#include "../hidproxy.h"
+#include "rawinput.h"
 #include "../../Win32/Config-win32.h"
-#include "../usb-hid.h"
 #include "qemu-usb/input-keymap.h"
 #include "qemu-usb/input-keymap-win32-to-qcode.h"
 
 namespace usb_hid { namespace raw {
 
-#define APINAME "hid_rawinput"
 #define CHECK(exp)		do{ if(!(exp)) goto Error; }while(0)
 #define SAFE_FREE(p)	do{ if(p) { free(p); (p) = NULL; } }while(0)
 
@@ -15,33 +12,7 @@ namespace usb_hid { namespace raw {
 // and convert to HID usage id from "10 Keyboard/Keypad Page (0x07)"
 // https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf
 
-class RawInputHID : public UsbHID, shared::rawinput::ParseRawInputCB
-{
-public:
-	RawInputHID(int port, const char* dev_type) : UsbHID(port, dev_type)
-	{
-	}
-	~RawInputHID()
-	{ 
-		Close();
-	}
-	int Open();
-	int Close();
-//	int TokenIn(uint8_t *buf, int len);
-	int TokenOut(const uint8_t *data, int len);
-	int Reset() { return 0; }
-	void ParseRawInput(PRAWINPUT pRawInput);
-
-	static const TCHAR* Name()
-	{
-		return TEXT("Raw Input");
-	}
-
-	static int Configure(int port, const char* dev_type, HIDType, void *data);
-protected:
-};
-
-int RawInputHID::TokenOut(const uint8_t *data, int len)
+int RawInput::TokenOut(const uint8_t *data, int len)
 {
 //	std::array<uint8_t, 8> report{ 0 };
 //	memcpy(report.data() + 1, data, report.size() - 1);
@@ -49,7 +20,7 @@ int RawInputHID::TokenOut(const uint8_t *data, int len)
 	return len;
 }
 
-static void ParseRawInputHID(PRAWINPUT pRawInput, HIDState *hs)
+static void ParseRawInput(PRAWINPUT pRawInput, HIDState *hs)
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = NULL;
 	HIDP_CAPS            Caps;
@@ -162,7 +133,7 @@ static void ParseRawInputKB(RAWKEYBOARD &k, HIDState *hs)
 
 	InputEvent ev{};
 	ev.type = INPUT_EVENT_KIND_KEY;
-	ev.u.key.down = !(k.Flags & RI_KEY_BREAK);
+	ev.u.key.down = !k.Flags;
 	ev.u.key.key.type = KEY_VALUE_KIND_QCODE;
 	ev.u.key.key.u.qcode = qcode;
 
@@ -267,37 +238,37 @@ static void ParseRawInputMS(RAWMOUSE &m, HIDState *hs)
 		hs->ptr.eh_sync(hs);
 }
 
-void RawInputHID::ParseRawInput(PRAWINPUT pRawInput)
+void RawInput::ParseRawInput(PRAWINPUT pRawInput)
 {
 	if (pRawInput->header.dwType == RIM_TYPEKEYBOARD)
 		ParseRawInputKB(pRawInput->data.keyboard, mHIDState);
 	else if (pRawInput->header.dwType == RIM_TYPEMOUSE)
 		ParseRawInputMS(pRawInput->data.mouse, mHIDState);
 //	else
-//		ParseRawInputHID(pRawInput, mHIDState);
+//		ParseRawInput(pRawInput, mHIDState);
 }
 
-int RawInputHID::Open()
+int RawInput::Open()
 {
 	Close();
 	shared::rawinput::RegisterCallback(this);
 	return 0;
 }
 
-int RawInputHID::Close()
+int RawInput::Close()
 {
 	Reset();
 	shared::rawinput::UnregisterCallback(this);
 	return 0;
 }
 
-int RawInputHID::Configure(int port, const char* dev_type, HIDType type, void *data)
+int RawInput::Configure(int port, const char* dev_type, HIDType type, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_CANCELED;
 	return res;
 }
 
-REGISTER_USBHID(APINAME, RawInputHID);
+REGISTER_USBHID(APINAME, RawInput);
 
 }} //namespace

@@ -3,6 +3,7 @@
 
 #include "../qemu-usb/vl.h"
 #include "../configuration.h"
+#include "../deviceproxy.h"
 
 namespace usb_pad {
 
@@ -11,6 +12,46 @@ namespace usb_pad {
 
 #define S_CONFIG_JOY TEXT("Joystick")
 #define N_JOYSTICK TEXT("joystick")
+
+class PadDevice
+{
+public:
+	virtual ~PadDevice() { OSDebugOut("%p\n", this); }
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Wheel device");
+	}
+	static const char* TypeName()
+	{
+		return "pad";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
+	static void Initialize();
+};
+
+class RBDrumKitDevice
+{
+public:
+	virtual ~RBDrumKitDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Rock Band drum kit");
+	}
+	static const char* TypeName()
+	{
+		return "rbdrumkit";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
+	static void Initialize();
+};
 
 // Most likely as seen on https://github.com/matlo/GIMX
 #define CMD_DOWNLOAD			0x00

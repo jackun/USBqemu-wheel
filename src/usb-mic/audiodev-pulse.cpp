@@ -1,29 +1,10 @@
-#include <cstdint>
-#include <cstring>
-#include "ringbuffer.h"
-#include "../osdebugout.h"
-#include "audiodeviceproxy.h"
-#include "../libsamplerate/samplerate.h"
-#include <typeinfo>
-//#include <thread>
-#include <mutex>
-#include <chrono>
 #include <gtk/gtk.h>
-#include <pulse/pulseaudio.h>
-
+#include "audiodev-pulse.h"
 #ifdef DYNLINK_PULSE
 #include "../dynlink/pulse.h"
 #endif
 
-using hrc = std::chrono::high_resolution_clock;
-using ms = std::chrono::milliseconds;
-using us = std::chrono::microseconds;
-using ns = std::chrono::nanoseconds;
-using sec = std::chrono::seconds;
-
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
-
-#define APINAME "pulse"
 
 namespace audiodev_pulse {
 
@@ -322,478 +303,387 @@ static int GtkConfigure(int port, const char* dev_type, void *data)
 	return ret;
 }
 
-class PulseAudioDevice : public AudioDevice
+uint32_t PulseAudioDevice::GetBuffer(short *buff, uint32_t frames)
 {
-public:
-	PulseAudioDevice(int port, const char* dev_type, int device, AudioDir dir): AudioDevice(port, dev_type, device, dir)
-	, mBuffering(50)
-	, mPaused(true)
-	, mQuit(false)
-	, mPMainLoop(nullptr)
-	, mPContext(nullptr)
-	, mStream(nullptr)
-	, mServer(nullptr)
-	, mPAready(0)
-	, mResampleRatio(1.0)
-	, mTimeAdjust(1.0)
-	, mSamplesPerSec(48000)
-	, mResampler(nullptr)
-	, mOutSamples(0)
+	auto now = hrc::now();
+	auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
+
+	// init time point
+	if (mLastOut.time_since_epoch().count() == 0)
+		mLastOut = now;
+
+	//Disconnected, try reconnect after every 1sec, hopefully game retries to read samples
+	if (mPAready == 3 && dur >= 1000)
 	{
-		int i = dir == AUDIODIR_SOURCE ? 0 : 2;
-		const char* var_names[] = {
-			N_AUDIO_SOURCE0,
-			N_AUDIO_SOURCE1,
-			N_AUDIO_SINK0,
-			N_AUDIO_SINK1
-		};
-
-		if (!LoadSetting(mDevType, mPort, APINAME, (device ? var_names[i + 1] : var_names[i]), mDeviceName) || mDeviceName.empty())
-			throw AudioDeviceError(APINAME ": failed to load device settings");
-
-		LoadSetting(mDevType, mPort, APINAME, (dir == AUDIODIR_SOURCE ? N_BUFFER_LEN_SRC : N_BUFFER_LEN_SINK), mBuffering);
-		mBuffering = MIN(1000, MAX(1, mBuffering));
-
-		if (!AudioInit())
-			throw AudioDeviceError(APINAME ": failed to bind pulseaudio library");
-
-		mSSpec.format =  PA_SAMPLE_FLOAT32LE; //PA_SAMPLE_S16LE;
-		mSSpec.channels = 2;
-		mSSpec.rate = 48000;
-
-		if (!Init())
-			throw AudioDeviceError(APINAME ": failed to init");
-	}
-
-	~PulseAudioDevice()
-	{
-		mQuit = true;
-		std::lock_guard<std::mutex> lock(mMutex);
-		Uninit();
-		AudioDeinit();
-		mResampler = src_delete(mResampler);
-		if (file) fclose(file);
-	}
-
-	uint32_t GetBuffer(short *buff, uint32_t frames)
-	{
-		auto now = hrc::now();
-		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
-
-		// init time point
-		if (mLastOut.time_since_epoch().count() == 0)
-			mLastOut = now;
-
-		//Disconnected, try reconnect after every 1sec, hopefully game retries to read samples
-		if (mPAready == 3 && dur >= 1000)
-		{
-			mLastGetBuffer = now;
-			int ret = pa_context_connect (mPContext,
-				mServer,
-				PA_CONTEXT_NOFLAGS,
-				NULL
-			);
-
-			//TODO reconnect stream as well?
-
-			OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
-		}
-		else
-			mLastGetBuffer = now;
-
-		std::lock_guard<std::mutex> lk(mMutex);
-		ssize_t samples_to_read = frames * GetChannels();
-		short *pDst = (short *) buff;
-		assert(samples_to_read <= mOutBuffer.size<short>());
-
-		while (samples_to_read > 0)
-		{
-			ssize_t samples = std::min(samples_to_read, (ssize_t)mOutBuffer.peek_read<short>());
-			if (!samples)
-				break;
-			memcpy(pDst, mOutBuffer.front(), samples * sizeof(short));
-			mOutBuffer.read<short>(samples);
-			pDst += samples;
-			samples_to_read -= samples;
-		}
-		return (frames - (samples_to_read / GetChannels()));
-	}
-
-	uint32_t SetBuffer(short *buff, uint32_t frames)
-	{
-		auto now = hrc::now();
-		auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
-
-		// init time point
-		if (mLastOut.time_since_epoch().count() == 0)
-			mLastOut = now;
-
-		//Disconnected, try reconnect after every 1sec
-		if (mPAready == 3 && dur >= 1000)
-		{
-			mLastGetBuffer = now;
-			int ret = pa_context_connect (mPContext,
-				mServer,
-				PA_CONTEXT_NOFLAGS,
-				NULL
-			);
-
-			//TODO reconnect stream as well?
-
-			OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
-			if (ret != PA_OK)
-				return frames;
-		}
-		else
-			mLastGetBuffer = now;
-
-		std::lock_guard<std::mutex> lk(mMutex);
-		size_t nbytes = frames * sizeof(short) * GetChannels();
-		mInBuffer.write((uint8_t *) buff, nbytes);
-
-		return frames;
-	}
-
-	bool GetFrames(uint32_t *size)
-	{
-		std::lock_guard<std::mutex> lk(mMutex);
-		*size = mOutBuffer.size<short>() / GetChannels();
-		return true;
-	}
-
-	void SetResampling(int samplerate)
-	{
-		mSamplesPerSec = samplerate;
-		if (mAudioDir == AUDIODIR_SOURCE)
-			mResampleRatio = double(samplerate) / double(mSSpec.rate);
-		else
-			mResampleRatio = double(mSSpec.rate) / double(samplerate);
-		//mResample = true;
-		ResetBuffers();
-	}
-
-	inline uint32_t GetChannels()
-	{
-		return mSSpec.channels;
-	}
-
-	void Start()
-	{
-		ResetBuffers();
-		mPaused = false;
-		if (mStream)
-		{
-			pa_threaded_mainloop_lock(mPMainLoop);
-			if (pa_stream_is_corked(mStream) > 0)
-			{
-				pa_operation *op = pa_stream_cork(mStream, 0, stream_success_cb, this);
-				if (op)
-					pa_operation_unref(op);
-			}
-			pa_threaded_mainloop_unlock(mPMainLoop);
-		}
-	}
-
-	void Stop()
-	{
-		mPaused = true;
-		if (mStream)
-		{
-			pa_threaded_mainloop_lock(mPMainLoop);
-			if (!pa_stream_is_corked(mStream))
-			{
-				pa_operation *op = pa_stream_cork(mStream, 1, stream_success_cb, this);
-				if (op)
-					pa_operation_unref(op);
-			}
-			pa_threaded_mainloop_unlock(mPMainLoop);
-		}
-	}
-
-	virtual bool Compare(AudioDevice* compare)
-	{
-		if (compare)
-		{
-			PulseAudioDevice *src = static_cast<PulseAudioDevice *>(compare);
-			if (src && mDeviceName == src->mDeviceName)
-				return true;
-		}
-		return false;
-	}
-
-	void Uninit()
-	{
-		int ret;
-		if (mStream) {
-			pa_threaded_mainloop_lock(mPMainLoop);
-			ret = pa_stream_disconnect(mStream);
-			pa_stream_unref(mStream);
-			mStream = nullptr;
-			pa_threaded_mainloop_unlock(mPMainLoop);
-		}
-		if (mPMainLoop) {
-			pa_threaded_mainloop_stop(mPMainLoop);
-		}
-		if (mPContext) {
-			pa_context_disconnect(mPContext);
-			pa_context_unref(mPContext);
-			mPContext = nullptr;
-		}
-		if (mPMainLoop) {
-			pa_threaded_mainloop_free(mPMainLoop);
-			mPMainLoop = nullptr;
-		}
-	}
-
-	bool Init()
-	{
-		int ret = 0;
-		pa_operation* pa_op = nullptr;
-
-		mPMainLoop = pa_threaded_mainloop_new();
-		pa_mainloop_api *mlapi = pa_threaded_mainloop_get_api(mPMainLoop);
-
-		mPContext = pa_context_new (mlapi, "USBqemu");
-
-		pa_context_set_state_callback(mPContext,
-			context_state_cb,
-			this
-		);
-
-		// Lock the mainloop so that it does not run and crash before the context is ready
-		pa_threaded_mainloop_lock(mPMainLoop);
-		pa_threaded_mainloop_start(mPMainLoop);
-
-		ret = pa_context_connect (mPContext,
+		mLastGetBuffer = now;
+		int ret = pa_context_connect (mPContext,
 			mServer,
 			PA_CONTEXT_NOFLAGS,
 			NULL
 		);
 
+		//TODO reconnect stream as well?
+
 		OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
-		if (ret != PA_OK)
-			goto unlock_and_fail;
+	}
+	else
+		mLastGetBuffer = now;
 
-		// wait for pa_context_state_cb
-		for(;;)
-		{
-			if(mPAready == 1) break;
-			if(mPAready == 2 || mQuit) goto unlock_and_fail;
-			pa_threaded_mainloop_wait(mPMainLoop);
-		}
+	std::lock_guard<std::mutex> lk(mMutex);
+	ssize_t samples_to_read = frames * GetChannels();
+	short *pDst = (short *) buff;
+	assert(samples_to_read <= mOutBuffer.size<short>());
 
-		mStream = pa_stream_new(mPContext,
-			"USBqemu-pulse",
-			&mSSpec,
+	while (samples_to_read > 0)
+	{
+		ssize_t samples = std::min(samples_to_read, (ssize_t)mOutBuffer.peek_read<short>());
+		if (!samples)
+			break;
+		memcpy(pDst, mOutBuffer.front(), samples * sizeof(short));
+		mOutBuffer.read<short>(samples);
+		pDst += samples;
+		samples_to_read -= samples;
+	}
+	return (frames - (samples_to_read / GetChannels()));
+}
+
+uint32_t PulseAudioDevice::SetBuffer(short *buff, uint32_t frames)
+{
+	auto now = hrc::now();
+	auto dur = std::chrono::duration_cast<ms>(now-mLastGetBuffer).count();
+
+	// init time point
+	if (mLastOut.time_since_epoch().count() == 0)
+		mLastOut = now;
+
+	//Disconnected, try reconnect after every 1sec
+	if (mPAready == 3 && dur >= 1000)
+	{
+		mLastGetBuffer = now;
+		int ret = pa_context_connect (mPContext,
+			mServer,
+			PA_CONTEXT_NOFLAGS,
 			NULL
 		);
 
-		if (!mStream)
-			goto unlock_and_fail;
+		//TODO reconnect stream as well?
 
-		pa_stream_set_state_callback(mStream, stream_state_cb, this);
-
-		// Sets individual read callback fragsize but recording itself
-		// still "lags" ~1sec (read_cb is called in bursts) without
-		// PA_STREAM_ADJUST_LATENCY
-		pa_buffer_attr buffer_attr;
-		buffer_attr.maxlength = (uint32_t) -1;
-		buffer_attr.tlength = (uint32_t) -1;
-		buffer_attr.prebuf = (uint32_t) -1;
-		buffer_attr.minreq = (uint32_t) -1;
-		buffer_attr.fragsize = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
-		OSDebugOut("usec_to_bytes %zu\n", buffer_attr.fragsize);
-
-		if (mAudioDir == AUDIODIR_SOURCE)
-		{
-			pa_stream_set_read_callback(mStream,
-				stream_read_cb,
-				this
-			);
-
-			ret = pa_stream_connect_record(mStream,
-				mDeviceName.c_str(),
-				&buffer_attr,
-				PA_STREAM_ADJUST_LATENCY
-			);
-			OSDebugOut("pa_stream_connect_record %s\n", pa_strerror(ret));
-		}
-		else
-		{
-			pa_stream_set_write_callback(mStream,
-				stream_write_cb,
-				this
-			);
-
-			buffer_attr.maxlength = pa_bytes_per_second(&mSSpec);
-			buffer_attr.prebuf = 0; // Don't stop on underrun but then
-									// stream also only starts manually with uncorking.
-			buffer_attr.tlength = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
-			pa_stream_flags_t flags = (pa_stream_flags_t)
-				(PA_STREAM_INTERPOLATE_TIMING |
-				PA_STREAM_NOT_MONOTONIC |
-				PA_STREAM_AUTO_TIMING_UPDATE |
-				//PA_STREAM_VARIABLE_RATE |
-				PA_STREAM_ADJUST_LATENCY);
-
-			ret = pa_stream_connect_playback(mStream,
-				mDeviceName.c_str(),
-				&buffer_attr,
-				flags,
-				nullptr,
-				nullptr
-			);
-			OSDebugOut("pa_stream_connect_playback %s\n", pa_strerror(ret));
-		}
-
+		OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
 		if (ret != PA_OK)
-			goto unlock_and_fail;
+			return frames;
+	}
+	else
+		mLastGetBuffer = now;
 
-		// Wait for the stream to be ready
-		for(;;) {
-			pa_stream_state_t stream_state = pa_stream_get_state(mStream);
-			assert(PA_STREAM_IS_GOOD(stream_state));
-			if (stream_state == PA_STREAM_READY) break;
-			if (stream_state == PA_STREAM_FAILED) goto unlock_and_fail;
-			pa_threaded_mainloop_wait(mPMainLoop);
+	std::lock_guard<std::mutex> lk(mMutex);
+	size_t nbytes = frames * sizeof(short) * GetChannels();
+	mInBuffer.write((uint8_t *) buff, nbytes);
+
+	return frames;
+}
+
+bool PulseAudioDevice::GetFrames(uint32_t *size)
+{
+	std::lock_guard<std::mutex> lk(mMutex);
+	*size = mOutBuffer.size<short>() / GetChannels();
+	return true;
+}
+
+void PulseAudioDevice::SetResampling(int samplerate)
+{
+	mSamplesPerSec = samplerate;
+	if (mAudioDir == AUDIODIR_SOURCE)
+		mResampleRatio = double(samplerate) / double(mSSpec.rate);
+	else
+		mResampleRatio = double(mSSpec.rate) / double(samplerate);
+	//mResample = true;
+	ResetBuffers();
+}
+
+void PulseAudioDevice::Start()
+{
+	ResetBuffers();
+	mPaused = false;
+	if (mStream)
+	{
+		pa_threaded_mainloop_lock(mPMainLoop);
+		if (pa_stream_is_corked(mStream) > 0)
+		{
+			pa_operation *op = pa_stream_cork(mStream, 0, stream_success_cb, this);
+			if (op)
+				pa_operation_unref(op);
 		}
-
-		OSDebugOut("pa_stream_is_corked %d\n", pa_stream_is_corked(mStream));
-		OSDebugOut("pa_stream_is_suspended %d\n", pa_stream_is_suspended (mStream));
-
-		pa_op = pa_stream_cork(mStream, 0, stream_success_cb, this);
-		if (pa_op)
-			pa_operation_unref(pa_op);
-
 		pa_threaded_mainloop_unlock(mPMainLoop);
+	}
+}
 
-		// Setup resampler
-		mResampler = src_delete(mResampler);
-
-		mResampler = src_new(SRC_SINC_FASTEST, GetChannels(), &ret);
-		if (!mResampler)
+void PulseAudioDevice::Stop()
+{
+	mPaused = true;
+	if (mStream)
+	{
+		pa_threaded_mainloop_lock(mPMainLoop);
+		if (!pa_stream_is_corked(mStream))
 		{
-			OSDebugOut("Failed to create resampler: error %08X\n", ret);
-			goto error;
+			pa_operation *op = pa_stream_cork(mStream, 1, stream_success_cb, this);
+			if (op)
+				pa_operation_unref(op);
 		}
-
-		mLastGetBuffer = hrc::now();
-		return true;
-	unlock_and_fail:
 		pa_threaded_mainloop_unlock(mPMainLoop);
-	error:
-		Uninit();
-		return false;
+	}
+}
+
+bool PulseAudioDevice::Compare(AudioDevice* compare)
+{
+	if (compare)
+	{
+		PulseAudioDevice *src = static_cast<PulseAudioDevice *>(compare);
+		if (src && mDeviceName == src->mDeviceName)
+			return true;
+	}
+	return false;
+}
+
+void PulseAudioDevice::Uninit()
+{
+	int ret;
+	if (mStream) {
+		pa_threaded_mainloop_lock(mPMainLoop);
+		ret = pa_stream_disconnect(mStream);
+		pa_stream_unref(mStream);
+		mStream = nullptr;
+		pa_threaded_mainloop_unlock(mPMainLoop);
+	}
+	if (mPMainLoop) {
+		pa_threaded_mainloop_stop(mPMainLoop);
+	}
+	if (mPContext) {
+		pa_context_disconnect(mPContext);
+		pa_context_unref(mPContext);
+		mPContext = nullptr;
+	}
+	if (mPMainLoop) {
+		pa_threaded_mainloop_free(mPMainLoop);
+		mPMainLoop = nullptr;
+	}
+}
+
+bool PulseAudioDevice::Init()
+{
+	int ret = 0;
+	pa_operation* pa_op = nullptr;
+
+	mPMainLoop = pa_threaded_mainloop_new();
+	pa_mainloop_api *mlapi = pa_threaded_mainloop_get_api(mPMainLoop);
+
+	mPContext = pa_context_new (mlapi, "USBqemu");
+
+	pa_context_set_state_callback(mPContext,
+		context_state_cb,
+		this
+	);
+
+	// Lock the mainloop so that it does not run and crash before the context is ready
+	pa_threaded_mainloop_lock(mPMainLoop);
+	pa_threaded_mainloop_start(mPMainLoop);
+
+	ret = pa_context_connect (mPContext,
+		mServer,
+		PA_CONTEXT_NOFLAGS,
+		NULL
+	);
+
+	OSDebugOut("pa_context_connect %s\n", pa_strerror(ret));
+	if (ret != PA_OK)
+		goto unlock_and_fail;
+
+	// wait for pa_context_state_cb
+	for(;;)
+	{
+		if(mPAready == 1) break;
+		if(mPAready == 2 || mQuit) goto unlock_and_fail;
+		pa_threaded_mainloop_wait(mPMainLoop);
 	}
 
-	void ResetBuffers()
+	mStream = pa_stream_new(mPContext,
+		"USBqemu-pulse",
+		&mSSpec,
+		NULL
+	);
+
+	if (!mStream)
+		goto unlock_and_fail;
+
+	pa_stream_set_state_callback(mStream, stream_state_cb, this);
+
+	// Sets individual read callback fragsize but recording itself
+	// still "lags" ~1sec (read_cb is called in bursts) without
+	// PA_STREAM_ADJUST_LATENCY
+	pa_buffer_attr buffer_attr;
+	buffer_attr.maxlength = (uint32_t) -1;
+	buffer_attr.tlength = (uint32_t) -1;
+	buffer_attr.prebuf = (uint32_t) -1;
+	buffer_attr.minreq = (uint32_t) -1;
+	buffer_attr.fragsize = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
+	OSDebugOut("usec_to_bytes %zu\n", buffer_attr.fragsize);
+
+	if (mAudioDir == AUDIODIR_SOURCE)
 	{
-		size_t bytes;
-		std::lock_guard<std::mutex> lk(mMutex);
-		pa_sample_spec ss(mSSpec);
-		ss.rate = mSamplesPerSec;
+		pa_stream_set_read_callback(mStream,
+			stream_read_cb,
+			this
+		);
 
-		if (mAudioDir == AUDIODIR_SOURCE)
-		{
-			bytes = pa_bytes_per_second(&mSSpec) * mBuffering / 1000;
-			bytes += bytes % pa_frame_size(&mSSpec); //align just in case
-			mInBuffer.reserve(bytes);
+		ret = pa_stream_connect_record(mStream,
+			mDeviceName.c_str(),
+			&buffer_attr,
+			PA_STREAM_ADJUST_LATENCY
+		);
+		OSDebugOut("pa_stream_connect_record %s\n", pa_strerror(ret));
+	}
+	else
+	{
+		pa_stream_set_write_callback(mStream,
+			stream_write_cb,
+			this
+		);
 
-			bytes = pa_bytes_per_second(&ss) * mBuffering / 1000;
-			bytes += bytes % pa_frame_size(&ss);
-			mOutBuffer.reserve(bytes);
-		}
-		else
-		{
-			bytes = pa_bytes_per_second(&mSSpec) * mBuffering / 1000;
-			bytes += bytes % pa_frame_size(&mSSpec);
-			mOutBuffer.reserve(bytes);
+		buffer_attr.maxlength = pa_bytes_per_second(&mSSpec);
+		buffer_attr.prebuf = 0; // Don't stop on underrun but then
+								// stream also only starts manually with uncorking.
+		buffer_attr.tlength = pa_usec_to_bytes(mBuffering * 1000, &mSSpec);
+		pa_stream_flags_t flags = (pa_stream_flags_t)
+			(PA_STREAM_INTERPOLATE_TIMING |
+			PA_STREAM_NOT_MONOTONIC |
+			PA_STREAM_AUTO_TIMING_UPDATE |
+			//PA_STREAM_VARIABLE_RATE |
+			PA_STREAM_ADJUST_LATENCY);
 
-			bytes = pa_bytes_per_second(&ss) * mBuffering / 1000;
-			bytes += bytes % pa_frame_size(&ss);
-			mInBuffer.reserve(bytes);
-		}
-
-		src_reset(mResampler);
+		ret = pa_stream_connect_playback(mStream,
+			mDeviceName.c_str(),
+			&buffer_attr,
+			flags,
+			nullptr,
+			nullptr
+		);
+		OSDebugOut("pa_stream_connect_playback %s\n", pa_strerror(ret));
 	}
 
-	static const char* TypeName()
-	{
-		return APINAME;
+	if (ret != PA_OK)
+		goto unlock_and_fail;
+
+	// Wait for the stream to be ready
+	for(;;) {
+		pa_stream_state_t stream_state = pa_stream_get_state(mStream);
+		assert(PA_STREAM_IS_GOOD(stream_state));
+		if (stream_state == PA_STREAM_READY) break;
+		if (stream_state == PA_STREAM_FAILED) goto unlock_and_fail;
+		pa_threaded_mainloop_wait(mPMainLoop);
 	}
 
-	static const TCHAR* Name()
+	OSDebugOut("pa_stream_is_corked %d\n", pa_stream_is_corked(mStream));
+	OSDebugOut("pa_stream_is_suspended %d\n", pa_stream_is_suspended (mStream));
+
+	pa_op = pa_stream_cork(mStream, 0, stream_success_cb, this);
+	if (pa_op)
+		pa_operation_unref(pa_op);
+
+	pa_threaded_mainloop_unlock(mPMainLoop);
+
+	pa_op = pa_stream_update_timing_info(mStream, stream_success_cb, nullptr);
+	if (pa_op)
+		pa_operation_unref(pa_op);
+	//const pa_timing_info* pa_ti = pa_stream_get_timing_info(mStream);
+
+	pa_usec_t r_usec;
+	int negative;
+	ret = pa_stream_get_latency(mStream, &r_usec, &negative);
+	OSDebugOut("Latency %llu\n", r_usec);
+
+	// Setup resampler
+	mResampler = src_delete(mResampler);
+
+	mResampler = src_new(SRC_SINC_FASTEST, GetChannels(), &ret);
+	if (!mResampler)
 	{
-		return "PulseAudio";
+		OSDebugOut("Failed to create resampler: error %08X\n", ret);
+		goto error;
 	}
 
-	static int Configure(int port, const char* dev_type, void *data)
+	mLastGetBuffer = hrc::now();
+	return true;
+unlock_and_fail:
+	pa_threaded_mainloop_unlock(mPMainLoop);
+error:
+	Uninit();
+	return false;
+}
+
+void PulseAudioDevice::ResetBuffers()
+{
+	size_t bytes;
+	std::lock_guard<std::mutex> lk(mMutex);
+	pa_sample_spec ss(mSSpec);
+	ss.rate = mSamplesPerSec;
+
+	if (mAudioDir == AUDIODIR_SOURCE)
 	{
-		int ret = RESULT_FAILED;
-		if (PulseAudioDevice::AudioInit())
-		{
-			ret = GtkConfigure(port, dev_type, data);
-			PulseAudioDevice::AudioDeinit();
-		}
-		return ret;
+		bytes = pa_bytes_per_second(&mSSpec) * mBuffering / 1000;
+		bytes += bytes % pa_frame_size(&mSSpec); //align just in case
+		mInBuffer.reserve(bytes);
+
+		bytes = pa_bytes_per_second(&ss) * mBuffering / 1000;
+		bytes += bytes % pa_frame_size(&ss);
+		mOutBuffer.reserve(bytes);
+	}
+	else
+	{
+		bytes = pa_bytes_per_second(&mSSpec) * mBuffering / 1000;
+		bytes += bytes % pa_frame_size(&mSSpec);
+		mOutBuffer.reserve(bytes);
+
+		bytes = pa_bytes_per_second(&ss) * mBuffering / 1000;
+		bytes += bytes % pa_frame_size(&ss);
+		mInBuffer.reserve(bytes);
 	}
 
-	static void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir& dir)
-	{
-		pa_get_devicelist(devices, dir);
-	}
+	OSDebugOut("Ringbuffer size, in: %zu, out: %zu\n",
+		mInBuffer.capacity(), mOutBuffer.capacity());
 
-	static bool AudioInit()
+	src_reset(mResampler);
+}
+
+int PulseAudioDevice::Configure(int port, const char* dev_type, void *data)
+{
+	int ret = RESULT_FAILED;
+	if (PulseAudioDevice::AudioInit())
 	{
+		ret = GtkConfigure(port, dev_type, data);
+		PulseAudioDevice::AudioDeinit();
+	}
+	return ret;
+}
+
+void PulseAudioDevice::AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir& dir)
+{
+	pa_get_devicelist(devices, dir);
+}
+
+bool PulseAudioDevice::AudioInit()
+{
 #ifdef DYNLINK_PULSE
-		return DynLoadPulse();
+	return DynLoadPulse();
 #else
-		return true;
+	return true;
 #endif
-	}
-	static void AudioDeinit()
-	{
+}
+
+void PulseAudioDevice::AudioDeinit()
+{
 #ifdef DYNLINK_PULSE
-		DynUnloadPulse();
+	DynUnloadPulse();
 #endif
-	}
-
-	static void context_state_cb(pa_context *c, void *userdata);
-	static void stream_state_cb(pa_stream *s, void *userdata);
-	static void stream_read_cb (pa_stream *p, size_t nbytes, void *userdata);
-	static void stream_write_cb (pa_stream *p, size_t nbytes, void *userdata);
-	static void stream_success_cb (pa_stream *p, int success, void *userdata) {}
-
-protected:
-	int mChannels;
-	int mBuffering;
-	std::string mDeviceName;
-	int mSamplesPerSec;
-	pa_sample_spec mSSpec;
-
-	SRC_STATE *mResampler;
-	double mResampleRatio;
-	// Speed up or slow down audio
-	double mTimeAdjust;
-	RingBuffer mOutBuffer;
-	RingBuffer mInBuffer;
-	//std::thread mThread;
-	//std::condition_variable mEvent;
-	std::mutex mMutex;
-	bool mQuit;
-	bool mPaused;
-	hrc::time_point mLastGetBuffer;
-
-	int mPAready;
-	pa_threaded_mainloop *mPMainLoop;
-	pa_context *mPContext;
-	pa_stream  *mStream;
-	char *mServer; //TODO add server selector?
-
-	int mOutSamples;
-	hrc::time_point mLastOut;
-	FILE* file = nullptr;
-};
+}
 
 void PulseAudioDevice::context_state_cb(pa_context *c, void *userdata)
 {
@@ -855,6 +745,9 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		return;
 	}
 
+	if (padev->mInBuffer.capacity() < nbytes)
+		OSDebugOut("input ringbuffer overrun: %zu < %zu\n", padev->mInBuffer.capacity(), nbytes);
+
 	padev->mInBuffer.write((uint8_t *) padata, nbytes);
 
 	//if copy succeeded, drop samples at pulse's side
@@ -867,7 +760,7 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		resampled = padev->mInBuffer.size<float>();
 	rebuf.resize(resampled);
 
-	size_t output_frames = 0;
+	size_t output_frames_gen = 0, input_frames_used = 0;
 	float *pBegin = rebuf.data();
 	float *pEnd   = pBegin + rebuf.size();
 
@@ -882,24 +775,32 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 		data.src_ratio     = padev->mResampleRatio * padev->mTimeAdjust;
 
 		src_process(padev->mResampler, &data);
-		output_frames += data.output_frames_gen;
+		output_frames_gen += data.output_frames_gen;
 		pBegin += data.output_frames_gen * padev->GetChannels();
+		input_frames_used += data.input_frames_used;
 
 		size_t samples = data.input_frames_used * padev->GetChannels();
 		if (!samples) break; //TODO happens?
 		padev->mInBuffer.read<float>(samples);
 	}
 
+/*	OSDebugOut("input %zu frames: %zu, used %zu, left %zu bytes, output frames: %zu\n",
+		nbytes,
+		nbytes / sizeof(float) / padev->GetChannels(),
+		input_frames_used,
+		padev->mInBuffer.peek_read(),
+		output_frames_gen);*/
+
 	std::lock_guard<std::mutex> lock(padev->mMutex);
 
-	size_t len = output_frames * padev->GetChannels();
+	size_t output_samples = output_frames_gen * padev->GetChannels();
 	float *pSrc = rebuf.data();
-	while (len > 0)
+	while (output_samples > 0)
 	{
-		size_t samples = std::min(len, padev->mOutBuffer.peek_write<short>(true));
+		size_t samples = std::min(output_samples, padev->mOutBuffer.peek_write<short>(true));
 		src_float_to_short_array(pSrc, padev->mOutBuffer.back<short>(), samples);
 		padev->mOutBuffer.write<short>(samples);
-		len -= samples;
+		output_samples -= samples;
 		pSrc += samples;
 	}
 }
@@ -1005,5 +906,4 @@ exit:
 }
 
 REGISTER_AUDIODEV(APINAME, PulseAudioDevice);
-};
-#undef APINAME
+}

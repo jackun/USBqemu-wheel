@@ -1,10 +1,8 @@
-#include "../padproxy.h"
-#include "../../Win32/Config-win32.h"
+#include "usb-pad-dx.h"
 #include "global.h"
 #include "dialog.h"
 
 namespace usb_pad { namespace dx {
-#define APINAME "dinput"
 
 static bool bdown=false;
 static DWORD calibrationtime = 0;
@@ -35,26 +33,7 @@ enum CONTROLID
 	START,
 };
 
-class DInputPad : public Pad
-{
-public:
-	DInputPad(int port, const char* dev_type) : Pad(port, dev_type), mUseRamp(false){}
-	~DInputPad() { FreeDirectInput(); }
-	int Open();
-	int Close();
-	int TokenIn(uint8_t *buf, int len);
-	int TokenOut(const uint8_t *data, int len);
-	int Reset() { return 0; }
-
-	static const TCHAR* Name()
-	{
-		return TEXT("DInput");
-	}
-
-	static int Configure(int port, const char* dev_type, void *data);
-private:
-	bool mUseRamp;
-};
+DInputPad::~DInputPad() { FreeDirectInput(); }
 
 int DInputPad::TokenIn(uint8_t *buf, int len)
 {

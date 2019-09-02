@@ -15,6 +15,7 @@ HWND msgWindow = nullptr;
 WNDPROC eatenWndProc = nullptr;
 HWND eatenWnd = nullptr;
 HHOOK hHook = nullptr, hHookWnd = nullptr, hHookKB = nullptr;
+bool skipInput = false;
 
 void RegisterCallback(ParseRawInputCB *cb)
 {

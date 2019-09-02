@@ -32,13 +32,13 @@ bool LoadSetting(const char* dev_type, int port, const std::string& key, const c
 	section << key << " " << port;
 	std::string str = section.str();
 
-	OSDebugOut("[%s] '%s'=", str.c_str(), name);
+//	OSDebugOut("[%s] '%s'=", str.c_str(), name);
 	ret = LoadSettingValue(IniPath, str, name, var);
-	if (ret)
+/*	if (ret)
 		OSDebugOutStream_noprfx(var);
 	else
 		OSDebugOut_noprfx("<failed>\n");
-	return ret;
+*/	return ret;
 }
 
 /**

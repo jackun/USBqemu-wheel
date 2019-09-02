@@ -26,11 +26,10 @@
 
 #include "../qemu-usb/vl.h"
 #include "../qemu-usb/desc.h"
-#include "../deviceproxy.h"
-#include "audiodeviceproxy.h"
 #include <assert.h>
 
 #include "audio.h"
+#include "usb-headset.h"
 
 #define BUFFER_FRAMES 200
 
@@ -81,31 +80,14 @@ typedef struct HeadsetState {
     USBDescDevice desc_dev;
 } HeadsetState;
 
-class HeadsetDevice : public Device
+std::list<std::string> HeadsetDevice::ListAPIs()
 {
-public:
-    virtual ~HeadsetDevice() {}
-    static USBDevice* CreateDevice(int port);
-    static USBDevice* CreateDevice(int port, const std::string& api);
-    static const char* TypeName()
-    {
-        return "headset";
-    }
-    static const TCHAR* Name()
-    {
-        return TEXT("Logitech USB Headset");
-    }
-    static std::list<std::string> ListAPIs()
-    {
-        return RegisterAudioDevice::instance().Names();
-    }
-    static const TCHAR* LongAPIName(const std::string& name)
-    {
-        return RegisterAudioDevice::instance().Proxy(name)->Name();
-    }
-    static int Configure(int port, const std::string& api, void *data);
-    static int Freeze(int mode, USBDevice *dev, void *data);
-};
+	return RegisterAudioDevice::instance().Names();
+}
+const TCHAR* HeadsetDevice::LongAPIName(const std::string& name)
+{
+	return RegisterAudioDevice::instance().Proxy(name)->Name();
+}
 
 static const uint8_t headset_dev_descriptor[] = {
     /* bLength             */ 0x12, //(18)

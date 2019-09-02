@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <map>
 #include "../../configuration.h"
-#include "raw-config.h"
+#include "usb-pad-raw.h"
 #include "raw-config-res.h"
 #include <strsafe.h>
 

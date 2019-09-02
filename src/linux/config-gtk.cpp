@@ -7,16 +7,6 @@
 #include <string>
 #include <gtk/gtk.h>
 
-//joystick stuff
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/input.h>
-#include <linux/joystick.h>
-
 #include "../osdebugout.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
@@ -226,6 +216,7 @@ extern "C" {
 
 void CALLBACK USBconfigure() {
 
+	RegisterDevice::Initialize();
 	LoadConfig();
 	void * that = NULL;
 	SettingsCB settingsCB[2];
@@ -334,6 +325,7 @@ void CALLBACK USBconfigure() {
 		SaveConfig();
 		configChanged = true;
 	}
+//	RegisterDevice::instance().Clear();
 }
 
 void CALLBACK USBabout() {

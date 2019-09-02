@@ -14,7 +14,6 @@ extern Window g_GSwin;
 
 namespace usb_hid { namespace evdev {
 
-#define APINAME "evdev"
 #define test_bit(nr, addr) \
 	(((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
@@ -313,7 +312,7 @@ void EvDev::ReaderThread(void *ptr)
 
 			if (len < sizeof(input_event) && errno != EAGAIN)
 			{
-				OSDebugOut(APINAME ": evdev read error %d\n", errno);
+				OSDebugOut("%s: evdev read error %d\n", APINAME, errno);
 				break;
 			}
 		}

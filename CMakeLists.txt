@@ -143,6 +143,7 @@ SET(SRCS_PLG
 	./src/deviceproxy.cpp
 	./src/configuration.cpp
 	./src/ringbuffer.cpp
+	./src/device_init.cpp
 )
 
 SET(HDRS_QEMU
@@ -181,12 +182,14 @@ SET(SRCS_MSD
 SET(HDRS_PAD
 	./src/usb-pad/usb-pad.h
 	./src/usb-pad/padproxy.h
+	./src/usb-pad/lg/lg_ff.h
 )
 
 SET(SRCS_PAD
 #	./src/usb-pad/bitjuggling.cpp
 	./src/usb-pad/usb-pad.cpp
 	./src/usb-pad/padproxy.cpp
+	./src/usb-pad/lg/lg_ff.cpp
 )
 
 SET(HDRS_MIC
@@ -194,6 +197,8 @@ SET(HDRS_MIC
 	./src/usb-mic/audiodev.h
 	./src/usb-mic/audiodeviceproxy.h
 	./src/usb-mic/usb-mic-singstar.h
+	./src/usb-mic/usb-headset.h
+	./src/usb-mic/audiodev-noop.h
 )
 
 SET(SRCS_MIC
@@ -236,12 +241,15 @@ ADD_DEFINITIONS(-DGCC_MAJOR_VERSION=6)
 IF(WIN32)
 	ADD_DEFINITIONS(-DUNICODE)
 	ADD_DEFINITIONS(-D_UNICODE)
+
+	FILE(GLOB SRCS_API_INITS ./src/*/api_init_win32.cpp)
+
 	LIST(APPEND HDRS_WIN32
 		./src/Win32/resource.h
 		./src/Win32/Config.h
 		./src/Win32/Config-win32.h
 	)
-	
+
 	LIST(APPEND SRCS_WIN32
 		./src/Win32/Config.cpp
 		./src/Win32/Config-win32.cpp
@@ -256,7 +264,7 @@ IF(WIN32)
 	LIST(APPEND SRCS_MIC
 		./src/usb-mic/audiodev-wasapi.cpp
 	)
-	
+
 	LIST(APPEND SRCS_MSD
 		./src/usb-msd/usb-msd-win32.cpp
 	)
@@ -275,15 +283,18 @@ IF(WIN32)
 		./src/qemu-usb/input-keymap-win32-to-qcode.cpp
 	)
 
-	LIST(APPEND SRCS_HID
-	#	./src/usb-hid/win32/mouse.cpp
-		./src/usb-hid/raw/usb-hid-raw.cpp
+	LIST(APPEND HDRS_HID
+		./src/usb-hid/raw/rawinput.h
 	)
 
-	# These two eventually contain only code that manages raw/dx configurations
+	LIST(APPEND SRCS_HID
+	#	./src/usb-hid/win32/mouse.cpp
+		./src/usb-hid/raw/rawinput.cpp
+	)
+
 	LIST(APPEND HDRS ${HDRS_WIN32})
 	LIST(APPEND SRCS ${SRCS_WIN32})
-	
+
 	SOURCE_GROUP("Header Files\\Win32" FILES ${HDRS_WIN32})
 	SOURCE_GROUP("Header Files" FILES ${HDRS_PLG})
 	SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
@@ -303,6 +314,12 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
 	SOURCE_GROUP("Source Files\\shared" FILES ${SRCS_SHARED})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
+
+	FOREACH(file ${SRCS_API_INITS})
+		get_filename_component(api_dir "${file}" DIRECTORY )
+		get_filename_component(api_dir "${api_dir}" NAME )
+		SOURCE_GROUP("Source Files\\${api_dir}" FILES "${file}")
+	ENDFOREACH()
 
 	IF(PLUGIN_BUILD_DX)
 		ADD_DEFINITIONS(-DBUILD_DX=1)
@@ -327,6 +344,7 @@ IF(WIN32)
 			./src/usb-pad/dx/global.h
 			./src/usb-pad/dx/ini.h
 			./src/usb-pad/dx/versionproxy.h
+			./src/usb-pad/dx/usb-pad-dx.h
 		)
 		LIST(APPEND SRCS_DX
 			./src/usb-pad/dx/usb-pad-dx.cpp
@@ -342,7 +360,7 @@ IF(WIN32)
 	IF(PLUGIN_BUILD_RAW)
 		ADD_DEFINITIONS(-DBUILD_RAW=1)
 		LIST(APPEND HDRS_RAW
-			./src/usb-pad/raw/raw-config.h
+			./src/usb-pad/raw/usb-pad-raw.h
 			./src/usb-pad/raw/raw-config-res.h
 		)
 		LIST(APPEND SRCS_RAW
@@ -364,6 +382,7 @@ IF(WIN32)
 	IF(MSVC)
 		MESSAGE("Adding parallel build flag to CMAKE_CXX_FLAGS")
 		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /DNOMINMAX")
 	ENDIF()
 ENDIF(WIN32)
 
@@ -372,6 +391,8 @@ ENDIF(WIN32)
 #
 
 IF(UNIX)
+	FILE(GLOB SRCS_API_INITS ./src/*/api_init_linux.cpp)
+
 	LIST(APPEND HDRS 
 		./src/linux/ini.h
 		./src/linux/actualfile.h
@@ -415,6 +436,9 @@ IF(UNIX)
 
 	IF(PLUGIN_BUILD_PULSE)
 
+		LIST(APPEND HDRS_MIC
+			./src/usb-mic/audiodev-pulse.h
+		)
 		LIST(APPEND SRCS_MIC
 			./src/usb-mic/audiodev-pulse.cpp
 		)
@@ -452,7 +476,7 @@ ENDIF()
 #
 
 LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_SHARED} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_SHARED})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_SHARED} ${SRCS_API_INITS})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)

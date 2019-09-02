@@ -1,6 +1,6 @@
-#include "../deviceproxy.h"
-#include "../qemu-usb/desc.h"
 #include "padproxy.h"
+#include "usb-pad.h"
+#include "../qemu-usb/desc.h"
 
 namespace usb_pad {
 
@@ -16,67 +16,47 @@ static const USBDescStrings pad_dfp_desc_strings = {
 	"Driving Force Pro"
 };
 
-static const USBDescStrings pad_rb1_desc_strings = {
+static const USBDescStrings rb1_desc_strings = {
 	"1234567890AB",
 	"Licensed by Sony Computer Entertainment America",
 	"Harmonix Drum Kit for PlayStation(R)3"
 };
 
-class PadDevice : public Device
+void PadDevice::Initialize()
 {
-public:
-	virtual ~PadDevice() {}
-	static USBDevice* CreateDevice(int port);
-	static const TCHAR* Name()
-	{
-		return TEXT("Pad/Wheel device");
-	}
-	static const char* TypeName()
-	{
-		return "pad";
-	}
-	static std::list<std::string> ListAPIs()
-	{
-		return RegisterPad::instance().Names();
-	}
-	static const TCHAR* LongAPIName(const std::string& name)
-	{
-		auto proxy = RegisterPad::instance().Proxy(name);
-		if (proxy)
-			return proxy->Name();
-		return nullptr;
-	}
-	static int Configure(int port, const std::string& api, void *data);
-	static int Freeze(int mode, USBDevice *dev, void *data);
-};
+	RegisterPad::Initialize();
+}
 
-class RBDrumKitDevice : public Device
+std::list<std::string> PadDevice::ListAPIs()
 {
-public:
-	virtual ~RBDrumKitDevice() {}
-	static USBDevice* CreateDevice(int port);
-	static const TCHAR* Name()
-	{
-		return TEXT("Rock Band drum kit");
-	}
-	static const char* TypeName()
-	{
-		return "rbdrumkit";
-	}
-	static std::list<std::string> ListAPIs()
-	{
-		return RegisterPad::instance().Names();
-	}
-	static const TCHAR* LongAPIName(const std::string& name)
-	{
-		auto proxy = RegisterPad::instance().Proxy(name);
-		if (proxy)
-			return proxy->Name();
-		return nullptr;
-	}
-	static int Configure(int port, const std::string& api, void *data);
-	static int Freeze(int mode, USBDevice *dev, void *data);
-};
+	return RegisterPad::instance().Names();
+}
+
+const TCHAR* PadDevice::LongAPIName(const std::string& name)
+{
+	auto proxy = RegisterPad::instance().Proxy(name);
+	if (proxy)
+		return proxy->Name();
+	return nullptr;
+}
+
+void RBDrumKitDevice::Initialize()
+{
+	RegisterPad::Initialize();
+}
+
+std::list<std::string> RBDrumKitDevice::ListAPIs()
+{
+	return RegisterPad::instance().Names();
+}
+
+const TCHAR* RBDrumKitDevice::LongAPIName(const std::string& name)
+{
+	auto proxy = RegisterPad::instance().Proxy(name);
+	if (proxy)
+		return proxy->Name();
+	return nullptr;
+}
 
 #ifdef _DEBUG
 void PrintBits(void * data, int size)
@@ -584,7 +564,7 @@ USBDevice *RBDrumKitDevice::CreateDevice(int port)
 	PADState *s = new PADState();
 
 	s->desc.full = &s->desc_dev;
-	s->desc.str = pad_desc_strings;
+	s->desc.str = rb1_desc_strings;
 
 	if (usb_desc_parse_dev(rb1_dev_descriptor, sizeof(rb1_dev_descriptor), s->desc, s->desc_dev) < 0)
 		goto fail;

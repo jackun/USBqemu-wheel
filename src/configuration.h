@@ -53,6 +53,9 @@ void LoadConfig();
 extern std::map<std::pair<int /*port*/, std::string /*devname*/>, std::string> changedAPIs;
 std::string GetSelectedAPI(const std::pair<int /*port*/, std::string /*devname*/>& pair);
 
+bool OpenConfig();
+void CloseConfig();
+
 #ifdef _WIN32
 #include "Win32/Config.h"
 #else

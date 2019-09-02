@@ -17,6 +17,8 @@
 #define le32_to_cpu(x) (x)
 #define cpu_to_le32(x) (x)
 
+namespace usb_msd {
+
 struct usb_msd_cbw {
     uint32_t sig;
     uint32_t tag;
@@ -1085,3 +1087,4 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
 REGISTER_DEVICE(DEVTYPE_MSD, MsdDevice);
 #undef DPRINTF
 #undef APINAME
+} //namespace

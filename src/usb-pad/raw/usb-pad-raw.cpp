@@ -1,68 +1,8 @@
-#include <thread>
-#include <array>
-#include <atomic>
-#include "../padproxy.h"
 #include "../../USB.h"
 #include "../../Win32/Config-win32.h"
-#include "raw-config.h"
-#include "readerwriterqueue/readerwriterqueue.h"
+#include "usb-pad-raw.h"
 
 namespace usb_pad { namespace raw {
-
-class RawInputPad : public Pad, shared::rawinput::ParseRawInputCB
-{
-public:
-	RawInputPad(int port, const char* dev_type) : Pad(port, dev_type)
-	, mDoPassthrough(false)
-	, mUsbHandle(INVALID_HANDLE_VALUE)
-	, mWriterThreadIsRunning(false)
-	, mReaderThreadIsRunning(false)
-	{
-		if (!InitHid())
-			throw PadError("InitHid() failed!");
-	}
-	~RawInputPad()
-	{ 
-		Close();
-		if (mWriterThread.joinable())
-			mWriterThread.join();
-	}
-	int Open();
-	int Close();
-	int TokenIn(uint8_t *buf, int len);
-	int TokenOut(const uint8_t *data, int len);
-	int Reset()
-	{
-		uint8_t reset[7] = { 0 };
-		reset[0] = 0xF3; //stop forces
-		TokenOut(reset, sizeof(reset));
-		return 0;
-	}
-	void ParseRawInput(PRAWINPUT pRawInput);
-
-	static const TCHAR* Name()
-	{
-		return TEXT("Raw Input");
-	}
-
-	static int Configure(int port, const char* dev_type, void *data);
-protected:
-	static void WriterThread(void *ptr);
-	static void ReaderThread(void *ptr);
-	HIDP_CAPS mCaps;
-	HANDLE mUsbHandle = (HANDLE)-1;
-	OVERLAPPED mOLRead;
-	OVERLAPPED mOLWrite;
-
-	bool mDoPassthrough;
-	wheel_data_t mDataCopy;
-	std::thread mWriterThread;
-	std::thread mReaderThread;
-	std::atomic<bool> mWriterThreadIsRunning;
-	std::atomic<bool> mReaderThreadIsRunning;
-	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 8>, 32> mFFData;
-	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 32>, 16> mReportData; //TODO 32 is random
-};
 
 void RawInputPad::WriterThread(void *ptr)
 {
@@ -110,7 +50,7 @@ void RawInputPad::ReaderThread(void *ptr)
 			if (!pad->mReportData.try_enqueue(report)) // TODO May leave queue with too stale data. Use multi-producer/consumer queue?
 			{
 				if (!errCount)
-					OSDebugOut(TEXT("Could not enqueue report data: %d\n"), pad->mReportData.size_approx());
+					fprintf(stderr, "%s: Could not enqueue report data: %d\n", APINAME, pad->mReportData.size_approx());
 				errCount = (++errCount) % 16;
 			}
 		}
@@ -449,7 +389,7 @@ void RawInputPad::ParseRawInput(PRAWINPUT pRawInput)
 {
 	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
 		ParseRawInputKB(pRawInput);
-	else
+	else if(pRawInput->header.dwType == RIM_TYPEHID)
 		ParseRawInputHID(pRawInput);
 }
 
@@ -482,7 +422,7 @@ int RawInputPad::Open()
 
 		HidD_GetAttributes(mUsbHandle, &(attr));
 		if (attr.VendorID != PAD_VID) {
-			fwprintf(stderr, TEXT("USBqemu [" APINAME "]: Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
+			fwprintf(stderr, TEXT("USBqemu: Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
 			mDoPassthrough = false;
 			Close();
 			return 0;
@@ -511,7 +451,7 @@ int RawInputPad::Open()
 		return 0;
 	}
 	else
-		fwprintf(stderr, TEXT("USBqemu [" APINAME "]: Could not open device '%s'.\nPassthrough and FFB will not work.\n"), path.c_str());
+		fwprintf(stderr, TEXT("USBqemu: Could not open device '%s'.\nPassthrough and FFB will not work.\n"), path.c_str());
 
 	return 0;
 }

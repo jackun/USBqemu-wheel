@@ -62,61 +62,41 @@ typedef struct UsbHIDState {
 
 } UsbHIDState;
 
-class HIDKbdDevice : public Device
+std::list<std::string> HIDKbdDevice::ListAPIs()
 {
-public:
-    virtual ~HIDKbdDevice() {}
-    static USBDevice* CreateDevice(int port);
-    static const TCHAR* Name()
-    {
-        return TEXT("HID Keyboard");
-    }
-    static const char* TypeName()
-    {
-        return "hidkbd";
-    }
-    static std::list<std::string> ListAPIs()
-    {
-        return RegisterUsbHID::instance().Names();
-    }
-    static const TCHAR* LongAPIName(const std::string& name)
-    {
-        auto proxy = RegisterUsbHID::instance().Proxy(name);
-        if (proxy)
-            return proxy->Name();
-        return nullptr;
-    }
-    static int Configure(int port, const std::string& api, void *data);
-    static int Freeze(int mode, USBDevice *dev, void *data);
-};
+    return RegisterUsbHID::instance().Names();
+}
 
-class HIDMouseDevice : public Device
+const TCHAR* HIDKbdDevice::LongAPIName(const std::string& name)
 {
-public:
-    virtual ~HIDMouseDevice() {}
-    static USBDevice* CreateDevice(int port);
-    static const TCHAR* Name()
-    {
-        return TEXT("HID Mouse");
-    }
-    static const char* TypeName()
-    {
-        return "hidmouse";
-    }
-    static std::list<std::string> ListAPIs()
-    {
-        return RegisterUsbHID::instance().Names();
-    }
-    static const TCHAR* LongAPIName(const std::string& name)
-    {
-        auto proxy = RegisterUsbHID::instance().Proxy(name);
-        if (proxy)
-            return proxy->Name();
-        return nullptr;
-    }
-    static int Configure(int port, const std::string& api, void *data);
-    static int Freeze(int mode, USBDevice *dev, void *data);
-};
+    auto proxy = RegisterUsbHID::instance().Proxy(name);
+    if (proxy)
+        return proxy->Name();
+    return nullptr;
+}
+
+void HIDKbdDevice::Initialize()
+{
+    RegisterUsbHID::Initialize();
+}
+
+std::list<std::string> HIDMouseDevice::ListAPIs()
+{
+    return RegisterUsbHID::instance().Names();
+}
+
+const TCHAR* HIDMouseDevice::LongAPIName(const std::string& name)
+{
+    auto proxy = RegisterUsbHID::instance().Proxy(name);
+    if (proxy)
+        return proxy->Name();
+    return nullptr;
+}
+
+void HIDMouseDevice::Initialize()
+{
+    RegisterUsbHID::Initialize();
+}
 
 enum {
     STR_MANUFACTURER = 1,

@@ -2,9 +2,9 @@
 #include "../Win32/Config-win32.h"
 #include "../Win32/resource.h"
 
-#define APINAME "cstdio"
-static OPENFILENAMEW ofn;
+namespace usb_msd {
 
+static OPENFILENAMEW ofn;
 BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	int port;
 	static wchar_t buff[4096] = { 0 };
@@ -84,4 +84,4 @@ bool MsdDevice::LoadSettings(int port, TSTDSTRING& path)
 bool MsdDevice::SaveSettings(int port, TSTDSTRING& path)
 {
 }*/
-#undef APINAME
+}

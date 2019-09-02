@@ -1,5 +1,6 @@
 #ifndef PADPROXY_H
 #define PADPROXY_H
+#include <memory>
 #include <string>
 #include <map>
 #include <list>
@@ -23,6 +24,7 @@ class PadProxyBase : public ProxyBase
 	PadProxyBase(const PadProxyBase&) = delete;
 
 	public:
+	PadProxyBase() {}
 	PadProxyBase(const std::string& name);
 	virtual Pad* CreateObject(int port, const char* dev_type) const = 0;
 };
@@ -33,6 +35,8 @@ class PadProxy : public PadProxyBase
 	PadProxy(const PadProxy&) = delete;
 
 	public:
+	PadProxy() { OSDebugOut(TEXT("%" SFMTs "\n"), T::Name()); }
+	~PadProxy() { OSDebugOut(TEXT("%p\n"), this); }
 	PadProxy(const std::string& name): PadProxyBase(name) {}
 	Pad* CreateObject(int port, const char *dev_type) const
 	{
@@ -62,22 +66,32 @@ class RegisterPad
 	RegisterPad() {}
 
 	public:
-	typedef std::map<std::string, PadProxyBase* > RegisterPadMap;
+	typedef std::map<std::string, std::unique_ptr<PadProxyBase> > RegisterPadMap;
 	static RegisterPad& instance() {
 		static RegisterPad registerPad;
 		return registerPad;
 	}
 
+	~RegisterPad() { Clear(); OSDebugOut("~RegisterPad()\n"); }
+
+	static void Initialize();
+
+	void Clear()
+	{
+		printf("registerPadMap.size: %d\n", registerPadMap.size());
+		registerPadMap.clear();
+	}
+
 	void Add(const std::string& name, PadProxyBase* creator)
 	{
-		registerPadMap[name] = creator;
+		registerPadMap[name] = std::unique_ptr<PadProxyBase>(creator);
 	}
 
 	PadProxyBase* Proxy(const std::string& name)
 	{
-		return registerPadMap[name];
+		return registerPadMap[name].get();
 	}
-	
+
 	std::list<std::string> Names() const
 	{
 		std::list<std::string> nameList;
@@ -101,13 +115,13 @@ class RegisterPad
 	{
 		return registerPadMap;
 	}
-	
+
 private:
 	RegisterPadMap registerPadMap;
 };
 
 #ifndef REGISTER_PAD
-#define REGISTER_PAD(name,cls) PadProxy<cls> g##cls##Proxy(name)
+#define REGISTER_PAD(name,cls) //PadProxy<cls> g##cls##Proxy(name)
 #endif
 } //namespace
 #endif

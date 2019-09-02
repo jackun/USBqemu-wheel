@@ -9,6 +9,8 @@
 
 namespace usb_hid { namespace evdev {
 
+static const char *APINAME = "evdev";
+
 class EvDev : public UsbHID
 {
 public:
