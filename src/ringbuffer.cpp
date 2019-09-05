@@ -168,6 +168,7 @@ void RingBuffer::write(size_t bytes)
 	else
 		m_end = (m_end + bytes) % m_capacity;
 
+	mLastWrite = hrc::now();
 	DPRINTF(TEXT("write %zu begin %zu end %zu -> %zu\n"), bytes, m_begin, before, m_end);
 }
 

@@ -344,6 +344,10 @@ uint32_t PulseAudioDevice::GetBuffer(short *buff, uint32_t frames)
 		pDst += samples;
 		samples_to_read -= samples;
 	}
+	OSDebugOut("Since last write: %lld ms, left in buffer: %0.03f ms / %d bytes\n",
+		mOutBuffer.MilliSecsSinceLastWrite(),
+		1000.f * mOutBuffer.peek_read<short>() / mSamplesPerSec / mSSpec.channels,
+		mOutBuffer.peek_read());
 	return (frames - (samples_to_read / GetChannels()));
 }
 
