@@ -241,7 +241,7 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 		switch(value >> 8) {
 		case 0x22:
 			OSDebugOut(TEXT("Sending hid report desc.\n"));
-			if (t == WT_DRIVING_FORCE_PRO)
+			if (t == WT_DRIVING_FORCE_PRO || t == WT_DRIVING_FORCE_PRO_1102)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
