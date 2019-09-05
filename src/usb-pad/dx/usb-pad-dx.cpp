@@ -71,8 +71,8 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 			mWheelData.steering = (range>>1)+(int)(GetControl(mPort, STEERING, false)* (float)(range>>1)) ;
 		}
 
-		mWheelData.throttle = 255-(int)(GetControl(mPort, THROTTLE, false)*255.0f);
-		mWheelData.brake = 255-(int)(GetControl(mPort, BRAKE, false)*255.0f);
+		mWheelData.throttle = (int)(255.f - (GetControl(mPort, THROTTLE, false) * 255.0f));
+		mWheelData.brake    = (int)(255.f - (GetControl(mPort, BRAKE, false) * 255.0f));
 
 		if(GetControl(mPort, CROSS, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
 		if(GetControl(mPort, SQUARE, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
