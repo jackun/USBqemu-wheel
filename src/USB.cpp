@@ -576,13 +576,12 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			ptr += usbd.device[i].size;
 		}
 
-		*(USBfreezeData*)data->data = usbd;
-
 		USBPacket *p = &qemu_ohci->usb_packet;
 		usbd.usb_packet.data_size = p->actual_length;
 		QEMUIOVector *iov = p->combined ? &p->combined->iov : &p->iov;
 		iov_to_buf(iov->iov, iov->niov, 0, ptr, p->actual_length);
 
+		*(USBfreezeData*)data->data = usbd;
 	}
 	else if (mode == FREEZE_SIZE)
 	{
