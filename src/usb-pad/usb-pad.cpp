@@ -212,12 +212,12 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 			goto fail;
 
 		// Change PID according to selected wheel
-		if ((value >> 8) == USB_DT_DEVICE) {
-			if (t == WT_DRIVING_FORCE_PRO)
+		/*if ((value >> 8) == USB_DT_DEVICE) {
+			if (t == WT_DRIVING_FORCE_PRO || t == WT_DRIVING_FORCE_PRO_1102)
 				*(uint16_t*)&data[10] = PID_DFP;
 			else if (t == WT_GT_FORCE)
 				*(uint16_t*)&data[10] = PID_FFGP;
-		}
+		}*/
 
 		break;
 		/* hid specific requests */
