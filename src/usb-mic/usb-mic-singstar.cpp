@@ -687,7 +687,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 			}
 
 			if (file)
-				fwrite(dst, sizeof(*dst), ret * outChns, file);
+				fwrite(dst, 1, ret, file);
 #endif
         }
         break;
