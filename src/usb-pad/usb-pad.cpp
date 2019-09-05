@@ -4,16 +4,24 @@
 
 namespace usb_pad {
 
-static const USBDescStrings pad_desc_strings = {
+static const USBDescStrings df_desc_strings = {
+	"",
+	"Logitech Driving Force",
 	"",
 	"Logitech",
-	"Driving Force"
 };
 
-static const USBDescStrings pad_dfp_desc_strings = {
+static const USBDescStrings dfp_desc_strings = {
+	"",
+	"Logitech Driving Force Pro",
 	"",
 	"Logitech",
-	"Driving Force Pro"
+};
+
+static const USBDescStrings gtf_desc_strings = {
+	"",
+	"Logitech", //actual index @ 0x04
+	"Logitech GT Force" //actual index @ 0x20
 };
 
 static const USBDescStrings rb1_desc_strings = {
@@ -245,8 +253,8 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 			}
 			else
 			{
-				ret = sizeof(pad_driving_force_hid_report_descriptor);
-				memcpy(data, pad_driving_force_hid_report_descriptor, ret);
+				ret = sizeof(pad_driving_force_hid_separate_report_descriptor);
+				memcpy(data, pad_driving_force_hid_separate_report_descriptor, ret);
 			}
 			p->actual_length = ret;
 			break;
@@ -339,6 +347,21 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 		break;
 	case WT_DRIVING_FORCE_PRO:
+
+		w->lo = data.steering & 0x3FFF;
+		w->lo |= (data.buttons & 0x3FFF) << 14;
+		w->lo |= (data.hatswitch & 0xF) << 28;
+
+		w->hi = 0x00;
+		w->hi |= data.throttle << 8;
+		w->hi |= data.brake << 16; //axis_rz
+		w->hi |= 0x11 << 24; //enables wheel and pedals?
+
+		//PrintBits(w, sizeof(*w));
+		OSDebugOut(TEXT("DFP thr: %u brake: %u\n"), (w->hi >> 8) & 0xFF, (w->hi >> 16) & 0xFF);
+
+		break;
+	case WT_DRIVING_FORCE_PRO_1102:
 
 		// what's up with the bitmap?
 		// xxxxxxxx xxxxxxbb bbbbbbbb bbbbhhhh ???????? ?01zzzzz 1rrrrrr1 10001000
@@ -459,29 +482,45 @@ USBDevice *PadDevice::CreateDevice(int port)
 	PADState *s = new PADState();
 
 	s->desc.full = &s->desc_dev;
-	s->desc.str = pad_desc_strings;
+	s->desc.str = df_desc_strings;
 
+	const uint8_t *dev_desc = df_dev_descriptor;
+	int dev_desc_len = sizeof(df_dev_descriptor);
 	const uint8_t *config_desc = df_config_descriptor;
 	int config_desc_len = sizeof(df_config_descriptor);
 
 	switch (pad->Type()) {
 		case WT_DRIVING_FORCE_PRO:
 		{
-			s->desc.str = pad_dfp_desc_strings;
+			dev_desc = dfp_dev_descriptor;
+			dev_desc_len = sizeof(dfp_dev_descriptor);
 			config_desc = dfp_config_descriptor;
 			config_desc_len = sizeof(dfp_config_descriptor);
+			s->desc.str = dfp_desc_strings;
+		}
+		break;
+		case WT_DRIVING_FORCE_PRO_1102:
+		{
+			dev_desc = dfp_dev_descriptor_1102;
+			dev_desc_len = sizeof(dfp_dev_descriptor_1102);
+			config_desc = dfp_config_descriptor;
+			config_desc_len = sizeof(dfp_config_descriptor);
+			s->desc.str = dfp_desc_strings;
 		}
 		break;
 		case WT_GT_FORCE:
 		{
+			dev_desc = gtf_dev_descriptor;
+			dev_desc_len = sizeof(gtf_dev_descriptor);
 			config_desc = gtforce_config_descriptor; //TODO
 			config_desc_len = sizeof(gtforce_config_descriptor);
+			s->desc.str = gtf_desc_strings;
 		}
 		default:
 		break;
 	}
 
-	if (usb_desc_parse_dev (pad_dev_descriptor, sizeof(pad_dev_descriptor), s->desc, s->desc_dev) < 0)
+	if (usb_desc_parse_dev (dev_desc, dev_desc_len, s->desc, s->desc_dev) < 0)
 		goto fail;
 	if (usb_desc_parse_config (config_desc, config_desc_len, s->desc_dev) < 0)
 		goto fail;
@@ -497,7 +536,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 	s->dev.klass.open           = pad_open;
 	s->dev.klass.close          = pad_close;
 	s->dev.klass.usb_desc       = &s->desc;
-	s->dev.klass.product_desc   = s->desc.str[2];
+	s->dev.klass.product_desc   = s->desc.str[2]; //not really used
 	s->port = port;
 
 	usb_desc_init(&s->dev);

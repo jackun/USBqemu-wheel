@@ -1,6 +1,7 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #include <atomic>
+#include "usb-pad/lg/lg_ff.h"
 
 #define SAFE_DELETE(p)  { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }
@@ -96,6 +97,7 @@ void ReleaseFFB(int port)
 
 void CreateFFB(int port, DWORD joy)
 {
+	HRESULT hres = 0;
 	ReleaseFFB(port);
 
 	if (joy >= numj)
@@ -134,26 +136,26 @@ void CreateFFB(int port, DWORD joy)
 
 		eff.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
 		eff.lpvTypeSpecificParams = &cfw;
-		g_pJoysticks[joy]->CreateEffect(GUID_ConstantForce, &eff, &g_pEffect[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_ConstantForce, &eff, &g_pEffect[port], NULL);
 
 		cSpring.lNegativeCoefficient = 0;
 		cSpring.lPositiveCoefficient = 0;
 
 		effSpring.cbTypeSpecificParams = sizeof(DICONDITION);
 		effSpring.lpvTypeSpecificParams = &cSpring;
-		g_pJoysticks[joy]->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
 
 		effFriction.cbTypeSpecificParams = sizeof(DICONDITION);
 		effFriction.lpvTypeSpecificParams = &cFriction;
-		g_pJoysticks[joy]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
 
 		effRamp.cbTypeSpecificParams = sizeof(DIRAMPFORCE);
 		effRamp.lpvTypeSpecificParams = &cRamp;
-		g_pJoysticks[joy]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
 
 		effDamper.cbTypeSpecificParams = sizeof(DICONDITION);
 		effDamper.lpvTypeSpecificParams = &cDamper;
-		g_pJoysticks[joy]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
 
 		FFBindex[port] = joy;
 		FFB[port] = true;
@@ -708,7 +710,7 @@ void SetRampVariable(int port, int forceids, const variable& var)
 	// Force0 only (Force2 is Y axis?)
 	if (forceids & 1)
 	{
-		int force = var.initial1;
+		int force = var.l1;
 		int dir = (var.d1 & 1 ? 1 : -1);
 
 		if (INVERTFORCES[port])
@@ -806,6 +808,38 @@ void SetSpringForce(int port, const spring& spring, bool hires, bool isdfp)
 			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
 
+void SetSpringForceGIMX(int port, const spring& spring, int caps)
+{
+	cSpring.dwNegativeSaturation = spring.clip * DI_FFNOMINALMAX / 255;
+	cSpring.dwPositiveSaturation = cSpring.dwNegativeSaturation;
+
+	cSpring.lNegativeCoefficient =
+		ff_lg_get_condition_coef(caps, spring.k1, spring.s1, DI_FFNOMINALMAX);
+	cSpring.lPositiveCoefficient =
+		ff_lg_get_condition_coef(caps, spring.k2, spring.s2, DI_FFNOMINALMAX);
+
+	if (caps & FF_LG_CAPS_HIGH_RES_DEADBAND)
+	{
+		uint16_t d2 = ff_lg_get_spring_deadband(caps, spring.dead2, (spring.s2 >> 1) & 0x7);
+		uint16_t d1 = ff_lg_get_spring_deadband(caps, spring.dead1, (spring.s1 >> 1) & 0x7);
+		cSpring.lOffset = ff_lg_u16_to_s16((d1 + d2) / 2) * DI_FFNOMINALMAX / 0x7FFF;
+		cSpring.lDeadBand = (d2 - d1) * DI_FFNOMINALMAX / 0x7FFF;
+	}
+	else
+	{
+		cSpring.lOffset = ff_lg_u8_to_s16((spring.dead1 + spring.dead2) / 2, DI_FFNOMINALMAX);
+		cSpring.lDeadBand = ff_lg_u8_to_u16(spring.dead2 - spring.dead1, DI_FFNOMINALMAX);
+	}
+
+	OSDebugOut(TEXT("spring: %d  %d coeff:%d/%d sat:%d/%d\n"),
+		cSpring.lOffset, cSpring.lDeadBand,
+		cSpring.lNegativeCoefficient, cSpring.lPositiveCoefficient,
+		cSpring.dwNegativeSaturation, cSpring.dwPositiveSaturation);
+
+	if (g_pEffectSpring[port])
+			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
 void DisableSpring(int port)
 {
 	if (g_pEffectSpring[port])
@@ -827,7 +861,22 @@ void SetDamper(int port, const damper& damper, bool isdfp)
 	}
 
 	if (g_pEffectDamper[port])
-		g_pEffectDamper[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+		g_pEffectDamper[port]->SetParameters(&effDamper, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
+void SetDamperGIMX(int port, const damper& damper, int caps)
+{
+	cDamper.lNegativeCoefficient = ff_lg_get_condition_coef(caps, damper.k1, damper.s1, DI_FFNOMINALMAX);
+	cDamper.lPositiveCoefficient = ff_lg_get_condition_coef(caps, damper.k2, damper.s2, DI_FFNOMINALMAX);
+	cDamper.dwNegativeSaturation = DI_FFNOMINALMAX;
+	cDamper.dwPositiveSaturation = DI_FFNOMINALMAX;
+	cDamper.lOffset = 0;
+	cDamper.lDeadBand = 0;
+
+	OSDebugOut(TEXT("damper %d/%d\n"), cDamper.lNegativeCoefficient, cDamper.lPositiveCoefficient);
+
+	if (g_pEffectDamper[port])
+		g_pEffectDamper[port]->SetParameters(&effDamper, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
 
 void DisableDamper(int port)
@@ -866,6 +915,10 @@ void SetFrictionForce(int port, const friction& frict)
 
 	cFriction.dwNegativeSaturation = DI_FFNOMINALMAX * frict.clip / 255;
 	cFriction.dwPositiveSaturation = cFriction.dwNegativeSaturation;
+
+	OSDebugOut(TEXT("friction %d/%d %d\n"),
+		cFriction.lNegativeCoefficient, cFriction.lPositiveCoefficient,
+		cFriction.dwNegativeSaturation);
 
 	if (g_pEffectFriction[port])
 		g_pEffectFriction[port]->SetParameters(&effFriction, DIEP_TYPESPECIFICPARAMS | DIEP_START);

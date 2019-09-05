@@ -120,13 +120,15 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				PopulateAPIs(hW, 1);
 			}
 
-			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro (rev11.02)");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"GT Force");
 			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_SETCURSEL, conf.WheelType[0], 0);
 
-			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro (rev11.02)");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"GT Force");
 			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_SETCURSEL, conf.WheelType[1], 0);
 

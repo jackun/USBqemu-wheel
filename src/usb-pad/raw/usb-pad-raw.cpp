@@ -288,7 +288,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					//fprintf(stderr, "X: %d\n", value);
 					// Need for logical min too?
 					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / (pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin);
-					if(type == WT_DRIVING_FORCE_PRO)
+					if(type == WT_DRIVING_FORCE_PRO || type == WT_DRIVING_FORCE_PRO_1102)
 						mapping->data[j].steering = (value * 0x3FFF) / pValueCaps[i].LogicalMax;
 					else
 						//XXX Limit value range to 0..1023 if using 'generic' wheel descriptor

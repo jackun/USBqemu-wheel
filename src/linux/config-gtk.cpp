@@ -223,7 +223,7 @@ void CALLBACK USBconfigure() {
 	settingsCB[0].player = 0;
 	settingsCB[1].player = 1;
 
-	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
+	const char* wt[] = {"Driving Force", "Driving Force Pro", "Driving Force Pro (rev11.02)", "GT Force"};
 	const char *ports[] = {"Port 1:", "Port 2:"};
 
 	GtkWidget *rs_cb, *vbox;
