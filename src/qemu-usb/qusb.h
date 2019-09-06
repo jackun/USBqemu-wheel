@@ -171,6 +171,7 @@
 #define GET_REPORT   0xa101
 #define GET_IDLE     0xa102
 #define GET_PROTOCOL 0xa103
+#define SET_REPORT   0x2109
 #define SET_IDLE     0x210a
 #define SET_PROTOCOL 0x210b
 
