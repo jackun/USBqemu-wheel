@@ -475,10 +475,10 @@ int EvDevPad::Open()
 				// For safety, only allow Logitech devices
 				if (ioctl(mHidHandle, HIDIOCGRAWINFO, &info) < 0) {
 					perror("HIDIOCGRAWINFO");
-				} else {
-					if (info.vendor != 0x046D /* Logitech */ /*|| info.bustype != BUS_USB*/) {
-						mUseRawFF = false;
-					}
+				}
+
+				if (info.vendor != 0x046D /* Logitech */ /*|| info.bustype != BUS_USB*/) {
+					mUseRawFF = false;
 				}
 
 				close(fd);
