@@ -243,7 +243,7 @@ pa_context *pa_context_new(pa_mainloop_api *mainloop, const char *name)
 	return NULL;
 }
 
-pa_context_state_t pa_context_get_state(pa_context *c)
+pa_context_state_t pa_context_get_state(const pa_context *c)
 {
 	if (pfn_pa_context_get_state)
 		return pfn_pa_context_get_state(c);
@@ -278,7 +278,7 @@ pa_operation* pa_context_get_source_info_list(pa_context *c, pa_source_info_cb_t
 	return NULL;
 }
 
-pa_operation_state_t pa_operation_get_state(pa_operation *o)
+pa_operation_state_t pa_operation_get_state(const pa_operation *o)
 {
 	if (pfn_pa_operation_get_state)
 		return pfn_pa_operation_get_state(o);
@@ -425,7 +425,7 @@ int pa_stream_write(pa_stream *p, const void *data, size_t nbytes, pa_free_cb_t 
 	return PA_ERR_NOTIMPLEMENTED;
 }
 
-pa_stream_state_t pa_stream_get_state(pa_stream *p)
+pa_stream_state_t pa_stream_get_state(const pa_stream *p)
 {
 	if (pfn_pa_stream_get_state)
 		return pfn_pa_stream_get_state(p);
@@ -439,7 +439,7 @@ pa_operation* pa_stream_cork(pa_stream *s, int b, pa_stream_success_cb_t cb, voi
 	return NULL;
 }
 
-int pa_stream_is_corked(pa_stream *s)
+int pa_stream_is_corked(const pa_stream *s)
 {
 	if (pfn_pa_stream_is_corked)
 		return pfn_pa_stream_is_corked (s);
@@ -470,7 +470,7 @@ void pa_threaded_mainloop_wait(pa_threaded_mainloop *m)
 		pfn_pa_threaded_mainloop_wait(m);
 }
 
-int pa_stream_is_suspended(pa_stream *s)
+int pa_stream_is_suspended(const pa_stream *s)
 {
 	if (pfn_pa_stream_is_suspended)
 		return pfn_pa_stream_is_suspended(s);
