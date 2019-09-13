@@ -34,7 +34,7 @@ private:
 	ff_effect mEffect;
 	ff_effect mEffRumble;
 	ff_state mFFstate;
-	int mEffIds[3] = {-1, -1, -1}; //save ids just in case
+	int mEffIds[4] = {-1, -1, -1, -1}; //save ids just in case
 
 	bool mUseRumble;
 	int mLastValue;
