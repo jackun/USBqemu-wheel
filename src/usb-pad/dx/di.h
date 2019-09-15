@@ -47,11 +47,11 @@ DIJOYSTATE2 jsi[10] = {0};           // DInput joystick initial state
 
 
 DWORD numj = 0;							//current attached joysticks
-DWORD maxj = 10;						//maximum attached joysticks
+DWORD maxj = 30;						//maximum attached joysticks
 
 //dinput control mappings
 
-const DWORD numc = 20; //total control maps
+const DWORD numc = 100; //total control maps
 
 LONG AXISID[2][numc] = { { 0 } };
 LONG INVERT[2][numc] = { { 0 } };
