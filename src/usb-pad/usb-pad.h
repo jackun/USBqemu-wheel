@@ -809,10 +809,10 @@ static const uint8_t df_config_descriptor[] = {
 	/* Endpoint Descriptor */
 	USB_ENDPOINT_DESC_SIZE,
 	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
-	USB_ENDPOINT_OUT(1),                //EndpointAddress
+	USB_ENDPOINT_OUT(2),                //EndpointAddress
 	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x0A,                               //Interval 0x2 - 2ms (G27) , 0x0A default?
+	0x0A,                               //Interval
 };
 
 static const uint8_t dfp_config_descriptor[] = {
@@ -837,7 +837,7 @@ static const uint8_t dfp_config_descriptor[] = {
 	0,     // Interface string index
 
 	/* HID Class-Specific Descriptor */
-	0x09,                      // Size of this descriptor in bytes RRoj hack
+	0x09,                      // Size of this descriptor in bytes
 	USB_DT_HID,                // HID descriptor type
 	DESC_CONFIG_WORD(0x0100),  // HID Spec Release Number in BCD format (1.11)
 	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
@@ -850,77 +850,77 @@ static const uint8_t dfp_config_descriptor[] = {
 	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
 	USB_ENDPOINT_IN(1),                 //EndpointAddress
 	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
-	DESC_CONFIG_WORD(USB_PSIZE),        //size, might be 16 bytes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
 	0x0A,                               //Interval
 
 	/* Endpoint Descriptor */
 	USB_ENDPOINT_DESC_SIZE,
 	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
-	USB_ENDPOINT_OUT(1),                //EndpointAddress
+	USB_ENDPOINT_OUT(2),                //EndpointAddress
 	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
 	0x0A,                               //Interval
 };
 
 static const uint8_t gtforce_config_descriptor[] = {
-	0x09,   /* bLength */
+	USB_CONFIGURATION_DESC_SIZE,          /* bLength */
 	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-	WBVAL(41),                        /* wTotalLength */
+	WBVAL(41),                            /* wTotalLength */
 	0x01,                                 /* bNumInterfaces */
 	0x01,                                 /* bConfigurationValue */
 	0x00,                                 /* iConfiguration */
-	0xc0,               /* bmAttributes */
+	0xc0,                                 /* bmAttributes */
 	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
 
 	/* Interface Descriptor */
-	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
-	0x04,                   // INTERFACE descriptor type
+	USB_INTERFACE_DESC_SIZE,// Size of this descriptor in bytes
+	USB_DT_INTERFACE,       // INTERFACE descriptor type
 	0,                      // Interface Number
 	0,                      // Alternate Setting Number
 	2,                      // Number of endpoints in this intf
-	USB_CLASS_HID,               // Class code
+	USB_CLASS_HID,          // Class code
 	0,     // Subclass code
 	0,     // Protocol code
 	0,                      // Interface string index
 
 	/* HID Class-Specific Descriptor */
-	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
-	0x21,                // HID descriptor type
+	0x09,                // Size of this descriptor in bytes
+	USB_DT_HID,          // HID descriptor type
 	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
 	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
 	1,                      // Number of class descriptors, see usbcfg.h
-	0x22,//DSC_RPT,                // Report descriptor type
+	USB_DT_REPORT,          // Report descriptor type
 	DESC_CONFIG_WORD(sizeof(pad_gtforce_hid_report_descriptor)), // Size of the report descriptor
 
 	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_IN(1),                 //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x0A,                       //Interval
+	0x0A,                               //Interval
 
 	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_OUT(2),                //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x0A,                        //Interval
+	0x0A,                               //Interval
 };
 
 // Should be usb 2.0, but seems to make no difference with Rock Band games 
 static const uint8_t rb1_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bcdUSB              */ WBVAL(0x0110), //USB 1.1
 	/* bDeviceClass        */ 0x00, //(0)
 	/* bDeviceSubClass     */ 0x00, //(0)
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x40, //(64)
 	/* idVendor            */ WBVAL(0x12ba),
 	/* idProduct           */ WBVAL(0x0210),
-	/* bcdDevice           */ WBVAL(0x1000), //(26.00)
+	/* bcdDevice           */ WBVAL(0x1000), //(10.00)
 	/* iManufacturer       */ 0x01, //(1)
 	/* iProduct            */ 0x02, //(2)
 	/* iSerialNumber       */ 0x00, //(0)
