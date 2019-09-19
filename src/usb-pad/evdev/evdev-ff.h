@@ -6,14 +6,6 @@
 
 namespace usb_pad { namespace evdev {
 
-enum EffectID
-{
-	EFF_CONSTANT = 0,
-	EFF_SPRING,
-	EFF_DAMPER,
-	EFF_FRICTION,
-};
-
 class EvdevFF
 {
 public:
@@ -32,9 +24,8 @@ public:
 private:
 	int mHandle;
 	ff_effect mEffect;
-	ff_effect mEffRumble;
 	ff_state mFFstate;
-	int mEffIds[4] = {-1, -1, -1, -1}; //save ids just in case
+	int mEffIds[5] = {-1, -1, -1, -1, -1}; //save ids just in case
 
 	bool mUseRumble;
 	int mLastValue;
