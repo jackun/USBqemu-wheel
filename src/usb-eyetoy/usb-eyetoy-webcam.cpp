@@ -337,9 +337,7 @@ static void reset_i2c(EYETOYState *s)
 
 static void eyetoy_handle_reset(USBDevice *dev)
 {
-	/* XXX: do it */
 	reset_i2c((EYETOYState *)dev);
-	return;
 }
 
 static void eyetoy_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
@@ -388,7 +386,7 @@ static void eyetoy_handle_control(USBDevice *dev, USBPacket *p, int request, int
 					uint8_t val = s->regs[R51x_I2C_DATA];
 					if ((reg == 0x12) && (val & 0x80))
 					{
-						s->i2c_regs[reg] = val & ~0x80; //or skip?
+						s->i2c_regs[0x12] = val & ~0x80; //or skip?
 						reset_i2c(s);
 					}
 					else if (reg < sizeof(s->i2c_regs))
@@ -490,8 +488,7 @@ static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 				s->regs[0xea] ++;
 				counter = 0;
 			}
-			else if (s->frame_offset >= mjpg_frame_size)
-			{
+			else if (s->frame_offset >= mjpg_frame_size) {
 				s->frame_offset = 0;
 				data[3] = 0x51;
 				data[9] = 0x1; // discard, no data frame
