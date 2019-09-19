@@ -204,6 +204,15 @@ struct ff_state
 	bool deadband;
 };
 
+enum EffectID
+{
+	EFF_CONSTANT = 0,
+	EFF_SPRING,
+	EFF_DAMPER,
+	EFF_FRICTION,
+	EFF_RUMBLE,
+};
+
 class Pad
 {
 public:

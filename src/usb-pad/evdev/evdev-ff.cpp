@@ -62,33 +62,17 @@ EvdevFF::EvdevFF(int fd): mHandle(fd), mUseRumble(false)
 	mEffect.replay.length = 0x7FFFUL;  /* mseconds */
 	mEffect.replay.delay = 0;
 
-	mEffRumble.type = FF_RUMBLE;
-	mEffRumble.u.rumble.strong_magnitude = 0;
-	mEffRumble.u.rumble.weak_magnitude = 0;
-	mEffRumble.replay.length = 500;
-	mEffRumble.replay.delay = 0;
-	mEffRumble.id = -1;
-
 	SetGain(100);
 	SetAutoCenter(0);
 }
 
 EvdevFF::~EvdevFF()
 {
-	if (mEffIds[EFF_CONSTANT] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[EFF_CONSTANT]) == -1) {
-		OSDebugOut("Failed to unload constant force effect.\n");
-	}
-
-	if (mEffIds[EFF_SPRING] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[EFF_SPRING]) == -1) {
-		OSDebugOut("Failed to unload spring force effect.\n");
-	}
-
-	if (mEffIds[EFF_DAMPER] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[EFF_DAMPER]) == -1) {
-		OSDebugOut("Failed to unload damper force effect.\n");
-	}
-
-	if (mEffRumble.id != -1 && ioctl(mHandle, EVIOCRMFF, mEffRumble.id) == -1) {
-		OSDebugOut("Failed to unload rumble effect.\n");
+	for(int i=0; i<countof(mEffIds); i++)
+	{
+		if (mEffIds[i] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[i]) == -1) {
+			OSDebugOut("Failed to unload EffectID(%d) effect.\n", i);
+		}
 	}
 }
 
@@ -103,7 +87,7 @@ void EvdevFF::DisableForce(EffectID force)
 	}
 }
 
-void EvdevFF::SetConstantForce(int force)
+void EvdevFF::SetConstantForce(int level)
 {
 	struct input_event play;
 	play.type = EV_FF;
@@ -112,35 +96,41 @@ void EvdevFF::SetConstantForce(int force)
 	if (!mUseRumble) {
 		mEffect.type = FF_CONSTANT;
 		mEffect.id = mEffIds[EFF_CONSTANT];
-		mEffect.u.constant.level = ff_lg_u8_to_s16(force);
-		OSDebugOut("force: %d, level: %d\n", force, mEffect.u.constant.level);
+		mEffect.u.constant.level = level;
 
 		if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 			OSDebugOut("Failed to upload constant effect: %s\n", strerror(errno));
+			return;
 		}
 		play.code = mEffect.id;
 		mEffIds[EFF_CONSTANT] = mEffect.id;
 	} else {
 
-		mEffRumble.u.rumble.weak_magnitude = 0;
-		mEffRumble.u.rumble.strong_magnitude = 0;
+		mEffect.type = FF_RUMBLE;
+		mEffect.id = mEffIds[EFF_RUMBLE];
 
-		int mag = std::abs((128-force) * 65535 / 128);
+		mEffect.replay.length = 500;
+		mEffect.replay.delay = 0;
+		mEffect.u.rumble.weak_magnitude = 0;
+		mEffect.u.rumble.strong_magnitude = 0;
+
+		int mag = std::abs(level);
 		int diff = std::abs(mag - mLastValue);
 
 		// TODO random limits to cull down on too much rumble
 		if (diff > 8292 && diff < 32767)
-			mEffRumble.u.rumble.weak_magnitude = mag;
+			mEffect.u.rumble.weak_magnitude = mag;
 		if (diff / 8192 > 0)
-			mEffRumble.u.rumble.strong_magnitude = mag;
+			mEffect.u.rumble.strong_magnitude = mag;
 
 		mLastValue = mag;
 
-		if (ioctl(mHandle, EVIOCSFF, &(mEffRumble)) < 0) {
+		if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 			OSDebugOut("Failed to upload constant effect: %s\n", strerror(errno));
 			return;
 		}
-		play.code = mEffRumble.id;
+		play.code = mEffect.id;
+		mEffIds[EFF_RUMBLE] = mEffect.id;
 	}
 
 	if (write(mHandle, (const void*) &play, sizeof(play)) == -1) {
