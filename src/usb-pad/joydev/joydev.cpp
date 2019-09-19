@@ -255,10 +255,9 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 
 int JoyDevPad::TokenOut(const uint8_t *data, int len)
 {
-	if (!mEvdevFF) return len;
-	ff_data *ffdata = (ff_data*)data;
+	const ff_data *ffdata = (const ff_data*)data;
 	bool hires = (mType == WT_DRIVING_FORCE_PRO);
-	mEvdevFF->TokenOut(ffdata, hires);
+	ParseFFData(ffdata, hires);
 
 	return len;
 }
@@ -393,13 +392,13 @@ int JoyDevPad::Open()
 			}
 		}
 
-		if (!mEvdevFF && has_steering) {
+		if (!mFFdev && has_steering) {
 			if ((mHandleFF = open(event.str().c_str(), /*O_WRONLY*/ O_RDWR)) < 0)
 			{
 				OSDebugOut(APINAME ": Cannot open '%s'\n", event.str().c_str());
 			}
 			else
-				mEvdevFF = new evdev::EvdevFF(mHandleFF);
+				mFFdev = new evdev::EvdevFF(mHandleFF);
 		}
 		return 0;
 	}
@@ -411,8 +410,8 @@ quit:
 
 int JoyDevPad::Close()
 {
-	delete mEvdevFF;
-	mEvdevFF = nullptr;
+	delete mFFdev;
+	mFFdev = nullptr;
 
 	if(mHandleFF != -1)
 		close(mHandleFF);

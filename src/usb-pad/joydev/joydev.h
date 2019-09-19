@@ -29,7 +29,6 @@ class JoyDevPad : public Pad
 {
 public:
 	JoyDevPad(int port, const char* dev_type): Pad(port, dev_type)
-	, mEvdevFF(nullptr)
 	{
 	}
 
@@ -48,7 +47,6 @@ public:
 	static int Configure(int port, const char* dev_type, void *data);
 protected:
 	int mHandleFF;
-	evdev::EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
 	std::vector<device_data> mDevices;
 };
