@@ -191,6 +191,7 @@ SET(HDRS_PAD
 SET(SRCS_PAD
 #	./src/usb-pad/bitjuggling.cpp
 	./src/usb-pad/usb-pad.cpp
+	./src/usb-pad/usb-pad-ff.cpp
 	./src/usb-pad/padproxy.cpp
 	./src/usb-pad/lg/lg_ff.cpp
 )
