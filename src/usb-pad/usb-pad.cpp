@@ -212,26 +212,10 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 		}*/
 
 		break;
-		/* hid specific requests */
-	case SET_REPORT:
-		// no idea, Rock Band 2 keeps spamming this
-		if (length > 0) {
-			OSDebugOut(TEXT("SET_REPORT: 0x%02X \n"), data[0]);
-			/* 0x01: Num Lock LED
-			 * 0x02: Caps Lock LED
-			 * 0x04: Scroll Lock LED
-			 * 0x08: Compose LED
-			 * 0x10: Kana LED */
-			p->actual_length = 0;
-		}
-		break;
-	case SET_IDLE:
-			OSDebugOut (TEXT("SET_IDLE\n"));
-		break;
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //GT3
 		OSDebugOut(TEXT("InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n"), value);
 		switch(value >> 8) {
-		case 0x22:
+		case USB_DT_REPORT:
 			OSDebugOut(TEXT("Sending hid report desc.\n"));
 			if (t == WT_DRIVING_FORCE_PRO || t == WT_DRIVING_FORCE_PRO_1102)
 			{
@@ -253,6 +237,23 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 		default:
 			goto fail;
 		}
+		break;
+	/* hid specific requests */
+	case SET_REPORT:
+		// no idea, Rock Band 2 keeps spamming this
+		if (length > 0) {
+			OSDebugOut(TEXT("SET_REPORT: 0x%02X \n"), data[0]);
+			/* 0x01: Num Lock LED
+			 * 0x02: Caps Lock LED
+			 * 0x04: Scroll Lock LED
+			 * 0x08: Compose LED
+			 * 0x10: Kana LED */
+			p->actual_length = 0;
+			//p->status = USB_RET_SUCCESS;
+		}
+		break;
+	case SET_IDLE:
+			OSDebugOut (TEXT("SET_IDLE\n"));
 		break;
 	default:
 		ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
@@ -401,6 +402,33 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		break;
 
 	case WT_DRIVING_FORCE_PRO:
+		//memset(&w->u.dfp_data, 0, sizeof(dfp_data_t));
+		//ResetData(&w->u.dfp_data);
+
+		w->u.dfp_data.buttons = data.buttons;
+		w->u.dfp_data.hatswitch = data.hatswitch;
+		w->u.dfp_data.axis_x = data.steering;
+		w->u.dfp_data.axis_z = data.throttle;
+		w->u.dfp_data.axis_rz = data.brake;
+
+		w->u.dfp_data.magic1 = 1;
+		w->u.dfp_data.magic2 = 1;
+		w->u.dfp_data.magic3 = 1;
+		w->u.dfp_data.magic4 =
+			1 << 0 | //enable pedals?
+			0 << 1 |
+			0 << 2 |
+			0 << 3 |
+			1 << 4 | //enable wheel?
+			0 << 5 |
+			0 << 6 |
+			0 << 7;
+
+		PrintBits(&w->u.dfp_data, sizeof(dfp_data_t));
+
+		break;
+
+	case WT_DRIVING_FORCE_PRO_1102:
 		//memset(&w->u.dfp_data, 0, sizeof(dfp_data_t));
 		//ResetData(&w->u.dfp_data);
 
