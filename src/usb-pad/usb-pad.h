@@ -204,6 +204,30 @@ struct ff_state
 	bool deadband;
 };
 
+struct parsed_ff_data
+{
+	union u
+	{
+		struct {
+			int level;
+		} constant;
+
+		struct {
+			int center;
+			int deadband;
+			int left_coeff;
+			int right_coeff;
+			int left_saturation;
+			int right_saturation;
+		} condition;
+
+		struct {
+			int weak_magnitude;
+			int strong_magnitude;
+		} rumble;
+	} u;
+};
+
 enum EffectID
 {
 	EFF_CONSTANT = 0,
@@ -213,10 +237,24 @@ enum EffectID
 	EFF_RUMBLE,
 };
 
+struct FFDevice
+{
+	virtual void SetConstantForce(/*const parsed_ff_data& ff*/ int level) = 0;
+	virtual void SetSpringForce(const parsed_ff_data& ff) = 0;
+	virtual void SetDamperForce(const parsed_ff_data& ff) = 0;
+	virtual void SetFrictionForce(const parsed_ff_data& ff) = 0;
+	//virtual void SetAutoCenter(int value) = 0;
+	//virtual void SetGain(int gain) = 0;
+	virtual void DisableForce(EffectID force) = 0;
+};
+
 class Pad
 {
 public:
-	Pad(int port, const char* dev_type) : mPort(port), mDevType(dev_type), mFFstate({ 0 }) {}
+	Pad(int port, const char* dev_type) : mPort(port), mDevType(dev_type)
+	{
+		memset(&mFFstate, 0, sizeof(mFFstate));
+	}
 	virtual ~Pad() {}
 	virtual int Open() = 0;
 	virtual int Close() = 0;
@@ -228,15 +266,16 @@ public:
 	virtual void Type(PS2WheelTypes type) { mType = type; }
 	virtual int Port() { return mPort; }
 	virtual void Port(int port) { mPort = port; }
+	void ParseFFData(const ff_data *ffdata, bool isDFP);
 
 protected:
 	PS2WheelTypes mType = PS2WheelTypes::WT_GENERIC;
 	wheel_data_t mWheelData { };
 	ff_state mFFstate;
+	FFDevice *mFFdev = nullptr;
 	int mPort;
 	const char* mDevType;
 };
-
 
 //L3/R3 for newer wheels
 //enum PS2Buttons : uint32_t {

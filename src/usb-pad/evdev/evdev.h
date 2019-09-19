@@ -46,7 +46,6 @@ class EvDevPad : public Pad
 public:
 	EvDevPad(int port, const char* dev_type): Pad(port, dev_type)
 	, mUseRawFF(false)
-	, mEvdevFF(nullptr)
 	, mHidHandle(-1)
 	, mWriterThreadIsRunning(false)
 	{

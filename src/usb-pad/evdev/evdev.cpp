@@ -399,11 +399,9 @@ int EvDevPad::TokenOut(const uint8_t *data, int len)
 		return len;
 	}
 
-	if (!mEvdevFF) return len;
-
-	ff_data *ffdata = (ff_data*)data;
+	const ff_data *ffdata = (const ff_data *)data;
 	bool hires = (mType == WT_DRIVING_FORCE_PRO);
-	mEvdevFF->TokenOut(ffdata, hires);
+	ParseFFData(ffdata, hires);
 
 	return len;
 }
@@ -581,8 +579,8 @@ int EvDevPad::Open()
 					if (i == device.mappings[k]) {
 						has_mappings = true;
 						device.axis_map[i] = 0x80 | k;
-						if (k == JOY_STEERING && !mEvdevFF)
-							mEvdevFF = new EvdevFF(device.fd);
+						if (k == JOY_STEERING && !mFFdev)
+							mFFdev = new EvdevFF(device.fd);
 					}
 				}
 
@@ -637,7 +635,7 @@ int EvDevPad::Open()
 
 	// TODO Instead of single FF instance, create for every device with X-axis???
 	// and then switch between them according to which device was used recently
-	//mEvdevFF = new EvdevFF(mHandle);
+	//mFFdev = new EvdevFF(mHandle);
 	return 0;
 
 quit:
@@ -647,8 +645,8 @@ quit:
 
 int EvDevPad::Close()
 {
-	delete mEvdevFF;
-	mEvdevFF = nullptr;
+	delete mFFdev;
+	mFFdev = nullptr;
 
 	if (mHidHandle != -1) {
 		uint8_t reset[7] = { 0 };
