@@ -404,6 +404,7 @@ int RawInputPad::Open()
 
 	memset(&mOLRead, 0, sizeof(OVERLAPPED));
 	memset(&mOLWrite, 0, sizeof(OVERLAPPED));
+	memset(&mDataCopy, 0xFF, sizeof(mDataCopy));
 
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
@@ -421,30 +422,31 @@ int RawInputPad::Open()
 		mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
 
 		HidD_GetAttributes(mUsbHandle, &(attr));
-		if (attr.VendorID != PAD_VID) {
-			fwprintf(stderr, TEXT("USBqemu: Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
+		if (attr.VendorID != PAD_VID || attr.ProductID == 0xC262) {
+			fwprintf(stderr, TEXT("USBqemu: Vendor is not Logitech or wheel is G920. Not sending force feedback commands for safety reasons.\n"));
 			mDoPassthrough = false;
 			Close();
-			return 0;
 		}
-
-		if (!mWriterThreadIsRunning)
+		else if (!mWriterThreadIsRunning)
 		{
 			if (mWriterThread.joinable())
 				mWriterThread.join();
 			mWriterThread = std::thread(RawInputPad::WriterThread, this);
 		}
 
-		// for passthrough only
-		HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(mCaps));
-		HidD_FreePreparsedData(pPreparsedData);
-
-		if (mDoPassthrough && !mReaderThreadIsRunning)
+		if (mDoPassthrough)
 		{
-			if (mReaderThread.joinable())
-				mReaderThread.join();
-			mReaderThread = std::thread(RawInputPad::ReaderThread, this);
+			// for passthrough only
+			HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
+			HidP_GetCaps(pPreparsedData, &(mCaps));
+			HidD_FreePreparsedData(pPreparsedData);
+
+			if (!mReaderThreadIsRunning)
+			{
+				if (mReaderThread.joinable())
+					mReaderThread.join();
+				mReaderThread = std::thread(RawInputPad::ReaderThread, this);
+			}
 		}
 
 		shared::rawinput::RegisterCallback(this);
