@@ -1,30 +1,43 @@
-# Set permissions to read/write for "plugdev" group.
 # Copy this file to /etc/udev/rules.d/ and unplug/replug you device.
 # PID/VID must be lower case hexadecimals.
 
 # WingMan Formula (Yellow)
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c202", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c202", GOTO="apply_rule"
 # Formula GP
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c20e", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c20e", GOTO="apply_rule"
 # WingMan Formula Force GP
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c293", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c293", GOTO="apply_rule"
 # Driving Force / EX / RX / Formula Force EX
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c294", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c294", GOTO="apply_rule"
 # MOMO Force
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c295", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c295", GOTO="apply_rule"
 # Driving Force Pro
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c298", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c298", GOTO="apply_rule"
 # G25
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c299", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c299", GOTO="apply_rule"
 # Driving Force GT
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29a", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29a", GOTO="apply_rule"
 # G27
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29b", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c29b", GOTO="apply_rule"
 # MOMO Racing
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="ca03", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="ca03", GOTO="apply_rule"
 # Racing wheel
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="ca04", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="ca04", GOTO="apply_rule"
 # G29
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c24f", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c24f", GOTO="apply_rule"
 # G920
-KERNEL=="hidraw*", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c262", MODE="0660", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{busnum}=="1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c262", GOTO="apply_rule"
+
+GOTO="dont_apply_rule"
+
+LABEL="apply_rule"
+# Allow any seated user to access the wheel.
+# uaccess: modern ACL-enabled udev
+# udev-acl: for Ubuntu 12.10 and older
+TAG+="uaccess", TAG+="udev-acl"
+
+# Or set permissions to read/write for "plugdev" group.
+#MODE="0660", GROUP="plugdev"
+
+LABEL="dont_apply_rule"
+# Bye
