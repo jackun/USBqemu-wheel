@@ -1002,6 +1002,7 @@ USBDevice *MsdDevice::CreateDevice(int port)
     if (!LoadSetting(TypeName(), port, api, N_CONFIG_PATH, var))
     {
         fprintf(stderr, "usb-msd: Could not load settings\n");
+        delete s;
         return NULL;
     }
 
