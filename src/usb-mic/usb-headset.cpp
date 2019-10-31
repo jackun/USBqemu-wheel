@@ -983,6 +983,7 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     if (!s->audsrcproxy)
     {
         SysMessage(TEXT("headset: Invalid audio API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
+        delete s;
         return NULL;
     }
 
