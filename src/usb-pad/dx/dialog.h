@@ -16,17 +16,17 @@ void ApplyFilter(int port)
 
 	if(filtercontrol==-1)return;
 	//slider
-	LINEAR[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_GETPOS, 0, 0)-50;
-	OFFSET[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50;
-	DEADZONE[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50;
+	LINEAR[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
+	OFFSET[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
+	DEADZONE[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
 	GAINZ[port][0] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_GETPOS, 0, 0);
 	FFMULTI[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
 
-	swprintf_s(text, TEXT("LINEARITY: %i"), LINEAR[port][filtercontrol]);
+	swprintf_s(text, TEXT("LINEARITY: %0.02f"), float(LINEAR[port][filtercontrol]) / PRECMULTI);
 	SetWindowText(GetDlgItem(hWnd,IDC_LINEAR), text);
-	swprintf_s(text, TEXT("OFFSET: %i"), OFFSET[port][filtercontrol]);
+	swprintf_s(text, TEXT("OFFSET: %0.02f"), float(OFFSET[port][filtercontrol]) / PRECMULTI);
 	SetWindowText(GetDlgItem(hWnd,IDC_OFFSET), text);
-	swprintf_s(text, TEXT("DEAD-ZONE: %i"), DEADZONE[port][filtercontrol]);
+	swprintf_s(text, TEXT("DEAD-ZONE: %0.02f"), float(DEADZONE[port][filtercontrol]) / PRECMULTI);
 	SetWindowText(GetDlgItem(hWnd,IDC_DEADZONE), text);
 
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
@@ -39,9 +39,9 @@ void LoadFilter(int port)
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol==-1)return;
 	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50 * PRECMULTI);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
 	ApplyFilter(port);
@@ -67,27 +67,27 @@ void DefaultFilters(int port, LONG id)
 			OFFSET[port][1]=0;
 			break;
 		case 1: 
-			LINEAR[port][0]=6;
+			LINEAR[port][0]=6 * PRECMULTI;
 			OFFSET[port][0]=0;
-			LINEAR[port][1]=6;
+			LINEAR[port][1]=6 * PRECMULTI;
 			OFFSET[port][1]=0;
 			break;
 		case 2: 
-			LINEAR[port][0]=12;
+			LINEAR[port][0]=12 * PRECMULTI;
 			OFFSET[port][0]=0;
-			LINEAR[port][1]=12;
+			LINEAR[port][1]=12 * PRECMULTI;
 			OFFSET[port][1]=0;
 			break;
 		case 3: 
-			LINEAR[port][0]=18;
+			LINEAR[port][0]=18 * PRECMULTI;
 			OFFSET[port][0]=0;
-			LINEAR[port][1]=18;
+			LINEAR[port][1]=18 * PRECMULTI;
 			OFFSET[port][1]=0;
 			break;
 		case 4: 
-			LINEAR[port][0]=25;
+			LINEAR[port][0]=25 * PRECMULTI;
 			OFFSET[port][0]=0;
-			LINEAR[port][1]=25;
+			LINEAR[port][1]=25 * PRECMULTI;
 			OFFSET[port][1]=0;
 			break;
 	}
@@ -96,9 +96,9 @@ void DefaultFilters(int port, LONG id)
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol==-1)return;
 	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50 * PRECMULTI);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
 
@@ -489,9 +489,16 @@ void InitDialog(int port, const char *dev_type)
 		SendMessageW(GetDlgItem(hWnd, IDC_COMBO3),CB_ADDSTRING,0, (LPARAM)stringp[i]);
 
 	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, 50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, 50);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, 50);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, 50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, 50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, 50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETRANGEMAX, 1, 100 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER2), TBM_SETRANGEMAX, 1, 100 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER3), TBM_SETRANGEMAX, 1, 100 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETTICFREQ, 10 * PRECMULTI, 0);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER2), TBM_SETTICFREQ, 10 * PRECMULTI, 0);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER3), TBM_SETTICFREQ, 10 * PRECMULTI, 0);
+
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETRANGEMAX, 1, 10000);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETTICFREQ, 1000, 0);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);

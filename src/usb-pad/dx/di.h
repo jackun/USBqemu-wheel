@@ -48,6 +48,7 @@ DIJOYSTATE2 jsi[10] = {0};           // DInput joystick initial state
 
 DWORD numj = 0;							//current attached joysticks
 DWORD maxj = 10;						//maximum attached joysticks
+const DWORD PRECMULTI = 100;
 
 //dinput control mappings
 
@@ -430,11 +431,12 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 	//ugly, but it works gooood
 
 	float hs=0;
-	if(linear>0){hs = (float)(1.0-((linear*2) *(float)0.01));}	//format+shorten variable
-	else{hs = (float)(1.0-(abs(linear*2) *(float)0.01));}		//format+shorten variable
-	float hs2 = (float)(offset+50) * (float)0.01;				//format+shorten variable
+	float linearf = float(linear) / PRECMULTI;
+	if(linear>0){hs = (float)(1.0-((linearf*2) *(float)0.01));}	//format+shorten variable
+	else{hs = (float)(1.0-(abs(linearf*2) *(float)0.01));}		//format+shorten variable
+	float hs2 = (float)(offset+50 * PRECMULTI) / PRECMULTI * (float)0.01;				//format+shorten variable
 	float v = input;											//format+shorten variable
-	float d = (dead) * (float)0.005;							//format+shorten variable
+	float d = float(dead) / PRECMULTI * (float)0.005;							//format+shorten variable
 
 	//format and apply deadzone
 	v=(v*(1.0f+(d*2.0f)))-d;
