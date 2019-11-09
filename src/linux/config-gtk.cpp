@@ -64,7 +64,7 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	{
 		uint8_t port = MIN(reinterpret_cast<uintptr_t>(data), 1);
 
-		conf.WheelType[1 - port] = idx;
+		conf.WheelType[port] = idx;
 		OSDebugOut("Selected wheel type, port %d idx: %d\n", port, idx);
 	}
 }
@@ -224,7 +224,7 @@ void CALLBACK USBconfigure() {
 	settingsCB[1].player = 1;
 
 	const char* wt[] = {"Driving Force", "Driving Force Pro", "Driving Force Pro (rev11.02)", "GT Force"};
-	const char *ports[] = {"Port 1:", "Port 2:"};
+	const char *players[] = {"Player 1:", "Player 2:"};
 
 	GtkWidget *rs_cb, *vbox;
 	uint32_t idx = 0, sel_idx = 0;
@@ -250,7 +250,7 @@ void CALLBACK USBconfigure() {
 	{
 		settingsCB[ply].device = devs[ply];
 
-		rs_cb = new_combobox(ports[ply], vbox);
+		rs_cb = new_combobox(players[ply], vbox);
 		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), "None");
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), 0);
 
@@ -274,7 +274,7 @@ void CALLBACK USBconfigure() {
 	/*** API Comboboxes ***/
 	for(int ply = 0; ply < 2; ply++)
 	{
-		rs_cb = new_combobox (ports[ply], vbox);
+		rs_cb = new_combobox (players[ply], vbox);
 		settingsCB[ply].combo = GTK_COMBO_BOX (rs_cb);
 		//gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
 		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (apiChanged), (gpointer)&settingsCB[ply]);
@@ -296,14 +296,14 @@ void CALLBACK USBconfigure() {
 	for(int ply = 0; ply < 2; ply++)
 	{
 		int port = 1 - ply;
-		rs_cb = new_combobox (ports[ply], vbox);
+		rs_cb = new_combobox (players[ply], vbox);
 
 		sel_idx = 0;
 
 		for (int i = 0; i < countof(wt); i++)
 		{
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), wt[i]);
-			if(conf.WheelType[1 - port] == i)
+			if(conf.WheelType[port] == i)
 				sel_idx = i;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
