@@ -175,7 +175,7 @@ USBDevice* CreateDevice(const std::string& name, int port)
 		if (devProxy)
 			device = devProxy->CreateDevice(port);
 		else
-			SysMessage(TEXT("Device %d: Unknown device type"), 1 - port);
+			SysMessage(TEXT("Port %d: Unknown device type"), port);
 	}
 
 	if (!device) {
