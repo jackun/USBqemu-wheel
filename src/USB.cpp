@@ -638,9 +638,9 @@ EXPORT_C_(void) USBasync(u32 cycles)
 			ohci_frame_boundary(qemu_ohci);
 
 			/*
-				Break out of the loop if bus was stopped.
-				If not returning early from ohci_frame_boundary when UE is hit and
-				keep to SOF and writing out HCCA, it seems to cause a hang inside game instead.
+			 * Break out of the loop if bus was stopped.
+			 * If ohci_frame_boundary hits an UE, but doesn't stop processing,
+			 * it seems to cause a hang inside the game instead.
 			*/
 			if (!qemu_ohci->eof_timer)
 				break;
