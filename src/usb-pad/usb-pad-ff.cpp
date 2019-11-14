@@ -113,18 +113,17 @@ void Pad::ParseFFData(const ff_data *ffdata, bool isDFP)
 			switch (ffdata->type)
 			{
 			case FTYPE_CONSTANT:
-				//SetConstantForce(mFFdev, ffdata->u.params[2]); //DF/GTF and GT3
 				if (slots == 0xF)
 				{
-					int force = 0x7F;
-					//TODO hack, GT3 uses slot 3 usually
+					int force = 0;
 					for (int i = 0; i < 4; i++)
 					{
-						force = ffdata->u.params[i];
-						if (force != 0x7F)
-							break;
+						int t = (int)ffdata->u.params[i];
+						if (t < 128)
+							t++;
+						force = (std::min)((std::max)(force + t - 128, -128), 127);
 					}
-					SetConstantForce(mFFdev, force);
+					SetConstantForce(mFFdev, 128 + force);
 				}
 				else
 				{
