@@ -41,6 +41,9 @@ linux_32_before_install() {
 		git-buildpackage \
 		python-dateutil \
 		python-pkg-resources \
+		dh-make \
+		build-essential \
+		fakeroot \
 		${COMPILER_PACKAGE}
 }
 

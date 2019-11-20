@@ -1,7 +1,7 @@
 language: cpp
 
 sudo: required
-dist: trusty
+dist: xenial
 
 cache: ccache
 #git:
@@ -10,15 +10,24 @@ cache: ccache
 branches:
   only:
   - master
+  - develop
   - /^\d+\.\d+\.\d+-.*$/
 
 matrix:
   include:
-    # Debian 9.0+
+    # Debian 11
+    - env: VERSION=9 BITS=32 TARGET_DISTRIB=debian
+      compiler: gcc
+      os: linux
+    # Ubuntu 19.10
+    - env: VERSION=9 BITS=32 TARGET_DISTRIB=ubuntu
+      compiler: gcc
+      os: linux
+    # Debian 10
     - env: VERSION=8 BITS=32 TARGET_DISTRIB=debian
       compiler: gcc
       os: linux
-    # Ubuntu 18.04+
+    # Ubuntu 18.10
     - env: VERSION=8 BITS=32 TARGET_DISTRIB=ubuntu
       compiler: gcc
       os: linux
