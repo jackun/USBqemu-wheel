@@ -138,14 +138,12 @@ SET(HDRS_PLG
 	./src/configuration.h
 	./src/platcompat.h
 	./src/osdebugout.h
-	./src/ringbuffer.h
 )
 
 SET(SRCS_PLG
 	./src/USB.cpp
 	./src/deviceproxy.cpp
 	./src/configuration.cpp
-	./src/ringbuffer.cpp
 	./src/device_init.cpp
 )
 
@@ -239,10 +237,12 @@ SET(SRCS_HID
 # shared/global functions
 SET(HDRS_SHARED
 	./src/shared/shared.h
+	./src/shared/ringbuffer.h
 )
 
 SET(SRCS_SHARED
 	./src/shared/shared.cpp
+	./src/shared/ringbuffer.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
