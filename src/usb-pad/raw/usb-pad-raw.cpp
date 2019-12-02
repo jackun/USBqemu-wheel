@@ -176,17 +176,25 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	Mappings             *mapping = NULL;
 	int                  numberOfButtons;
 
-	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
-
-	devName = name;
-	std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
-
-	for(auto& it : mapVector)
+	auto iter = mappings.find(pRawInput->header.hDevice);
+	if (iter != mappings.end()) {
+		mapping = iter->second;
+	}
+	else
 	{
-		if(it.hidPath == devName)
+		GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
+
+		devName = name;
+		std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
+
+		for(auto& it : mapVector)
 		{
-			mapping = &it;
-			break;
+			if(it.hidPath == devName)
+			{
+				mapping = &it;
+				mappings[pRawInput->header.hDevice] = mapping;
+				break;
+			}
 		}
 	}
 
@@ -361,7 +369,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 					uint32_t wtbtn = convert_wt_btn(wt, i);
 					if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
 						mapping->data[j].buttons &= ~(1 << wtbtn); //unset
-					else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
+					else /* if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE) */
 						mapping->data[j].buttons |= (1 << wtbtn); //set
 				}
 			}
@@ -400,6 +408,7 @@ int RawInputPad::Open()
 
 	Close();
 
+	mappings.clear();
 	LoadMappings(mDevType, mapVector);
 
 	memset(&mOLRead, 0, sizeof(OVERLAPPED));
