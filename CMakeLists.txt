@@ -144,6 +144,7 @@ SET(SRCS_PLG
 	./src/USB.cpp
 	./src/deviceproxy.cpp
 	./src/configuration.cpp
+	./src/osdebugout.cpp
 	./src/device_init.cpp
 )
 
