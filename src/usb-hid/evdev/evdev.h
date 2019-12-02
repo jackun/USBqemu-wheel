@@ -29,7 +29,7 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return "Evdev";
+		return TEXT("Evdev");
 	}
 
 	static int Configure(int port, const char* dev_type, HIDType hid_type, void *data);
