@@ -901,6 +901,5 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 
 	return S_OK;//DefWindowProc(hW, uMsg, wParam, lParam);
 }
-#undef APINAME
 
 }} //namespace
