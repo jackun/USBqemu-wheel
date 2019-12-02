@@ -109,6 +109,7 @@ struct RawDlgConfig
 
 typedef std::vector<Mappings> MapVector;
 static MapVector mapVector;
+static std::map<HANDLE, Mappings*> mappings;
 
 void LoadMappings(const char *dev_type, MapVector& maps);
 void SaveMappings(const char *dev_type, MapVector& maps);
