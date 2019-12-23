@@ -86,7 +86,7 @@ _Config::_Config(): Log(0), DFPPass(0)
 
 void USBirq(int cycles)
 {
-	USB_LOG("USBirq.\n");
+	//USB_LOG("USBirq.\n");
 
 	_USBirq(cycles);
 }
@@ -137,6 +137,9 @@ USBDevice* CreateDevice(DeviceType index, int port)
 	else
 		SysMessage(TEXT("Device %d: Unknown device type"), 1 - port);
 
+	if (!device) {
+		USB_LOG("USBqemu: failed to create device type %d on port %d\n", index, port);
+	}
 	return device;
 }
 
@@ -175,6 +178,9 @@ USBDevice* CreateDevice(const std::string& name, int port)
 			SysMessage(TEXT("Device %d: Unknown device type"), 1 - port);
 	}
 
+	if (!device) {
+		USB_LOG("USBqemu: failed to create device '%s' on port %d\n", name.c_str(), port);
+	}
 	return device;
 }
 
@@ -220,10 +226,10 @@ EXPORT_C_(s32) USBinit() {
 	RegisterDevice::Initialize();
 	LoadConfig();
 
-	if (conf.Log)
+	if (conf.Log && !usbLog)
 	{
 		usbLog = fopen("logs/usbLog.txt", "w");
-		if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
+		//if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
 		USB_LOG("usbqemu wheel mod plugin version %d.%d.%d\n", VER_REV, VER_BLD, VER_FIX);
 		USB_LOG("USBinit\n");
 	}
@@ -248,11 +254,22 @@ EXPORT_C_(void) USBshutdown() {
 	ram = 0;
 
 //#ifdef _DEBUG
-	if (conf.Log && usbLog) fclose(usbLog);
+	if (conf.Log && usbLog) {
+		fclose(usbLog);
+		usbLog = nullptr;
+	}
 //#endif
 }
 
 EXPORT_C_(s32) USBopen(void *pDsp) {
+
+	if (conf.Log && !usbLog)
+	{
+		usbLog = fopen("logs/usbLog.txt", "a");
+		//if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
+		USB_LOG("usbqemu wheel mod plugin version %d.%d.%d\n", VER_REV, VER_BLD, VER_FIX);
+	}
+
 	USB_LOG("USBopen\n");
 	OSDebugOut(TEXT("USBopen\n"));
 
@@ -312,6 +329,7 @@ EXPORT_C_(void) USBclose() {
 		usb_device[1]->klass.close(usb_device[1]);
 
 	shared::Uninitialize();
+
 }
 
 EXPORT_C_(u8) USBread8(u32 addr) {

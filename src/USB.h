@@ -33,7 +33,6 @@
 #define USBdefs
 #include "PS2Edefs.h"
 
-#define USB_LOG __Log
 extern u8 *ram;
 
 // ---------------------------------------------------------------------
@@ -45,7 +44,6 @@ void DestroyDevices();
 void CreateDevices();
 
 extern FILE *usbLog;
-void __Log(const char *fmt, ...);
 s64 get_clock();
 
 /* usb-pad-raw.cpp */

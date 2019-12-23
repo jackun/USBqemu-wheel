@@ -3,6 +3,9 @@
 #include <cstdio>
 #include <iostream>
 
+#define USB_LOG __Log
+void __Log(const char* fmt, ...);
+
 #ifdef _WIN32
 #include "platcompat.h"
 
