@@ -206,7 +206,10 @@ BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
     HRESULT hr;
 
     // Obtain an interface to the enumerated joystick.
-    hr = g_pDI->CreateDevice( pdidInstance->guidInstance, &g_pJoysticks[numj], NULL );
+	if (FAILED(hr = g_pDI->CreateDevice(pdidInstance->guidInstance, &g_pJoysticks[numj], NULL))) {
+		USB_LOG("DINPUT: joystick[%d]: CreateDevice failed: %08x\n", numj, hr);
+	}
+	
 	numj++;
 
 	//too many joysticks please stop
@@ -272,6 +275,7 @@ void PollDevices()
 		hr = g_pKeyboard->GetDeviceState( sizeof(diks), diks );
 		if( FAILED(hr) )
 		{
+			USB_LOG("DINPUT: g_pKeyboard->GetDeviceState() failed, reacquiring: %08x\n", hr);
 			g_pKeyboard->Acquire();
 		}
 	}
@@ -282,8 +286,10 @@ void PollDevices()
 		ZeroMemory( &dims2, sizeof(dims2) );
 		hr = g_pMouse->GetDeviceState( sizeof(DIMOUSESTATE2), &dims2 );
 
-		if( FAILED(hr) )
+		if (FAILED(hr)) {
+			USB_LOG("DINPUT: g_pMouse->GetDeviceState() failed, reacquiring: %08x\n", hr);
 			g_pMouse->Acquire();
+		}
 	}
 
 	//JOYSTICK
@@ -293,13 +299,15 @@ void PollDevices()
 			hr = g_pJoysticks[i]->Poll();
 			if( FAILED(hr) )
 			{
+				USB_LOG("DINPUT: g_pJoysticks[%d]->Poll() failed, reacquiring\n", i);
 				g_pJoysticks[i]->Acquire();
-
 			}
 			else
 			{
-				g_pJoysticks[i]->GetDeviceState( sizeof(DIJOYSTATE2), &js[i] );
-
+				hr = g_pJoysticks[i]->GetDeviceState( sizeof(DIJOYSTATE2), &js[i] );
+				if (FAILED(hr)) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->GetDeviceState() failed: %08x\n", i, hr);
+				}
 			}
 		}
 	}
@@ -960,27 +968,32 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		// Create a DInput object
 		OSDebugOut(TEXT("DINPUT: DirectInput8Create %p\n"), hWindow);
 		if (FAILED(hr = DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION,
-			IID_IDirectInput8, (VOID**)&g_pDI, NULL)))
+			IID_IDirectInput8, (VOID**)&g_pDI, NULL))) {
+			USB_LOG("DINPUT: DirectInput8Create failed: %08x\n", hr);
 			return hr;
+		}
 
 		OSDebugOut(TEXT("DINPUT: CreateDevice Keyboard %p\n"), hWindow);
 		//Create Keyboard
-		g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
+		hr = g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
 		if (g_pKeyboard)
 		{
 			g_pKeyboard->SetDataFormat(&c_dfDIKeyboard);
 			g_pKeyboard->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			g_pKeyboard->Acquire();
 		}
+		USB_LOG("DINPUT: CreateDevice(keyboard@%p): %08x\n", g_pKeyboard, hr);
+
 		OSDebugOut(TEXT("DINPUT: CreateDevice Mouse %p\n"), hWindow);
 		//Create Mouse
-		g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
+		hr = g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
 		if (g_pMouse)
 		{
 			g_pMouse->SetDataFormat(&c_dfDIMouse2);
 			g_pMouse->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			g_pMouse->Acquire();
 		}
+		USB_LOG("DINPUT: CreateDevice(mouse@%p): %08x\n", g_pMouse, hr);
 
 		//Create Joysticks
 		FFBindex[port] = -1;
@@ -988,7 +1001,9 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 		//enumerate attached only
 		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWindow);
-		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
+		if (FAILED(hr = g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY))) {
+			USB_LOG("DINPUT: EnumDevices(GAMECTRL) failed: %08x\n", hr);
+		}
 	}
 
 	++refCount;
@@ -1001,13 +1016,18 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			if (refCount == 1)
 			{
 				OSDebugOut(TEXT("DINPUT: SetDataFormat Joystick %i\n"), i);
-				g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2);
+				if (FAILED(hr = g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2))) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->SetDataFormat(DIJoystick2) failed: %08x\n", i, hr);
+				}
 				OSDebugOut(TEXT("DINPUT: SetCooperativeLevel Joystick %i\n"), i);
 			}
 
 			DIDEVCAPS diCaps;
 			diCaps.dwSize = sizeof(DIDEVCAPS);
-			g_pJoysticks[i]->GetCapabilities(&diCaps);
+			if (FAILED(hr = g_pJoysticks[i]->GetCapabilities(&diCaps))) {
+				USB_LOG("DINPUT: g_pJoysticks[%d]->GetCapabilities() failed: %08x\n", i, hr);
+				continue;
+			}
 
 			//TODO Select joystick for FFB that has X axis (assumed!!) mapped as wheel
 			int joyid = AXISID[port][0] / 8;
@@ -1017,7 +1037,9 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 				//First FFB device detected
 
 				//Exclusive
-				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
+				if (FAILED(hr = g_pJoysticks[i]->SetCooperativeLevel(hWindow, DISCL_EXCLUSIVE | DISCL_BACKGROUND))) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->SetCooperativeLevel(EXCLUSIVE) failed: %08x\n", i, hr);
+				}
 
 				AutoCenter(i, false); //TODO some games set autocenter. Figure out default for ones that don't.
 
@@ -1031,15 +1053,20 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 				str << instance_.guidInstance;*/
 
 			}
-			else
-				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
+			else if (FAILED(hr = g_pJoysticks[i]->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND))) {
+				USB_LOG("DINPUT: g_pJoysticks[%d]->SetCooperativeLevel(NONEXCLUSIVE) failed: %08x\n", i, hr);
+			}
 
 			if (refCount == 1)
 			{
 				OSDebugOut(TEXT("DINPUT: EnumObjects Joystick %i\n"), i);
-				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, g_pJoysticks[i], DIDFT_ALL);
+				if (FAILED(hr = g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, g_pJoysticks[i], DIDFT_ALL))) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->EnumObjects() failed: %08x\n", i, hr);
+				}
 				OSDebugOut(TEXT("DINPUT: Acquire Joystick %i\n"), i);
-				g_pJoysticks[i]->Acquire();
+				if (FAILED(hr = g_pJoysticks[i]->Acquire())) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->Acquire() failed: %08x\n", i, hr);
+				}
 			}
 		}
 	}

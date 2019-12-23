@@ -470,9 +470,11 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (!proxy)
 	{
 		SysMessage(TEXT("PAD: Invalid input API.\n"));
+		USB_LOG("usb-pad: %s: Invalid input API.\n", TypeName());
 		return NULL;
 	}
 
+	USB_LOG("usb-pad: creating device '%s' on port %d with %s\n", TypeName(), port, varApi.c_str());
 	Pad *pad = proxy->CreateObject(port, TypeName());
 
 	if (!pad)
@@ -591,9 +593,11 @@ USBDevice *RBDrumKitDevice::CreateDevice(int port)
 	if (!proxy)
 	{
 		SysMessage(TEXT("RBDK: Invalid input API.\n"));
+		USB_LOG("usb-pad: %s: Invalid input API.\n", TypeName());
 		return NULL;
 	}
 
+	USB_LOG("usb-pad: creating device '%s' on port %d with %s\n", TypeName(), port, varApi.c_str());
 	Pad *pad = proxy->CreateObject(port, TypeName());
 
 	if (!pad)
