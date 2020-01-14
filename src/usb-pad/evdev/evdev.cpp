@@ -29,7 +29,7 @@ bool str_ends_with(const char * str, const char * suffix)
 	return 0 == strncmp( str + str_len - suffix_len, suffix, suffix_len );
 }
 
-bool FindHidraw(const std::string &evphys, std::string& hid_dev)
+bool FindHidraw(const std::string &evphys, std::string& hid_dev, int *vid, int *pid)
 {
 	int fd;
 	int res;
@@ -67,6 +67,17 @@ bool FindHidraw(const std::string &evphys, std::string& hid_dev)
 				perror("HIDIOCGRAWPHYS");
 			else
 				OSDebugOut("Raw Phys: %s\n", buf);
+
+			struct hidraw_devinfo info;
+			memset(&info, 0x0, sizeof(info));
+
+			if (ioctl(fd, HIDIOCGRAWINFO, &info) < 0) {
+				perror("HIDIOCGRAWINFO");
+			} else {
+				if (vid) *vid = info.vendor;
+				if (pid) *pid = info.product;
+			}
+
 			close(fd);
 			if (evphys == buf) {
 				closedir(dirp);
@@ -471,8 +482,6 @@ int EvDevPad::Open()
 	//mHandle = -1;
 
 	std::string evphys, hid_dev;
-	struct hidraw_devinfo info;
-	memset(&info, 0x0, sizeof(info));
 
 	std::string joypath;
 	switch(mType) {
@@ -509,23 +518,17 @@ int EvDevPad::Open()
 			evphys = buf;
 			OSDebugOut("Evdev Phys: %s\n", evphys.c_str());
 
-			if ((mUseRawFF = FindHidraw(evphys, hid_dev))) {
-				mHidHandle = open(hid_dev.c_str(), O_RDWR|O_NONBLOCK);
-				if (mHidHandle < 0) {
-					mUseRawFF = false;
-					perror("Unable to open device");
-				}
+			int pid, vid;
+			if ((mUseRawFF = FindHidraw(evphys, hid_dev, &vid, &pid))) {
 
-				// For safety, only allow Logitech devices
-				if (ioctl(mHidHandle, HIDIOCGRAWINFO, &info) < 0) {
-					perror("HIDIOCGRAWINFO");
-				}
-
-				if (info.vendor != 0x046D /* Logitech */ /*|| info.bustype != BUS_USB*/) {
+				// For safety, only allow Logitech (classic ffb) devices
+				if (vid != 0x046D /* Logitech */ /*|| info.bustype != BUS_USB*/
+					|| pid == 0xc262 /* G920 hid mode */
+					|| pid == 0xc261 /* G920 xbox mode */
+				) {
 					mUseRawFF = false;
 				}
 
-				close(fd);
 				// check if still using hidraw and run the thread
 				if (mUseRawFF && !mWriterThreadIsRunning)
 				{
@@ -537,6 +540,7 @@ int EvDevPad::Open()
 		} else {
 			perror("EVIOCGPHYS failed");
 		}
+		close(fd);
 	}
 
 	EnumerateDevices(device_list);
