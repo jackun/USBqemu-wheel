@@ -132,10 +132,11 @@ static void joystick_changed (GtkComboBox *widget, gpointer data)
 	if (!cfg)
 		return;
 
-	std::string name = (cfg->joysticks.begin() + idx)->first;
-	cfg->js_iter = (cfg->joysticks.begin() + idx);
-
-	OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
+	if (idx > -1) {
+		std::string name = (cfg->joysticks.begin() + idx)->first;
+		cfg->js_iter = (cfg->joysticks.begin() + idx);
+		OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
+	}
 }
 
 static void button_clicked (GtkComboBox *widget, gpointer data)
