@@ -316,16 +316,16 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 							{
 								// Digital hatswitch
 								case 0x8000 | JOY_LEFT:
-									mWheelData.hat_horz = (event.value == 0 ? PAD_HAT_COUNT : PAD_HAT_W);
+									mWheelData.hat_horz = (!event.value ? PAD_HAT_COUNT : PAD_HAT_W);
 									break;
 								case 0x8000 | JOY_RIGHT:
-									mWheelData.hat_horz = (event.value == 0 ? PAD_HAT_COUNT : PAD_HAT_E);
+									mWheelData.hat_horz = (!event.value ? PAD_HAT_COUNT : PAD_HAT_E);
 									break;
 								case 0x8000 | JOY_UP:
-									mWheelData.hat_vert = (event.value == 0 ? PAD_HAT_COUNT : PAD_HAT_N);
+									mWheelData.hat_vert = (!event.value ? PAD_HAT_COUNT : PAD_HAT_N);
 									break;
 								case 0x8000 | JOY_DOWN:
-									mWheelData.hat_vert = (event.value == 0 ? PAD_HAT_COUNT : PAD_HAT_S);
+									mWheelData.hat_vert = (!event.value ? PAD_HAT_COUNT : PAD_HAT_S);
 									break;
 								case BTN_WEST: button = PAD_SQUARE; break;
 								case BTN_NORTH: button = PAD_TRIANGLE; break;
