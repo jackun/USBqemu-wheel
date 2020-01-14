@@ -551,7 +551,7 @@ int EvDevPad::Open()
 		}*/
 
 		LoadMappings(mDevType, mPort, device.name,
-			device.mappings, device.axis_inverted);
+			device.mappings, device.axis_inverted, device.axis_initial);
 
 		// Map hatswitches automatically
 		//FIXME has_mappings is gonna ignore hatsw only devices

@@ -28,7 +28,7 @@ static bool GetEventName(int map, int event, const char **name)
 	return true;
 }
 
-static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted)
+static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial)
 {
 	int event_fd = -1;
 	ssize_t len;
@@ -100,6 +100,7 @@ static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::C
 					if (std::abs(diff) > 2047) {
 						value = event.number;
 						inverted = (diff < 0);
+						initial = val.value;
 						break;
 					}
 				}

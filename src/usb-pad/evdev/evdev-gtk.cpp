@@ -562,11 +562,17 @@ static bool GetEventName(int map, int event, const char **name)
 	return true;
 }
 
-static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted)
+static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial)
 {
-	int event_fd = -1;
+	int event_fd = -1, t;
 	ssize_t len;
 	input_event event;
+	struct AxisValue { int16_t value; bool initial; };
+	AxisValue axisVal[ABS_MAX + 1] {};
+	unsigned long absbit[NBITS(ABS_MAX)] {};
+	struct axis_correct abs_correct[ABS_MAX] {};
+
+	inverted = false;
 
 	fd_set fdset;
 	int maxfd = -1;
@@ -577,19 +583,9 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 		if (maxfd < js.second.fd) maxfd = js.second.fd;
 	}
 
-	struct axis_correct abs_correct[ABS_MAX];
-
-	inverted = false;
-
 	// empty event queues
 	for (const auto& js: fds)
 		while ((len = read(js.second.fd, &event, sizeof(event))) > 0);
-
-	struct AxisValue { int16_t value; bool initial; };
-	AxisValue axisVal[ABS_MAX + 1] = { 0 };
-
-	int t;
-	unsigned long absbit[NBITS(ABS_MAX)] = { 0 };
 
 	struct timeval timeout {};
 	timeout.tv_sec = 5;
@@ -669,11 +665,12 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 				{
 					int ac_val = AxisCorrect(abs_correct[event.code], event.value);
 					int diff = ac_val - val.value;
-					OSDebugOut("Axis %d value difference: %d, corrected %d raw %d\n", event.code, diff, ac_val, event.value);
+					OSDebugOut("Axis %d value initial: %d, diff: %d, corr: %d raw %d\n", event.code, val.value, diff, ac_val, event.value);
 					if (std::abs(diff) > 2047)
 					{
 						value = event.code;
 						inverted = (diff < 0);
+						initial = val.value;
 						break;
 					}
 				}
