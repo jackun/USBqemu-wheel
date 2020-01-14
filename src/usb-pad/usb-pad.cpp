@@ -62,15 +62,22 @@ void RBDrumKitDevice::Initialize()
 
 std::list<std::string> RBDrumKitDevice::ListAPIs()
 {
-	return RegisterPad::instance().Names();
+	return PadDevice::ListAPIs();
 }
 
 const TCHAR* RBDrumKitDevice::LongAPIName(const std::string& name)
 {
-	auto proxy = RegisterPad::instance().Proxy(name);
-	if (proxy)
-		return proxy->Name();
-	return nullptr;
+	return PadDevice::LongAPIName(name);
+}
+
+std::list<std::string> BuzzDevice::ListAPIs()
+{
+	return PadDevice::ListAPIs();
+}
+
+const TCHAR* BuzzDevice::LongAPIName(const std::string& name)
+{
+	return PadDevice::LongAPIName(name);
 }
 
 #ifdef _DEBUG
@@ -210,14 +217,6 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 		if (ret < 0)
 			goto fail;
 
-		// Change PID according to selected wheel
-		/*if ((value >> 8) == USB_DT_DEVICE) {
-			if (t == WT_DRIVING_FORCE_PRO || t == WT_DRIVING_FORCE_PRO_1102)
-				*(uint16_t*)&data[10] = PID_DFP;
-			else if (t == WT_GT_FORCE)
-				*(uint16_t*)&data[10] = PID_FFGP;
-		}*/
-
 		break;
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //GT3
 		OSDebugOut(TEXT("InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n"), value);
@@ -295,7 +294,7 @@ void pad_close(USBDevice *dev)
 }
 
 
-void ResetData(generic_data_t *d)
+void pad_reset_data(generic_data_t *d)
 {
 	memset(d, 0, sizeof(generic_data_t));
 	d->axis_x = 0x3FF >> 1;
@@ -304,7 +303,7 @@ void ResetData(generic_data_t *d)
 	d->axis_rz = 0xFF;
 }
 
-void ResetData(dfp_data_t *d)
+void pad_reset_data(dfp_data_t *d)
 {
 	memset(d, 0, sizeof(dfp_data_t));
 	d->axis_x = 0x3FFF >> 1;
@@ -339,7 +338,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 	case WT_GT_FORCE:
 
 		w->lo = data.steering & 0x3FF;
-		w->lo |= (data.buttons & 0x3F) << 10;
+		w->lo |= (data.buttons & 0xFFF) << 10;
 		w->lo |= 0xFF << 24;
 
 		w->hi = (data.throttle & 0xFF);
@@ -406,7 +405,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 	switch (type) {
 	case WT_GENERIC:
 		memset(&w->u.generic_data, 0xff, sizeof(generic_data_t));
-		//ResetData(&w->u.generic_data);
+		//pad_reset_data(&w->u.generic_data);
 
 		w->u.generic_data.buttons = data.buttons;
 		w->u.generic_data.hatswitch = data.hatswitch;
@@ -419,7 +418,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 	case WT_DRIVING_FORCE_PRO:
 		//memset(&w->u.dfp_data, 0, sizeof(dfp_data_t));
-		//ResetData(&w->u.dfp_data);
+		//pad_reset_data(&w->u.dfp_data);
 
 		w->u.dfp_data.buttons = data.buttons;
 		w->u.dfp_data.hatswitch = data.hatswitch;
@@ -446,7 +445,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 	case WT_DRIVING_FORCE_PRO_1102:
 		//memset(&w->u.dfp_data, 0, sizeof(dfp_data_t));
-		//ResetData(&w->u.dfp_data);
+		//pad_reset_data(&w->u.dfp_data);
 
 		w->u.dfp_data.buttons = data.buttons;
 		w->u.dfp_data.hatswitch = data.hatswitch;
@@ -744,19 +743,6 @@ fail:
 	return nullptr;
 }
 
-std::list<std::string> BuzzDevice::ListAPIs()
-{
-	return RegisterPad::instance().Names();
-}
-
-const TCHAR* BuzzDevice::LongAPIName(const std::string& name)
-{
-	auto proxy = RegisterPad::instance().Proxy(name);
-	if (proxy)
-		return proxy->Name();
-	return nullptr;
-}
-
 int BuzzDevice::Configure(int port, const std::string& api, void* data)
 {
 	auto proxy = RegisterPad::instance().Proxy(api);
@@ -770,12 +756,4 @@ int BuzzDevice::Freeze(int mode, USBDevice* dev, void* data)
 	return PadDevice::Freeze(mode, dev, data);
 }
 
-void BuzzDevice::Initialize()
-{
-	RegisterPad::Initialize();
-}
-
-REGISTER_DEVICE(DEVTYPE_PAD, PadDevice);
-REGISTER_DEVICE(DEVTYPE_RBKIT, RBDrumKitDevice);
-REGISTER_DEVICE(DEVTYPE_BUZZ, BuzzDevice);
 } //namespace
