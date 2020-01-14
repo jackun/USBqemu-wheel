@@ -10,7 +10,7 @@
 #include <mutex>
 #include <chrono>
 
-namespace audiodev_pulse {
+namespace usb_mic { namespace audiodev_pulse {
 
 // macros for string concat
 #undef APINAME_
@@ -146,4 +146,4 @@ protected:
 	hrc::time_point mLastOut;
 	FILE* file = nullptr;
 };
-}
+}}

@@ -30,11 +30,6 @@ static const USBDescStrings rb1_desc_strings = {
 	"Harmonix Drum Kit for PlayStation(R)3"
 };
 
-void PadDevice::Initialize()
-{
-	RegisterPad::Initialize();
-}
-
 std::list<std::string> PadDevice::ListAPIs()
 {
 	return RegisterPad::instance().Names();
@@ -46,11 +41,6 @@ const TCHAR* PadDevice::LongAPIName(const std::string& name)
 	if (proxy)
 		return proxy->Name();
 	return nullptr;
-}
-
-void RBDrumKitDevice::Initialize()
-{
-	RegisterPad::Initialize();
 }
 
 std::list<std::string> RBDrumKitDevice::ListAPIs()

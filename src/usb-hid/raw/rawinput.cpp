@@ -1,5 +1,5 @@
 #include "rawinput.h"
-#include "../../Win32/Config-win32.h"
+#include "../../Win32/Config.h"
 #include "qemu-usb/input-keymap.h"
 #include "qemu-usb/input-keymap-win32-to-qcode.h"
 
@@ -268,7 +268,5 @@ int RawInput::Configure(int port, const char* dev_type, HIDType type, void *data
 	INT_PTR res = RESULT_CANCELED;
 	return res;
 }
-
-REGISTER_USBHID(APINAME, RawInput);
 
 }} //namespace

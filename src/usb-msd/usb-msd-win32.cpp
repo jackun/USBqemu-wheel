@@ -1,5 +1,5 @@
 #include "usb-msd.h"
-#include "../Win32/Config-win32.h"
+#include "../Win32/Config.h"
 #include "../Win32/resource.h"
 
 namespace usb_msd {
@@ -52,7 +52,7 @@ BOOL CALLBACK MsdDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 				INT_PTR res = RESULT_OK;
 				GetWindowTextW(GetDlgItem(hW, IDC_EDIT1), buff, countof(buff));
 				port = (int)GetWindowLongPtr(hW, GWLP_USERDATA);
-				if (!SaveSetting(MsdDevice::TypeName(), port, APINAME, N_CONFIG_PATH, buff))
+				if (!SaveSetting<std::wstring>(MsdDevice::TypeName(), port, APINAME, N_CONFIG_PATH, buff))
 					res = RESULT_FAILED;
 				//strcpy_s(conf.usb_img, ofn.lpstrFile);
 				EndDialog(hW, res);
@@ -76,12 +76,4 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 		(DLGPROC)MsdDlgProc, port);
 }
 
-/*
-bool MsdDevice::LoadSettings(int port, TSTDSTRING& path)
-{
-}
-
-bool MsdDevice::SaveSettings(int port, TSTDSTRING& path)
-{
-}*/
 }

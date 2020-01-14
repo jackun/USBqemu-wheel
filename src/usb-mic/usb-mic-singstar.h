@@ -5,7 +5,7 @@
 
 struct USBDevice;
 
-namespace usb_mic_singstar {
+namespace usb_mic {
 class SingstarDevice
 {
 public:
@@ -33,10 +33,6 @@ public:
 	}
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
-	static void Initialize()
-	{
-		RegisterAudioDevice::Initialize();
-	}
 };
 
 class LogitechMicDevice : public SingstarDevice

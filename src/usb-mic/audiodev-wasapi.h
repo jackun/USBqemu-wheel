@@ -7,7 +7,7 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
-namespace audiodev_wasapi {
+namespace usb_mic { namespace audiodev_wasapi {
 
 static const char *APINAME = "wasapi";
 
@@ -138,4 +138,4 @@ private:
 	LONGLONG mLastTimeNS = 0;
 };
 
-} // namespace
+}} // namespace

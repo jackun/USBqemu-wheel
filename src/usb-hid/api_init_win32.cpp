@@ -2,7 +2,7 @@
 #include "raw/rawinput.h"
 #include "noop.h"
 
-void usb_hid::RegisterUsbHID::Initialize()
+void usb_hid::RegisterUsbHID::Register()
 {
 	auto& inst = RegisterUsbHID::instance();
 	inst.Add(usb_hid::raw::APINAME, new UsbHIDProxy<usb_hid::raw::RawInput>());

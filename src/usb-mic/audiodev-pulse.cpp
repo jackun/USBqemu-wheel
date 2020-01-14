@@ -6,7 +6,7 @@
 
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
 
-namespace audiodev_pulse {
+namespace usb_mic { namespace audiodev_pulse {
 
 static void pa_context_state_cb(pa_context *c, void *userdata)
 {
@@ -909,5 +909,4 @@ exit:
 	return;
 }
 
-REGISTER_AUDIODEV(APINAME, PulseAudioDevice);
-}
+}}

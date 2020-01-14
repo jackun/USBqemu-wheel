@@ -1,9 +1,23 @@
 #include "deviceproxy.h"
+#include "usb-pad/padproxy.h"
+#include "usb-mic/audiodeviceproxy.h"
+#include "usb-hid/hidproxy.h"
+#include "usb-eyetoy/videodeviceproxy.h"
 
 RegisterDevice *RegisterDevice::registerDevice = nullptr;
 
-DeviceProxyBase::DeviceProxyBase(DeviceType key)
+void RegisterAPIs()
 {
-	OSDebugOut("ctor (type %d) @ %p\n", key, this);
-	//RegisterDevice::instance().Add(key, this);
+	usb_pad::RegisterPad::Register();
+	usb_mic::RegisterAudioDevice::Register();
+	usb_hid::RegisterUsbHID::Register();
+	//usb_eyetoy::RegisterVideoDevice::Register(); // someday, maybe...
+}
+
+void UnregisterAPIs()
+{
+	usb_pad::RegisterPad::instance().Clear();
+	usb_mic::RegisterAudioDevice::instance().Clear();
+	usb_hid::RegisterUsbHID::instance().Clear();
+	//usb_eyetoy::RegisterVideoDevice::instance().Clear(); // someday, maybe...
 }
