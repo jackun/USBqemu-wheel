@@ -239,6 +239,7 @@ enum EffectID
 
 struct FFDevice
 {
+	virtual ~FFDevice() {}
 	virtual void SetConstantForce(/*const parsed_ff_data& ff*/ int level) = 0;
 	virtual void SetSpringForce(const parsed_ff_data& ff) = 0;
 	virtual void SetDamperForce(const parsed_ff_data& ff) = 0;
@@ -255,7 +256,7 @@ public:
 	{
 		memset(&mFFstate, 0, sizeof(mFFstate));
 	}
-	virtual ~Pad() {}
+	virtual ~Pad() { delete mFFdev; mFFdev = nullptr; }
 	virtual int Open() = 0;
 	virtual int Close() = 0;
 	virtual int TokenIn(uint8_t *buf, int len) = 0;
@@ -310,7 +311,8 @@ enum PS2Buttons : uint32_t {
 	PAD_R2, 
 	PAD_L2,
 	PAD_SELECT, PAD_START,
-	PAD_R3, PAD_L3, //order, afaik not used on any PS2 wheel anyway
+	PAD_R3, PAD_L3, //order, only GT Force/Force EX?
+	PAD_SHIFT_UP, PAD_SHIFT_DOWN, // DF Pro
 	PAD_BUTTON_COUNT
 };
 
@@ -1220,8 +1222,8 @@ struct rb1drumkit_t
 	uint8_t hatswitch;
 };
 
-void ResetData(generic_data_t *d);
-void ResetData(dfp_data_t *d);
+void pad_reset_data(generic_data_t *d);
+void pad_reset_data(dfp_data_t *d);
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data);
 //Convert DF Pro buttons to selected wheel type
 uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn);
