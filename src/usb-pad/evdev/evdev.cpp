@@ -15,7 +15,21 @@ namespace usb_pad { namespace evdev {
 #define NORM(x, n) (((uint32_t)(32768 + x) * n)/0xFFFF)
 #define NORM2(x, n) (((uint32_t)(32768 + x) * n)/0x7FFF)
 
-bool FindHidraw(const std::string &evphys, std::string& hid_dev)
+bool str_ends_with(const char * str, const char * suffix)
+{
+	if (str == nullptr || suffix == nullptr)
+		return false;
+
+	size_t str_len = strlen(str);
+	size_t suffix_len = strlen(suffix);
+
+	if (suffix_len > str_len)
+		return false;
+
+	return 0 == strncmp( str + str_len - suffix_len, suffix, suffix_len );
+}
+
+bool FindHidraw(const std::string &evphys, std::string& hid_dev, int *vid, int *pid)
 {
 	int fd;
 	int res;
@@ -53,6 +67,17 @@ bool FindHidraw(const std::string &evphys, std::string& hid_dev)
 				perror("HIDIOCGRAWPHYS");
 			else
 				OSDebugOut("Raw Phys: %s\n", buf);
+
+			struct hidraw_devinfo info;
+			memset(&info, 0x0, sizeof(info));
+
+			if (ioctl(fd, HIDIOCGRAWINFO, &info) < 0) {
+				perror("HIDIOCGRAWINFO");
+			} else {
+				if (vid) *vid = info.vendor;
+				if (pid) *pid = info.product;
+			}
+
 			close(fd);
 			if (evphys == buf) {
 				closedir(dirp);
@@ -66,6 +91,7 @@ quit:
 	return false;
 }
 
+#define EVDEV_DIR "/dev/input/by-id/"
 void EnumerateDevices(vstring& list)
 {
 	int fd;
@@ -78,9 +104,9 @@ void EnumerateDevices(vstring& list)
 	//TODO do some caching? ioctl is "very" slow
 	static vstring list_cache;
 
-	DIR* dirp = opendir("/dev/input/");
+	DIR* dirp = opendir(EVDEV_DIR);
 	if (!dirp) {
-		perror("Error opening /dev/input/");
+		perror("Error opening " EVDEV_DIR);
 		return;
 	}
 
@@ -94,11 +120,15 @@ void EnumerateDevices(vstring& list)
 
 	while ((dp = readdir(dirp)))
 	{
-		if (strncmp(dp->d_name, "event", 5) == 0) {
-			OSDebugOut("/dev/input/%s\n", dp->d_name);
+		//if (strncmp(dp->d_name, "event", 5) == 0) {
+		if (str_ends_with(dp->d_name, "event-kbd")
+			|| str_ends_with(dp->d_name, "event-mouse")
+			|| str_ends_with(dp->d_name, "event-joystick"))
+		{
+			OSDebugOut(EVDEV_DIR "%s\n", dp->d_name);
 
 			str.clear(); str.str("");
-			str << "/dev/input/" << dp->d_name;
+			str << EVDEV_DIR << dp->d_name;
 			std::string path = str.str();
 
 			auto it = std::find_if(list_cache.begin(), list_cache.end(),
@@ -435,8 +465,6 @@ int EvDevPad::Open()
 	//mHandle = -1;
 
 	std::string evphys, hid_dev;
-	struct hidraw_devinfo info;
-	memset(&info, 0x0, sizeof(info));
 
 	std::string joypath;
 	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
@@ -463,23 +491,17 @@ int EvDevPad::Open()
 			evphys = buf;
 			OSDebugOut("Evdev Phys: %s\n", evphys.c_str());
 
-			if ((mUseRawFF = FindHidraw(evphys, hid_dev))) {
-				mHidHandle = open(hid_dev.c_str(), O_RDWR|O_NONBLOCK);
-				if (mHidHandle < 0) {
-					mUseRawFF = false;
-					perror("Unable to open device");
-				}
+			int pid, vid;
+			if ((mUseRawFF = FindHidraw(evphys, hid_dev, &vid, &pid))) {
 
-				// For safety, only allow Logitech devices
-				if (ioctl(mHidHandle, HIDIOCGRAWINFO, &info) < 0) {
-					perror("HIDIOCGRAWINFO");
-				}
-
-				if (info.vendor != 0x046D /* Logitech */ /*|| info.bustype != BUS_USB*/) {
+				// For safety, only allow Logitech (classic ffb) devices
+				if (vid != 0x046D /* Logitech */ /*|| info.bustype != BUS_USB*/
+					|| pid == 0xc262 /* G920 hid mode */
+					|| pid == 0xc261 /* G920 xbox mode */
+				) {
 					mUseRawFF = false;
 				}
 
-				close(fd);
 				// check if still using hidraw and run the thread
 				if (mUseRawFF && !mWriterThreadIsRunning)
 				{
@@ -491,6 +513,7 @@ int EvDevPad::Open()
 		} else {
 			perror("EVIOCGPHYS failed");
 		}
+		close(fd);
 	}
 
 	EnumerateDevices(device_list);
