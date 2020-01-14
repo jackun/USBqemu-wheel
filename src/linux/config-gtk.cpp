@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 #include <string>
-#include <gtk/gtk.h>
+#include "gtk.h"
 
 #include "../osdebugout.h"
 #include "../configuration.h"

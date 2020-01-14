@@ -72,7 +72,7 @@ s64 remaining = 0;
 #if _WIN32
 HWND gsWnd = nullptr;
 #else
-#include <gtk/gtk.h>
+#include "gtk.h"
 #include <gdk/gdkx.h>
 #include <X11/X.h>
 Display *g_GSdsp;
