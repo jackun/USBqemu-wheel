@@ -16,6 +16,8 @@ namespace usb_pad { namespace evdev {
 
 void EnumerateDevices(vstring& list);
 
+static const char* APINAME = "evdev";
+
 class EvDevPad : public Pad
 {
 public:
