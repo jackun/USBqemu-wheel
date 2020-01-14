@@ -425,7 +425,6 @@ int JoyDevPad::Close()
 	return 0;
 }
 
-REGISTER_PAD(APINAME, JoyDevPad);
 #undef APINAME
 
 }} //namespace
