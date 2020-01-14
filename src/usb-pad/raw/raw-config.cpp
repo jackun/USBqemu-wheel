@@ -310,7 +310,7 @@ void populate(HWND hW, RawDlgConfig *cfg)
 			}
 			sel_idx++;
 		}
-		SAFE_FREE(didData);
+		free(didData);
 		HidD_FreePreparsedData(pPreparsedData);
 		i++;
 	}
