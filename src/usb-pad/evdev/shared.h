@@ -1,5 +1,5 @@
 #pragma once
-#include <gtk/gtk.h>
+#include "gtk.h"
 #include "../padproxy.h"
 #include "../../configuration.h"
 
