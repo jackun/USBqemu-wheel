@@ -80,7 +80,7 @@ Display *g_GSdsp;
 Window g_GSwin;
 #endif
 
-_Config::_Config(): Log(0), DFPPass(0)
+Config::Config(): Log(0)
 {
 	memset(&WheelType, 0, sizeof(WheelType));
 }
@@ -295,7 +295,7 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 
 	g_GSdsp = (Display *)((uptr*)pDsp)[0];
 	g_GSwin = (Window)((uptr*)pDsp)[1];
-	OSDebugOut("X11 display %p Xwindow %p\n", g_GSdsp, g_GSwin);
+	OSDebugOut("X11 display %p Xwindow %lu\n", g_GSdsp, g_GSwin);
 #endif
 
 	try {
@@ -312,10 +312,10 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 
 	//TODO Pass pDsp to open probably so dinput can bind to this HWND
 	if(usb_device[0] && usb_device[0]->klass.open)
-		usb_device[0]->klass.open(usb_device[0]);
+		usb_device[0]->klass.open(usb_device[0]/*, pDsp*/);
 
 	if(usb_device[1] && usb_device[1]->klass.open)
-		usb_device[1]->klass.open(usb_device[1]);
+		usb_device[1]->klass.open(usb_device[1]/*, pDsp*/);
 
 	return 0;
 }
@@ -459,7 +459,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					return -1;
 				}
 
-				USBDevice& tmp = usbd.device[i].dev;
+				const USBDevice& tmp = usbd.device[i].dev;
 
 				usb_device[i]->addr = tmp.addr;
 				usb_device[i]->attached = tmp.attached;
@@ -483,6 +483,9 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				}
 
 				proxy->Freeze(FREEZE_LOAD, usb_device[i], ptr);
+				//TODO reset port if save state's and configured wheel types are different
+				usb_detach (&qemu_ohci->rhport[i].port);
+				usb_attach (&qemu_ohci->rhport[i].port);
 			}
 			else if (!proxy && index != DEVTYPE_NONE)
 			{
@@ -534,7 +537,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		}
 		else
 		{
-			SysMessage(TEXT("USB packet has invalid device index?\n")); // or just a bug
+			SysMessage(TEXT("USB packet has invalid device index? %d\n"), dev_index); // or just a bug
 			return -1;
 		}
 	}
