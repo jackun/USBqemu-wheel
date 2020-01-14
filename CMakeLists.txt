@@ -239,11 +239,13 @@ SET(SRCS_HID
 # shared/global functions
 SET(HDRS_SHARED
 	./src/shared/shared.h
+	./src/shared/inifile.h
 	./src/shared/ringbuffer.h
 )
 
 SET(SRCS_SHARED
 	./src/shared/shared.cpp
+	./src/shared/inifile.cpp
 	./src/shared/ringbuffer.cpp
 )
 
@@ -265,12 +267,10 @@ IF(WIN32)
 	LIST(APPEND HDRS_WIN32
 		./src/Win32/resource.h
 		./src/Win32/Config.h
-		./src/Win32/Config-win32.h
 	)
 
 	LIST(APPEND SRCS_WIN32
 		./src/Win32/Config.cpp
-		./src/Win32/Config-win32.cpp
 	)
 
 	IF(MINGW)
@@ -446,8 +446,8 @@ IF(UNIX)
 	LIST(APPEND SRCS
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
-		./src/linux/ini.c
-		./src/linux/actualfile.c
+#		./src/linux/ini.c
+#		./src/linux/actualfile.c
 		./src/linux/util.cpp
 	)
 	LIST(APPEND SRCS_QEMU

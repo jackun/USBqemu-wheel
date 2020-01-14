@@ -114,10 +114,7 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 	std::string s;
 
 	if (active > 0)
-	{
 		s = RegisterDevice::instance().Name(active - 1);
-		auto dev = RegisterDevice::instance().Device(active - 1);
-	}
 
 	settingsCB->device = s;
 	populateApiWidget(settingsCB, s);
@@ -216,7 +213,7 @@ extern "C" {
 
 void CALLBACK USBconfigure() {
 
-	RegisterDevice::Initialize();
+	RegisterDevice::Register();
 	LoadConfig();
 	void * that = NULL;
 	SettingsCB settingsCB[2];
@@ -325,7 +322,7 @@ void CALLBACK USBconfigure() {
 		SaveConfig();
 		configChanged = true;
 	}
-//	RegisterDevice::instance().Clear();
+//	ClearAPIs();
 }
 
 void CALLBACK USBabout() {
