@@ -430,7 +430,7 @@ int EvDevPad::TokenOut(const uint8_t *data, int len)
 	}
 
 	const ff_data *ffdata = (const ff_data *)data;
-	bool hires = (mType == WT_DRIVING_FORCE_PRO);
+	bool hires = (mType == WT_DRIVING_FORCE_PRO || mType == WT_DRIVING_FORCE_PRO_1102);
 	ParseFFData(ffdata, hires);
 
 	return len;
