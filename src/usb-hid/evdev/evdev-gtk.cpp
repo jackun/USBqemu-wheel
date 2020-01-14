@@ -10,7 +10,6 @@ GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config
 
 namespace usb_hid { namespace evdev {
 
-#define APINAME "evdev"
 #define EVDEV_DIR "/dev/input/by-path/"
 
 typedef std::vector< std::pair<std::string, std::string> > devs_t;
@@ -171,6 +170,5 @@ int EvDev::Configure(int port, const char* dev_type, HIDType hid_type, void *dat
 	return GtkHidConfigure(port, dev_type, hid_type, GTK_WINDOW (data));
 }
 
-#undef APINAME
 #undef EVDEV_DIR
 }} //namespace

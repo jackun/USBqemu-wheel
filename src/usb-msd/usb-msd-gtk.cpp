@@ -5,8 +5,6 @@
 
 namespace usb_msd {
 
-#define APINAME "cstdio"
-
 static void entryChanged(GtkWidget *widget, gpointer data)
 {
 	const gchar *text = gtk_entry_get_text(GTK_ENTRY(widget));
@@ -104,5 +102,5 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 
 	return RESULT_CANCELED;
 }
-#undef APINAME
-}
+
+} //namespace

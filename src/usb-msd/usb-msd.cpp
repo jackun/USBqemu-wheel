@@ -1086,5 +1086,4 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
 }
 
 #undef DPRINTF
-#undef APINAME
 } //namespace

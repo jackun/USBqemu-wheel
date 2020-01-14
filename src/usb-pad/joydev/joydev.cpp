@@ -8,8 +8,6 @@ namespace usb_pad { namespace joydev {
 
 using namespace evdev;
 
-#define APINAME "joydev"
-
 #define NORM(x, n) (((uint32_t)(32768 + x) * n)/0xFFFF)
 #define NORM2(x, n) (((uint32_t)(32768 + x) * n)/0x7FFF)
 
@@ -220,7 +218,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 
 			if (len <= 0)
 			{
-				OSDebugOut(APINAME ": TokenIn: read error %d\n", errno);
+				OSDebugOut("%s: TokenIn: read error %d\n", APINAME, errno);
 				break;
 			}
 		}
@@ -308,13 +306,13 @@ int JoyDevPad::Open()
 		unsigned int version;
 		if (ioctl(device.fd, JSIOCGVERSION, &version) < 0)
 		{
-			SysMessage(APINAME ": Get version failed: %s\n", strerror(errno));
+			SysMessage("%s: Get version failed: %s\n", APINAME, strerror(errno));
 			continue;
 		}
 
 		if (version < 0x010000)
 		{
-			SysMessage(APINAME ": Driver version 0x%X is too old\n", version);
+			SysMessage("%s: Driver version 0x%X is too old\n", APINAME, version);
 			continue;
 		}
 
@@ -324,7 +322,7 @@ int JoyDevPad::Open()
 		// Axis Mapping
 		if (ioctl(device.fd, JSIOCGAXMAP, device.axis_map) < 0)
 		{
-			SysMessage(APINAME ": Axis mapping failed: %s\n", strerror(errno));
+			SysMessage("%s: Axis mapping failed: %s\n", APINAME, strerror(errno));
 			continue;
 		}
 		else
@@ -347,7 +345,7 @@ int JoyDevPad::Open()
 		// Button Mapping
 		if (ioctl(device.fd, JSIOCGBTNMAP, device.btn_map) < 0)
 		{
-			SysMessage(APINAME ": Button mapping failed: %s\n", strerror(errno));
+			SysMessage("%s: Button mapping failed: %s\n", APINAME, strerror(errno));
 			continue;
 		}
 		else
@@ -395,7 +393,7 @@ int JoyDevPad::Open()
 		if (!mFFdev && has_steering) {
 			if ((mHandleFF = open(event.str().c_str(), /*O_WRONLY*/ O_RDWR)) < 0)
 			{
-				OSDebugOut(APINAME ": Cannot open '%s'\n", event.str().c_str());
+				OSDebugOut("%s: Cannot open '%s'\n", APINAME, event.str().c_str());
 			}
 			else
 				mFFdev = new evdev::EvdevFF(mHandleFF);
@@ -424,7 +422,5 @@ int JoyDevPad::Close()
 	}
 	return 0;
 }
-
-#undef APINAME
 
 }} //namespace
