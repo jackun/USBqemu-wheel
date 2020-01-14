@@ -633,7 +633,7 @@ void resetState(HWND hW)
 	SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
 	SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)TEXT(""));
 
-	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType[plyCapturing], 0);
+	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType[1 - plyCapturing], 0);
 
 	btnCapturing = PAD_BUTTON_COUNT;
 	axisCapturing = PAD_AXIS_COUNT;
@@ -761,7 +761,7 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 				switch (LOWORD(wParam))
 				{
 				case IDC_COMBO_WHEEL_TYPE:
-					conf.WheelType[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
+					conf.WheelType[1 - plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
 					break;
 				case IDC_COMBO_FFB:
 					selectedJoy[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_GETCURSEL, 0, 0);
