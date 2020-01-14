@@ -236,7 +236,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			uint16_t btn = mapping->btnMap[usage[i] - pButtonCaps->Range.UsageMin];
 			for(int j=0; j<2; j++)
 			{
-				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[j];
+				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[1 - j];
 				if(PLY_IS_MAPPED(j, btn))
 				{
 					uint32_t wtbtn = (1 << convert_wt_btn(wt, PLY_GET_VALUE(j, btn))) & 0xFFF; //12bit mask
@@ -288,7 +288,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				if(!PLY_IS_MAPPED(j, v))
 					continue;
 
-				type = conf.WheelType[j];
+				type = conf.WheelType[1 - j];
 
 				switch(PLY_GET_VALUE(j, v))
 				{
@@ -363,7 +363,7 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 		{
 			if(PLY_IS_MAPPED(j, btn))
 			{
-				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[j];
+				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[1 - j];
 				if(PLY_GET_VALUE(j, mapping->btnMap[i]) == pRawInput->data.keyboard.VKey)
 				{
 					uint32_t wtbtn = convert_wt_btn(wt, i);

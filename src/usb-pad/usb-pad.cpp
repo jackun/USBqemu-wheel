@@ -195,7 +195,7 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 	PADState *s = (PADState *)dev;
 	int ret = 0;
 
-	int t = (s->port == PLAYER_ONE_PORT) ? conf.WheelType[0] : conf.WheelType[1];
+	int t = conf.WheelType[s->port];
 
 	switch(request) {
 	case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
@@ -500,7 +500,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (!pad)
 		return NULL;
 
-	pad->Type((PS2WheelTypes)conf.WheelType[1 - port]);
+	pad->Type((PS2WheelTypes)conf.WheelType[port]);
 	PADState *s = new PADState();
 
 	s->desc.full = &s->desc_dev;
@@ -547,7 +547,7 @@ USBDevice *PadDevice::CreateDevice(int port)
 	if (usb_desc_parse_config (config_desc, config_desc_len, s->desc_dev) < 0)
 		goto fail;
 
-	s->f.wheel_type = conf.WheelType[1 - port];
+	s->f.wheel_type = conf.WheelType[port];
 	s->pad = pad;
 	s->dev.speed = USB_SPEED_FULL;
 	s->dev.klass.handle_attach  = usb_desc_attach;
