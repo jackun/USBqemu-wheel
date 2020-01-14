@@ -209,7 +209,6 @@ SET(SRCS_MIC
 	./src/usb-mic/usb-mic-singstar.cpp
 	./src/usb-mic/usb-mic-logitech.cpp
 	./src/usb-mic/usb-headset.cpp
-	./src/usb-mic/audiodev-noop.cpp
 )
 
 SET(SRCS_EYETOY
