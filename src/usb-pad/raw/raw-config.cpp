@@ -13,14 +13,11 @@
 #include <strsafe.h>
 
 extern HINSTANCE hInst;
-extern char *szIni;
-extern std::wstring szIniDir;
-extern void GetIniFile(std::wstring &iniFile);
 #define MSG_PRESS_ESC(wnd) SendDlgItemMessageW(wnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel")
 
 namespace usb_pad { namespace raw {
 
-inline bool MapExists(const MapVector& maps, TCHAR* hid)
+inline bool MapExists(const MapVector& maps, const std::wstring& hid)
 {
 	for(auto& it : maps)
 		if(!it.hidPath.compare(hid))
@@ -30,30 +27,27 @@ inline bool MapExists(const MapVector& maps, TCHAR* hid)
 
 void LoadMappings(const char *dev_type, MapVector& maps)
 {
-	std::wstring szIniFile;
-
-	GetIniFile(szIniFile);
-
 	maps.clear();
-	
-	WCHAR sec[1024] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
-	int j = 0, v = 0;
-	while(j < 25)
+
+	WCHAR sec[1024] = {0}, bind[32] = {0};
+	int v = 0;
+	for(int j = 0; j < 25; j++)
 	{
-		hid[0] = 0;
-		swprintf_s(sec, TEXT("%S RAW DEVICE %d"), dev_type, j++);
-		if(GetPrivateProfileStringW(sec, TEXT("HID"), NULL, hid, MAX_PATH, szIniFile.c_str())
-			&& hid[0] && !MapExists(maps, hid))
+		std::wstring hid, tmp;
+		//swprintf_s(sec, TEXT("%S RAW DEVICE %d"), dev_type, j++);
+
+		if(LoadSetting(dev_type, j, "RAW DEVICE", _T("HID"), hid)
+			&& !hid.empty() && !MapExists(maps, hid))
 		{
-			Mappings m;// = new Mappings;
+			Mappings m;
 			ZeroMemory(&m, sizeof(Mappings));
 			maps.push_back(m);
 			Mappings& ptr = maps.back();
 
 			ptr.hidPath = hid;
 			ptr.devName = hid;
-			//ResetData(&ptr.data[0]);
-			//ResetData(&ptr.data[1]);
+			//pad_reset_data(&ptr.data[0]);
+			//pad_reset_data(&ptr.data[1]);
 			memset(&ptr.data[0], 0xFF, sizeof(wheel_data_t));
 			memset(&ptr.data[1], 0xFF, sizeof(wheel_data_t));
 			ptr.data[0].buttons = 0;
@@ -64,22 +58,22 @@ void LoadMappings(const char *dev_type, MapVector& maps)
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
 				swprintf_s(bind, L"Button %d", i);
-				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr.btnMap[i]));
+				if(LoadSetting(dev_type, j, "RAW DEVICE", bind, tmp))
+					swscanf_s(tmp.c_str(), L"%08X", &(ptr.btnMap[i]));
 			}
 
 			for(int i = 0; i<MAX_AXES; i++)
 			{
 				swprintf_s(bind, L"Axis %d", i);
-				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr.axisMap[i]));
+				if(LoadSetting(dev_type, j, "RAW DEVICE", bind, tmp))
+					swscanf_s(tmp.c_str(), L"%08X", &(ptr.axisMap[i]));
 			}
 
 			for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 			{
 				swprintf_s(bind, L"Hat %d", i);
-				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr.hatMap[i]));
+				if(LoadSetting(dev_type, j, "RAW DEVICE", bind, tmp))
+					swscanf_s(tmp.c_str(), L"%08X", &(ptr.hatMap[i]));
 			}
 		}
 	}
@@ -88,39 +82,35 @@ void LoadMappings(const char *dev_type, MapVector& maps)
 
 void SaveMappings(const char *dev_type, MapVector& maps)
 {
-	std::wstring szIniFile;
-
-	GetIniFile(szIniFile);
-
 	uint32_t numDevice = 0;
 	for(auto& it : maps)
 	{
 		WCHAR dev[1024] = {0}, tmp[16] = {0}, bind[32] = {0};
 
-		swprintf_s(dev, L"%S RAW DEVICE %u", dev_type, numDevice++);
-		WritePrivateProfileStringW(dev, L"HID", it.hidPath.c_str(), szIniFile.c_str());
+		SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", _T("HID"), it.hidPath);
 
 		//writing everything separately, then string lengths are more predictable
 		for(int i = 0; i<MAX_BUTTONS; i++)
 		{
 			swprintf_s(bind, L"Button %d", i);
 			swprintf_s(tmp, L"%08X", it.btnMap[i]);
-			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
+			SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", bind, tmp);
 		}
 
 		for(int i = 0; i<MAX_AXES; i++)
 		{
 			swprintf_s(bind, L"Axis %d", i);
 			swprintf_s(tmp, L"%08X", it.axisMap[i]);
-			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
+			SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", bind, tmp);
 		}
 
 		for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 		{
 			swprintf_s(bind, L"Hat %d", i);
 			swprintf_s(tmp, L"%08X", it.hatMap[i]);
-			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
+			SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", bind, tmp);
 		}
+		numDevice++;
 	}
 
 	return;

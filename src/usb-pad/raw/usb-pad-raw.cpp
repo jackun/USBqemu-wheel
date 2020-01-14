@@ -209,8 +209,8 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	//GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICEINFO, &devInfo, &pSize);
 
 	//Unset buttons/axes mapped to this device
-	//ResetData(&mapping->data[0]);
-	//ResetData(&mapping->data[1]);
+	//pad_reset_data(&mapping->data[0]);
+	//pad_reset_data(&mapping->data[1]);
 	memset(&mapping->data[0], 0xFF, sizeof(wheel_data_t));
 	memset(&mapping->data[1], 0xFF, sizeof(wheel_data_t));
 	mapping->data[0].buttons = 0;
