@@ -79,7 +79,7 @@ Display *g_GSdsp;
 Window g_GSwin;
 #endif
 
-_Config::_Config(): Log(0), DFPPass(0)
+Config::Config(): Log(0)
 {
 	memset(&WheelType, 0, sizeof(WheelType));
 }
