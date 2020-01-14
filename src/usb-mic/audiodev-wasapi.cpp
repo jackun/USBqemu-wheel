@@ -6,13 +6,13 @@
 #include <functiondiscoverykeys_devpkey.h>
 #include <process.h>
 #include "audiodev-wasapi.h"
-#include "../Win32/Config-win32.h"
+#include "../Win32/Config.h"
 #include "../Win32/resource.h"
 
 #define SafeRelease(x) if(x){x->Release(); x = NULL;}
 #define ConvertMSTo100NanoSec(ms) (ms*1000*10) //1000 microseconds, then 10 "100nanosecond" segments
 
-namespace audiodev_wasapi {
+namespace usb_mic { namespace audiodev_wasapi {
 
 static FILE* file = nullptr;
 
@@ -1011,5 +1011,4 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 	return FALSE;
 }
 
-REGISTER_AUDIODEV(APINAME, MMAudioDevice);
-} // namespace
+}} // namespace

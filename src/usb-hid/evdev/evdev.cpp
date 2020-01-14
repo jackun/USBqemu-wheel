@@ -324,7 +324,4 @@ void EvDev::ReaderThread(void *ptr)
 	dev->mReaderThreadIsRunning = false;
 }
 
-REGISTER_USBHID(APINAME, EvDev);
-#undef APINAME
-
 }} //namespace

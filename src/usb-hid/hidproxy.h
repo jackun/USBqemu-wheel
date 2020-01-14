@@ -7,7 +7,7 @@
 #include <iterator>
 #include "usb-hid.h"
 #include "../helpers.h"
-#include "../proxybase.h"
+#include "../deviceproxy.h"
 
 namespace usb_hid {
 
@@ -64,65 +64,11 @@ class UsbHIDProxy : public UsbHIDProxyBase
 	}
 };
 
-class RegisterUsbHID
+class RegisterUsbHID : public RegisterProxy<UsbHIDProxyBase>
 {
-	RegisterUsbHID(const RegisterUsbHID&) = delete;
-	RegisterUsbHID() {}
-
 	public:
-	typedef std::map<std::string, UsbHIDProxyBase* > RegisterUsbHIDMap;
-	static RegisterUsbHID& instance() {
-		static RegisterUsbHID registerUsbHID;
-		return registerUsbHID;
-	}
-
-	~RegisterUsbHID() { Clear(); OSDebugOut("%p\n", this); }
-
-	static void Initialize();
-
-	void Add(const std::string& name, UsbHIDProxyBase* creator)
-	{
-		registerUsbHIDMap[name] = creator;
-	}
-
-	void Clear()
-	{
-		registerUsbHIDMap.clear();
-	}
-
-	UsbHIDProxyBase* Proxy(const std::string& name)
-	{
-		return registerUsbHIDMap[name];
-	}
-
-	std::list<std::string> Names() const
-	{
-		std::list<std::string> nameList;
-		std::transform(
-			registerUsbHIDMap.begin(), registerUsbHIDMap.end(),
-			std::back_inserter(nameList),
-			SelectKey());
-		return nameList;
-	}
-
-	std::string Name(int idx) const
-	{
-		auto it = registerUsbHIDMap.begin();
-		std::advance(it, idx);
-		if (it != registerUsbHIDMap.end())
-			return std::string(it->first);
-		return std::string();
-	}
-
-	const RegisterUsbHIDMap& Map() const
-	{
-		return registerUsbHIDMap;
-	}
-
-private:
-	RegisterUsbHIDMap registerUsbHIDMap;
+	static void Register();
 };
 
-#define REGISTER_USBHID(name,cls) //UsbHIDProxy<cls> g##cls##Proxy(name)
 }
 #endif

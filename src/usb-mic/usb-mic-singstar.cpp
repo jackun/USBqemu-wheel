@@ -42,7 +42,7 @@ static FILE *file = NULL;
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
 
-namespace usb_mic_singstar {
+namespace usb_mic {
 
 /*
  * A USB audio device supports an arbitrary number of alternate
@@ -861,5 +861,4 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 	return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_SINGSTAR, SingstarDevice);
-};
+}

@@ -8,9 +8,11 @@
 #include <iterator>
 #include "../helpers.h"
 #include "../configuration.h"
-#include "../proxybase.h"
+#include "../deviceproxy.h"
 #include "../osdebugout.h"
 #include "audiodev.h"
+
+namespace usb_mic {
 
 class AudioDeviceError : public std::runtime_error
 {
@@ -78,64 +80,10 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 	}
 };
 
-class RegisterAudioDevice
+class RegisterAudioDevice : public RegisterProxy<AudioDeviceProxyBase>
 {
-	RegisterAudioDevice(const RegisterAudioDevice&) = delete;
-	RegisterAudioDevice() {}
-
 	public:
-	typedef std::map<std::string, std::unique_ptr<AudioDeviceProxyBase> > RegisterAudioDeviceMap;
-	static RegisterAudioDevice& instance() {
-		static RegisterAudioDevice registerAudioDevice;
-		return registerAudioDevice;
-	}
-
-	~RegisterAudioDevice() { Clear(); OSDebugOut("%p\n", this); }
-
-	static void Initialize();
-
-	void Clear()
-	{
-		registerAudioDeviceMap.clear();
-	}
-
-	void Add(const std::string& name, AudioDeviceProxyBase* creator)
-	{
-		registerAudioDeviceMap[name] = std::unique_ptr<AudioDeviceProxyBase>(creator);
-	}
-
-	AudioDeviceProxyBase* Proxy(const std::string& name)
-	{
-		return registerAudioDeviceMap[name].get();
-	}
-	
-	std::list<std::string> Names() const
-	{
-		std::list<std::string> nameList;
-		std::transform(
-			registerAudioDeviceMap.begin(), registerAudioDeviceMap.end(),
-			std::back_inserter(nameList),
-			SelectKey());
-		return nameList;
-	}
-
-	std::string Name(int idx) const
-	{
-		auto it = registerAudioDeviceMap.begin();
-		std::advance(it, idx);
-		if (it != registerAudioDeviceMap.end())
-			return std::string(it->first);
-		return std::string();
-	}
-
-	const RegisterAudioDeviceMap& Map() const
-	{
-		return registerAudioDeviceMap;
-	}
-	
-private:
-	RegisterAudioDeviceMap registerAudioDeviceMap;
+	static void Register();
 };
-
-#define REGISTER_AUDIODEV(name,cls) //AudioDeviceProxy<cls> g##cls##Proxy(name)
+}
 #endif

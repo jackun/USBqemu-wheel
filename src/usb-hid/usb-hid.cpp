@@ -61,11 +61,6 @@ const TCHAR* HIDKbdDevice::LongAPIName(const std::string& name)
     return nullptr;
 }
 
-void HIDKbdDevice::Initialize()
-{
-    RegisterUsbHID::Initialize();
-}
-
 std::list<std::string> HIDMouseDevice::ListAPIs()
 {
     return RegisterUsbHID::instance().Names();
@@ -77,11 +72,6 @@ const TCHAR* HIDMouseDevice::LongAPIName(const std::string& name)
     if (proxy)
         return proxy->Name();
     return nullptr;
-}
-
-void HIDMouseDevice::Initialize()
-{
-    RegisterUsbHID::Initialize();
 }
 
 enum {
@@ -730,6 +720,4 @@ int HIDMouseDevice::Freeze(int mode, USBDevice *dev, void *data)
     return HIDKbdDevice::Freeze(mode, dev, data);
 }
 
-REGISTER_DEVICE(DEVTYPE_HIDKBD, HIDKbdDevice);
-REGISTER_DEVICE(DEVTYPE_HIDMOUSE, HIDMouseDevice);
 } //namespace

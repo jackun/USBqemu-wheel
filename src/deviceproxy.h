@@ -12,6 +12,9 @@
 #include "proxybase.h"
 #include "qemu-usb/USBinternal.h"
 
+void RegisterAPIs();
+void UnregisterAPIs();
+
 // also map key/array index
 enum DeviceType
 {
@@ -38,14 +41,13 @@ class DeviceError : public std::runtime_error
 {
 	public:
 	DeviceError(const char* msg) : std::runtime_error(msg) {}
-	virtual ~DeviceError() throw () {}
+	virtual ~DeviceError() {}
 };
 
 class DeviceProxyBase
 {
 	public:
 	DeviceProxyBase() {};
-	DeviceProxyBase(DeviceType key);
 	virtual ~DeviceProxyBase() {}
 	virtual USBDevice* CreateDevice(int port) = 0;
 	virtual const TCHAR* Name() const = 0;
@@ -55,7 +57,6 @@ class DeviceProxyBase
 	virtual const TCHAR* LongAPIName(const std::string& name) = 0;
 	virtual int Freeze(int mode, USBDevice *dev, void *data) = 0;
 
-	virtual void Initialize() = 0;
 	virtual bool IsValidAPI(const std::string& api)
 	{
 		const std::list<std::string>& apis = ListAPIs();
@@ -70,8 +71,7 @@ template <class T>
 class DeviceProxy : public DeviceProxyBase
 {
 	public:
-	DeviceProxy() { Initialize(); }
-	DeviceProxy(DeviceType key): DeviceProxyBase(key) {}
+	DeviceProxy() {}
 	virtual ~DeviceProxy()
 	{
 		OSDebugOut(TEXT("%p\n"), this);
@@ -104,14 +104,64 @@ class DeviceProxy : public DeviceProxyBase
 	{
 		return T::Freeze(mode, dev, data);
 	}
-	virtual void Initialize()
-	{
-		T::Initialize();
+};
+
+template <class T>
+class RegisterProxy
+{
+	RegisterProxy(const RegisterProxy&) = delete;
+	RegisterProxy() {}
+
+	public:
+	typedef std::map<std::string, std::unique_ptr<T> > RegisterProxyMap;
+	static RegisterProxy& instance() {
+		static RegisterProxy registerProxy;
+		return registerProxy;
 	}
-	/*virtual void Uninitialize()
+
+	virtual ~RegisterProxy() { Clear(); OSDebugOut("%p\n", this); }
+
+	void Clear()
 	{
-		T::Uninitialize();
-	}*/
+		registerProxyMap.clear();
+	}
+
+	void Add(const std::string& name, T* creator)
+	{
+		registerProxyMap[name] = std::unique_ptr<T>(creator);
+	}
+
+	T* Proxy(const std::string& name)
+	{
+		return registerProxyMap[name].get();
+	}
+
+	std::list<std::string> Names() const
+	{
+		std::list<std::string> nameList;
+		std::transform(
+			registerProxyMap.begin(), registerProxyMap.end(),
+			std::back_inserter(nameList),
+			SelectKey());
+		return nameList;
+	}
+
+	std::string Name(int idx) const
+	{
+		auto it = registerProxyMap.begin();
+		std::advance(it, idx);
+		if (it != registerProxyMap.end())
+			return std::string(it->first);
+		return std::string();
+	}
+
+	const RegisterProxyMap& Map() const
+	{
+		return registerProxyMap;
+	}
+
+private:
+	RegisterProxyMap registerProxyMap;
 };
 
 class RegisterDevice
@@ -130,20 +180,12 @@ class RegisterDevice
 
 	~RegisterDevice() { OSDebugOut("%p\n", this); }
 
-	static void Initialize();
+	static void Register();
+	void Unregister();
 
 	void Add(DeviceType key, DeviceProxyBase* creator)
 	{
 		registerDeviceMap[key] = std::unique_ptr<DeviceProxyBase>(creator);
-	}
-
-	void Clear()
-	{
-		/*for (auto& i: registerDeviceMap)
-			delete i.second;*/
-		registerDeviceMap.clear();
-		delete registerDevice;
-		registerDevice = nullptr;
 	}
 
 	DeviceProxyBase* Device(const std::string& name)
@@ -155,11 +197,9 @@ class RegisterDevice
 		return nullptr;*/
 		auto proxy = std::find_if(registerDeviceMap.begin(),
 			registerDeviceMap.end(),
-			[&name](RegisterDeviceMap::value_type& val) -> bool
+			[&name](const RegisterDeviceMap::value_type& val) -> bool
 		{
-			//OSDebugOut(TEXT("ptr: %p -> %p = %s\n"), val.second,
-			//	*(void**)val.second, !(*(void**)val.second) ? "Fucked" : "OK" );
-			return /* *(void**)val.second && */val.second->TypeName() == name;
+			return val.second->TypeName() == name;
 		});
 		if (proxy != registerDeviceMap.end())
 			return proxy->second.get();
@@ -216,6 +256,4 @@ class RegisterDevice
 	RegisterDeviceMap registerDeviceMap;
 };
 
-#define REGISTER_DEVICE(idx,cls) //DeviceProxy<cls> g##cls##Proxy(idx)
-//#define REGISTER_DEVICE(idx,name,cls) static std::unique_ptr< DeviceProxy<cls> > g##cls##Proxy(new DeviceProxy<cls>(DeviceKey(idx, name)))
 #endif
