@@ -98,6 +98,7 @@ void EvdevFF::SetConstantForce(/*const parsed_ff_data& ff*/ int level)
 		mEffect.id = mEffIds[EFF_CONSTANT];
 		mEffect.u.constant.level = /*ff.u.constant.*/level;
 
+		OSDebugOut("Constant force: %d\n", level);
 		if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 			OSDebugOut("Failed to upload constant effect: %s\n", strerror(errno));
 			return;
@@ -154,6 +155,10 @@ void EvdevFF::SetSpringForce(const parsed_ff_data& ff)
 	mEffect.u.condition[0].center = ff.u.condition.center;
 	mEffect.u.condition[0].deadband = ff.u.condition.deadband;
 
+	OSDebugOut("Spring force: coef %d/%d sat %d/%d\n",
+		mEffect.u.condition[0].left_coeff, mEffect.u.condition[0].right_coeff,
+		mEffect.u.condition[0].left_saturation, mEffect.u.condition[0].right_saturation);
+
 	if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 		OSDebugOut("Failed to upload spring effect: %s\n", strerror(errno));
 		return;
@@ -181,6 +186,8 @@ void EvdevFF::SetDamperForce(const parsed_ff_data& ff)
 	mEffect.u.condition[0].right_coeff = ff.u.condition.right_coeff;
 	mEffect.u.condition[0].center = ff.u.condition.center;
 	mEffect.u.condition[0].deadband = ff.u.condition.deadband;
+
+	OSDebugOut("Damper force: %d/%d\n", mEffect.u.condition[0].left_coeff, mEffect.u.condition[0].right_coeff);
 
 	if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 		OSDebugOut("Failed to upload damper effect: %s\n", strerror(errno));
@@ -210,6 +217,7 @@ void EvdevFF::SetFrictionForce(const parsed_ff_data& ff)
 	mEffect.u.condition[0].center = ff.u.condition.center;
 	mEffect.u.condition[0].deadband = ff.u.condition.deadband;
 
+	OSDebugOut("Friction force: %d/%d\n", mEffect.u.condition[0].left_coeff, mEffect.u.condition[0].right_coeff);
 	if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 		OSDebugOut("Failed to upload friction effect: %s\n", strerror(errno));
 		return;
@@ -231,6 +239,7 @@ void EvdevFF::SetAutoCenter(int value)
 	ie.code = FF_AUTOCENTER;
 	ie.value = value * 0xFFFFUL / 100;
 
+	OSDebugOut("Autocenter: %d\n", value);
 	if (write(mHandle, &ie, sizeof(ie)) == -1)
 		OSDebugOut("Failed to set autocenter: %s\n", strerror(errno));
 }
@@ -243,6 +252,7 @@ void EvdevFF::SetGain(int gain /* between 0 and 100 */)
 	ie.code = FF_GAIN;
 	ie.value = 0xFFFFUL * gain / 100;
 
+	OSDebugOut("Gain: %d\n", gain);
 	if (write(mHandle, &ie, sizeof(ie)) == -1)
 		OSDebugOut("Failed to set gain: %s\n", strerror(errno));
 }
