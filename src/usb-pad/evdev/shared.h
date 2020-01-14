@@ -80,6 +80,7 @@ struct ConfigMapping
 {
 	std::vector<uint16_t> mappings;
 	bool inverted[3];
+	int initial[3];
 	int fd = -1;
 };
 
@@ -87,7 +88,7 @@ struct ApiCallbacks
 {
 	bool (*get_event_name)(const char *dev_type, int map, int event, const char **name);
 	void (*populate)(vstring& jsdata);
-	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted);
+	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial);
 };
 
 struct ConfigData
@@ -105,8 +106,8 @@ struct ConfigData
 
 int GtkPadConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
 int GtkBuzzConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
-bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
-bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3], int (&initial)[3]);
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3], int (&initial)[3]);
 bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings);
 bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings);
 }} //namespace

@@ -35,7 +35,7 @@ void EnumerateDevices(vstring& list)
 
 			str.clear(); str.str("");
 			str << "/dev/input/" << dp->d_name;
-			std::string path = str.str();
+			const std::string& path = str.str();
 			fd = open(path.c_str(), O_RDONLY|O_NONBLOCK);
 
 			if (fd < 0) {
@@ -280,11 +280,11 @@ int JoyDevPad::Open()
 	mHandleFF = -1;
 
 	std::string joypath;
-	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
+	/*if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
 	{
 		OSDebugOut("Cannot load joystick setting: %s\n", N_JOYSTICK);
 		return 1;
-	}
+	}*/
 
 	EnumerateDevices(device_list);
 
@@ -319,7 +319,7 @@ int JoyDevPad::Open()
 		}
 
 		LoadMappings(mDevType, mPort, device.name,
-			device.mappings, device.axis_inverted);
+			device.mappings, device.axis_inverted, device.axis_initial);
 
 		// Axis Mapping
 		if (ioctl(device.fd, JSIOCGAXMAP, device.axis_map) < 0)
@@ -400,8 +400,9 @@ int JoyDevPad::Open()
 			else
 				mFFdev = new evdev::EvdevFF(mHandleFF);
 		}
-		return 0;
 	}
+
+	return 0;
 
 quit:
 	Close();
