@@ -359,14 +359,13 @@ IF(WIN32)
 		INCLUDE_DIRECTORIES(${BUILD_DX_INCLUDE})
 		LINK_DIRECTORIES(${BUILD_DX_LIB})
 		LIST(APPEND HDRS_DX
-			./src/usb-pad/dx/di.h
-			./src/usb-pad/dx/dialog.h
-			./src/usb-pad/dx/global.h
-			./src/usb-pad/dx/ini.h
+			./src/usb-pad/dx/dx.h
 			./src/usb-pad/dx/versionproxy.h
 			./src/usb-pad/dx/usb-pad-dx.h
 		)
 		LIST(APPEND SRCS_DX
+			./src/usb-pad/dx/dinput.cpp
+			./src/usb-pad/dx/dinput-config.cpp
 			./src/usb-pad/dx/usb-pad-dx.cpp
 		)
 		SOURCE_GROUP("Header Files\\usb-pad\\Dx" FILES ${HDRS_DX})

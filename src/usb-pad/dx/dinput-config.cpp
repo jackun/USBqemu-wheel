@@ -2,13 +2,269 @@
 // floats to int
 #pragma warning (disable : 4244)
 
+#include "dx.h"
+
+#include <commctrl.h>
+#include <stdlib.h>
+#include <shellapi.h>
+#include <stdio.h>
+#include "versionproxy.h"
+
+#include "usb-pad-dx.h"
+
 namespace usb_pad { namespace dx {
+
+static bool useRamp = false;
+
+bool listening = false;
+DWORD listenend = 0;
+DWORD listennext = 0;
+DWORD listentimeout = 10000;
+DWORD listeninterval = 500;
+
+extern BYTE diks[256];          // DirectInput keyboard state buffer
+extern DIMOUSESTATE2 dims2;     // DirectInput mouse state structure
+
+std::vector<DIJOYSTATE2> jso;   // DInput joystick old state, only for config
+std::vector<DIJOYSTATE2> jsi;   // DInput joystick initial state, only for config
+
+int32_t AXISID[2][CID_COUNT];
+int32_t BUTTON[2][CID_COUNT];
+int32_t INVERT[2][CID_COUNT];
+int32_t HALF[2][CID_COUNT];
+int32_t LINEAR[2][CID_COUNT];
+int32_t OFFSET[2][CID_COUNT];
+int32_t DEADZONE[2][CID_COUNT];
+
+bool BYPASSCAL = 0;
+int32_t GAINZ[2][1];
+int32_t FFMULTI[2][1];
+bool INVERTFORCES[2] = { false, false };
+
+bool dialogOpen = false;
+
+HWND hKey;
+HWND hWnd;
+TCHAR text[1024];
+ControlID CID = CID_COUNT;
+
+HFONT hFont;
+HDC hDC;
+PAINTSTRUCT Ps;
+RECT rect;
+static WNDPROC pFnPrevFunc;
+LONG filtercontrol = 0;
+float TESTV=0;
+float TESTVF=0;
+DWORD m_dwScalingTime;
+DWORD m_dwDrawingTime;
+DWORD m_dwCreationTime;
+DWORD m_dwMemory;
+DWORD m_dwOption;
+DWORD m_dwTime;
+HBITMAP m_hOldAABitmap;
+HBITMAP m_hAABitmap;
+HDC m_hAADC;
+HBITMAP m_hOldMemBitmap;
+HBITMAP m_hMemBitmap;
+HDC m_hMemDC;
+
+
+//label enum
+DWORD LABELS[CID_COUNT] = {
+	IDC_LABEL0,
+	IDC_LABEL1,
+	IDC_LABEL2,
+	IDC_LABEL3,
+	IDC_LABEL4,
+	IDC_LABEL5,
+	IDC_LABEL6,
+	IDC_LABEL7,
+	IDC_LABEL8,
+	IDC_LABEL9,
+	IDC_LABEL10,
+	IDC_LABEL11,
+	IDC_LABEL12,
+	IDC_LABEL13,
+	IDC_LABEL14,
+	IDC_LABEL15,
+	IDC_LABEL16,
+	IDC_LABEL17,
+	IDC_LABEL18,
+	IDC_LABEL19,
+};
 
 struct DXDlgSettings
 {
 	int port;
 	const char* dev_type;
 };
+
+void SetControlLabel(int cid, const InputMapped& im)
+{
+	if (cid >= CID_COUNT)
+		return;
+
+	if (im.type == MT_AXIS)
+		swprintf_s(text, L"Axis %i/%i/%s/%i", im.index, im.mapped, im.INVERTED ? L"i" : L"n", im.HALF);
+	else if (im.type == MT_BUTTON)
+		swprintf_s(text, L"Button %i/%i", im.index, im.mapped);
+	else
+		swprintf_s(text, L"Unmapped");
+
+	SetWindowText(GetDlgItem(hWnd, LABELS[cid]), text);
+}
+
+//config only
+void ListenUpdate()
+{
+	for (size_t i=0; i<g_pJoysticks.size(); i++) {
+		jso[i] = g_pJoysticks[i]->GetDeviceState();
+	}
+	PollDevices();
+}
+
+//poll and store all joystick states for comparison (config only)
+void ListenAxis()
+{
+	PollDevices();
+	for (size_t i=0; i<g_pJoysticks.size(); i++) {
+		if (g_pJoysticks[i]->GetControlType() != CT_JOYSTICK)
+			continue;
+		jso[i] = g_pJoysticks[i]->GetDeviceState();
+		jsi[i] = jso[i];
+	}
+
+	listenend = listentimeout+GetTickCount();
+	listennext = GetTickCount();
+	listening=true;
+}
+
+//get listen time left in ms (config only)
+DWORD GetListenTimeout()
+{
+	return listenend-GetTickCount();
+}
+
+//compare all device axis for difference (config only)
+bool AxisDown(size_t ijoy, InputMapped& im)
+{
+	//TODO mouse axis
+	if (g_pJoysticks[ijoy]->GetControlType() != CT_JOYSTICK)
+		return false;
+
+	DIJOYSTATE2 js = g_pJoysticks[ijoy]->GetDeviceState();
+	std::cerr << __func__ << ": joystick[" << ijoy << "]: " <<
+		"\tlX " << js.lX << "\n" <<
+		"\tlY " << js.lY << "\n" <<
+		"\tlZ " << js.lZ << "\n" <<
+		"\tlRx " << js.lRx << "\n" <<
+		"\tlRy " << js.lRy << "\n" <<
+		"\tlRz " << js.lRz << "\n" <<
+		"\trglSlider0 " << js.rglSlider[0] << "\n" <<
+		"\trglSlider1 " << js.rglSlider[1] << "\n" <<
+		std::endl;
+
+	LONG detectrange = 2000;
+	for (size_t axisid = 0; axisid < DINPUT_AXES_COUNT; axisid++)
+	{
+		LONG diff = 0;
+		im.index = ijoy;
+		im.mapped = axisid;
+		im.type = MappingType::MT_NONE;
+
+		// TODO mind the POV axes, one axis for all directions?
+		diff = GetAxisValueFromOffset(axisid, js) - GetAxisValueFromOffset(axisid, jso[ijoy]);
+		if (diff > detectrange) {
+			im.HALF = GetAxisValueFromOffset(axisid, jsi[ijoy]);
+			im.INVERTED = true;
+			im.type = MappingType::MT_AXIS;
+			return true;
+		}
+		if (diff < -detectrange) {
+			im.HALF = GetAxisValueFromOffset(axisid, jsi[ijoy]);
+			im.INVERTED = false;
+			im.type = MappingType::MT_AXIS;
+			return true;
+		}
+	}
+	return false;
+}
+
+//checks all devices for digital button id/index
+bool KeyDown(size_t ijoy, InputMapped& im)
+{
+	assert(ijoy < g_pJoysticks.size());
+	if (ijoy >= g_pJoysticks.size())
+		return false;
+
+	auto joy = g_pJoysticks[ijoy];
+	im.index = ijoy;
+	im.type = MT_NONE;
+
+	int buttons = 0;
+
+	switch (joy->GetControlType()) {
+	case CT_JOYSTICK:
+		buttons = ARRAY_SIZE(DIJOYSTATE2::rgbButtons) + 16 /* POV */;
+		break;
+	case CT_KEYBOARD:
+		buttons = 256;
+		break;
+	case CT_MOUSE:
+		buttons = ARRAY_SIZE(DIMOUSESTATE2::rgbButtons);
+		break;
+	default:
+		break;
+	}
+
+	for (int b = 0; b < buttons; b++) {
+		if (joy->GetButton(b)) {
+			im.mapped = b;
+			im.type = MT_BUTTON;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+//search all axis/buttons (config only)
+bool FindControl(LONG port, ControlID cid, InputMapped& im)
+{
+	if (listening==true) {
+		if (listenend>GetTickCount())
+		{
+			if (listennext<GetTickCount())
+			{
+				listennext = listeninterval+GetTickCount();
+				ListenUpdate();
+
+				for (size_t i = 0; i<g_pJoysticks.size(); i++) {
+					if (AxisDown(i, im)) {
+						listening = false;
+						if (CID_STEERING == cid) {
+							CreateFFB(port, g_pJoysticks[im.index]->GetDevice(), im.mapped);
+						}
+						AddInputMap(port, cid, im);
+						return true;
+					}
+					else if (KeyDown(i, im)) {
+						listening = false;
+						AddInputMap(port, cid, im);
+						return true;
+					}
+				}
+			}
+		}else{
+			GetInputMap(port, cid, im);
+			SetControlLabel(cid, im);
+			listening=false;
+			return false; //timedout
+		}
+	}
+	return false;
+}
 
 void ApplyFilter(int port)
 {
@@ -38,19 +294,20 @@ void LoadFilter(int port)
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol==-1)return;
+	//InputMapped im = {};
+	//GetInputMap(port, (ControlID)filtercontrol, im);
 	//slider
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50 * PRECMULTI);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50 * PRECMULTI);
 	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50 * PRECMULTI);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
-	ApplyFilter(port);
 
+	ApplyFilter(port);
 }
 
 void DefaultFilters(int port, LONG id)
 {
-
 	for(int i=0;i<6;i++)
 	{
 		LINEAR[port][i] = 0;
@@ -92,31 +349,26 @@ void DefaultFilters(int port, LONG id)
 			break;
 	}
 
-
-	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
-	if(filtercontrol==-1)return;
-	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50 * PRECMULTI);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50 * PRECMULTI);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50 * PRECMULTI);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
-
-	ApplyFilter(port);
-
+	LoadFilter(port);
 }
 
 void ControlTest(int port) //thread: waits for window
 {
+	InputMapped im;
+
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol>=0 && listening==false)
 	{
 		PollDevices();
-		TESTV=ReadAxis(AXISID[port][filtercontrol], INVERT[port][filtercontrol], HALF[port][filtercontrol]);
-		TESTVF=FilterControl(ReadAxis(AXISID[port][filtercontrol], INVERT[port][filtercontrol], HALF[port][filtercontrol]), LINEAR[port][filtercontrol], OFFSET[port][filtercontrol], DEADZONE[port][filtercontrol]);
-		GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
-		MapWindowPoints(GetDlgItem(hWnd,IDC_PICTURE), hWnd, (POINT *) &rect, 2);
-		InvalidateRect( hWnd, &rect, TRUE );
+
+		if (GetInputMap(port, (ControlID)filtercontrol, im))
+		{
+			TESTV = ReadAxis(im);
+			TESTVF = FilterControl(ReadAxis(im), LINEAR[port][filtercontrol], OFFSET[port][filtercontrol], DEADZONE[port][filtercontrol]);
+			GetClientRect(GetDlgItem(hWnd, IDC_PICTURE), &rect);
+			MapWindowPoints(GetDlgItem(hWnd, IDC_PICTURE), hWnd, (POINT*)& rect, 2);
+			InvalidateRect(hWnd, &rect, TRUE);
+		}
 	}else{
 		TESTV=0;
 	}
@@ -126,53 +378,40 @@ void ControlTest(int port) //thread: waits for window
 
 void ListenForControl(int port)
 {
-	LONG inv=0;
-	LONG ini=0;
-	LONG ax=0;
-	LONG but=0;
-	LONG ret=0;
+	InputMapped im ({});
 
-	inv=0;
-	ini=0;
-	ret = FindControl(port, ax,inv,ini,but);
+	if (FindControl(port, CID, im))
+	{
+		if (CID <= CID_BRAKE) {
+			LINEAR[port][CID] = im.LINEAR;
+			OFFSET[port][CID] = im.OFFSET;
+			DEADZONE[port][CID] = im.DEADZONE;
+		}
 
-	if(ret){
-		AXISID[port][CID] = ax;
-		INVERT[port][CID] = inv;
-		HALF[port][CID] = ini;
-		BUTTON[port][CID] = but;
-		
+		AddInputMap(port, CID, im);
+		SetControlLabel(CID, im);
 	}
-
-	if(listening){
+	else if(listening) {
 		swprintf_s(text, L"Listening... %u", GetListenTimeout()/1000+1);
 		SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
-	}else{
-		swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][CID], INVERT[port][CID], HALF[port][CID], BUTTON[port][CID]);
-		SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
 	}
-
 }
 
-void StartListen(char controlid)
+void StartListen(ControlID controlid)
 {
 	if(listening)return;
 
 	CID = controlid;
 	swprintf_s(text, L"Listening...");SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
-	OSDebugOut(TEXT("Begin Listen %i\n"), numj);
+	OSDebugOut(TEXT("Begin Listen %i\n"), -1);
 	ListenAxis();
 }
 
-void DeleteControl(int port, char controlid)
+void DeleteControl(int port, ControlID controlid)
 {
 	CID = controlid;
-	AXISID[port][CID] = -1;
-	INVERT[port][CID] = -1;
-	HALF[port][CID] = -1;
-	BUTTON[port][CID] = -1;
-	swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][CID], INVERT[port][CID], HALF[port][CID], BUTTON[port][CID]);
-	SetWindowText(GetDlgItem(hWnd,LABELS[CID]),text);
+	RemoveInputMap(port, controlid);
+	SetWindowText(GetDlgItem(hWnd,LABELS[CID]), _T("Unmapped"));
 }
 
 void CreateDrawing(int port, HDC hDrawingDC, int scale)
@@ -467,9 +706,12 @@ void InitDialog(int port, const char *dev_type)
 					TEXT("Tahoma"));
 	
 	//pFnPrevFunc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hWnd,IDC_PICTURE),GWLP_WNDPROC,(LONG_PTR) StaticProc);
-	LoadMain(port, dev_type);
-
 	InitDirectInput(hWnd, port);
+	LoadDInputConfig(port, dev_type); // settings rely on GUIDs so load after device enum
+	FindFFDevice(port);
+
+	jso.resize(g_pJoysticks.size());
+	jsi.resize(g_pJoysticks.size());
 
 	InitCommonControls();
 
@@ -541,16 +783,16 @@ void InitDialog(int port, const char *dev_type)
 	SendMessage(GetDlgItem(hWnd,IDC_GROUP25), WM_SETFONT, (WPARAM)hFont2, 1);
 	SendMessage(GetDlgItem(hWnd,IDC_GROUP26), WM_SETFONT, (WPARAM)hFont2, 1);
 
-	for(int i = 0;i<numc;i++)
+	for (int i = 0; i<CID_COUNT; i++)
 	{
-		swprintf_s(text, L"%i/%i/%i/%i", AXISID[port][i], INVERT[port][i], HALF[port][i], BUTTON[port][i]);
-		SetWindowText(GetDlgItem(hWnd,LABELS[i]),text);
+		InputMapped im = {};
+		GetInputMap(port, (ControlID)i, im);
+		SetControlLabel(i, im);
 	}
 	ShowWindow(hWnd, SW_SHOW);
 
 	dialogOpen = true;
 	//UpdateWindow( hWnd );
-
 }
 
 INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -616,7 +858,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 							DefaultFilters(s->port, SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_GETCURSEL, 0, 0));
 							SendMessage(GetDlgItem(hWnd,IDC_COMBO3), CB_SETCURSEL, -1, 0);
 							break;
-					}			
+					}
 					break;
 				case IDC_COMBO4:
 					switch(HIWORD(wParam))
@@ -624,7 +866,7 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 						case LBN_SELCHANGE:
 							//selectedJoy[0] = SendDlgItemMessage(hWnd, IDC_COMBO4, CB_GETCURSEL, 0, 0);
 							break;
-					}			
+					}
 					break;
 
 				case IDOK:
@@ -634,7 +876,8 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 						useRamp = !!SendDlgItemMessage(hWnd, IDC_CHECK3, BM_GETCHECK, 0, 0);
 						GAINZ[s->port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_GETPOS, 0, 0);
 						FFMULTI[s->port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
-						SaveMain(s->port, s->dev_type);
+						SaveDInputConfig(s->port, s->dev_type);
+						SaveConfig(); // Force save to ini file
 						//Seems to create some dead locks
 						//SendMessage(hWnd, WM_CLOSE, 0, 0);
 						//return TRUE;
@@ -663,46 +906,46 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 					}
 					break;
 
-				case IDC_ASS0:{StartListen(0);break;}
-				case IDC_ASS1:{StartListen(1);break;}
-				case IDC_ASS2:{StartListen(2);break;}
-				case IDC_ASS3:{StartListen(3);break;}
-				case IDC_ASS4:{StartListen(4);break;}
-				case IDC_ASS5:{StartListen(5);break;}
-				case IDC_ASS6:{StartListen(6);break;}
-				case IDC_ASS7:{StartListen(7);break;}
-				case IDC_ASS8:{StartListen(8);break;}
-				case IDC_ASS9:{StartListen(9);break;}
-				case IDC_ASS10:{StartListen(10);break;}
-				case IDC_ASS11:{StartListen(11);break;}
-				case IDC_ASS12:{StartListen(12);break;}
-				case IDC_ASS13:{StartListen(13);break;}
-				case IDC_ASS14:{StartListen(14);break;}
-				case IDC_ASS15:{StartListen(15);break;}
-				case IDC_ASS16:{StartListen(16);break;}
-				case IDC_ASS17:{StartListen(17);break;}
-				case IDC_ASS18:{StartListen(18);break;}
-				case IDC_ASS19:{StartListen(19);break;}
-				case IDC_DEL0:{DeleteControl(s->port, 0);break;}
-				case IDC_DEL1:{DeleteControl(s->port, 1);break;}
-				case IDC_DEL2:{DeleteControl(s->port, 2);break;}
-				case IDC_DEL3:{DeleteControl(s->port, 3);break;}
-				case IDC_DEL4:{DeleteControl(s->port, 4);break;}
-				case IDC_DEL5:{DeleteControl(s->port, 5);break;}
-				case IDC_DEL6:{DeleteControl(s->port, 6);break;}
-				case IDC_DEL7:{DeleteControl(s->port, 7);break;}
-				case IDC_DEL8:{DeleteControl(s->port, 8);break;}
-				case IDC_DEL9:{DeleteControl(s->port, 9);break;}
-				case IDC_DEL10:{DeleteControl(s->port, 10);break;}
-				case IDC_DEL11:{DeleteControl(s->port, 11);break;}
-				case IDC_DEL12:{DeleteControl(s->port, 12);break;}
-				case IDC_DEL13:{DeleteControl(s->port, 13);break;}
-				case IDC_DEL14:{DeleteControl(s->port, 14);break;}
-				case IDC_DEL15:{DeleteControl(s->port, 15);break;}
-				case IDC_DEL16:{DeleteControl(s->port, 16);break;}
-				case IDC_DEL17:{DeleteControl(s->port, 17);break;}
-				case IDC_DEL18:{DeleteControl(s->port, 18);break;}
-				case IDC_DEL19:{DeleteControl(s->port, 19);break;}
+				case IDC_ASS0: { StartListen(CID_STEERING); break; }
+				case IDC_ASS1: { StartListen(CID_STEERING_R); break; }
+				case IDC_ASS2: { StartListen(CID_THROTTLE); break; }
+				case IDC_ASS3: { StartListen(CID_BRAKE); break; }
+				case IDC_ASS4: { StartListen(CID_HATUP); break; }
+				case IDC_ASS5: { StartListen(CID_HATDOWN); break; }
+				case IDC_ASS6: { StartListen(CID_HATLEFT); break; }
+				case IDC_ASS7: { StartListen(CID_HATRIGHT); break; }
+				case IDC_ASS8: { StartListen(CID_SQUARE); break; }
+				case IDC_ASS9: { StartListen(CID_TRIANGLE); break; }
+				case IDC_ASS10: { StartListen(CID_CROSS); break; }
+				case IDC_ASS11: { StartListen(CID_CIRCLE); break; }
+				case IDC_ASS12: { StartListen(CID_L1); break; }
+				case IDC_ASS13: { StartListen(CID_R1); break; }
+				case IDC_ASS14: { StartListen(CID_L2); break; }
+				case IDC_ASS15: { StartListen(CID_R2); break; }
+				case IDC_ASS16: { StartListen(CID_L3); break; }
+				case IDC_ASS17: { StartListen(CID_R3); break; }
+				case IDC_ASS18: { StartListen(CID_SELECT); break; }
+				case IDC_ASS19: { StartListen(CID_START); break; }
+				case IDC_DEL0: { DeleteControl(s->port, CID_STEERING); break; }
+				case IDC_DEL1: { DeleteControl(s->port, CID_STEERING_R); break; }
+				case IDC_DEL2: { DeleteControl(s->port, CID_THROTTLE); break; }
+				case IDC_DEL3: { DeleteControl(s->port, CID_BRAKE); break; }
+				case IDC_DEL4: { DeleteControl(s->port, CID_HATUP); break; }
+				case IDC_DEL5: { DeleteControl(s->port, CID_HATDOWN); break; }
+				case IDC_DEL6: { DeleteControl(s->port, CID_HATLEFT); break; }
+				case IDC_DEL7: { DeleteControl(s->port, CID_HATRIGHT); break; }
+				case IDC_DEL8: { DeleteControl(s->port, CID_SQUARE); break; }
+				case IDC_DEL9: { DeleteControl(s->port, CID_TRIANGLE); break; }
+				case IDC_DEL10: { DeleteControl(s->port, CID_CROSS); break; }
+				case IDC_DEL11: { DeleteControl(s->port, CID_CIRCLE); break; }
+				case IDC_DEL12: { DeleteControl(s->port, CID_L1); break; }
+				case IDC_DEL13: { DeleteControl(s->port, CID_R1); break; }
+				case IDC_DEL14: { DeleteControl(s->port, CID_L2); break; }
+				case IDC_DEL15: { DeleteControl(s->port, CID_R2); break; }
+				case IDC_DEL16: { DeleteControl(s->port, CID_L3); break; }
+				case IDC_DEL17: { DeleteControl(s->port, CID_R3); break; }
+				case IDC_DEL18: { DeleteControl(s->port, CID_SELECT); break; }
+				case IDC_DEL19: { DeleteControl(s->port, CID_START); break; }
 
 
 				case IDC_PICTURELINK1:{ShellExecuteA(NULL, "open", "http://www.ecsimhardware.com",NULL, NULL, SW_SHOWNORMAL);break;}
@@ -734,6 +977,156 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 	}
 
 	return FALSE;
+}
+
+void SaveDInputConfig(int port, const char *dev_type)
+{
+	SaveSetting(_T("dinput"), _T("BYPASSCAL"), BYPASSCAL);
+	//SaveSetting(_T("dinput"), _T("controllers"), (int32_t)g_pJoysticks.size());
+
+	wchar_t section[256];
+	swprintf_s(section, L"%S dinput %d", dev_type, port);
+
+	ClearSection(section);
+	SaveSetting(section, _T("INVERTFORCES"), INVERTFORCES[port]);
+
+	for (auto& control : g_Controls[port])
+	{
+		int cid = control.first;
+		const InputMapped& im = control.second;
+		auto joy = g_pJoysticks[im.index];
+
+		//TODO all of it
+		std::stringstream ss;
+		ss << joy->GetGUID();
+		//swprintf_s(section, _T("%" SFMTs " dinput %d - {%" SFMTs "}"), dev_type, port, ss.str().c_str());
+		swprintf_s(section, _T("%" SFMTs " dinput %d"), dev_type, port);
+
+		//SaveSetting(section, _T("ProductName"), joy->Product());
+
+		swprintf_s(text, _T("GUID %i"), cid);
+		SaveSetting(section, text, ss.str());
+		swprintf_s(text, _T("MAPPINGTYPE %i"), cid);
+		SaveSetting(section, text, im.type);
+		swprintf_s(text, _T("CONTROL %i"), cid);
+		SaveSetting(section, text, im.mapped);
+
+		if (joy->GetControlType() == CT_JOYSTICK) {
+			swprintf_s(text, _T("INVERTED %i"), cid);
+			SaveSetting(section, text, im.INVERTED);
+			swprintf_s(text, _T("HALF %i"), cid);
+			SaveSetting(section, text, im.HALF);
+			swprintf_s(text, _T("LINEAR %i"), cid);
+			SaveSetting(section, text, LINEAR[port][cid]);
+			swprintf_s(text, _T("OFFSET %i"), cid);
+			SaveSetting(section, text, OFFSET[port][cid]);
+			swprintf_s(text, _T("DEADZONE %i"), cid);
+			SaveSetting(section, text, DEADZONE[port][cid]);
+		}
+	}
+
+	SaveSetting(section, _T("GAINZ"), GAINZ[port][0]);
+	SaveSetting(section, _T("FFMULTI"), FFMULTI[port][0]);
+	//only for config dialog
+	SaveSetting(section, _T("UseRamp"), useRamp);
+}
+
+void LoadDInputConfig(int port, const char* dev_type)
+{
+	LoadSetting(_T("dinput"), _T("BYPASSCAL"), BYPASSCAL);
+
+	wchar_t section[256];
+	swprintf_s(section, L"%S dinput %d", dev_type, port);
+
+	LoadSetting(section, _T("INVERTFORCES"), INVERTFORCES[port]);
+	if (!LoadSetting(section, _T("GAINZ"), GAINZ[port][0]))
+		GAINZ[port][0] = 10000;
+
+	if (!LoadSetting(section, _T("FFMULTI"), FFMULTI[port][0]))
+		FFMULTI[port][0] = 0;
+
+	//for (size_t i = 0; i < g_pJoysticks.size(); i++)
+	{
+		//TODO all of it
+		//std::stringstream ss;
+		//ss << g_pJoysticks[i]->GetGUID();
+
+		//swprintf_s(section, _T("%" SFMTs " dinput %d - {%" SFMTs "}"), dev_type, port, ss.str().c_str());
+		swprintf_s(section, _T("%" SFMTs " dinput %d"), dev_type, port);
+
+		for (int cid = 0; cid < CID_COUNT; cid++)
+		{
+			InputMapped im = {};
+			bool found = false;
+			std::string guid;
+
+			swprintf_s(text, _T("GUID %i"), cid);
+			if (!LoadSetting(section, text, guid))
+				continue;
+
+			for (size_t i = 0; i < g_pJoysticks.size(); i++) {
+				std::stringstream ss;
+				ss << g_pJoysticks[i]->GetGUID();
+				if (ss.str() == guid) {
+					im.index = i;
+					found = true;
+					break;
+				}
+			}
+
+			if (!found)
+				continue;
+
+			swprintf_s(text, _T("MAPPINGTYPE %i"), cid);
+			if (!LoadSetting(section, text, (int32_t&)im.type))
+				continue;
+
+			if (im.type == MT_NONE) {
+				OSDebugOut(_T("Skipping control %d (%s), mapping type is None\n"), cid, g_pJoysticks[im.index]->Product().c_str());
+				continue;
+			}
+
+			swprintf_s(text, _T("CONTROL %i"), cid);
+			if (!LoadSetting(section, text, im.mapped))
+				continue;
+
+			if (g_pJoysticks[im.index]->GetControlType() == CT_JOYSTICK)
+			{
+				swprintf_s(text, _T("INVERTED %i"), cid);
+				LoadSetting(section, text, im.INVERTED);
+				swprintf_s(text, _T("HALF %i"), cid);
+				LoadSetting(section, text, im.HALF);
+				swprintf_s(text, _T("LINEAR %i"), cid);
+				LoadSetting(section, text, im.LINEAR);
+				swprintf_s(text, _T("OFFSET %i"), cid);
+				LoadSetting(section, text, im.OFFSET);
+				swprintf_s(text, _T("DEADZONE %i"), cid);
+				LoadSetting(section, text, im.DEADZONE);
+			}
+
+			//if (cid <= CID_BRAKE)
+			{
+				LINEAR[port][cid] = im.LINEAR;
+				OFFSET[port][cid] = im.OFFSET;
+				DEADZONE[port][cid] = im.DEADZONE;
+			}
+
+
+			AddInputMap(port, (ControlID)cid, im);
+		}
+	}
+
+	LoadSetting(section, _T("UseRamp"), useRamp);
+}
+
+
+int DInputPad::Configure(int port, const char* dev_type, void *data)
+{
+	Win32Handles h = *(Win32Handles*)data;
+	struct DXDlgSettings s;
+	s.port = port;
+	s.dev_type = dev_type;
+	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, (LPARAM)&s);
 }
 
 }} //namespace
