@@ -621,22 +621,7 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 
 				OSDebugOut("Axis %d absinfo min %d max %d\n", i, absinfo.minimum, absinfo.maximum);
 				//TODO from SDL2, usable here?
-				if (absinfo.minimum == absinfo.maximum) {
-					abs_correct[i].used = 0;
-				} else {
-					OSDebugOut("Using axis %d correction for '%s'\n", i, dev_name.c_str());
-					abs_correct[i].used = 1;
-					abs_correct[i].coef[0] =
-						(absinfo.maximum + absinfo.minimum) - 2 * absinfo.flat;
-					abs_correct[i].coef[1] =
-						(absinfo.maximum + absinfo.minimum) + 2 * absinfo.flat;
-					t = ((absinfo.maximum - absinfo.minimum) - 4 * absinfo.flat);
-					if (t != 0) {
-						abs_correct[i].coef[2] = (1 << 28) / t;
-					} else {
-						abs_correct[i].coef[2] = 0;
-					}
-				}
+				CalcAxisCorr(abs_correct[i], absinfo);
 			}
 		}
 	}

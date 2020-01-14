@@ -1,6 +1,5 @@
 #pragma once
 #include "linux/util.h"
-#include <unistd.h>
 //#include <dirent.h> //gtk.h pulls in?
 #include <thread>
 #include <array>
@@ -16,30 +15,6 @@ namespace usb_pad { namespace evdev {
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
 
 void EnumerateDevices(vstring& list);
-
-struct axis_correct
-{
-	int used;
-	int coef[3];
-};
-
-struct device_data
-{
-	int fd;
-	std::string name;
-	uint8_t axis_map[ABS_MAX + 1];
-	bool axis_inverted[3];
-	//uint8_t
-	uint16_t btn_map[KEY_MAX + 1];
-	struct axis_correct abs_correct[ABS_MAX];
-	int axes = 0;
-	int buttons = 0;
-	std::vector<uint16_t> mappings;
-	bool is_gamepad; //xboxish gamepad
-	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
-					// determine if its unpressed value is zero
-};
-
 
 class EvDevPad : public Pad
 {
@@ -99,6 +74,28 @@ bool GetEvdevName(const std::string& path, char (&name)[_Size])
 		return true;
 	}
 	return false;
+}
+
+static void CalcAxisCorr(axis_correct& abs_correct, struct input_absinfo absinfo)
+{
+	int t;
+	// convert values into 16 bit range
+	if (absinfo.minimum == absinfo.maximum) {
+		abs_correct.used = 0;
+	} else {
+		abs_correct.used = 1;
+		abs_correct.coef[0] =
+			(absinfo.maximum + absinfo.minimum) - 2 * absinfo.flat;
+		abs_correct.coef[1] =
+			(absinfo.maximum + absinfo.minimum) + 2 * absinfo.flat;
+		t = ((absinfo.maximum - absinfo.minimum) - 4 * absinfo.flat);
+		if (t != 0) {
+			abs_correct.coef[2] =
+				(1 << 28) / t;
+		} else {
+			abs_correct.coef[2] = 0;
+		}
+	}
 }
 
 // SDL2

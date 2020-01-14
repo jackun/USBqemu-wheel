@@ -1,6 +1,4 @@
 #pragma once
-#include <linux/joystick.h>
-#include <unistd.h>
 #include "linux/util.h"
 #include "../evdev/evdev-ff.h"
 #include "../evdev/shared.h"
@@ -8,22 +6,6 @@
 namespace usb_pad { namespace joydev {
 
 void EnumerateDevices(vstring& list);
-
-struct device_data
-{
-	int fd;
-	std::string name;
-	uint8_t axis_map[ABS_MAX + 1];
-	bool axis_inverted[3];
-	uint16_t btn_map[KEY_MAX + 1];
-	int axes = 0;
-	int buttons = 0;
-	std::vector<uint16_t> mappings;
-
-	bool is_gamepad; //xboxish gamepad
-	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
-						// determine if its unpressed value is zero
-};
 
 class JoyDevPad : public Pad
 {
@@ -48,7 +30,7 @@ public:
 protected:
 	int mHandleFF;
 	struct wheel_data_t mWheelData;
-	std::vector<device_data> mDevices;
+	std::vector<evdev::device_data> mDevices;
 };
 
 template< size_t _Size >

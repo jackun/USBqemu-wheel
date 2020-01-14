@@ -573,22 +573,7 @@ int EvDevPad::Open()
 				//device.axis_map[i] = device.axes;
 
 				// convert values into 16 bit range
-				if (absinfo.minimum == absinfo.maximum) {
-					device.abs_correct[i].used = 0;
-				} else {
-					device.abs_correct[i].used = 1;
-					device.abs_correct[i].coef[0] =
-						(absinfo.maximum + absinfo.minimum) - 2 * absinfo.flat;
-					device.abs_correct[i].coef[1] =
-						(absinfo.maximum + absinfo.minimum) + 2 * absinfo.flat;
-					t = ((absinfo.maximum - absinfo.minimum) - 4 * absinfo.flat);
-					if (t != 0) {
-						device.abs_correct[i].coef[2] =
-							(1 << 28) / t;
-					} else {
-						device.abs_correct[i].coef[2] = 0;
-					}
-				}
+				CalcAxisCorr(device.abs_correct[i], absinfo);
 
 				//TODO joystick/gamepad is dual analog?
 				if (i == ABS_RZ) {
