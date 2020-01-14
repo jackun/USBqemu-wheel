@@ -1,5 +1,5 @@
 #include "../../USB.h"
-#include "../../Win32/Config-win32.h"
+#include "../../Win32/Config.h"
 #include "usb-pad-raw.h"
 
 namespace usb_pad { namespace raw {
@@ -239,7 +239,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[1 - j];
 				if(PLY_IS_MAPPED(j, btn))
 				{
-					uint32_t wtbtn = (1 << convert_wt_btn(wt, PLY_GET_VALUE(j, btn))) & 0xFFF; //12bit mask
+					uint32_t wtbtn = 1 << convert_wt_btn(wt, PLY_GET_VALUE(j, btn));
 					mapping->data[j].buttons |= wtbtn;
 				}
 			}
@@ -304,7 +304,6 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					break;
 
 				case PAD_AXIS_Y: // Y-axis
-					if(!(devInfo.hid.dwVendorId == 0x046D && devInfo.hid.dwProductId == 0xCA03))
 						//XXX Limit value range to 0..255
 						mapping->data[j].clutch = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
@@ -469,9 +468,9 @@ int RawInputPad::Open()
 
 int RawInputPad::Close()
 {
-	Reset();
 	if(mUsbHandle != INVALID_HANDLE_VALUE)
 	{
+		Reset();
 		Sleep(100); // give WriterThread some time to write out Reset() commands
 		CloseHandle(mUsbHandle);
 		CloseHandle(mOLRead.hEvent);
@@ -482,8 +481,6 @@ int RawInputPad::Close()
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
-
-REGISTER_PAD(APINAME, RawInputPad);
 
 // ---------
 #include "raw-config-res.h"
