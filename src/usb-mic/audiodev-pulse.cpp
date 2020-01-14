@@ -1,4 +1,4 @@
-#include <gtk/gtk.h>
+#include "gtk.h"
 #include "audiodev-pulse.h"
 #ifdef DYNLINK_PULSE
 #include "../dynlink/pulse.h"
