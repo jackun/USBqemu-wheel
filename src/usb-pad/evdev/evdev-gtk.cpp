@@ -695,6 +695,5 @@ int EvDevPad::Configure(int port, const char* dev_type, void *data)
 	return ret;
 }
 
-#undef APINAME
 #undef EVDEV_DIR
 }} //namespace

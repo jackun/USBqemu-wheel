@@ -7,8 +7,6 @@
 
 namespace usb_pad { namespace evdev {
 
-#define APINAME "evdev"
-
 // hidraw* to input/event*:
 // /sys/class/hidraw/hidraw*/device/input/input*/event*/uevent
 
@@ -372,7 +370,7 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 
 			if (len <= 0)
 			{
-				OSDebugOut(APINAME ": TokenIn: read error %d\n", errno);
+				OSDebugOut("%s: TokenIn: read error %d\n", APINAME, errno);
 				break;
 			}
 		}
@@ -539,14 +537,14 @@ int EvDevPad::Open()
 
 		if ((ret_abs < 0) && (ret_key < 0)) {
 			// Probably isn't a evdev joystick
-			SysMessage(APINAME ": Getting atleast some of the bits failed: %s\n", strerror(errno));
+			SysMessage("%s: Getting atleast some of the bits failed: %s\n", APINAME, strerror(errno));
 			continue;
 		}
 
 		/*unsigned int version;
 		if (ioctl(mHandle, EVIOCGVERSION, &version) < 0)
 		{
-			SysMessage(APINAME ": Get version failed: %s\n", strerror(errno));
+			SysMessage("%s: Get version failed: %s\n", APINAME, strerror(errno));
 			return false;
 		}*/
 
@@ -697,7 +695,5 @@ void EvDevPad::WriterThread(void *ptr)
 
 	pad->mWriterThreadIsRunning = false;
 }
-REGISTER_PAD(APINAME, EvDevPad);
-#undef APINAME
 
 }} //namespace
