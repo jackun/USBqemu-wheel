@@ -2,7 +2,7 @@
 #include "audiodev-noop.h"
 #include "audiodev-wasapi.h"
 
-void RegisterAudioDevice::Initialize()
+void usb_mic::RegisterAudioDevice::Register()
 {
 	auto& inst = RegisterAudioDevice::instance();
 	inst.Add(audiodev_noop::APINAME, new AudioDeviceProxy<audiodev_noop::NoopAudioDevice>());

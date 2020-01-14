@@ -24,7 +24,6 @@ public:
 	static const TCHAR* LongAPIName(const std::string& name);
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
-	static void Initialize();
 };
 
 } //namespace

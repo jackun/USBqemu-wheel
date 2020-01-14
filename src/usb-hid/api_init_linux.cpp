@@ -2,7 +2,7 @@
 #include "evdev/evdev.h"
 #include "noop.h"
 
-void usb_hid::RegisterUsbHID::Initialize()
+void usb_hid::RegisterUsbHID::Register()
 {
 	auto& inst = RegisterUsbHID::instance();
 	inst.Add(usb_hid::evdev::APINAME, new UsbHIDProxy<usb_hid::evdev::EvDev>());

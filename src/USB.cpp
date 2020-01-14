@@ -22,13 +22,14 @@
 #include <cerrno>
 #include <cassert>
 
+#include "version.h" //CMake generated
 #include "USB.h"
 #include "platcompat.h"
 #include "osdebugout.h"
-#include "deviceproxy.h"
-#include "version.h" //CMake generated
+#include "qemu-usb/USBinternal.h"
 #include "qemu-usb/desc.h"
 #include "shared/shared.h"
+#include "deviceproxy.h"
 
 #define PSXCLK	36864000	/* 36.864 Mhz */
 
@@ -223,7 +224,7 @@ EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
 EXPORT_C_(s32) USBinit() {
 	OSDebugOut(TEXT("USBinit\n"));
 
-	RegisterDevice::Initialize();
+	RegisterDevice::Register();
 	LoadConfig();
 
 	if (conf.Log && !usbLog)
@@ -247,7 +248,7 @@ EXPORT_C_(void) USBshutdown() {
 
 	OSDebugOut(TEXT("USBshutdown\n"));
 	DestroyDevices();
-	RegisterDevice::instance().Clear();
+	RegisterDevice::instance().Unregister();
 
 	free(qemu_ohci);
 

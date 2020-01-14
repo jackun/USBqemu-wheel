@@ -7,7 +7,7 @@
 #include <iterator>
 #include "videodev.h"
 #include "../helpers.h"
-#include "../proxybase.h"
+#include "../deviceproxy.h"
 
 namespace usb_eyetoy {
 
@@ -56,58 +56,11 @@ class VideoDeviceProxy : public VideoDeviceProxyBase
 	}
 };
 
-class RegisterVideoDevice
+class RegisterVideoDevice : public RegisterProxy<VideoDeviceProxyBase>
 {
-	RegisterVideoDevice(const RegisterVideoDevice&) = delete;
-	RegisterVideoDevice() {}
-
 	public:
-	typedef std::map<std::string, VideoDeviceProxyBase* > RegisterVideoDeviceMap;
-	static RegisterVideoDevice& instance() {
-		static RegisterVideoDevice registerCam;
-		return registerCam;
-	}
-
-	static void Initialize();
-
-	void Add(const std::string& name, VideoDeviceProxyBase* creator)
-	{
-		registerMap[name] = creator;
-	}
-
-	VideoDeviceProxyBase* Proxy(const std::string& name)
-	{
-		return registerMap[name];
-	}
-	
-	std::list<std::string> Names() const
-	{
-		std::list<std::string> nameList;
-		std::transform(
-			registerMap.begin(), registerMap.end(),
-			std::back_inserter(nameList),
-			SelectKey());
-		return nameList;
-	}
-
-	std::string Name(int idx) const
-	{
-		auto it = registerMap.begin();
-		std::advance(it, idx);
-		if (it != registerMap.end())
-			return std::string(it->first);
-		return std::string();
-	}
-
-	const RegisterVideoDeviceMap& Map() const
-	{
-		return registerMap;
-	}
-	
-private:
-	RegisterVideoDeviceMap registerMap;
+	static void Register();
 };
 
-#define REGISTER_VIDEODEV(name,cls) VideoDeviceProxy<cls> g##cls##Proxy(name)
 } //namespace
 #endif

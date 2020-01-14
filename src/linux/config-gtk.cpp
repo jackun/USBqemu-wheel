@@ -213,7 +213,7 @@ extern "C" {
 
 void CALLBACK USBconfigure() {
 
-	RegisterDevice::Initialize();
+	RegisterDevice::Register();
 	LoadConfig();
 	void * that = NULL;
 	SettingsCB settingsCB[2];

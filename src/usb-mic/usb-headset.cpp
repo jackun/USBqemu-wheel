@@ -40,7 +40,7 @@
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
 
-namespace usb_headset {
+namespace usb_mic {
 
 static FILE *file = NULL;
 
@@ -1068,5 +1068,4 @@ int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
     return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, HeadsetDevice);
-};
+}

@@ -52,11 +52,6 @@ typedef struct EYETOYState {
 //	} f;
 } EYETOYState;
 
-void EyeToyWebCamDevice::Initialize()
-{
-	RegisterVideoDevice::Initialize();
-}
-
 std::list<std::string> EyeToyWebCamDevice::ListAPIs()
 {
 	return RegisterVideoDevice::instance().Names();
@@ -637,5 +632,4 @@ int EyeToyWebCamDevice::Freeze(int mode, USBDevice *dev, void *data)
 	return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_EYETOY_WEBCAM, EyeToyWebCamDevice);
 } //namespace
