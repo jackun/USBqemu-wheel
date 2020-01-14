@@ -78,6 +78,7 @@ void Pad::ParseFFData(const ff_data *ffdata, bool isDFP)
 	if (!mFFdev)
 		return;
 
+	static int warned = 0;
 	int caps = 0;
 	OSDebugOut(TEXT("FFB %02X, %02X, %02X, %02X : %02X, %02X, %02X, %02X\n"),
 		ffdata->cmdslot, ffdata->type, ffdata->u.params[0], ffdata->u.params[1],
@@ -143,7 +144,6 @@ void Pad::ParseFFData(const ff_data *ffdata, bool isDFP)
 			case FTYPE_VARIABLE: //Ramp-like
 				//SetRampVariable(mFFdev, ffdata->u.variable);
 				//SetConstantForce(mFFdev, ffdata->u.params[0]);
-				static int warned = 0;
 				if (slots & (1 << 0)) {
 					if (ffdata->u.variable.t1 && ffdata->u.variable.s1) {
 						if (warned == 0) {
