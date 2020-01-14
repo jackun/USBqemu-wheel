@@ -1,5 +1,5 @@
 #include "../padproxy.h"
-#include "../../Win32/Config-win32.h"
+#include "../../Win32/Config.h"
 
 namespace usb_pad { namespace dx {
 
