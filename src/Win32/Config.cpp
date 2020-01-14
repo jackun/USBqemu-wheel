@@ -1,210 +1,249 @@
-#include <string>
-#include <stdlib.h>
+#include "../USB.h"
+#include "resource.h"
 #include "Config.h"
+#include "../deviceproxy.h"
+#include "../usb-pad/padproxy.h"
+#include "../usb-mic/audiodeviceproxy.h"
 #include "../configuration.h"
 
-extern HINSTANCE hInst;
-std::wstring IniDir;
-std::wstring LogDir;
+HINSTANCE hInst;
+extern bool configChanged;
 
-EXPORT_C_(void) USBsetSettingsDir( const char* dir )
-{
-	OSDebugOut(L"USBsetSettingsDir: %S\n", dir);
-	wchar_t dst[4096] = {0};
-	size_t num = 0;
-	mbstowcs_s(&num, dst, dir, countof(dst));
-	IniDir = dst;
+void SysMessageA(const char *fmt, ...) {
+	va_list list;
+	char tmp[512];
+
+	va_start(list, fmt);
+	vsprintf_s(tmp, 512, fmt, list);
+	va_end(list);
+	MessageBoxA(0, tmp, "Qemu USB Msg", 0);
 }
 
-EXPORT_C_(void) USBsetLogDir( const char* dir )
-{
-	OSDebugOut(L"USBsetLogDir: %S\n", dir);
-	wchar_t dst[4096] = {0};
-	size_t num = 0;
-	mbstowcs_s(&num, dst, dir, countof(dst));
-	LogDir = dst;
+void SysMessageW(const wchar_t *fmt, ...) {
+	va_list list;
+	wchar_t tmp[512];
+
+	va_start(list, fmt);
+	vswprintf_s(tmp, 512, fmt, list);
+	va_end(list);
+	MessageBoxW(0, tmp, L"Qemu USB Msg", 0);
 }
 
-//TODO Use \\?\ to go past 260 char limit
-void GetIniFile(std::wstring &iniFile)
+void SelChangedAPI(HWND hW, int port)
 {
-	iniFile.clear();
-	if(!IniDir.length()) {
-		WCHAR tmp[MAX_PATH] = {0};
-		GetModuleFileName(GetModuleHandle((LPWSTR)hInst), tmp, MAX_PATH);
-
-		std::wstring path(tmp);
-		size_t last = path.find_last_of(L'\\');
-		iniFile = path.substr(0, last);
-		iniFile.append(L"\\inis");
-		CreateDirectory(iniFile.c_str(), NULL);
-		iniFile.append(L"\\USBqemu-wheel.ini");
-	} else {
-		iniFile.append(IniDir);
-		iniFile.append(L"USBqemu-wheel.ini");
-	}
+	int sel = SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_GETCURSEL, 0, 0);
+	int devtype = SendDlgItemMessage(hW, port ? IDC_COMBO1 : IDC_COMBO2, CB_GETCURSEL, 0, 0);
+	if (devtype == 0)
+		return;
+	devtype--;
+	auto& rd = RegisterDevice::instance();
+	auto devName = rd.Name(devtype);
+	auto apis = rd.Device(devtype)->ListAPIs();
+	auto it = apis.begin();
+	std::advance(it, sel);
+	changedAPIs[std::make_pair(port, devName)] = *it;
 }
 
-bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::string& value)
+void PopulateAPIs(HWND hW, int port)
 {
-	wchar_t tmp[4096] = { 0 };
-	GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str());
-	if (GetLastError() == ERROR_FILE_NOT_FOUND)
-		return false;
+	OSDebugOut(TEXT("Populate api %d\n"), port);
+	SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_RESETCONTENT, 0, 0);
+	int devtype = SendDlgItemMessage(hW, port ? IDC_COMBO1 : IDC_COMBO2, CB_GETCURSEL, 0, 0);
+	if (devtype == 0)
+		return;
+	devtype--;
+	auto& rd = RegisterDevice::instance();
+	auto dev = rd.Device(devtype);
+	auto devName = rd.Name(devtype);
+	auto apis = dev->ListAPIs();
 
-	char tmpA[4096] = { 0 };
-	size_t num = 0;
-	wcstombs_s(&num, tmpA, tmp, sizeof(tmpA)); //TODO error-check
-	value = tmpA;
-	return true;
-}
+	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
-bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, std::wstring& value)
-{
-	wchar_t tmp[4096] = { 0 };
-	GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str());
-	if (GetLastError() == ERROR_FILE_NOT_FOUND)
-		return false;
-	value = tmp;
-	return true;
-}
-
-bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, bool& value)
-{
-	//value = GetPrivateProfileIntW(section.c_str(), param, 0, ini.c_str());
-	wchar_t tmp[4096] = { 0 };
-	if (!GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str()))
-		return false;
-	if (GetLastError() == ERROR_FILE_NOT_FOUND)
-		return false;
-	value = !!wcstoul(tmp, NULL, 10);
-	return true;
-}
-
-bool LoadSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, int32_t& value)
-{
-	//value = GetPrivateProfileIntW(section.c_str(), param, 0, ini.c_str());
-	wchar_t tmp[4096] = { 0 };
-	if (!GetPrivateProfileStringW(section.c_str(), param, NULL, tmp, sizeof(tmp) / sizeof(*tmp), ini.c_str()))
-		return false;
-	if (GetLastError() == ERROR_FILE_NOT_FOUND)
-		return false;
-	value = wcstoul(tmp, NULL, 10);
-	return true;
-}
-
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const std::string& value)
-{
-	std::wstring wstr;
-	wstr.assign(value.begin(), value.end());
-	return !!WritePrivateProfileStringW(section.c_str(), param, wstr.c_str(), ini.c_str());
-}
-
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const std::wstring& value)
-{
-	return !!WritePrivateProfileStringW(section.c_str(), param, value.c_str(), ini.c_str());
-}
-
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const wchar_t* value)
-{
-	return !!WritePrivateProfileStringW(section.c_str(), param, value, ini.c_str());
-}
-
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const bool value)
-{
-	wchar_t tmp[2] = { 0 };
-	swprintf_s(tmp, L"%d", value ? 1 : 0);
-	return !!WritePrivateProfileStringW(section.c_str(), param, tmp, ini.c_str());
-}
-
-bool SaveSettingValue(const std::wstring& ini, const std::wstring& section, const wchar_t* param, const int32_t value)
-{
-	wchar_t tmp[32] = { 0 };
-	swprintf_s(tmp, L"%d", value);
-	return !!WritePrivateProfileStringW(section.c_str(), param, tmp, ini.c_str());
-}
-
-void SaveConfig()
-{
-	Config *Conf1 = &conf;
-	std::wstring szIniFile;
-	TCHAR szValue[256];
-
-	GetIniFile(szIniFile);
-
-	FILE *f = nullptr;
-	auto err = _wfopen_s(&f, szIniFile.c_str(), L"a+");
-	if (!f) {
-		MessageBoxW(NULL, L"Cannot save to ini!", L"USBqemu", MB_ICONERROR);
-	} else
-		fclose(f);
-
-	swprintf_s(szValue,L"%d",Conf1->Log);
-	WritePrivateProfileStringW(L"Interface", L"Logging", szValue, szIniFile.c_str());
-
-	swprintf_s(szValue,L"%d",Conf1->DFPPass);
-	WritePrivateProfileStringW(N_DEVICES, L"DFP Passthrough", szValue, szIniFile.c_str());
-
-	swprintf_s(szValue,L"%S",Conf1->Port[0].c_str());
-	WritePrivateProfileStringW(N_DEVICES, N_DEVICE_PORT0, szValue, szIniFile.c_str());
-
-	swprintf_s(szValue,L"%S",Conf1->Port[1].c_str());
-	WritePrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, szValue, szIniFile.c_str());
-
-	swprintf_s(szValue,L"%d",Conf1->WheelType[0]);
-	WritePrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE0, szValue, szIniFile.c_str());
-
-	swprintf_s(szValue,L"%d",Conf1->WheelType[1]);
-	WritePrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE1, szValue, szIniFile.c_str());
-
-	for (auto &kp : changedAPIs)
+	std::string var;
+	if (LoadSetting(nullptr, port, rd.Name(devtype), N_DEVICE_API, var))
+		OSDebugOut(L"Current API: %S\n", var.c_str());
+	else
 	{
-		SaveSetting(nullptr, kp.first.first, kp.first.second, N_DEVICE_API, kp.second);
+		if (apis.begin() != apis.end())
+		{
+			selApi = *apis.begin();
+			changedAPIs[std::make_pair(port, devName)] = selApi;
+		}
 	}
-	changedAPIs.clear();
-}
 
-void LoadConfig() {
-
-	Config *Conf1 = &conf;
-	std::wstring szIniFile;
-	wchar_t szValue[MAX_PATH+1];
-	char tmpA[MAX_PATH + 1] = { 0 };
-	size_t num = 0;
-
-	GetIniFile(szIniFile);
-
-	FILE *fp = nullptr;
-	auto err = _wfopen_s(&fp, szIniFile.c_str(), L"rt");//check if ini really exists
-	if (!fp)
+	int i = 0, sel = 0;
+	for (auto& api : apis)
 	{
-		conf.Log = 0;//default value
-		SaveConfig();//save and return
-		return ;
+		auto name = dev->LongAPIName(api);
+		if (!name)
+			continue;
+		SendDlgItemMessageW(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_ADDSTRING, 0, (LPARAM)name);
+		if (api == var)
+			sel = i;
+		i++;
 	}
-	fclose(fp);
-
-	GetPrivateProfileStringW(L"Interface", L"Logging", NULL, szValue, 20, szIniFile.c_str());
-	Conf1->Log = wcstoul(szValue, NULL, 10);
-
-	GetPrivateProfileStringW(N_DEVICES, TEXT("DFP Passthrough"), NULL, szValue, 20, szIniFile.c_str());
-	Conf1->DFPPass = wcstoul(szValue, NULL, 10);
-
-	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT0, NULL, szValue, countof(szValue), szIniFile.c_str());
-	wcstombs_s(&num, tmpA, szValue, sizeof(tmpA));//TODO error-check
-	Conf1->Port[0] = tmpA;
-
-	GetPrivateProfileStringW(N_DEVICES, N_DEVICE_PORT1, NULL, szValue, countof(szValue), szIniFile.c_str());
-	wcstombs_s(&num, tmpA, szValue, sizeof(tmpA));//TODO error-check
-	Conf1->Port[1] = tmpA;
-
-	GetPrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE0, NULL, szValue, 20, szIniFile.c_str());
-	Conf1->WheelType[0] = wcstoul(szValue, NULL, 10);
-
-	GetPrivateProfileStringW(N_DEVICES, N_WHEEL_TYPE1, NULL, szValue, 20, szIniFile.c_str());
-	Conf1->WheelType[1] = wcstoul(szValue, NULL, 10);
-
-	return ;
-
+	SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_SETCURSEL, sel, 0);
 }
 
+BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+
+	int port;
+	switch(uMsg) {
+		case WM_INITDIALOG:
+			SendDlgItemMessageA(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
+			LoadConfig();
+			CheckDlgButton(hW, IDC_LOGGING, conf.Log);
+			//Selected emulated devices.
+			SendDlgItemMessageA(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)"None");
+			SendDlgItemMessageA(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)"None");
+
+			{
+				auto& rd = RegisterDevice::instance();
+				int i = 0, p1 = 0, p2 = 0;
+				for (auto& name : rd.Names())
+				{
+					i++; //jump over "None"
+					auto dev = rd.Device(name);
+					SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)dev->Name());
+					SendDlgItemMessageW(hW, IDC_COMBO2, CB_ADDSTRING, 0, (LPARAM)dev->Name());
+
+					//Port 1 aka device/player 1
+					if (conf.Port[1] == name)
+						p1 = i;
+					//Port 0 aka device/player 2
+					if (conf.Port[0] == name)
+						p2 = i;
+				}
+				SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, p1, 0);
+				SendDlgItemMessage(hW, IDC_COMBO2, CB_SETCURSEL, p2, 0);
+				PopulateAPIs(hW, 0);
+				PopulateAPIs(hW, 1);
+			}
+
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro (rev11.02)");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"GT Force");
+			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_SETCURSEL, conf.WheelType[PLAYER_ONE_PORT], 0);
+
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro (rev11.02)");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"GT Force");
+			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_SETCURSEL, conf.WheelType[PLAYER_TWO_PORT], 0);
+
+			return TRUE;
+			break;
+		case WM_COMMAND:
+			switch (HIWORD(wParam))
+			{
+			case CBN_SELCHANGE:
+				switch (LOWORD(wParam)) {
+				case IDC_COMBO_API1:
+				case IDC_COMBO_API2:
+					port = (LOWORD(wParam) == IDC_COMBO_API1) ? 1 : 0;
+					SelChangedAPI(hW, port);
+					break;
+				case IDC_COMBO1:
+				case IDC_COMBO2:
+					port = (LOWORD(wParam) == IDC_COMBO1) ? 1 : 0;
+					PopulateAPIs(hW, port);
+					break;
+				}
+			break;
+			case BN_CLICKED:
+				switch(LOWORD(wParam)) {
+				case IDC_CONFIGURE1:
+				case IDC_CONFIGURE2:
+				{
+					LRESULT devtype, apitype;
+					port = (LOWORD(wParam) == IDC_CONFIGURE1) ? 1 : 0;
+					devtype = SendDlgItemMessage(hW, port ? IDC_COMBO1 : IDC_COMBO2, CB_GETCURSEL, 0, 0);
+					apitype = SendDlgItemMessage(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_GETCURSEL, 0, 0);
+
+					if (devtype > 0)
+					{
+						devtype--;
+						auto device = RegisterDevice::instance().Device(devtype);
+						if (device)
+						{
+							auto list = device->ListAPIs();
+							auto it = list.begin();
+							std::advance(it, apitype);
+							if (it == list.end())
+								break;
+							std::string api = *it;
+							Win32Handles handles(hInst, hW);
+							if (device->Configure(port, api, &handles) == RESULT_FAILED)
+								SysMessage(TEXT("Some settings may not have been saved!\n"));
+						}
+					}
+				}
+				break;
+				case IDCANCEL:
+					EndDialog(hW, TRUE);
+					return TRUE;
+				case IDOK:
+					conf.Log = IsDlgButtonChecked(hW, IDC_LOGGING);
+					{
+						auto& regInst = RegisterDevice::instance();
+						int i;
+						//device type
+						i = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
+						conf.Port[1] = regInst.Name(i - 1);
+						i = SendDlgItemMessage(hW, IDC_COMBO2, CB_GETCURSEL, 0, 0);
+						conf.Port[0] = regInst.Name(i - 1);
+					}
+					//wheel type
+					conf.WheelType[PLAYER_ONE_PORT] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_GETCURSEL, 0, 0);
+					conf.WheelType[PLAYER_TWO_PORT] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_GETCURSEL, 0, 0);
+
+					SaveConfig();
+					CreateDevices();
+					EndDialog(hW, RESULT_OK);
+					configChanged = true;
+					return TRUE;
+				}
+			}
+	}
+
+	return FALSE;
+}
+
+
+EXPORT_C_(BOOL) AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	switch(uMsg) {
+		case WM_INITDIALOG:
+			return TRUE;
+
+		case WM_COMMAND:
+			switch(LOWORD(wParam)) {
+				case IDOK:
+					EndDialog(hW, FALSE);
+					return TRUE;
+			}
+	}
+	return FALSE;
+}
+
+EXPORT_C_(void) USBconfigure() {
+    RegisterAPIs();
+    DialogBox(hInst,
+              MAKEINTRESOURCE(IDD_CONFIG),
+              GetActiveWindow(),
+              (DLGPROC)ConfigureDlgProc);
+}
+
+EXPORT_C_(void) USBabout() {
+    DialogBox(hInst,
+              MAKEINTRESOURCE(IDD_ABOUT),
+              GetActiveWindow(),
+              (DLGPROC)AboutDlgProc);
+}
+
+BOOL APIENTRY DllMain(HANDLE hModule,
+                      DWORD  dwReason,
+                      LPVOID lpReserved) {
+	hInst = (HINSTANCE)hModule;
+	return TRUE;
+}
