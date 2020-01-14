@@ -15,6 +15,7 @@ struct device_data
 	std::string name;
 	uint8_t axis_map[ABS_MAX + 1];
 	bool axis_inverted[3];
+	int axis_initial[3];
 	uint16_t btn_map[KEY_MAX + 1];
 	int axes = 0;
 	int buttons = 0;

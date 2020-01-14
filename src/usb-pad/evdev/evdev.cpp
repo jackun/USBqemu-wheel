@@ -586,7 +586,7 @@ int EvDevPad::Open()
 			break;
 			default:
 				LoadMappings(mDevType, mPort, device.name,
-					device.mappings, device.axis_inverted);
+					device.mappings, device.axis_inverted, device.axis_initial);
 			break;
 		}
 
