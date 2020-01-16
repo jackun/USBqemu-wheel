@@ -139,6 +139,9 @@ SET(HDRS_PLG
 	./src/configuration.h
 	./src/platcompat.h
 	./src/osdebugout.h
+	./src/helpers.h
+	./src/readerwriterqueue/readerwriterqueue.h
+	./src/readerwriterqueue/atomicops.h
 )
 
 SET(SRCS_PLG
@@ -224,6 +227,7 @@ SET(HDRS_EYETOY
 
 SET(HDRS_HID
 	./src/usb-hid/hidproxy.h
+	./src/usb-hid/usb-hid.h
 	./src/usb-hid/noop.h
 )
 
@@ -274,6 +278,9 @@ IF(WIN32)
 		)
 	ENDIF(MINGW)
 
+	LIST(APPEND HDRS_MIC
+		./src/usb-mic/audiodev-wasapi.h
+	)
 	LIST(APPEND SRCS_MIC
 		./src/usb-mic/audiodev-wasapi.cpp
 	)
@@ -292,6 +299,10 @@ IF(WIN32)
 		./src/shared/rawinput.cpp
 	)
 
+	LIST(APPEND HDRS_QEMU
+		./src/qemu-usb/input-keymap-win32-to-qcode.h
+	)
+
 	LIST(APPEND SRCS_QEMU
 		./src/qemu-usb/input-keymap-win32-to-qcode.cpp
 	)
@@ -307,34 +318,6 @@ IF(WIN32)
 
 	LIST(APPEND HDRS ${HDRS_WIN32})
 	LIST(APPEND SRCS ${SRCS_WIN32})
-
-	SOURCE_GROUP("Header Files\\Win32" FILES ${HDRS_WIN32})
-	SOURCE_GROUP("Header Files" FILES ${HDRS_PLG})
-	SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
-	SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
-	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
-	SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
-	SOURCE_GROUP("Header Files\\usb-hid" FILES ${HDRS_HID})
-	SOURCE_GROUP("Header Files\\usb-eyetoy" FILES ${HDRS_EYETOY})
-	SOURCE_GROUP("Header Files\\shared" FILES ${HDRS_SHARED})
-	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
-
-	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
-	SOURCE_GROUP("Source Files\\Win32" FILES ${SRCS_WIN32})
-	SOURCE_GROUP("Source Files\\qemu-usb" FILES ${SRCS_QEMU})
-	SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
-	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
-	SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
-	SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
-	SOURCE_GROUP("Source Files\\usb-eyetoy" FILES ${SRCS_EYETOY})
-	SOURCE_GROUP("Source Files\\shared" FILES ${SRCS_SHARED})
-	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
-
-	FOREACH(file ${SRCS_API_INITS})
-		get_filename_component(api_dir "${file}" DIRECTORY )
-		get_filename_component(api_dir "${api_dir}" NAME )
-		SOURCE_GROUP("Source Files\\${api_dir}" FILES "${file}")
-	ENDFOREACH()
 
 	IF(PLUGIN_BUILD_DX)
 		ADD_DEFINITIONS(-DBUILD_DX=1)
@@ -407,8 +390,7 @@ ENDIF(WIN32)
 IF(UNIX)
 	FILE(GLOB SRCS_API_INITS ./src/*/api_init_linux.cpp)
 
-	LIST(APPEND HDRS
-		./src/icon_buzz_24.h
+	LIST(APPEND HDRS_LINUX
 		./src/linux/ini.h
 		./src/linux/actualfile.h
 		./src/linux/config.h
@@ -416,6 +398,11 @@ IF(UNIX)
 	)
 	LIST(APPEND SRCS_PLG
 		./src/icon_buzz_24.cpp
+	)
+	LIST(APPEND HDRS
+		${HDRS_LINUX}
+		./src/gtk.h
+		./src/icon_buzz_24.h
 	)
 	LIST(APPEND SRCS_MSD
 		./src/usb-msd/usb-msd-gtk.cpp
@@ -441,12 +428,16 @@ IF(UNIX)
 		./src/usb-hid/evdev/evdev.cpp
 		./src/usb-hid/evdev/evdev-gtk.cpp
 	)
-	LIST(APPEND SRCS
+	LIST(APPEND SRCS_LINUX
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
 #		./src/linux/ini.c
 #		./src/linux/actualfile.c
 		./src/linux/util.cpp
+	)
+	LIST(APPEND SRCS ${SRCS_LINUX})
+	LIST(APPEND HDRS_QEMU
+		./src/qemu-usb/input-keymap-linux-to-qcode.h
 	)
 	LIST(APPEND SRCS_QEMU
 		./src/qemu-usb/input-keymap-linux-to-qcode.cpp
@@ -494,6 +485,36 @@ ENDIF()
 #
 # Now smash it all together
 #
+
+SOURCE_GROUP("Header Files" FILES ${HDRS_PLG})
+SOURCE_GROUP("Header Files\\linux" FILES ${HDRS_LINUX})
+SOURCE_GROUP("Header Files\\Win32" FILES ${HDRS_WIN32})
+SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
+SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
+SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
+SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
+SOURCE_GROUP("Header Files\\usb-hid" FILES ${HDRS_HID})
+SOURCE_GROUP("Header Files\\usb-eyetoy" FILES ${HDRS_EYETOY})
+SOURCE_GROUP("Header Files\\shared" FILES ${HDRS_SHARED})
+SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
+
+SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
+SOURCE_GROUP("Source Files\\linux" FILES ${SRCS_LINUX})
+SOURCE_GROUP("Source Files\\Win32" FILES ${SRCS_WIN32})
+SOURCE_GROUP("Source Files\\qemu-usb" FILES ${SRCS_QEMU})
+SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
+SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
+SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
+SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
+SOURCE_GROUP("Source Files\\usb-eyetoy" FILES ${SRCS_EYETOY})
+SOURCE_GROUP("Source Files\\shared" FILES ${SRCS_SHARED})
+SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
+
+FOREACH(file ${SRCS_API_INITS})
+		get_filename_component(api_dir "${file}" DIRECTORY )
+		get_filename_component(api_dir "${api_dir}" NAME )
+		SOURCE_GROUP("Source Files\\${api_dir}" FILES "${file}")
+ENDFOREACH()
 
 LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_EYETOY} ${HDRS_SHARED} ${HDRS_SAMPLERATE})
 LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_EYETOY} ${SRCS_SHARED} ${SRCS_API_INITS})
