@@ -221,7 +221,7 @@ void EvDev::ReaderThread(void *ptr)
 						}
 						else if (event.code == ABS_Y)
 						{
-							ev.u.rel.axis = INPUT_AXIS_X;
+							ev.u.rel.axis = INPUT_AXIS_Y;
 							hs->ptr.eh_entry(hs, &ev);
 						}
 					}
