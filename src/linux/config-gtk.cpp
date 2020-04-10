@@ -7,17 +7,6 @@
 #include <string>
 #include <gtk/gtk.h>
 
-//joystick stuff
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/input.h>
-#include <linux/joystick.h>
-
-#include "../USB.h"
 #include "../osdebugout.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
@@ -73,7 +62,7 @@ static void wheeltypeChanged (GtkComboBox *widget, gpointer data)
 	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
 	//if(data)
 	{
-		uint8_t port = MIN((unsigned)data, 1);
+		uint8_t port = MIN(reinterpret_cast<uintptr_t>(data), 1);
 
 		conf.WheelType[1 - port] = idx;
 		OSDebugOut("Selected wheel type, port %d idx: %d\n", port, idx);
@@ -94,9 +83,7 @@ static void populateApiWidget(SettingsCB *settingsCB, const std::string& device)
 		auto it = changedAPIs.find(std::make_pair(port, device));
 		if (it == changedAPIs.end())
 		{
-			CONFIGVARIANT currAPI(N_DEVICE_API, CONFIG_TYPE_CHAR);
-			LoadSetting(port, device, currAPI);
-			api = currAPI.strValue;
+			LoadSetting(nullptr, port, device, N_DEVICE_API, api);
 			if (!dev->IsValidAPI(api))
 				api.clear();
 		}
@@ -168,7 +155,7 @@ static void apiChanged (GtkComboBox *widget, gpointer data)
 				changedAPIs[pair] = *it;
 			settingsCB->api = *it;
 
-			OSDebugOut("selected api: %s\napi settings:\n", it->c_str());
+			OSDebugOut("selected api: %s\n", it->c_str());
 		}
 	}
 }
@@ -229,13 +216,14 @@ extern "C" {
 
 void CALLBACK USBconfigure() {
 
+	RegisterDevice::Initialize();
 	LoadConfig();
 	void * that = NULL;
 	SettingsCB settingsCB[2];
 	settingsCB[0].player = 0;
 	settingsCB[1].player = 1;
 
-	const char* wt[] = {"Driving Force / Generic", "Driving Force Pro", "GT Force"};
+	const char* wt[] = {"Driving Force", "Driving Force Pro", "Driving Force Pro (rev11.02)", "GT Force"};
 	const char *ports[] = {"Port 1:", "Port 2:"};
 
 	GtkWidget *rs_cb, *vbox;
@@ -303,7 +291,7 @@ void CALLBACK USBconfigure() {
 	}
 
 	/** Wheel type **/
-	vbox = new_frame("Wheel types:", main_vbox);
+	vbox = new_frame("Emulated wheel model:", main_vbox);
 
 	for(int ply = 0; ply < 2; ply++)
 	{
@@ -312,14 +300,14 @@ void CALLBACK USBconfigure() {
 
 		sel_idx = 0;
 
-		for (int i = 0; i < ARRAYSIZE(wt); i++)
+		for (int i = 0; i < countof(wt); i++)
 		{
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), wt[i]);
 			if(conf.WheelType[1 - port] == i)
 				sel_idx = i;
 		}
 		gtk_combo_box_set_active (GTK_COMBO_BOX (rs_cb), sel_idx);
-		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), (gpointer)port);
+		g_signal_connect (G_OBJECT (rs_cb), "changed", G_CALLBACK (wheeltypeChanged), reinterpret_cast<gpointer> (port));
 	}
 
 	gtk_widget_show_all (dlg);
@@ -337,6 +325,7 @@ void CALLBACK USBconfigure() {
 		SaveConfig();
 		configChanged = true;
 	}
+//	RegisterDevice::instance().Clear();
 }
 
 void CALLBACK USBabout() {

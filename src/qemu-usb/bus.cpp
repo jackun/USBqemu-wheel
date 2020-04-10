@@ -72,11 +72,11 @@ void usb_device_handle_data(USBDevice *dev, USBPacket *p)
     }
 }
 
-const char *usb_device_get_product_desc(USBDevice *dev)
+/*const char *usb_device_get_product_desc(USBDevice *dev)
 {
     USBDeviceClass *klass = USB_DEVICE_GET_CLASS(dev);
     return klass->product_desc;
-}
+}*/
 
 const USBDesc *usb_device_get_usb_desc(USBDevice *dev)
 {

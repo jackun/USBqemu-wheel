@@ -8,28 +8,15 @@
 typedef std::vector< std::pair<std::string, std::string> > vstring;
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox);
 
-struct ApiCallbacks
-{
-	void (*populate)(vstring& jsdata);
-	bool (*poll)(const std::string &joypath, bool isaxis, int& value, bool& inverted);
-};
-
-struct ConfigData
-{
-	std::vector<uint16_t> mappings;
-	bool inverted[3];
-	vstring joysticks;
-	vstring::const_iterator js_iter;
-	GtkWidget *label;
-	GtkListStore *store;
-	ApiCallbacks *cb;
-	bool use_hidraw_ff_pt;
-};
+namespace usb_pad { namespace evdev {
 
 enum
 {
-	COL_PS2 = 0,
+	COL_NAME = 0,
+	COL_PS2,
 	COL_PC,
+	COL_COLUMN_WIDTH,
+	COL_BINDING,
 	NUM_COLS
 };
 
@@ -81,6 +68,34 @@ static const char* JoystickMapNames [] = {
 
 struct Point { int x; int y; JoystickMap type; };
 
-int GtkPadConfigure(int port, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
-bool LoadMappings(int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
-bool SaveMappings(int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
+struct ConfigMapping
+{
+	std::vector<uint16_t> mappings;
+	bool inverted[3];
+	int fd = -1;
+};
+
+struct ApiCallbacks
+{
+	bool (*get_event_name)(int map, int event, const char **name);
+	void (*populate)(vstring& jsdata);
+	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted);
+};
+
+struct ConfigData
+{
+	std::vector<std::pair<std::string, ConfigMapping> > jsconf;
+	vstring joysticks;
+	vstring::const_iterator js_iter;
+	GtkWidget *label;
+	GtkListStore *store;
+	GtkTreeView *treeview;
+	ApiCallbacks *cb;
+	bool use_hidraw_ff_pt;
+	const char *dev_type;
+};
+
+int GtkPadConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
+}} //namespace

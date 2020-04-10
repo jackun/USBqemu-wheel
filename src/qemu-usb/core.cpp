@@ -108,7 +108,7 @@ void usb_wakeup(USBEndpoint *ep, unsigned int stream)
     if (dev->remote_wakeup && dev->port && dev->port->ops->wakeup) {
         dev->port->ops->wakeup(dev->port);
     }
-    if (bus->ops->wakeup_endpoint) {
+    if (bus && bus->ops->wakeup_endpoint) {
         bus->ops->wakeup_endpoint(bus, ep, stream);
     }
 }

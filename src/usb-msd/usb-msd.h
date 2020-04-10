@@ -2,12 +2,11 @@
 #define USBMSD_H
 #include "../deviceproxy.h"
 
-// Catch typos at compile time
-#define S_CONFIG_PATH TEXT("Image path")
-#define N_CONFIG_PATH TEXT("path")
-#define APINAME "cstdio"
+namespace usb_msd {
 
-class MsdDevice : public Device
+static const char *APINAME = "cstdio";
+
+class MsdDevice
 {
 public:
 	virtual ~MsdDevice() {}
@@ -19,7 +18,7 @@ public:
 	}
 	static std::list<std::string> ListAPIs()
 	{
-		return std::list<std::string> { "cstdio" };
+		return std::list<std::string> { APINAME };
 	}
 	static const TCHAR* LongAPIName(const std::string& name)
 	{
@@ -27,5 +26,8 @@ public:
 	}
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
+	static void Initialize() {}
 };
+
+}
 #endif

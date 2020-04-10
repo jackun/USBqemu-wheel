@@ -7,7 +7,6 @@
  * This code is licenced under the LGPL.
  */
 
-#include "../USB.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,10 +14,10 @@
 #include "../qemu-usb/desc.h"
 #include "usb-msd.h"
 
-#define DEVICENAME "msd"
-
 #define le32_to_cpu(x) (x)
 #define cpu_to_le32(x) (x)
+
+namespace usb_msd {
 
 struct usb_msd_cbw {
     uint32_t sig;
@@ -769,59 +768,6 @@ static void usb_msd_handle_control(USBDevice *dev, USBPacket *p, int request, in
     OSDebugOut (TEXT("request %04x %04x %04x\n"), request, value, index);
 
     switch (request) {
-    case DeviceRequest | USB_REQ_GET_DESCRIPTOR:
-        OSDebugOut (TEXT("USB_REQ_GET_DESCRIPTOR\n"));
-        switch(value >> 8) {
-        case USB_DT_DEVICE:
-            memcpy(data, qemu_msd_dev_descriptor,
-                   sizeof(qemu_msd_dev_descriptor));
-            ret = sizeof(qemu_msd_dev_descriptor);
-            break;
-        case USB_DT_CONFIG:
-            memcpy(data, qemu_msd_config_descriptor,
-                   sizeof(qemu_msd_config_descriptor));
-            ret = sizeof(qemu_msd_config_descriptor);
-            break;
-        case USB_DT_STRING:
-            switch(value & 0xff) {
-            case 0:
-                /* language ids */
-                data[0] = 4;
-                data[1] = 3;
-                data[2] = 0x09;
-                data[3] = 0x04;
-                p->actual_length = 4;
-                break;
-            case 1:
-                /* vendor description */
-                p->actual_length = set_usb_string(data, "QEMU ", length);
-                break;
-            case 2:
-                /* product description */
-                p->actual_length = set_usb_string(data, "QEMU USB HARDDRIVE", length);
-                break;
-            case 3:
-                /* serial number */
-                p->actual_length = set_usb_string(data, "1", length);
-                break;
-            default:
-                goto fail;
-            }
-            break;
-        default:
-            goto fail;
-        }
-        break;
-    case DeviceRequest | USB_REQ_GET_INTERFACE:
-        data[0] = 0;
-        p->actual_length = 1;
-        break;
-    case DeviceOutRequest | USB_REQ_SET_INTERFACE:
-        break;
-    case EndpointOutRequest | USB_REQ_CLEAR_FEATURE:
-        break;
-    case InterfaceOutRequest | USB_REQ_SET_INTERFACE:
-        break;
         /* Class specific requests.  */
     case ClassInterfaceOutRequest | MassStorageReset:
         /* Reset state ready for the next CBW.  */
@@ -1051,17 +997,17 @@ USBDevice *MsdDevice::CreateDevice(int port)
     //LoadSetting(port, DEVICENAME, varApi);
     std::string api = *MsdDevice::ListAPIs().begin();
 
-    CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_TCHAR);
+    TSTDSTRING var;
 
-    if (!LoadSetting(port, api, var))
+    if (!LoadSetting(TypeName(), port, api, N_CONFIG_PATH, var))
     {
         fprintf(stderr, "usb-msd: Could not load settings\n");
         return NULL;
     }
 
-    s->file = wfopen(var.tstrValue.c_str(), TEXT("r+b"));
+    s->file = wfopen(var.c_str(), TEXT("r+b"));
     if (!s->file) {
-        SysMessage(TEXT("usb-msd: Could not open image file '%s'\n"), var.tstrValue.c_str());
+        SysMessage(TEXT("usb-msd: Could not open image file '%s'\n"), var.c_str());
         goto fail;
     }
 
@@ -1086,7 +1032,6 @@ USBDevice *MsdDevice::CreateDevice(int port)
     s->dev.klass.product_desc   = desc_strings[STR_PRODUCT];
 
     usb_desc_init(&s->dev);
-    usb_desc_create_serial(&s->dev);
     usb_ep_init(&s->dev);
 
     usb_msd_handle_reset((USBDevice *)s);
@@ -1099,7 +1044,7 @@ fail:
 
 const char* MsdDevice::TypeName()
 {
-    return DEVICENAME;
+    return "msd";
 }
 
 int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
@@ -1139,7 +1084,7 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
     return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_MSD, DEVICENAME, MsdDevice);
+REGISTER_DEVICE(DEVTYPE_MSD, MsdDevice);
 #undef DPRINTF
-#undef DEVICENAME
 #undef APINAME
+} //namespace

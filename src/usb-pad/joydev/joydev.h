@@ -5,12 +5,30 @@
 #include "../evdev/evdev-ff.h"
 #include "../evdev/shared.h"
 
+namespace usb_pad { namespace joydev {
+
+void EnumerateDevices(vstring& list);
+
+struct device_data
+{
+	int fd;
+	std::string name;
+	uint8_t axis_map[ABS_MAX + 1];
+	bool axis_inverted[3];
+	uint16_t btn_map[KEY_MAX + 1];
+	int axes = 0;
+	int buttons = 0;
+	std::vector<uint16_t> mappings;
+
+	bool is_gamepad; //xboxish gamepad
+	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
+						// determine if its unpressed value is zero
+};
+
 class JoyDevPad : public Pad
 {
 public:
-	JoyDevPad(int port): Pad(port)
-	, mIsGamepad(false)
-	, mIsDualAnalog(false)
+	JoyDevPad(int port, const char* dev_type): Pad(port, dev_type)
 	, mEvdevFF(nullptr)
 	{
 	}
@@ -27,23 +45,12 @@ public:
 		return "Joydev";
 	}
 
-	static int Configure(int port, void *data);
+	static int Configure(int port, const char* dev_type, void *data);
 protected:
-	int mHandle;
 	int mHandleFF;
-	EvdevFF *mEvdevFF;
+	evdev::EvdevFF *mEvdevFF;
 	struct wheel_data_t mWheelData;
-	uint8_t mAxisMap[ABS_MAX + 1];
-	bool mAxisInverted[3];
-	uint16_t mBtnMap[KEY_MAX + 1];
-	int mAxisCount;
-	int mButtonCount;
-
-	std::vector<uint16_t> mMappings;
-
-	bool mIsGamepad; //xboxish gamepad
-	bool mIsDualAnalog; // tricky, have to read the AXIS_RZ somehow and
-						// determine if its unpressed value is zero
+	std::vector<device_data> mDevices;
 };
 
 template< size_t _Size >
@@ -67,3 +74,5 @@ bool GetJoystickName(const std::string& path, char (&name)[_Size])
 	}
 	return false;
 }
+
+}} //namespace

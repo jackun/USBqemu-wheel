@@ -6,7 +6,7 @@
 struct USBDevice;
 
 namespace usb_mic_singstar {
-class SingstarDevice : public Device
+class SingstarDevice
 {
 public:
 	virtual ~SingstarDevice() {}
@@ -26,10 +26,33 @@ public:
 	}
 	static const TCHAR* LongAPIName(const std::string& name)
 	{
-		return RegisterAudioDevice::instance().Proxy(name)->Name();
+		auto proxy = RegisterAudioDevice::instance().Proxy(name);
+		if (proxy)
+			return proxy->Name();
+		return nullptr;
 	}
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
+	static void Initialize()
+	{
+		RegisterAudioDevice::Initialize();
+	}
 };
+
+class LogitechMicDevice : public SingstarDevice
+{
+public:
+	virtual ~LogitechMicDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const char* TypeName()
+	{
+		return "logitech_usbmic";
+	}
+	static const TCHAR* Name()
+	{
+		return TEXT("Logitech USB Mic");
+	}
 };
+
+}
 #endif

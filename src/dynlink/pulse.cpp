@@ -59,6 +59,8 @@ FUNDEFDECL(pa_threaded_mainloop_signal);
 FUNDEFDECL(pa_threaded_mainloop_wait);
 FUNDEFDECL(pa_sample_size);
 FUNDEFDECL(pa_frame_size);
+FUNDEFDECL(pa_stream_get_latency);
+FUNDEFDECL(pa_stream_update_timing_info);
 
 static void* pulse_handle = nullptr;
 static std::atomic<int> refCntPulse (0);
@@ -79,6 +81,8 @@ bool DynLoadPulse()
 		return false;
 	}
 
+	FUN_LOAD(pulse_handle, pa_stream_update_timing_info);
+	FUN_LOAD(pulse_handle, pa_stream_get_latency);
 	FUN_LOAD(pulse_handle, pa_usec_to_bytes);
 	FUN_LOAD(pulse_handle, pa_bytes_per_second);
 	FUN_LOAD(pulse_handle, pa_threaded_mainloop_start);
@@ -135,6 +139,8 @@ void DynUnloadPulse()
 	if(!refCntPulse || --refCntPulse > 0)
 		return;
 
+	FUN_UNLOAD(pa_stream_update_timing_info);
+	FUN_UNLOAD(pa_stream_get_latency);
 	FUN_UNLOAD(pa_usec_to_bytes);
 	FUN_UNLOAD(pa_bytes_per_second);
 	FUN_UNLOAD(pa_threaded_mainloop_start);
@@ -489,4 +495,18 @@ size_t pa_frame_size(const pa_sample_spec *spec)
 	if (pfn_pa_frame_size)
 		return pfn_pa_frame_size(spec);
 	return 0;
+}
+
+pa_operation* pa_stream_update_timing_info(pa_stream *p, pa_stream_success_cb_t cb, void *userdata)
+{
+	if (pfn_pa_stream_update_timing_info)
+		return pfn_pa_stream_update_timing_info(p, cb, userdata);
+	return NULL;
+}
+
+int pa_stream_get_latency(pa_stream *s, pa_usec_t *r_usec, int *negative)
+{
+	if (pfn_pa_stream_get_latency)
+		return pfn_pa_stream_get_latency(s, r_usec, negative);
+	return -PA_ERR_NOTIMPLEMENTED;
 }

@@ -1,10 +1,8 @@
-#include "../../USB.h"
-#include "../padproxy.h"
-#include "../../Win32/Config-win32.h"
+#include "usb-pad-dx.h"
 #include "global.h"
 #include "dialog.h"
 
-#define APINAME "dinput"
+namespace usb_pad { namespace dx {
 
 static bool bdown=false;
 static DWORD calibrationtime = 0;
@@ -35,26 +33,7 @@ enum CONTROLID
 	START,
 };
 
-class DInputPad : public Pad
-{
-public:
-	DInputPad(int port) : Pad(port), mUseRamp(false){}
-	~DInputPad() { FreeDirectInput(); }
-	int Open();
-	int Close();
-	int TokenIn(uint8_t *buf, int len);
-	int TokenOut(const uint8_t *data, int len);
-	int Reset() { return 0; }
-
-	static const TCHAR* Name()
-	{
-		return TEXT("DInput");
-	}
-
-	static int Configure(int port, void *data);
-private:
-	bool mUseRamp;
-};
+DInputPad::~DInputPad() { FreeDirectInput(); }
 
 int DInputPad::TokenIn(uint8_t *buf, int len)
 {
@@ -92,8 +71,8 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 			mWheelData.steering = (range>>1)+(int)(GetControl(mPort, STEERING, false)* (float)(range>>1)) ;
 		}
 
-		mWheelData.throttle = 255-(int)(GetControl(mPort, THROTTLE, false)*255.0f);
-		mWheelData.brake = 255-(int)(GetControl(mPort, BRAKE, false)*255.0f);
+		mWheelData.throttle = (int)(255.f - (GetControl(mPort, THROTTLE, false) * 255.0f));
+		mWheelData.brake    = (int)(255.f - (GetControl(mPort, BRAKE, false) * 255.0f));
 
 		if(GetControl(mPort, CROSS, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_CROSS);
 		if(GetControl(mPort, SQUARE, true))		mWheelData.buttons |= 1 << convert_wt_btn(mType, PAD_SQUARE);
@@ -138,13 +117,14 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 int DInputPad::TokenOut(const uint8_t *data, int len)
 {
+	int caps = 0;
+	bool isDFP = (mType == WT_DRIVING_FORCE_PRO) || (mType == WT_DRIVING_FORCE_PRO_1102);
 	ff_data *ffdata = (ff_data*)data;
 
 	OSDebugOut(TEXT("FFB %02X, %02X : %02X, %02X : %02X, %02X : %02X, %02X\n"),
 		ffdata->cmdslot, ffdata->type, ffdata->u.params[0], ffdata->u.params[1],
 		ffdata->u.params[2], ffdata->u.params[3], ffdata->u.params[4], ffdata->padd0);
 
-	bool isdfp = (mType == WT_DRIVING_FORCE_PRO);
 	if (ffdata->cmdslot != CMD_EXTENDED_CMD)
 	{
 
@@ -212,29 +192,40 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 				}
 				break;
 			case FTYPE_SPRING:
-				SetSpringForce(mPort, ffdata->u.spring, false, isdfp);
+				//SetSpringForce(mPort, ffdata->u.spring, false, isDFP);
+				SetSpringForceGIMX(mPort, ffdata->u.spring, isDFP ? 0 : FF_LG_CAPS_OLD_LOW_RES_COEF);
 				break;
 			case FTYPE_HIGH_RESOLUTION_SPRING:
-				SetSpringForce(mPort, ffdata->u.spring, true, isdfp);
+				//SetSpringForce(mPort, ffdata->u.spring, true, isDFP);
+				SetSpringForceGIMX(mPort, ffdata->u.spring, FF_LG_CAPS_HIGH_RES_COEF);
 				break;
 			case FTYPE_VARIABLE: //Ramp-like
 				if (!calibrating)
 				{
 					if (mUseRamp)
 						SetRampVariable(mPort, slots, ffdata->u.variable);
-					else
-						SetConstantForce(mPort, ffdata->u.params[0]);
+					else {
+						if (slots & (1 << 0))
+							SetConstantForce(mPort, ffdata->u.variable.l1);
+						else if (slots & (1 << 2))
+							SetConstantForce(mPort, ffdata->u.variable.l2);
+					}
 				}
 				break;
-			/*case FTYPE_FRICTION:
+			case FTYPE_FRICTION:
 				SetFrictionForce(mPort, ffdata->u.friction);
 				break;
 			case FTYPE_DAMPER:
-				SetDamper(mPort, ffdata->u.damper, false);
+				//SetDamper(mPort, ffdata->u.damper, false);
+				SetDamperGIMX(mPort, ffdata->u.damper, isDFP ? 0 : FF_LG_CAPS_OLD_LOW_RES_COEF);
 				break;
 			case FTYPE_HIGH_RESOLUTION_DAMPER:
-				SetDamper(mPort, ffdata->u.damper, isdfp);
-				break;*/
+				//SetDamper(mPort, ffdata->u.damper, isDFP);
+				caps = FF_LG_CAPS_HIGH_RES_COEF;
+				if (isDFP)
+					caps |= FF_LG_CAPS_DAMPER_CLIP;
+				SetDamperGIMX(mPort, ffdata->u.damper, caps);
+				break;
 			default:
 				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
 				break;
@@ -243,53 +234,46 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 		break;
 		case CMD_STOP: //0x03
 		{
-			if (slots == 0x0F) //0xF3, usually sent on init
+			if (BYPASSCAL)
 			{
-				if (BYPASSCAL)
-				{
-					alternate = false;
-					calidata = 0;
-					calibrating = true;
-					calibrationtime = GetTickCount();
-				}
-				DisableConstantForce(mPort);
-				DisableSpring(mPort);
+				alternate = false;
+				calidata = 0;
+				calibrating = true;
+				calibrationtime = GetTickCount();
 			}
-			else
+
+			for (int i = 0; i < 4; i++)
 			{
-				for (int i = 0; i < 4; i++)
+				if (slots & (1 << i))
 				{
-					if (slots & (1 << i))
+					switch (mFFstate.slot_type[i])
 					{
-						switch (mFFstate.slot_type[i])
-						{
-						case FTYPE_CONSTANT:
+					case FTYPE_CONSTANT:
+						DisableConstantForce(mPort);
+						break;
+					case FTYPE_VARIABLE:
+						if (mUseRamp)
+							DisableRamp(mPort);
+						else
 							DisableConstantForce(mPort);
-							break;
-						case FTYPE_VARIABLE:
-							if (mUseRamp)
-								DisableRamp(mPort);
-							else
-								DisableConstantForce(mPort);
-							break;
-						case FTYPE_SPRING:
-						case FTYPE_HIGH_RESOLUTION_SPRING:
-							DisableSpring(mPort);
-							break;
-						case FTYPE_AUTO_CENTER_SPRING:
-							DisableSpring(mPort);
-							break;
-						/*case FTYPE_FRICTION:
-							DisableFriction(mPort);
-							break;
-						case FTYPE_DAMPER:
-						case FTYPE_HIGH_RESOLUTION_DAMPER:
-							DisableDamper(mPort);
-							break;*/
-						default:
-							OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
-							break;
-						}
+						break;
+					case FTYPE_SPRING:
+					case FTYPE_HIGH_RESOLUTION_SPRING:
+						DisableSpring(mPort);
+						break;
+					case FTYPE_AUTO_CENTER_SPRING:
+						DisableSpring(mPort);
+						break;
+					case FTYPE_FRICTION:
+						DisableFriction(mPort);
+						break;
+					case FTYPE_DAMPER:
+					case FTYPE_HIGH_RESOLUTION_DAMPER:
+						DisableDamper(mPort);
+						break;
+					default:
+						OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
+						break;
 					}
 				}
 			}
@@ -346,10 +330,8 @@ int DInputPad::TokenOut(const uint8_t *data, int len)
 
 int DInputPad::Open()
 {
-	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
-	if (LoadSetting(mPort, APINAME, var))
-		mUseRamp = var.boolValue;
-	InitDI(mPort);
+	LoadSetting(mDevType, mPort, APINAME, TEXT("UseRamp"), mUseRamp);
+	InitDI(mPort, mDevType);
 	return 0;
 }
 
@@ -359,11 +341,15 @@ int DInputPad::Close()
 	return 0;
 }
 
-int DInputPad::Configure(int port, void *data)
+int DInputPad::Configure(int port, const char* dev_type, void *data)
 {
 	Win32Handles h = *(Win32Handles*)data;
-	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, port);
+	struct DXDlgSettings s;
+	s.port = port;
+	s.dev_type = dev_type;
+	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, (LPARAM)&s);
 }
 
 REGISTER_PAD(APINAME, DInputPad);
 #undef APINAME
+}} //namespace

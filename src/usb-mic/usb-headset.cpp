@@ -24,16 +24,12 @@
 
 // Most stuff is based on Qemu 1.7 USB soundcard passthrough code.
 
-#include "../USB.h"
 #include "../qemu-usb/vl.h"
 #include "../qemu-usb/desc.h"
-#include "../deviceproxy.h"
-#include "audiodeviceproxy.h"
 #include <assert.h>
 
-#define DEVICENAME "headset"
-
 #include "audio.h"
+#include "usb-headset.h"
 
 #define BUFFER_FRAMES 200
 
@@ -84,31 +80,14 @@ typedef struct HeadsetState {
     USBDescDevice desc_dev;
 } HeadsetState;
 
-class HeadsetDevice : public Device
+std::list<std::string> HeadsetDevice::ListAPIs()
 {
-public:
-    virtual ~HeadsetDevice() {}
-    static USBDevice* CreateDevice(int port);
-    static USBDevice* CreateDevice(int port, const std::string& api);
-    static const char* TypeName()
-    {
-        return DEVICENAME;
-    }
-    static const TCHAR* Name()
-    {
-        return TEXT("Logitech USB Headset");
-    }
-    static std::list<std::string> ListAPIs()
-    {
-        return RegisterAudioDevice::instance().Names();
-    }
-    static const TCHAR* LongAPIName(const std::string& name)
-    {
-        return RegisterAudioDevice::instance().Proxy(name)->Name();
-    }
-    static int Configure(int port, const std::string& api, void *data);
-    static int Freeze(int mode, USBDevice *dev, void *data);
-};
+	return RegisterAudioDevice::instance().Names();
+}
+const TCHAR* HeadsetDevice::LongAPIName(const std::string& name)
+{
+	return RegisterAudioDevice::instance().Proxy(name)->Name();
+}
 
 static const uint8_t headset_dev_descriptor[] = {
     /* bLength             */ 0x12, //(18)
@@ -988,11 +967,8 @@ static void headset_handle_close(USBDevice *dev)
 USBDevice* HeadsetDevice::CreateDevice(int port)
 {
     std::string api;
-    {
-        CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-        if (LoadSetting(port, DEVICENAME, var))
-            api = var.strValue;
-    }
+    if (!LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, api))
+        return nullptr;
     return HeadsetDevice::CreateDevice(port, api);
 }
 
@@ -1012,8 +988,8 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
 
     s->audsrcproxy->AudioInit();
 
-    s->audsrc  = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SOURCE);
-    s->audsink = s->audsrcproxy->CreateObject(port, 0, AUDIODIR_SINK);
+    s->audsrc  = s->audsrcproxy->CreateObject(port, TypeName(), 0, AUDIODIR_SOURCE);
+    s->audsink = s->audsrcproxy->CreateObject(port, TypeName(), 0, AUDIODIR_SINK);
     s->f.mode = MIC_MODE_SINGLE;
 
     if(!s->audsrc || !s->audsink)
@@ -1048,7 +1024,6 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     s->f.in.srate = 48000;
 
     usb_desc_init(&s->dev);
-    usb_desc_create_serial(&s->dev);
     usb_ep_init(&s->dev);
     headset_handle_reset ((USBDevice *)s);
 
@@ -1063,7 +1038,7 @@ int HeadsetDevice::Configure(int port, const std::string& api, void *data)
 {
     auto proxy = RegisterAudioDevice::instance().Proxy(api);
     if (proxy)
-        return proxy->Configure(port, data);
+        return proxy->Configure(port, TypeName(), data);
     return RESULT_CANCELED;
 }
 
@@ -1092,6 +1067,5 @@ int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
     return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, DEVICENAME, HeadsetDevice);
+REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, HeadsetDevice);
 };
-#undef DEVICENAME

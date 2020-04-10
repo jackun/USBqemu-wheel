@@ -1,77 +1,8 @@
-#include <thread>
-#include <array>
-#include <atomic>
-#include "../padproxy.h"
 #include "../../USB.h"
 #include "../../Win32/Config-win32.h"
-#include "raw-config.h"
-#include "readerwriterqueue/readerwriterqueue.h"
+#include "usb-pad-raw.h"
 
-namespace usb_pad_raw {
-
-class RawInputPad : public Pad
-{
-public:
-	RawInputPad(int port) : Pad(port)
-	, mDoPassthrough(false)
-	, mUsbHandle(INVALID_HANDLE_VALUE)
-	, mWriterThreadIsRunning(false)
-	, mReaderThreadIsRunning(false)
-	{
-		if (!InitHid())
-			throw PadError("InitHid() failed!");
-	}
-	~RawInputPad()
-	{ 
-		Close();
-		if (mWriterThread.joinable())
-			mWriterThread.join();
-	}
-	int Open();
-	int Close();
-	int TokenIn(uint8_t *buf, int len);
-	int TokenOut(const uint8_t *data, int len);
-	int Reset()
-	{
-		uint8_t reset[7] = { 0 };
-		reset[0] = 0xF3; //stop forces
-		TokenOut(reset, sizeof(reset));
-		return 0;
-	}
-
-	static const TCHAR* Name()
-	{
-		return TEXT("Raw Input");
-	}
-
-	static int Configure(int port, void *data);
-protected:
-	static void WriterThread(void *ptr);
-	static void ReaderThread(void *ptr);
-	HIDP_CAPS mCaps;
-	HIDD_ATTRIBUTES attr;
-	//PHIDP_PREPARSED_DATA pPreparsedData;
-	//PHIDP_BUTTON_CAPS pButtonCaps;
-	//PHIDP_VALUE_CAPS pValueCaps;
-	//ULONG value;// = 0;
-	USHORT numberOfButtons;// = 0;
-	USHORT numberOfValues;// = 0;
-	HANDLE mUsbHandle;// = (HANDLE)-1;
-	//HANDLE readData;// = (HANDLE)-1;
-	OVERLAPPED mOLRead;
-	OVERLAPPED mOLWrite;
-	
-	uint32_t reportInSize;// = 0;
-	uint32_t reportOutSize;// = 0;
-	bool mDoPassthrough;
-	wheel_data_t mDataCopy;
-	std::thread mWriterThread;
-	std::thread mReaderThread;
-	std::atomic<bool> mWriterThreadIsRunning;
-	std::atomic<bool> mReaderThreadIsRunning;
-	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 8>, 32> mFFData;
-	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 32>, 16> mReportData; //TODO 32 is random
-};
+namespace usb_pad { namespace raw {
 
 void RawInputPad::WriterThread(void *ptr)
 {
@@ -119,7 +50,7 @@ void RawInputPad::ReaderThread(void *ptr)
 			if (!pad->mReportData.try_enqueue(report)) // TODO May leave queue with too stale data. Use multi-producer/consumer queue?
 			{
 				if (!errCount)
-					OSDebugOut(TEXT("Could not enqueue report data: %d\n"), pad->mReportData.size_approx());
+					fprintf(stderr, "%s: Could not enqueue report data: %d\n", APINAME, pad->mReportData.size_approx());
 				errCount = (++errCount) % 16;
 			}
 		}
@@ -132,7 +63,7 @@ void RawInputPad::ReaderThread(void *ptr)
 int RawInputPad::TokenIn(uint8_t *buf, int len)
 {
 	ULONG value = 0;
-	int ply = 1 - mPort;
+	int player = 1 - mPort;
 
 	//fprintf(stderr,"usb-pad: poll len=%li\n", len);
 	if (mDoPassthrough)
@@ -158,30 +89,30 @@ int RawInputPad::TokenIn(uint8_t *buf, int len)
 	for (auto& it : mapVector)
 	{
 
-		if (data_summed.steering < it.data[ply].steering)
+		if (data_summed.steering < it.data[player].steering)
 		{
-			data_summed.steering = it.data[ply].steering;
+			data_summed.steering = it.data[player].steering;
 			copied |= 1;
 		}
 
-		//if(data_summed.clutch < it.data[ply].clutch)
-		//	data_summed.clutch = it.data[ply].clutch;
+		//if(data_summed.clutch < it.data[player].clutch)
+		//	data_summed.clutch = it.data[player].clutch;
 
-		if (data_summed.throttle < it.data[ply].throttle)
+		if (data_summed.throttle < it.data[player].throttle)
 		{
-			data_summed.throttle = it.data[ply].throttle;
+			data_summed.throttle = it.data[player].throttle;
 			copied |= 2;
 		}
 
-		if (data_summed.brake < it.data[ply].brake)
+		if (data_summed.brake < it.data[player].brake)
 		{
-			data_summed.brake = it.data[ply].brake;
+			data_summed.brake = it.data[player].brake;
 			copied |= 4;
 		}
 
-		data_summed.buttons |= it.data[ply].buttons;
-		if(data_summed.hatswitch > it.data[ply].hatswitch)
-			data_summed.hatswitch = it.data[ply].hatswitch;
+		data_summed.buttons |= it.data[player].buttons;
+		if(data_summed.hatswitch > it.data[player].hatswitch)
+			data_summed.hatswitch = it.data[player].hatswitch;
 	}
 
 	if (!copied)
@@ -243,7 +174,6 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	USHORT               capsLength = 0;
 	USAGE                usage[MAX_BUTTONS] = {0};
 	Mappings             *mapping = NULL;
-	MapVector::iterator  it;
 	int                  numberOfButtons;
 
 	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
@@ -251,11 +181,11 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	devName = name;
 	std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
 
-	for(it = mapVector.begin(); it != mapVector.end(); ++it)
+	for(auto& it : mapVector)
 	{
-		if((*it).hidPath == devName)
+		if(it.hidPath == devName)
 		{
-			mapping = &(*it);
+			mapping = &it;
 			break;
 		}
 	}
@@ -287,7 +217,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	HidP_GetButtonCaps(HidP_Input, pButtonCaps, &capsLength, pPreparsedData);
 
 	numberOfButtons = pButtonCaps->Range.UsageMax - pButtonCaps->Range.UsageMin + 1;
-	usageLength = numberOfButtons;
+	usageLength = countof(usage);
 	NTSTATUS stat;
 	if((stat = HidP_GetUsages(
 			HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
@@ -325,7 +255,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			}
 
 			//fprintf(stderr, "Min/max %d/%d\t", pValueCaps[i].LogicalMin, pValueCaps[i].LogicalMax);
-			//TODO can be simpler?
+
 			//Get mapped axis for physical axis
 			uint16_t v = 0;
 			switch(pValueCaps[i].Range.UsageMin)
@@ -358,7 +288,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					//fprintf(stderr, "X: %d\n", value);
 					// Need for logical min too?
 					//generic_data.axis_x = ((value - pValueCaps[i].LogicalMin) * 0x3FF) / (pValueCaps[i].LogicalMax - pValueCaps[i].LogicalMin);
-					if(type == WT_DRIVING_FORCE_PRO)
+					if(type == WT_DRIVING_FORCE_PRO || type == WT_DRIVING_FORCE_PRO_1102)
 						mapping->data[j].steering = (value * 0x3FFF) / pValueCaps[i].LogicalMax;
 					else
 						//XXX Limit value range to 0..1023 if using 'generic' wheel descriptor
@@ -404,7 +334,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 
 static void ParseRawInputKB(PRAWINPUT pRawInput)
 {
-	Mappings			*mapping = NULL;
+	Mappings *mapping = nullptr;
 
 	for(auto& it : mapVector)
 	{
@@ -455,31 +385,33 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 	}
 }
 
+void RawInputPad::ParseRawInput(PRAWINPUT pRawInput)
+{
+	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
+		ParseRawInputKB(pRawInput);
+	else if(pRawInput->header.dwType == RIM_TYPEHID)
+		ParseRawInputHID(pRawInput);
+}
+
 int RawInputPad::Open()
 {
 	PHIDP_PREPARSED_DATA pPreparsedData = nullptr;
+	HIDD_ATTRIBUTES attr;
 
 	Close();
 
-	LoadMappings(mapVector);
+	LoadMappings(mDevType, mapVector);
 
 	memset(&mOLRead, 0, sizeof(OVERLAPPED));
 	memset(&mOLWrite, 0, sizeof(OVERLAPPED));
+	memset(&mDataCopy, 0xFF, sizeof(mDataCopy));
 
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	std::wstring path;
-	{
-		CONFIGVARIANT var(N_JOYSTICK, CONFIG_TYPE_WCHAR);
-		if (LoadSetting(mPort, APINAME, var))
-			path = var.wstrValue;
-		else
-			return 1;
-	}
-	{
-		CONFIGVARIANT var(N_WHEEL_PT, CONFIG_TYPE_BOOL);
-		if (LoadSetting(mPort, APINAME, var))
-			mDoPassthrough = var.boolValue;
-	}
+	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, path))
+		return 1;
+
+	LoadSetting(mDevType, mPort, APINAME, N_WHEEL_PT, mDoPassthrough);
 
 	mUsbHandle = CreateFileW(path.c_str(), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
@@ -490,35 +422,38 @@ int RawInputPad::Open()
 		mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
 
 		HidD_GetAttributes(mUsbHandle, &(attr));
-		if (attr.VendorID != PAD_VID) {
-			fwprintf(stderr, TEXT("USBqemu [" APINAME "]: Vendor is not Logitech. Not sending force feedback commands for safety reasons.\n"));
+		if (attr.VendorID != PAD_VID || attr.ProductID == 0xC262) {
+			fwprintf(stderr, TEXT("USBqemu: Vendor is not Logitech or wheel is G920. Not sending force feedback commands for safety reasons.\n"));
 			mDoPassthrough = false;
 			Close();
-			return 0;
 		}
-
-		if (!mWriterThreadIsRunning)
+		else if (!mWriterThreadIsRunning)
 		{
 			if (mWriterThread.joinable())
 				mWriterThread.join();
 			mWriterThread = std::thread(RawInputPad::WriterThread, this);
 		}
 
-		// for passthrough only
-		HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
-		HidP_GetCaps(pPreparsedData, &(mCaps));
-		HidD_FreePreparsedData(pPreparsedData);
-
-		if (mDoPassthrough && !mReaderThreadIsRunning)
+		if (mDoPassthrough)
 		{
-			if (mReaderThread.joinable())
-				mReaderThread.join();
-			mReaderThread = std::thread(RawInputPad::ReaderThread, this);
+			// for passthrough only
+			HidD_GetPreparsedData(mUsbHandle, &pPreparsedData);
+			HidP_GetCaps(pPreparsedData, &(mCaps));
+			HidD_FreePreparsedData(pPreparsedData);
+
+			if (!mReaderThreadIsRunning)
+			{
+				if (mReaderThread.joinable())
+					mReaderThread.join();
+				mReaderThread = std::thread(RawInputPad::ReaderThread, this);
+			}
 		}
+
+		shared::rawinput::RegisterCallback(this);
 		return 0;
 	}
 	else
-		fwprintf(stderr, TEXT("USBqemu [" APINAME "]: Could not open device '%s'.\nPassthrough and FFB will not work.\n"), path.c_str());
+		fwprintf(stderr, TEXT("USBqemu: Could not open device '%s'.\nPassthrough and FFB will not work.\n"), path.c_str());
 
 	return 0;
 }
@@ -534,151 +469,28 @@ int RawInputPad::Close()
 		CloseHandle(mOLWrite.hEvent);
 	}
 
+	shared::rawinput::UnregisterCallback(this);
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
-};
 
-HWND msgWindow = NULL;
-WNDPROC eatenWndProc = NULL;
-HWND eatenWnd = NULL;
-HHOOK hHook = NULL, hHookKB = NULL;
-extern HINSTANCE hInst;
-
-static void ParseRawInput(PRAWINPUT pRawInput)
-{
-	if(pRawInput->header.dwType == RIM_TYPEKEYBOARD)
-		usb_pad_raw::ParseRawInputKB(pRawInput);
-	else
-		usb_pad_raw::ParseRawInputHID(pRawInput);
-}
-
-void RegisterRaw(HWND hWnd)
-{
-	msgWindow = hWnd;
-	RAWINPUTDEVICE Rid[3];
-	Rid[0].usUsagePage = 0x01; 
-	Rid[0].usUsage = HID_USAGE_GENERIC_GAMEPAD; 
-	Rid[0].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds game pad
-	Rid[0].hwndTarget = hWnd;
-
-	Rid[1].usUsagePage = 0x01; 
-	Rid[1].usUsage = HID_USAGE_GENERIC_JOYSTICK; 
-	Rid[1].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE; // adds joystick
-	Rid[1].hwndTarget = hWnd;
-
-	Rid[2].usUsagePage = 0x01; 
-	Rid[2].usUsage = HID_USAGE_GENERIC_KEYBOARD; 
-	Rid[2].dwFlags = hWnd ? RIDEV_INPUTSINK : RIDEV_REMOVE;// | RIDEV_NOLEGACY;   // adds HID keyboard and also !ignores legacy keyboard messages
-	Rid[2].hwndTarget = hWnd;
-
-	if (RegisterRawInputDevices(Rid, 3, sizeof(Rid[0])) == FALSE) {
-		//registration failed. Call GetLastError for the cause of the error.
-		fprintf(stderr, "Could not (de)register raw input devices.\n");
-	}
-}
-
-LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch(uMsg) {
-	case WM_CREATE:
-		if(eatenWnd == NULL) RegisterRaw(hWnd);
-		break;
-	case WM_INPUT:
-		{
-		//if(skipInput) return;
-		PRAWINPUT pRawInput;
-		UINT      bufferSize=0;
-		GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &bufferSize, sizeof(RAWINPUTHEADER));
-		pRawInput = (PRAWINPUT)malloc(bufferSize);
-		if(!pRawInput)
-			break;
-		if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, pRawInput, &bufferSize, sizeof(RAWINPUTHEADER)) > 0)
-			ParseRawInput(pRawInput);
-		free(pRawInput);
-		break;
-		}
-	case WM_DESTROY:
-		if(eatenWnd==NULL) RegisterRaw(nullptr);
-		UninitWindow();
-		break;
-	}
-	
-	if(eatenWndProc)
-		return CallWindowProc(eatenWndProc, hWnd, uMsg, wParam, lParam);
-	//else
-	//	return DefWindowProc(hWnd, uMsg, wParam, lParam);
-	return 0;
-}
-
-LRESULT CALLBACK HookProc(INT code, WPARAM wParam, LPARAM lParam)
-{
-	MSG *msg = (MSG*)lParam;
-	
-	//fprintf(stderr, "hook: %d, %d, %d\n", code, wParam, lParam);
-	if(code == HC_ACTION)
-		RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-	return CallNextHookEx(hHook, code, wParam, lParam);
-}
-
-LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
-{
-	fprintf(stderr, "kb hook: %d, %u, %d\n", code, wParam, lParam);
-	KBDLLHOOKSTRUCT *kb = (KBDLLHOOKSTRUCT*) lParam;
-	//if(code == HC_ACTION)
-	//	RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-	return CallNextHookEx(0, code, wParam, lParam);
-}
-
-int InitWindow(HWND hWnd)
-{
-#if 1
-	if (!InitHid())
-		return 0;
-	RegisterRaw(hWnd);
-	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
-	//hHookKB = SetWindowsHookEx(WH_KEYBOARD_LL, KBHookProc, hInst, 0);
-	int err = GetLastError();
-#else
-	eatenWnd = hWnd;
-	eatenWndProc = (WNDPROC) SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)RawInputProc);
-	RegisterRaw(hWnd, 0);
-#endif
-	return 1;
-}
-
-void UninitWindow()
-{
-	if(hHook)
-	{
-		UnhookWindowsHookEx(hHook);
-		//UnhookWindowsHookEx(hHookKB);
-		hHook = 0;
-	}
-	if(eatenWnd)
-		RegisterRaw(nullptr);
-	if(eatenWnd && eatenWndProc)
-		SetWindowLongPtr(eatenWnd, GWLP_WNDPROC, (LONG_PTR)eatenWndProc);
-	eatenWndProc = nullptr;
-	eatenWnd = nullptr;
-}
+REGISTER_PAD(APINAME, RawInputPad);
 
 // ---------
 #include "raw-config-res.h"
+
 INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
-int usb_pad_raw::RawInputPad::Configure(int port, void *data)
+int RawInputPad::Configure(int port, const char* dev_type, void *data)
 {
 	Win32Handles *h = (Win32Handles*)data;
 	INT_PTR res = RESULT_FAILED;
-	if (InitWindow(h->hWnd))
+	if (shared::rawinput::Initialize(h->hWnd))
 	{
-		RawDlgConfig config(port);
+		RawDlgConfig config(port, dev_type);
 		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
-		UninitWindow();
+		shared::rawinput::Uninitialize();
 	}
 	return res;
 }
 
-namespace usb_pad_raw {
-REGISTER_PAD(APINAME, RawInputPad);
-};
+}} //namespace

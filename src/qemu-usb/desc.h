@@ -236,9 +236,6 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev);
 /* control message emulation helpers */
 void usb_desc_init(USBDevice *dev);
 void usb_desc_attach(USBDevice *dev);
-void usb_desc_set_string(USBDevice *dev, uint8_t index, const char *str);
-void usb_desc_create_serial(USBDevice *dev);
-const char *usb_desc_get_string(USBDevice *dev, uint8_t index);
 int usb_desc_string(USBDevice *dev, int index, uint8_t *dest, size_t len);
 int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 		int value, uint8_t *dest, size_t len);
@@ -247,9 +244,4 @@ int usb_desc_handle_control(USBDevice *dev, USBPacket *p,
 
 int usb_desc_set_config(USBDevice *dev, int value);
 int usb_desc_set_interface(USBDevice *dev, int index, int value);
-
-/* functions to support old binary blob descriptors */
-int set_usb_string(uint8_t *buf, const char *str);
-int set_usb_string(uint8_t *buf, const char *str, int len);
-
 #endif /* QEMU_HW_USB_DESC_H */

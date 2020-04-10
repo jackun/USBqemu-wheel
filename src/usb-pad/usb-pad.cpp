@@ -1,46 +1,70 @@
-#include "../USB.h"
-#include "../deviceproxy.h"
-#include "../qemu-usb/desc.h"
 #include "padproxy.h"
+#include "usb-pad.h"
+#include "../qemu-usb/desc.h"
 
-#define DEVICENAME "pad"
+namespace usb_pad {
 
-static const USBDescStrings pad_desc_strings = {
+static const USBDescStrings df_desc_strings = {
+	"",
+	"Logitech Driving Force",
 	"",
 	"Logitech",
-	"Driving Force"
 };
 
-static const USBDescStrings pad_dfp_desc_strings = {
+static const USBDescStrings dfp_desc_strings = {
+	"",
+	"Logitech Driving Force Pro",
 	"",
 	"Logitech",
-	"Driving Force Pro"
 };
 
-class PadDevice : public Device
+static const USBDescStrings gtf_desc_strings = {
+	"",
+	"Logitech", //actual index @ 0x04
+	"Logitech GT Force" //actual index @ 0x20
+};
+
+static const USBDescStrings rb1_desc_strings = {
+	"1234567890AB",
+	"Licensed by Sony Computer Entertainment America",
+	"Harmonix Drum Kit for PlayStation(R)3"
+};
+
+void PadDevice::Initialize()
 {
-public:
-	virtual ~PadDevice() {}
-	static USBDevice* CreateDevice(int port);
-	static const TCHAR* Name()
-	{
-		return TEXT("Pad/Wheel device");
-	}
-	static const char* TypeName()
-	{
-		return DEVICENAME;
-	}
-	static std::list<std::string> ListAPIs()
-	{
-		return RegisterPad::instance().Names();
-	}
-	static const TCHAR* LongAPIName(const std::string& name)
-	{
-		return RegisterPad::instance().Proxy(name)->Name();
-	}
-	static int Configure(int port, const std::string& api, void *data);
-	static int Freeze(int mode, USBDevice *dev, void *data);
-};
+	RegisterPad::Initialize();
+}
+
+std::list<std::string> PadDevice::ListAPIs()
+{
+	return RegisterPad::instance().Names();
+}
+
+const TCHAR* PadDevice::LongAPIName(const std::string& name)
+{
+	auto proxy = RegisterPad::instance().Proxy(name);
+	if (proxy)
+		return proxy->Name();
+	return nullptr;
+}
+
+void RBDrumKitDevice::Initialize()
+{
+	RegisterPad::Initialize();
+}
+
+std::list<std::string> RBDrumKitDevice::ListAPIs()
+{
+	return RegisterPad::instance().Names();
+}
+
+const TCHAR* RBDrumKitDevice::LongAPIName(const std::string& name)
+{
+	auto proxy = RegisterPad::instance().Proxy(name);
+	if (proxy)
+		return proxy->Name();
+	return nullptr;
+}
 
 #ifdef _DEBUG
 void PrintBits(void * data, int size)
@@ -69,12 +93,8 @@ typedef struct PADState {
 	USBDevice		dev;
 	USBDesc desc;
 	USBDescDevice desc_dev;
-	PadProxyBase*	padProxy;
 	Pad*			pad;
 	uint8_t			port;
-	int				initStage;
-	//Config instead?
-	bool			doPassthrough;// = false; //Mainly for Win32 Driving Force Pro passthrough
 	struct freeze {
 		int wheel_type;
 	} f;
@@ -85,6 +105,7 @@ typedef struct u_wheel_data_t {
 		generic_data_t generic_data;
 		dfp_data_t dfp_data;
 		gtforce_data_t gtf_data;
+		rb1drumkit_t rb1dk_data;
 	} u;
 } u_wheel_data_t;
 
@@ -92,27 +113,9 @@ typedef struct u_wheel_data_t {
 #define GET_REPORT   0xa101
 #define GET_IDLE     0xa102
 #define GET_PROTOCOL 0xa103
+#define SET_REPORT   0x2109
 #define SET_IDLE     0x210a
 #define SET_PROTOCOL 0x210b
-
-//All here is speculation
-static const uint8_t GT4Inits[4] = {
-	0xf3,// 0, 0, 0, 0, 0, 0}, //de-activate all forces?
-	0xf4,// 0, 0, 0, 0, 0, 0}, //activate autocenter?
-	0x09,// 6, 0, 0, 0, 0, 0}, //???
-	0xf5                       //de-activate autocenter?
-};
-
-static uint8_t last_cmd = 0;
-static uint8_t dfp_range[] =  {
-	//0x81, 
-	//0x0B, 
-	0x19, 
-	0xE6, 
-	0xFF, 
-	0x4A, 
-	0xFF
-};
 
 //Convert DF Pro buttons to selected wheel type
 uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn)
@@ -164,19 +167,19 @@ static void pad_handle_data(USBDevice *dev, USBPacket *p)
 	case USB_TOKEN_IN:
 		if (devep == 1 && s->pad) {
 			ret = s->pad->TokenIn(data, p->iov.size);
-			usb_packet_copy (p, data, MIN(ret, sizeof(data)));
+			if (ret > 0)
+				usb_packet_copy (p, data, MIN(ret, sizeof(data)));
+			else
+				p->status = ret;
 		} else {
 			goto fail;
 		}
 		break;
 	case USB_TOKEN_OUT:
 		usb_packet_copy (p, data, MIN(p->iov.size, sizeof(data)));
-		last_cmd = data[0];
 		/*fprintf(stderr,"usb-pad: data token out len=0x%X %X,%X,%X,%X,%X,%X,%X,%X\n",len, 
 			data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]);*/
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
-		//if(s->initStage < 3 &&  GT4Inits[s->initStage] == data[0])
-		//	s->initStage ++;
 		ret = s->pad->TokenOut(data, p->iov.size);
 		break;
 	default:
@@ -209,21 +212,36 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 			goto fail;
 
 		// Change PID according to selected wheel
-		if ((value >> 8) == USB_DT_DEVICE) {
-			if (t == WT_DRIVING_FORCE_PRO)
+		/*if ((value >> 8) == USB_DT_DEVICE) {
+			if (t == WT_DRIVING_FORCE_PRO || t == WT_DRIVING_FORCE_PRO_1102)
 				*(uint16_t*)&data[10] = PID_DFP;
 			else if (t == WT_GT_FORCE)
 				*(uint16_t*)&data[10] = PID_FFGP;
-		}
+		}*/
 
 		break;
 		/* hid specific requests */
+	case SET_REPORT:
+		// no idea, Rock Band 2 keeps spamming this
+		if (length > 0) {
+			OSDebugOut(TEXT("SET_REPORT: 0x%02X \n"), data[0]);
+			/* 0x01: Num Lock LED
+			 * 0x02: Caps Lock LED
+			 * 0x04: Scroll Lock LED
+			 * 0x08: Compose LED
+			 * 0x10: Kana LED */
+			p->actual_length = 0;
+		}
+		break;
+	case SET_IDLE:
+			OSDebugOut (TEXT("SET_IDLE\n"));
+		break;
 	case InterfaceRequest | USB_REQ_GET_DESCRIPTOR: //GT3
 		OSDebugOut(TEXT("InterfaceRequest | USB_REQ_GET_DESCRIPTOR 0x%04X\n"), value);
 		switch(value >> 8) {
 		case 0x22:
 			OSDebugOut(TEXT("Sending hid report desc.\n"));
-			if(/*s->initStage > 2 &&*/ t == WT_DRIVING_FORCE_PRO)
+			if (t == WT_DRIVING_FORCE_PRO || t == WT_DRIVING_FORCE_PRO_1102)
 			{
 				ret = sizeof(pad_driving_force_pro_hid_report_descriptor);
 				memcpy(data, pad_driving_force_pro_hid_report_descriptor, ret);
@@ -235,8 +253,8 @@ static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int va
 			}
 			else
 			{
-				ret = sizeof(pad_driving_force_hid_report_descriptor);
-				memcpy(data, pad_driving_force_hid_report_descriptor, ret);
+				ret = sizeof(pad_driving_force_hid_separate_report_descriptor);
+				memcpy(data, pad_driving_force_hid_separate_report_descriptor, ret);
 			}
 			p->actual_length = ret;
 			break;
@@ -276,78 +294,6 @@ void pad_close(USBDevice *dev)
 		s->pad->Close();
 }
 
-USBDevice *PadDevice::CreateDevice(int port)
-{
-	CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	LoadSetting(port, DEVICENAME, varApi);
-	PadProxyBase *proxy = RegisterPad::instance().Proxy(varApi.strValue);
-	if (!proxy)
-	{
-		SysMessage(TEXT("Invalid pad API.\n"));
-		return NULL;
-	}
-
-	Pad *pad = proxy->CreateObject(port);
-
-	if (!pad)
-		return NULL;
-
-	pad->Type((PS2WheelTypes)conf.WheelType[1 - port]);
-	PADState *s = new PADState();
-
-	s->desc.full = &s->desc_dev;
-	s->desc.str = pad_desc_strings;
-
-	int dev_desc_len = sizeof(pad_dev_descriptor);
-	const uint8_t *dev_desc = pad_dev_descriptor;
-	const uint8_t *config_desc = df_config_descriptor;
-	int config_desc_len = sizeof(df_config_descriptor);
-
-	if (pad->Type() == WT_DRIVING_FORCE_PRO)
-	{
-		s->desc.str = pad_dfp_desc_strings;
-		dev_desc = dfp_dev_descriptor;
-		config_desc = dfp_config_descriptor;
-		config_desc_len = sizeof(dfp_config_descriptor);
-	}
-	else if (pad->Type() == WT_GT_FORCE)
-	{
-		dev_desc = ffgp_dev_descriptor;
-		//config_desc = pad_driving_force_hid_report_descriptor; //TODO
-		//config_desc_len = sizeof(pad_driving_force_hid_report_descriptor);
-	}
-
-	if (usb_desc_parse_dev (dev_desc, dev_desc_len, s->desc, s->desc_dev) < 0)
-		goto fail;
-	if (usb_desc_parse_config (config_desc, config_desc_len, s->desc_dev) < 0)
-		goto fail;
-
-	s->f.wheel_type = conf.WheelType[1 - port];
-	s->pad = pad;
-	//s->padProxy = proxy;
-	s->dev.speed = USB_SPEED_FULL;
-	s->dev.klass.handle_attach  = usb_desc_attach;
-	s->dev.klass.handle_reset   = pad_handle_reset;
-	s->dev.klass.handle_control = pad_handle_control;
-	s->dev.klass.handle_data    = pad_handle_data;
-	s->dev.klass.unrealize      = pad_handle_destroy;
-	s->dev.klass.open           = pad_open;
-	s->dev.klass.close          = pad_close;
-	s->dev.klass.usb_desc       = &s->desc;
-	s->dev.klass.product_desc   = s->desc.str[2];
-	s->port = port;
-
-	usb_desc_init(&s->dev);
-	usb_desc_create_serial(&s->dev);
-	usb_ep_init(&s->dev);
-	pad_handle_reset ((USBDevice *)s);
-
-	return (USBDevice *)s;
-
-fail:
-	pad_handle_destroy ((USBDevice *)s);
-	return NULL;
-}
 
 void ResetData(generic_data_t *d)
 {
@@ -377,7 +323,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 	wheel_data_t *w = (wheel_data_t *)buf;
 	memset(w, 0, 8);
-	
+
 	switch (type) {
 	case WT_GENERIC:
 		w->lo = data.steering & 0x3FF;
@@ -402,11 +348,26 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		break;
 	case WT_DRIVING_FORCE_PRO:
 
+		w->lo = data.steering & 0x3FFF;
+		w->lo |= (data.buttons & 0x3FFF) << 14;
+		w->lo |= (data.hatswitch & 0xF) << 28;
+
+		w->hi = 0x00;
+		w->hi |= data.throttle << 8;
+		w->hi |= data.brake << 16; //axis_rz
+		w->hi |= 0x11 << 24; //enables wheel and pedals?
+
+		//PrintBits(w, sizeof(*w));
+		OSDebugOut(TEXT("DFP thr: %u brake: %u\n"), (w->hi >> 8) & 0xFF, (w->hi >> 16) & 0xFF);
+
+		break;
+	case WT_DRIVING_FORCE_PRO_1102:
+
 		// what's up with the bitmap?
 		// xxxxxxxx xxxxxxbb bbbbbbbb bbbbhhhh ???????? ?01zzzzz 1rrrrrr1 10001000
 		w->lo = data.steering & 0x3FFF;
 		w->lo |= (data.buttons & 0x3FFF) << 14;
-		w->lo |= (data.hatswitch & 0xF ) << 28;
+		w->lo |= (data.hatswitch & 0xF) << 28;
 
 		w->hi = 0x00;
 		//w->hi |= 0 << 9; //bit 9 must be 0
@@ -419,16 +380,21 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		//PrintBits(w, sizeof(*w));
 
 		break;
+	case WT_ROCKBAND1_DRUMKIT:
+		w->lo = (data.buttons & 0xFFF);
+		w->lo |= (data.hatswitch & 0xF) << 16;
+
+		break;
 	default:
 		break;
 	}
-#endif
 
-#if 0
+#else
+
 	u_wheel_data_t *w = (u_wheel_data_t *)buf;
 
 	//fprintf(stderr,"usb-pad: axis x %d\n", data.axis_x);
-	switch(type){
+	switch (type) {
 	case WT_GENERIC:
 		memset(&w->u.generic_data, 0xff, sizeof(generic_data_t));
 		//ResetData(&w->u.generic_data);
@@ -464,7 +430,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 			1 << 4 | //enable wheel?
 			0 << 5 |
 			0 << 6 |
-			0 << 7 ;
+			0 << 7;
 
 		PrintBits(&w->u.dfp_data, sizeof(dfp_data_t));
 
@@ -481,6 +447,14 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 		break;
 
+	case WT_ROCKBAND1_DRUMKIT:
+		memset(&w->u.rb1dk_data, 0x0, sizeof(rb1drumkit_t));
+
+		w->u.rb1dk_data.u.buttons = data.buttons;
+		w->u.rb1dk_data.hatswitch = data.hatswitch;
+
+		break;
+
 	default:
 		break;
 	}
@@ -488,11 +462,101 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 #endif
 }
 
+USBDevice *PadDevice::CreateDevice(int port)
+{
+	std::string varApi;
+	LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
+	PadProxyBase *proxy = RegisterPad::instance().Proxy(varApi);
+	if (!proxy)
+	{
+		SysMessage(TEXT("PAD: Invalid input API.\n"));
+		USB_LOG("usb-pad: %s: Invalid input API.\n", TypeName());
+		return NULL;
+	}
+
+	USB_LOG("usb-pad: creating device '%s' on port %d with %s\n", TypeName(), port, varApi.c_str());
+	Pad *pad = proxy->CreateObject(port, TypeName());
+
+	if (!pad)
+		return NULL;
+
+	pad->Type((PS2WheelTypes)conf.WheelType[1 - port]);
+	PADState *s = new PADState();
+
+	s->desc.full = &s->desc_dev;
+	s->desc.str = df_desc_strings;
+
+	const uint8_t *dev_desc = df_dev_descriptor;
+	int dev_desc_len = sizeof(df_dev_descriptor);
+	const uint8_t *config_desc = df_config_descriptor;
+	int config_desc_len = sizeof(df_config_descriptor);
+
+	switch (pad->Type()) {
+		case WT_DRIVING_FORCE_PRO:
+		{
+			dev_desc = dfp_dev_descriptor;
+			dev_desc_len = sizeof(dfp_dev_descriptor);
+			config_desc = dfp_config_descriptor;
+			config_desc_len = sizeof(dfp_config_descriptor);
+			s->desc.str = dfp_desc_strings;
+		}
+		break;
+		case WT_DRIVING_FORCE_PRO_1102:
+		{
+			dev_desc = dfp_dev_descriptor_1102;
+			dev_desc_len = sizeof(dfp_dev_descriptor_1102);
+			config_desc = dfp_config_descriptor;
+			config_desc_len = sizeof(dfp_config_descriptor);
+			s->desc.str = dfp_desc_strings;
+		}
+		break;
+		case WT_GT_FORCE:
+		{
+			dev_desc = gtf_dev_descriptor;
+			dev_desc_len = sizeof(gtf_dev_descriptor);
+			config_desc = gtforce_config_descriptor; //TODO
+			config_desc_len = sizeof(gtforce_config_descriptor);
+			s->desc.str = gtf_desc_strings;
+		}
+		default:
+		break;
+	}
+
+	if (usb_desc_parse_dev (dev_desc, dev_desc_len, s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config (config_desc, config_desc_len, s->desc_dev) < 0)
+		goto fail;
+
+	s->f.wheel_type = conf.WheelType[1 - port];
+	s->pad = pad;
+	s->dev.speed = USB_SPEED_FULL;
+	s->dev.klass.handle_attach  = usb_desc_attach;
+	s->dev.klass.handle_reset   = pad_handle_reset;
+	s->dev.klass.handle_control = pad_handle_control;
+	s->dev.klass.handle_data    = pad_handle_data;
+	s->dev.klass.unrealize      = pad_handle_destroy;
+	s->dev.klass.open           = pad_open;
+	s->dev.klass.close          = pad_close;
+	s->dev.klass.usb_desc       = &s->desc;
+	s->dev.klass.product_desc   = s->desc.str[2]; //not really used
+	s->port = port;
+
+	usb_desc_init(&s->dev);
+	usb_ep_init(&s->dev);
+	pad_handle_reset ((USBDevice *)s);
+
+	return (USBDevice *)s;
+
+fail:
+	pad_handle_destroy ((USBDevice *)s);
+	return nullptr;
+}
+
 int PadDevice::Configure(int port, const std::string& api, void *data)
 {
 	auto proxy = RegisterPad::instance().Proxy(api);
 	if (proxy)
-		return proxy->Configure(port, data);
+		return proxy->Configure(port, TypeName(), data);
 	return RESULT_CANCELED;
 }
 
@@ -519,5 +583,75 @@ int PadDevice::Freeze(int mode, USBDevice *dev, void *data)
 	return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_PAD, DEVICENAME, PadDevice);
-#undef DEVICENAME
+// ---- Rock Band drum kit ----
+
+USBDevice *RBDrumKitDevice::CreateDevice(int port)
+{
+	std::string varApi;
+	LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
+	PadProxyBase *proxy = RegisterPad::instance().Proxy(varApi);
+	if (!proxy)
+	{
+		SysMessage(TEXT("RBDK: Invalid input API.\n"));
+		USB_LOG("usb-pad: %s: Invalid input API.\n", TypeName());
+		return NULL;
+	}
+
+	USB_LOG("usb-pad: creating device '%s' on port %d with %s\n", TypeName(), port, varApi.c_str());
+	Pad *pad = proxy->CreateObject(port, TypeName());
+
+	if (!pad)
+		return NULL;
+
+	pad->Type(WT_ROCKBAND1_DRUMKIT);
+	PADState *s = new PADState();
+
+	s->desc.full = &s->desc_dev;
+	s->desc.str = rb1_desc_strings;
+
+	if (usb_desc_parse_dev(rb1_dev_descriptor, sizeof(rb1_dev_descriptor), s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config(rb1_config_descriptor, sizeof(rb1_config_descriptor), s->desc_dev) < 0)
+		goto fail;
+
+	s->f.wheel_type = pad->Type();
+	s->pad = pad;
+	s->port = port;
+	s->dev.speed = USB_SPEED_FULL;
+	s->dev.klass.handle_attach = usb_desc_attach;
+	s->dev.klass.handle_reset = pad_handle_reset;
+	s->dev.klass.handle_control = pad_handle_control;
+	s->dev.klass.handle_data = pad_handle_data;
+	s->dev.klass.unrealize = pad_handle_destroy;
+	s->dev.klass.open = pad_open;
+	s->dev.klass.close = pad_close;
+	s->dev.klass.usb_desc = &s->desc;
+	s->dev.klass.product_desc = s->desc.str[2];
+
+	usb_desc_init(&s->dev);
+	usb_ep_init(&s->dev);
+	pad_handle_reset((USBDevice *)s);
+
+	return (USBDevice *)s;
+
+fail:
+	pad_handle_destroy((USBDevice *)s);
+	return nullptr;
+}
+
+int RBDrumKitDevice::Configure(int port, const std::string& api, void *data)
+{
+	auto proxy = RegisterPad::instance().Proxy(api);
+	if (proxy)
+		return proxy->Configure(port, TypeName(), data);
+	return RESULT_CANCELED;
+}
+
+int RBDrumKitDevice::Freeze(int mode, USBDevice *dev, void *data)
+{
+	return PadDevice::Freeze(mode, dev, data);
+}
+
+REGISTER_DEVICE(DEVTYPE_PAD, PadDevice);
+REGISTER_DEVICE(DEVTYPE_RBKIT, RBDrumKitDevice);
+} //namespace

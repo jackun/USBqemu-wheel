@@ -58,6 +58,15 @@ Windows: Uses Core Audio API. As such, it needs Vista or newer.
 
 Linux: PulseAudio only for now atleast.
 
+Keyboard/mouse (HID) support
+==========
+
+When using a mouse device, uncheck "Double-click toggles fullscreen mode" and check "Always hide mouse cursor" in emulation settings under "GS Window".
+
+To (un)lock cursor to window:
+* On windows, press SHIFT + F11. "Alt-tabbing" should also free cursor.
+* On linux, use OnePAD plugin for controller (because technical reasons, for now atleast) and press SHIFT + F12
+
 
 Building
 ==========

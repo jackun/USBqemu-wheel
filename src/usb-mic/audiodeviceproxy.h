@@ -1,6 +1,6 @@
 #ifndef AUDIODEVICEPROXY_H
 #define AUDIODEVICEPROXY_H
-#include "audiodev.h"
+#include <memory>
 #include <string>
 #include <map>
 #include <list>
@@ -10,6 +10,7 @@
 #include "../configuration.h"
 #include "../proxybase.h"
 #include "../osdebugout.h"
+#include "audiodev.h"
 
 class AudioDeviceError : public std::runtime_error
 {
@@ -21,10 +22,12 @@ public:
 class AudioDeviceProxyBase : public ProxyBase
 {
 	AudioDeviceProxyBase(const AudioDeviceProxyBase&) = delete;
+	AudioDeviceProxyBase& operator=(const AudioDeviceProxyBase&) = delete;
 
 	public:
+	AudioDeviceProxyBase() {};
 	AudioDeviceProxyBase(const std::string& name);
-	virtual AudioDevice* CreateObject(int port, int mic, AudioDir dir) const = 0; //Can be generalized? Probably not
+	virtual AudioDevice* CreateObject(int port, const char* dev_type, int mic, AudioDir dir) const = 0; //Can be generalized? Probably not
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
@@ -36,12 +39,15 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 	AudioDeviceProxy(const AudioDeviceProxy&) = delete;
 
 	public:
+	AudioDeviceProxy() {}
 	AudioDeviceProxy(const std::string& name): AudioDeviceProxyBase(name) {} //Why can't it automagically, ugh
-	AudioDevice* CreateObject(int port, int mic, AudioDir dir) const
+	~AudioDeviceProxy() { OSDebugOut(TEXT("%p\n"), this); }
+
+	AudioDevice* CreateObject(int port, const char* dev_type, int mic, AudioDir dir) const
 	{
 		try
 		{
-			return new T(port, mic, dir);
+			return new T(port, dev_type, mic, dir);
 		}
 		catch(AudioDeviceError& err)
 		{
@@ -54,9 +60,9 @@ class AudioDeviceProxy : public AudioDeviceProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, void *data)
+	virtual int Configure(int port, const char* dev_type, void *data)
 	{
-		return T::Configure(port, data);
+		return T::Configure(port, dev_type, data);
 	}
 	virtual void AudioDevices(std::vector<AudioDeviceInfo> &devices, AudioDir dir) const
 	{
@@ -78,22 +84,29 @@ class RegisterAudioDevice
 	RegisterAudioDevice() {}
 
 	public:
-	typedef std::map<std::string, AudioDeviceProxyBase* > RegisterAudioDeviceMap;
+	typedef std::map<std::string, std::unique_ptr<AudioDeviceProxyBase> > RegisterAudioDeviceMap;
 	static RegisterAudioDevice& instance() {
 		static RegisterAudioDevice registerAudioDevice;
 		return registerAudioDevice;
 	}
 
-	~RegisterAudioDevice() {}
+	~RegisterAudioDevice() { Clear(); OSDebugOut("%p\n", this); }
+
+	static void Initialize();
+
+	void Clear()
+	{
+		registerAudioDeviceMap.clear();
+	}
 
 	void Add(const std::string& name, AudioDeviceProxyBase* creator)
 	{
-		registerAudioDeviceMap[name] = creator;
+		registerAudioDeviceMap[name] = std::unique_ptr<AudioDeviceProxyBase>(creator);
 	}
 
 	AudioDeviceProxyBase* Proxy(const std::string& name)
 	{
-		return registerAudioDeviceMap[name];
+		return registerAudioDeviceMap[name].get();
 	}
 	
 	std::list<std::string> Names() const
@@ -124,5 +137,5 @@ private:
 	RegisterAudioDeviceMap registerAudioDeviceMap;
 };
 
-#define REGISTER_AUDIODEV(name,cls) AudioDeviceProxy<cls> g##cls##Proxy(name)
+#define REGISTER_AUDIODEV(name,cls) //AudioDeviceProxy<cls> g##cls##Proxy(name)
 #endif

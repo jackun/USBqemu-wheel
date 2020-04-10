@@ -3,6 +3,8 @@
 #include "../configuration.h"
 #include <gtk/gtk.h>
 
+namespace usb_msd {
+
 #define APINAME "cstdio"
 
 static void entryChanged(GtkWidget *widget, gpointer data)
@@ -70,11 +72,9 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 	GtkWidget *entry = gtk_entry_new ();
 	gtk_entry_set_max_length (GTK_ENTRY (entry), MAX_PATH); //TODO max length
 
-	{
-		CONFIGVARIANT var(N_CONFIG_PATH, CONFIG_TYPE_CHAR);
-		if(LoadSetting(port, APINAME, var))
-			gtk_entry_set_text(GTK_ENTRY(entry), var.strValue.c_str());
-	}
+	std::string var;
+	if (LoadSetting(TypeName(), port, APINAME, N_CONFIG_PATH, var))
+		gtk_entry_set_text(GTK_ENTRY(entry), var.c_str());
 
 	g_signal_connect (entry, "changed", G_CALLBACK (entryChanged), NULL);
 
@@ -96,8 +96,7 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 
 	if (result == GTK_RESPONSE_OK)
 	{
-		CONFIGVARIANT var(N_CONFIG_PATH, path);
-		if(SaveSetting(port, APINAME, var))
+		if(SaveSetting(TypeName(), port, APINAME, N_CONFIG_PATH, path))
 			return RESULT_OK;
 		else
 			return RESULT_FAILED;
@@ -106,3 +105,4 @@ int MsdDevice::Configure(int port, const std::string& api, void *data)
 	return RESULT_CANCELED;
 }
 #undef APINAME
+}

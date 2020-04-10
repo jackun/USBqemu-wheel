@@ -1,7 +1,7 @@
 #ifndef DEVICEPROXY_H
 #define DEVICEPROXY_H
-#include "USB.h"
 #include "configuration.h"
+#include <memory>
 #include <string>
 #include <map>
 #include <list>
@@ -21,6 +21,9 @@ enum DeviceType
 	DEVTYPE_SINGSTAR,
 	DEVTYPE_LOGITECH_MIC,
 	DEVTYPE_LOGITECH_HEADSET,
+	DEVTYPE_HIDKBD,
+	DEVTYPE_HIDMOUSE,
+	DEVTYPE_RBKIT,
 };
 
 struct SelectDeviceName {
@@ -35,15 +38,10 @@ class DeviceError : public std::runtime_error
 	virtual ~DeviceError() throw () {}
 };
 
-class Device
-{
-	public:
-	virtual ~Device() {}
-};
-
 class DeviceProxyBase
 {
 	public:
+	DeviceProxyBase() {};
 	DeviceProxyBase(DeviceType key);
 	virtual ~DeviceProxyBase() {}
 	virtual USBDevice* CreateDevice(int port) = 0;
@@ -54,6 +52,7 @@ class DeviceProxyBase
 	virtual const TCHAR* LongAPIName(const std::string& name) = 0;
 	virtual int Freeze(int mode, USBDevice *dev, void *data) = 0;
 
+	virtual void Initialize() = 0;
 	virtual bool IsValidAPI(const std::string& api)
 	{
 		const std::list<std::string>& apis = ListAPIs();
@@ -68,8 +67,12 @@ template <class T>
 class DeviceProxy : public DeviceProxyBase
 {
 	public:
+	DeviceProxy() { Initialize(); }
 	DeviceProxy(DeviceType key): DeviceProxyBase(key) {}
-	virtual ~DeviceProxy() {}
+	virtual ~DeviceProxy()
+	{
+		OSDebugOut(TEXT("%p\n"), this);
+	}
 	virtual USBDevice* CreateDevice(int port)
 	{
 		return T::CreateDevice(port);
@@ -98,25 +101,46 @@ class DeviceProxy : public DeviceProxyBase
 	{
 		return T::Freeze(mode, dev, data);
 	}
+	virtual void Initialize()
+	{
+		T::Initialize();
+	}
+	/*virtual void Uninitialize()
+	{
+		T::Uninitialize();
+	}*/
 };
 
 class RegisterDevice
 {
 	RegisterDevice(const RegisterDevice&) = delete;
 	RegisterDevice() {}
+	static RegisterDevice *registerDevice;
 
 	public:
-	typedef std::map<DeviceType, DeviceProxyBase* > RegisterDeviceMap;
+	typedef std::map<DeviceType, std::unique_ptr<DeviceProxyBase> > RegisterDeviceMap;
 	static RegisterDevice& instance() {
-		static RegisterDevice registerDevice;
-		return registerDevice;
+		if (!registerDevice)
+			registerDevice = new RegisterDevice();
+		return *registerDevice;
 	}
 
-	~RegisterDevice() {}
+	~RegisterDevice() { OSDebugOut("%p\n", this); }
+
+	static void Initialize();
 
 	void Add(DeviceType key, DeviceProxyBase* creator)
 	{
-		registerDeviceMap[key] = creator;
+		registerDeviceMap[key] = std::unique_ptr<DeviceProxyBase>(creator);
+	}
+
+	void Clear()
+	{
+		/*for (auto& i: registerDeviceMap)
+			delete i.second;*/
+		registerDeviceMap.clear();
+		delete registerDevice;
+		registerDevice = nullptr;
 	}
 
 	DeviceProxyBase* Device(const std::string& name)
@@ -128,12 +152,14 @@ class RegisterDevice
 		return nullptr;*/
 		auto proxy = std::find_if(registerDeviceMap.begin(),
 			registerDeviceMap.end(),
-			[&name](RegisterDeviceMap::value_type val) -> bool
+			[&name](RegisterDeviceMap::value_type& val) -> bool
 		{
-			return val.second->TypeName() == name;
+			//OSDebugOut(TEXT("ptr: %p -> %p = %s\n"), val.second,
+			//	*(void**)val.second, !(*(void**)val.second) ? "Fucked" : "OK" );
+			return /* *(void**)val.second && */val.second->TypeName() == name;
 		});
 		if (proxy != registerDeviceMap.end())
-			return proxy->second;
+			return proxy->second.get();
 		return nullptr;
 	}
 
@@ -142,7 +168,7 @@ class RegisterDevice
 		auto it = registerDeviceMap.begin();
 		std::advance(it, index);
 		if (it != registerDeviceMap.end())
-			return it->second;
+			return it->second.get();
 		return nullptr;
 	}
 
@@ -150,7 +176,7 @@ class RegisterDevice
 	{
 		auto proxy = std::find_if(registerDeviceMap.begin(),
 			registerDeviceMap.end(),
-			[&name](RegisterDeviceMap::value_type val) -> bool
+			[&name](RegisterDeviceMap::value_type& val) -> bool
 		{
 			return val.second->TypeName() == name;
 		});
@@ -187,6 +213,6 @@ class RegisterDevice
 	RegisterDeviceMap registerDeviceMap;
 };
 
-#define REGISTER_DEVICE(idx,name,cls) DeviceProxy<cls> g##cls##Proxy(idx)
+#define REGISTER_DEVICE(idx,cls) //DeviceProxy<cls> g##cls##Proxy(idx)
 //#define REGISTER_DEVICE(idx,name,cls) static std::unique_ptr< DeviceProxy<cls> > g##cls##Proxy(new DeviceProxy<cls>(DeviceKey(idx, name)))
 #endif

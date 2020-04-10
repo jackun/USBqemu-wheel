@@ -59,9 +59,9 @@ void PopulateAPIs(HWND hW, int port)
 
 	std::string selApi = GetSelectedAPI(std::make_pair(port, devName));
 
-	CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	if(LoadSetting(port, rd.Name(devtype), var))
-		OSDebugOut(L"Current API: %S\n", var.strValue.c_str());
+	std::string var;
+	if (LoadSetting(nullptr, port, rd.Name(devtype), N_DEVICE_API, var))
+		OSDebugOut(L"Current API: %S\n", var.c_str());
 	else
 	{
 		if (apis.begin() != apis.end())
@@ -75,8 +75,10 @@ void PopulateAPIs(HWND hW, int port)
 	for (auto& api : apis)
 	{
 		auto name = dev->LongAPIName(api);
+		if (!name)
+			continue;
 		SendDlgItemMessageW(hW, port ? IDC_COMBO_API1 : IDC_COMBO_API2, CB_ADDSTRING, 0, (LPARAM)name);
-		if (api == var.strValue)
+		if (api == var)
 			sel = i;
 		i++;
 	}
@@ -118,13 +120,15 @@ BOOL CALLBACK ConfigureDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				PopulateAPIs(hW, 1);
 			}
 
-			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro (rev11.02)");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE1, CB_ADDSTRING, 0, (LPARAM)"GT Force");
 			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE1, CB_SETCURSEL, conf.WheelType[0], 0);
 
-			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force / Generic Logitech Wheel");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro");
+			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"Driving Force Pro (rev11.02)");
 			SendDlgItemMessageA(hW, IDC_COMBO_WHEEL_TYPE2, CB_ADDSTRING, 0, (LPARAM)"GT Force");
 			SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE2, CB_SETCURSEL, conf.WheelType[1], 0);
 
@@ -223,6 +227,7 @@ EXPORT_C_(BOOL) AboutDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 }
 
 EXPORT_C_(void) USBconfigure() {
+	RegisterDevice::Initialize();
     DialogBox(hInst,
               MAKEINTRESOURCE(IDD_CONFIG),
               GetActiveWindow(),

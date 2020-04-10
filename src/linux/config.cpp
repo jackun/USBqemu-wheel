@@ -1,14 +1,11 @@
-#include "../USB.h"
 #include "../osdebugout.h"
 #include "../configuration.h"
 #include "../deviceproxy.h"
 #include "../usb-pad/padproxy.h"
 #include "../usb-mic/audiodeviceproxy.h"
 
-#include <sstream>
 #include <map>
 #include <vector>
-#include <string>
 
 #include "ini.h"
 #include "config.h"
@@ -16,10 +13,10 @@
 //Hopefully PCSX2 has inited all the GTK stuff already
 using namespace std;
 
-static std::string usb_path;
-std::string IniDir;
-std::string LogDir;
 const char* iniFile = "USBqemu-wheel.ini";
+static std::string usb_path;
+std::string IniPath = std::string("./inis/") + iniFile; // default path, just in case
+std::string LogDir;
 
 void SysMessage_stderr(const char *fmt, ...)
 {
@@ -30,12 +27,13 @@ void SysMessage_stderr(const char *fmt, ...)
 	va_end(arglist);
 }
 
-void CALLBACK USBsetSettingsDir( const char* dir )
+EXPORT_C_(void) USBsetSettingsDir( const char* dir )
 {
-	IniDir = dir;
+	IniPath = dir;
+	IniPath.append(iniFile);
 }
 
-void CALLBACK USBsetLogDir( const char* dir )
+EXPORT_C_(void) USBsetLogDir( const char* dir )
 {
 	LogDir = dir;
 }
@@ -55,11 +53,6 @@ bool LoadSettingValue(const std::string& ini, const std::string& section, const 
 	return INILoadUInt(ini.c_str(), section.c_str(), param, (unsigned int *)&value) == 0;
 }
 
-bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, std::string& value)
-{
-	return INISaveString(ini.c_str(), section.c_str(), param, value.c_str()) == 0;
-}
-
 bool LoadSettingValue(const std::string& ini, const std::string& section, const char* param, bool& value)
 {
 	unsigned int intv;
@@ -68,116 +61,19 @@ bool LoadSettingValue(const std::string& ini, const std::string& section, const 
 	return ret;
 }
 
-bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, int32_t& value)
+bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, const std::string& value)
+{
+	return INISaveString(ini.c_str(), section.c_str(), param, value.c_str()) == 0;
+}
+
+bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, const int32_t value)
 {
 	return INISaveUInt(ini.c_str(), section.c_str(), param, (unsigned int)value) == 0;
 }
 
-bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, bool& value)
+bool SaveSettingValue(const std::string& ini, const std::string& section, const char* param, const bool value)
 {
 	return INISaveUInt(ini.c_str(), section.c_str(), param, value ? 1 : 0) == 0;
-}
-
-bool LoadSetting(int port, const std::string& key, CONFIGVARIANT& var)
-{
-	bool ret = false;
-	if (key.empty())
-	{
-		OSDebugOut("Key is empty for '%s' on port %d\n", var.name, port);
-		return false;
-	}
-
-	std::stringstream section;
-	section << key << " " << port;
-
-	std::string ini(IniDir);
-	ini.append(iniFile);
-
-	OSDebugOut("[%s %d] '%s'=", key.c_str(), port, var.name);
-	switch(var.type)
-	{
-		case CONFIG_TYPE_INT:
-			ret = LoadSettingValue(ini, section.str(), var.name, var.intValue);
-			OSDebugOut_noprfx("%d\n", var.intValue);
-			break;
-		//case CONFIG_TYPE_DOUBLE:
-		//	return LoadSettingValue(ini, section.str(), var.name, var.doubleValue);
-		case CONFIG_TYPE_TCHAR:
-			ret = LoadSettingValue(ini, section.str(), var.name, var.tstrValue);
-			OSDebugOut_noprfx("'%s'\n", var.tstrValue.c_str());
-			break;
-		case CONFIG_TYPE_CHAR:
-			ret = LoadSettingValue(ini, section.str(), var.name, var.strValue);
-			OSDebugOut_noprfx("'%s'\n", var.strValue.c_str());
-			break;
-		//case CONFIG_TYPE_WCHAR:
-		//	return LoadSettingValue(ini, section.str(), var.name, var.wstrValue);
-		case CONFIG_TYPE_BOOL:
-			ret = LoadSettingValue(ini, section.str(), var.name, var.boolValue);
-			OSDebugOut_noprfx("%d\n", var.boolValue);
-			break;
-		break;
-		default:
-			OSDebugOut("\nInvalid config type %d for %s\n", var.type, var.name);
-			break;
-	};
-	return ret;
-}
-
-/**
- * 
- * [devices]
- * portX = pad
- * 
- * [pad X]
- * api = joydev
- * 
- * [joydev X]
- * button0 = 1
- * button1 = 2
- * ...
- * 
- * */
-bool SaveSetting(int port, const std::string& key, CONFIGVARIANT& var)
-{
-	bool ret = false;
-	if (key.empty())
-	{
-		OSDebugOut("Key is empty for '%s' on port %d\n", var.name, port);
-		return false;
-	}
-
-	std::stringstream section;
-	section << key << " " << port;
-
-	std::string ini(IniDir);
-	ini.append(iniFile);
-
-	OSDebugOut("[%s %d] '%s'=", key.c_str(), port, var.name);
-	switch(var.type)
-	{
-		case CONFIG_TYPE_INT:
-			ret = SaveSettingValue(ini, section.str(), var.name, var.intValue);
-			OSDebugOut_noprfx("%d\n", var.intValue);
-			break;
-		case CONFIG_TYPE_TCHAR:
-			ret = SaveSettingValue(ini, section.str(), var.name, var.tstrValue);
-			OSDebugOut_noprfx("'%s'\n", var.tstrValue.c_str());
-			break;
-		case CONFIG_TYPE_CHAR:
-			ret = SaveSettingValue(ini, section.str(), var.name, var.strValue);
-			OSDebugOut_noprfx("'%s'\n", var.strValue.c_str());
-			break;
-		case CONFIG_TYPE_BOOL:
-			ret = SaveSettingValue(ini, section.str(), var.name, var.boolValue);
-			OSDebugOut_noprfx("%s\n", var.boolValue ? "true" : "false");
-			break;
-		break;
-		default:
-			OSDebugOut("\nInvalid config type %d for %s\n", var.type, var.name);
-			break;
-	};
-	return ret;
 }
 
 void SaveConfig() {
@@ -187,9 +83,7 @@ void SaveConfig() {
 	//	return;
 	//char path[1024];
 	//snprintf(path, sizeof(path), "%s/.config/PCSX2/inis/USBqemu-wheel.ini", envptr);
-	std::string iniPath(IniDir);
-	iniPath.append(iniFile);
-	const char *path = iniPath.c_str();
+	const char *path = IniPath.c_str();
 
 	//OSDebugOut("%s\n", path);
 
@@ -207,8 +101,7 @@ void SaveConfig() {
 
 	for (auto& k : changedAPIs)
 	{
-		CONFIGVARIANT var(N_DEVICE_API, k.second);
-		SaveSetting(k.first.first, k.first.second, var);
+		SaveSetting(nullptr, k.first.first, k.first.second, N_DEVICE_API, k.second);
 	}
 }
 
@@ -220,23 +113,21 @@ void LoadConfig() {
 	//	return;
 	//char path[1024];
 	//sprintf(path, "%s/.config/PCSX2/inis/USBqemu-wheel.ini", envptr);
-	std::string iniPath(IniDir);
-	iniPath.append(iniFile);
-	const char *path = iniPath.c_str();
+	const char *path = IniPath.c_str();
 
 	INILoadString(path, N_DEVICES, N_DEVICE_PORT0, tmp);
 	conf.Port[0] = tmp;
 	INILoadString(path, N_DEVICES, N_DEVICE_PORT1, tmp);
 	conf.Port[1] = tmp;
-	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE0, (u32*)&conf.WheelType[0]);
-	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE1, (u32*)&conf.WheelType[1]);
+	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE0, (uint32_t*)&conf.WheelType[0]);
+	INILoadUInt(path, N_DEVICES, N_WHEEL_TYPE1, (uint32_t*)&conf.WheelType[1]);
+
+	auto& instance = RegisterDevice::instance();
 
 	for (int i=0; i<2; i++)
 	{
-		auto& instance = RegisterDevice::instance();
-		CONFIGVARIANT tmpVar(N_DEVICE_API, CONFIG_TYPE_CHAR);
-		LoadSetting(i, conf.Port[i], tmpVar);
-		std::string api = tmpVar.strValue;
+		std::string api;
+		LoadSetting(nullptr, i, conf.Port[i], N_DEVICE_API, api);
 		auto dev = instance.Device(conf.Port[i]);
 
 		if (dev)
@@ -244,6 +135,7 @@ void LoadConfig() {
 			OSDebugOut("Checking device '%s' api: '%s'...\n", conf.Port[i].c_str(), api.c_str());
 			if (!dev->IsValidAPI(api))
 			{
+				api = "<invalid>";
 				const auto& apis = dev->ListAPIs();
 				if (!apis.empty())
 					api = *apis.begin();

@@ -11,17 +11,20 @@ ENDMACRO(getenv_path)
 SET(TargetName "USBqemu-wheel")
 PROJECT(${TargetName})
 
+INCLUDE(FindPkgConfig)
+
 set(CMAKE_MODULE_PATH
   "${${TargetName}_SOURCE_DIR}/cmake"
 )
 
 SET (PLUGIN_VERSION_MAJOR "0")
-SET (PLUGIN_VERSION_MINOR "7")
-SET (PLUGIN_VERSION_PATCH "3")
+SET (PLUGIN_VERSION_MINOR "8")
+SET (PLUGIN_VERSION_PATCH "2")
 SET (PLUGIN_VERSION "${PLUGIN_VERSION_MAJOR}.${PLUGIN_VERSION_MINOR}.${PLUGIN_VERSION_PATCH}")
 SET (TargetNameVer "${TargetName}-${PLUGIN_VERSION}")
 SET (DEBIAN_PACKAGE "libusbqemu-wheel-unstable")
 
+# Breaks win32 resources' defines
 OPTION (PLUGIN_ENABLE_UNITY_BUILD "Enable unity build. Concatenate source files into one unit." FALSE)
 
 IF(WIN32)
@@ -40,6 +43,7 @@ ELSE(WIN32)
 	ELSE(_DEBUG)
 		MESSAGE("Define _DEBUG for debug print.")
 	ENDIF(_DEBUG)
+	#ADD_DEFINITIONS(-DUSING_X11=1)
 ENDIF(WIN32)
 
 # 64 bits specific configuration
@@ -101,6 +105,10 @@ FILE( APPEND ${hdr_file} "#define G_MAXSIZE G_MAXUINT32")
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
+#
+# Source files
+#
+
 SET(HDRS_SAMPLERATE
 	./src/libsamplerate/common.h
 	./src/libsamplerate/config.h
@@ -116,33 +124,6 @@ SET(SRCS_SAMPLERATE
 	./src/libsamplerate/src_linear.c
 	./src/libsamplerate/src_sinc.c
 	./src/libsamplerate/src_zoh.c
-)
-
-# Some unneeded headers too
-SET(HDRS_MIC
-	./src/usb-mic/audio.h
-	./src/usb-mic/audiodev.h
-	./src/usb-mic/audiodeviceproxy.h
-	./src/usb-mic/usb-mic-singstar.h
-)
-
-SET(HDRS_QEMU
-	./src/qemu-usb/glib.h
-	./src/qemu-usb/vl.h
-	./src/qemu-usb/qusb.h
-	./src/qemu-usb/USBinternal.h
-	./src/qemu-usb/desc.h
-	./src/qemu-usb/iov.h
-	./src/qemu-usb/queue.h
-)
-
-SET(HDRS_MSD
-	./src/usb-msd/usb-msd.h
-)
-
-SET(HDRS_PAD
-	./src/usb-pad/usb-pad.h
-	./src/usb-pad/padproxy.h
 )
 
 SET(HDRS_PLG
@@ -162,10 +143,22 @@ SET(SRCS_PLG
 	./src/deviceproxy.cpp
 	./src/configuration.cpp
 	./src/ringbuffer.cpp
+	./src/device_init.cpp
+)
+
+SET(HDRS_QEMU
+	./src/qemu-usb/glib.h
+	./src/qemu-usb/vl.h
+	./src/qemu-usb/qusb.h
+	./src/qemu-usb/USBinternal.h
+	./src/qemu-usb/desc.h
+	./src/qemu-usb/iov.h
+	./src/qemu-usb/queue.h
+	./src/qemu-usb/hid.h
+	./src/qemu-usb/input-keymap.h
 )
 
 SET(SRCS_QEMU
-	#./src/qemu-usb/usb-hid.cpp
 	#./src/qemu-usb/usb-hub.cpp
 	./src/qemu-usb/glib.cpp
 	./src/qemu-usb/vl.cpp
@@ -174,16 +167,38 @@ SET(SRCS_QEMU
 	./src/qemu-usb/core.cpp
 	./src/qemu-usb/bus.cpp
 	./src/qemu-usb/usb-ohci.cpp
+	./src/qemu-usb/hid.cpp
+	./src/qemu-usb/input-keymap-qcode-to-qnum.cpp
+)
+
+SET(HDRS_MSD
+	./src/usb-msd/usb-msd.h
 )
 
 SET(SRCS_MSD
 	./src/usb-msd/usb-msd.cpp
 )
 
+SET(HDRS_PAD
+	./src/usb-pad/usb-pad.h
+	./src/usb-pad/padproxy.h
+	./src/usb-pad/lg/lg_ff.h
+)
+
 SET(SRCS_PAD
 #	./src/usb-pad/bitjuggling.cpp
 	./src/usb-pad/usb-pad.cpp
 	./src/usb-pad/padproxy.cpp
+	./src/usb-pad/lg/lg_ff.cpp
+)
+
+SET(HDRS_MIC
+	./src/usb-mic/audio.h
+	./src/usb-mic/audiodev.h
+	./src/usb-mic/audiodeviceproxy.h
+	./src/usb-mic/usb-mic-singstar.h
+	./src/usb-mic/usb-headset.h
+	./src/usb-mic/audiodev-noop.h
 )
 
 SET(SRCS_MIC
@@ -195,20 +210,46 @@ SET(SRCS_MIC
 	#./src/usb-eyetoy/usb-eyetoy.cpp
 )
 
+SET(HDRS_HID
+	./src/usb-hid/hidproxy.h
+)
+
+SET(SRCS_HID
+	./src/usb-hid/usb-hid.cpp
+	./src/usb-hid/hidproxy.cpp
+	./src/usb-hid/noop.cpp
+)
+
+# shared/global functions
+SET(HDRS_SHARED
+	./src/shared/shared.h
+)
+
+SET(SRCS_SHARED
+	./src/shared/shared.cpp
+)
+
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
 ADD_DEFINITIONS(-DLIBSRC_ONLY_FAST -DHAVE_LRINT=1 -DHAVE_LRINTF=1)
 ADD_DEFINITIONS(-DHAVE_LIBM=1 -DHAVE_INTTYPES_H=1 -DHAVE_DLFCN_H=1)
 ADD_DEFINITIONS(-DGCC_MAJOR_VERSION=6)
 
+#
+# WIN32 specific source files
+#
+
 IF(WIN32)
 	ADD_DEFINITIONS(-DUNICODE)
 	ADD_DEFINITIONS(-D_UNICODE)
+
+	FILE(GLOB SRCS_API_INITS ./src/*/api_init_win32.cpp)
+
 	LIST(APPEND HDRS_WIN32
 		./src/Win32/resource.h
 		./src/Win32/Config.h
 		./src/Win32/Config-win32.h
 	)
-	
+
 	LIST(APPEND SRCS_WIN32
 		./src/Win32/Config.cpp
 		./src/Win32/Config-win32.cpp
@@ -223,21 +264,45 @@ IF(WIN32)
 	LIST(APPEND SRCS_MIC
 		./src/usb-mic/audiodev-wasapi.cpp
 	)
-	
+
 	LIST(APPEND SRCS_MSD
 		./src/usb-msd/usb-msd-win32.cpp
 	)
-	
-	# These two eventually contain only code that manages raw/dx configurations
+
+	LIST(APPEND HDRS_SHARED
+		./src/shared/hidapi.h
+		./src/shared/rawinput.h
+	)
+
+	LIST(APPEND SRCS_SHARED
+		./src/shared/hidapi.cpp
+		./src/shared/rawinput.cpp
+	)
+
+	LIST(APPEND SRCS_QEMU
+		./src/qemu-usb/input-keymap-win32-to-qcode.cpp
+	)
+
+	LIST(APPEND HDRS_HID
+		./src/usb-hid/raw/rawinput.h
+	)
+
+	LIST(APPEND SRCS_HID
+	#	./src/usb-hid/win32/mouse.cpp
+		./src/usb-hid/raw/rawinput.cpp
+	)
+
 	LIST(APPEND HDRS ${HDRS_WIN32})
 	LIST(APPEND SRCS ${SRCS_WIN32})
-	
+
 	SOURCE_GROUP("Header Files\\Win32" FILES ${HDRS_WIN32})
 	SOURCE_GROUP("Header Files" FILES ${HDRS_PLG})
 	SOURCE_GROUP("Header Files\\qemu-usb" FILES ${HDRS_QEMU})
 	SOURCE_GROUP("Header Files\\usb-mic" FILES ${HDRS_MIC})
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
 	SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
+	SOURCE_GROUP("Header Files\\usb-hid" FILES ${HDRS_HID})
+	SOURCE_GROUP("Header Files\\shared" FILES ${HDRS_SHARED})
 	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
 	SOURCE_GROUP("Source Files" FILES ${SRCS_PLG})
@@ -246,7 +311,15 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\usb-mic" FILES ${SRCS_MIC})
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
 	SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
+	SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
+	SOURCE_GROUP("Source Files\\shared" FILES ${SRCS_SHARED})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
+
+	FOREACH(file ${SRCS_API_INITS})
+		get_filename_component(api_dir "${file}" DIRECTORY )
+		get_filename_component(api_dir "${api_dir}" NAME )
+		SOURCE_GROUP("Source Files\\${api_dir}" FILES "${file}")
+	ENDFOREACH()
 
 	IF(PLUGIN_BUILD_DX)
 		ADD_DEFINITIONS(-DBUILD_DX=1)
@@ -271,6 +344,7 @@ IF(WIN32)
 			./src/usb-pad/dx/global.h
 			./src/usb-pad/dx/ini.h
 			./src/usb-pad/dx/versionproxy.h
+			./src/usb-pad/dx/usb-pad-dx.h
 		)
 		LIST(APPEND SRCS_DX
 			./src/usb-pad/dx/usb-pad-dx.cpp
@@ -286,14 +360,12 @@ IF(WIN32)
 	IF(PLUGIN_BUILD_RAW)
 		ADD_DEFINITIONS(-DBUILD_RAW=1)
 		LIST(APPEND HDRS_RAW
-			./src/usb-pad/raw/hid.h
-			./src/usb-pad/raw/raw-config.h
+			./src/usb-pad/raw/usb-pad-raw.h
 			./src/usb-pad/raw/raw-config-res.h
 		)
 		LIST(APPEND SRCS_RAW
 			./src/usb-pad/raw/usb-pad-raw.cpp
 			./src/usb-pad/raw/raw-config.cpp
-			./src/usb-pad/raw/hid.cpp
 		)
 		SOURCE_GROUP("Header Files\\usb-pad\\Raw" FILES ${HDRS_RAW})
 		SOURCE_GROUP("Source Files\\usb-pad\\Raw" FILES ${SRCS_RAW})
@@ -310,10 +382,17 @@ IF(WIN32)
 	IF(MSVC)
 		MESSAGE("Adding parallel build flag to CMAKE_CXX_FLAGS")
 		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /DNOMINMAX")
 	ENDIF()
 ENDIF(WIN32)
 
+#
+# Linux specific source files
+#
+
 IF(UNIX)
+	FILE(GLOB SRCS_API_INITS ./src/*/api_init_linux.cpp)
+
 	LIST(APPEND HDRS 
 		./src/linux/ini.h
 		./src/linux/actualfile.h
@@ -337,6 +416,13 @@ IF(UNIX)
 		./src/usb-pad/evdev/evdev.cpp
 		./src/usb-pad/evdev/evdev-gtk.cpp
 	)
+	LIST(APPEND HDRS_HID
+		./src/usb-hid/evdev/evdev.h
+	)
+	LIST(APPEND SRCS_HID
+		./src/usb-hid/evdev/evdev.cpp
+		./src/usb-hid/evdev/evdev-gtk.cpp
+	)
 	LIST(APPEND SRCS
 		./src/linux/config.cpp
 		./src/linux/config-gtk.cpp
@@ -344,9 +430,15 @@ IF(UNIX)
 		./src/linux/actualfile.c
 		./src/linux/util.cpp
 	)
+	LIST(APPEND SRCS_QEMU
+		./src/qemu-usb/input-keymap-linux-to-qcode.cpp
+	)
 
 	IF(PLUGIN_BUILD_PULSE)
 
+		LIST(APPEND HDRS_MIC
+			./src/usb-mic/audiodev-pulse.h
+		)
 		LIST(APPEND SRCS_MIC
 			./src/usb-mic/audiodev-pulse.cpp
 		)
@@ -367,8 +459,11 @@ IF(UNIX)
 
 	ADD_DEFINITIONS(-D_GNU_SOURCE -D_USE_LARGEFILE64 -D_FILE_OFFSET_BITS=64)
 	FIND_PACKAGE(GTK2 REQUIRED)
-	LIST(APPEND LIBS ${GTK2_LIBRARIES})
+	PKG_CHECK_MODULES(HARFBUZZ harfbuzz)
+	LIST(APPEND LIBS ${GTK2_LIBRARIES} ${HARFBUZZ_LIBRARIES})
 	INCLUDE_DIRECTORIES(${GTK2_INCLUDE_DIRS})
+	INCLUDE_DIRECTORIES(${HARFBUZZ_INCLUDE_DIRS})
+	LIST(APPEND LIBS Xfixes)
 
 	#INCLUDE(FindPkgConfig)
 	#PKG_CHECK_MODULES(GTK3 gtk+-3.0)
@@ -376,8 +471,12 @@ IF(UNIX)
 	#INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
 ENDIF()
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD})
+#
+# Now smash it all together
+#
+
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_SHARED} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_SHARED} ${SRCS_API_INITS})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)
@@ -402,6 +501,10 @@ IF(CMAKE_SIZEOF_VOID_P MATCHES "8")
        #ADD_DEFINITIONS(-m32)
        SET_TARGET_PROPERTIES(${TargetName} PROPERTIES COMPILE_FLAGS -m32 LINK_FLAGS -m32 )
 ENDIF(CMAKE_SIZEOF_VOID_P MATCHES "8")
+
+IF(UNIX)
+	SET_PROPERTY(TARGET ${TargetName} PROPERTY CXX_STANDARD 14)
+ENDIF(UNIX)
 
 # post-build copy for win32
 IF(WIN32 AND NOT MINGW)

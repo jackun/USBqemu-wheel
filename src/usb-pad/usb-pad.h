@@ -3,12 +3,55 @@
 
 #include "../qemu-usb/vl.h"
 #include "../configuration.h"
+#include "../deviceproxy.h"
+
+namespace usb_pad {
 
 #define CHECK(exp)		do{ if(!(exp)) goto Error; }while(0)
 #define SAFE_FREE(p)	do{ if(p) { free(p); (p) = NULL; } }while(0)
 
 #define S_CONFIG_JOY TEXT("Joystick")
 #define N_JOYSTICK TEXT("joystick")
+
+class PadDevice
+{
+public:
+	virtual ~PadDevice() { OSDebugOut("%p\n", this); }
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Wheel device");
+	}
+	static const char* TypeName()
+	{
+		return "pad";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
+	static void Initialize();
+};
+
+class RBDrumKitDevice
+{
+public:
+	virtual ~RBDrumKitDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Rock Band drum kit");
+	}
+	static const char* TypeName()
+	{
+		return "rbdrumkit";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
+	static void Initialize();
+};
 
 // Most likely as seen on https://github.com/matlo/GIMX
 #define CMD_DOWNLOAD			0x00
@@ -53,12 +96,14 @@
 enum PS2WheelTypes {
 	WT_GENERIC, // DF or any other LT wheel in non-native mode
 	WT_DRIVING_FORCE_PRO, //LPRC-11000? DF GT can be downgraded to Pro (?)
+	WT_DRIVING_FORCE_PRO_1102, //hw with buggy hid report?
 	WT_GT_FORCE, //formula gp
+	WT_ROCKBAND1_DRUMKIT,
 };
 
 inline int range_max(PS2WheelTypes type)
 {
-	if(type == WT_DRIVING_FORCE_PRO)
+	if(type == WT_DRIVING_FORCE_PRO || type == WT_DRIVING_FORCE_PRO_1102)
 		return 0x3FFF;
 	return 0x3FF;
 }
@@ -97,8 +142,8 @@ struct autocenter
 
 struct variable
 {
-	uint8_t initial1; //Initial level for Force 0
-	uint8_t initial2; //Initial level for Force 2
+	uint8_t l1; //Initial level for Force 0
+	uint8_t l2; //Initial level for Force 2
 	uint8_t s1 : 4; //Force 0 Step size
 	uint8_t t1 : 4; //Force 0 Step duration (in main loops)
 	uint8_t s2 : 4;
@@ -162,7 +207,7 @@ struct ff_state
 class Pad
 {
 public:
-	Pad(int port) : mPort(port), mFFstate({ 0 }) {}
+	Pad(int port, const char* dev_type) : mPort(port), mDevType(dev_type), mFFstate({ 0 }) {}
 	virtual ~Pad() {}
 	virtual int Open() = 0;
 	virtual int Close() = 0;
@@ -177,9 +222,10 @@ public:
 
 protected:
 	PS2WheelTypes mType = PS2WheelTypes::WT_GENERIC;
-	wheel_data_t mWheelData = { 0 };
+	wheel_data_t mWheelData { };
 	ff_state mFFstate;
 	int mPort;
+	const char* mDevType;
 };
 
 
@@ -252,6 +298,7 @@ static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 #define PID_FORMULA		0xC202 //Yellow Wingman Formula
 #define PID_FGP			0xC20E //Formula GP (maybe GT FORCE LPRC-1000)
 #define PID_FFGP		0xC293 // Formula Force GP
+#define PID_GTF		0xC293 // as is Formula Force GP
 #define PID_G25			0xC299 // OutRun 2 (jp) supports it apparently
 #define MAX_BUTTONS		32
 #define MAX_AXES		7 //random 7: axes + hatswitch
@@ -268,68 +315,79 @@ static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
   Currently not emulating reattachment. Any games that expect to?
 **/
 
-// Any game actually queries for hid reports?
-//#define pad_hid_report_descriptor pad_driving_force_pro_hid_report_descriptor
-//#define pad_hid_report_descriptor pad_momo_hid_report_descriptor
-//#define pad_hid_report_descriptor pad_generic_hid_report_descriptor
-
-/* descriptor Logitech Driving Force Pro */
-static const uint8_t dfp_dev_descriptor[] = {
+static const uint8_t df_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bcdUSB              */ WBVAL(0x0100), //(272) //USB 1.1
+	/* bDeviceClass        */ 0x00, //(0)
+	/* bDeviceSubClass     */ 0x00, //(0)
+	/* bDeviceProtocol     */ 0x00, //(0)
+	/* bMaxPacketSize0     */ 0x08, //(8)
+	/* idVendor            */ WBVAL(0x046d),
+	/* idProduct           */ WBVAL(PID_DF),
+	/* bcdDevice           */ WBVAL(0x0000), //(00.00)
+	/* iManufacturer       */ 0x03, //(3)
+	/* iProduct            */ 0x01, //(1)
+	/* iSerialNumber       */ 0x00, //(0)
+	/* bNumConfigurations  */ 0x01, //(1)
+};
+
+//XXX different pedal data than 0x1106, buggy hw?
+static const uint8_t dfp_dev_descriptor_1102[] = {
+	/* bLength             */ 0x12, //(18)
+	/* bDescriptorType     */ 0x01, //(1)
+	/* bcdUSB              */ WBVAL(0x0100), //(272) //USB 1.1
 	/* bDeviceClass        */ 0x00, //(0)
 	/* bDeviceSubClass     */ 0x00, //(0)
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
 	/* idProduct           */ WBVAL(PID_DFP),
-	/* bcdDevice           */ WBVAL(0x0001), //(1)
-	/* iManufacturer       */ 0x01, //(1)
-	/* iProduct            */ 0x02, //(2)
+	/* bcdDevice           */ WBVAL(0x1102), //(11.02)
+	/* iManufacturer       */ 0x03, //(3)
+	/* iProduct            */ 0x01, //(1)
 	/* iSerialNumber       */ 0x00, //(0)
 	/* bNumConfigurations  */ 0x01, //(1)
 };
 
-static const uint8_t ffgp_dev_descriptor[] = {
+static const uint8_t dfp_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bcdUSB              */ WBVAL(0x0100), //(272) //USB 1.1
 	/* bDeviceClass        */ 0x00, //(0)
 	/* bDeviceSubClass     */ 0x00, //(0)
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(PID_FFGP),
-	/* bcdDevice           */ WBVAL(0x0001), //(1)
-	/* iManufacturer       */ 0x01, //(1)
-	/* iProduct            */ 0x02, //(2)
+	/* idProduct           */ WBVAL(PID_DFP),
+	/* bcdDevice           */ WBVAL(0x1106), //(11.06)
+	/* iManufacturer       */ 0x03, //(3)
+	/* iProduct            */ 0x01, //(1)
 	/* iSerialNumber       */ 0x00, //(0)
 	/* bNumConfigurations  */ 0x01, //(1)
 };
 
-static const uint8_t pad_dev_descriptor[] = {
+static const uint8_t gtf_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bcdUSB              */ WBVAL(0x0100),
 	/* bDeviceClass        */ 0x00, //(0)
 	/* bDeviceSubClass     */ 0x00, //(0)
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x08, //(8)
 	/* idVendor            */ WBVAL(0x046d),
-	/* idProduct           */ WBVAL(GENERIC_PID), //WBVAL(0xc294), 0xc298 dfp
-	/* bcdDevice           */ WBVAL(0x0001), //(1)
-	/* iManufacturer       */ 0x01, //(1)
-	/* iProduct            */ 0x02, //(2)
+	/* idProduct           */ WBVAL(PID_GTF),
+	/* bcdDevice           */ WBVAL(0x0000),
+	/* iManufacturer       */ 0x01, //actual is 0x04
+	/* iProduct            */ 0x02, //actual is 0x20
 	/* iSerialNumber       */ 0x00, //(0)
 	/* bNumConfigurations  */ 0x01, //(1)
-
 };
 
 //https://lkml.org/lkml/2011/5/28/140
 //https://github.com/torvalds/linux/blob/master/drivers/hid/hid-lg.c
 // separate axes version
-static const uint8_t pad_driving_force_hid_report_descriptor[] = {
+static const uint8_t pad_driving_force_hid_separate_report_descriptor[] = {
 	0x05, 0x01, /* Usage Page (Desktop), */
 	0x09, 0x04, /* Usage (Joystik), */
 	0xA1, 0x01, /* Collection (Application), */
@@ -395,6 +453,72 @@ static const uint8_t pad_driving_force_hid_report_descriptor[] = {
 	0xC0 /* End Collection */
 };
 
+static const uint8_t pad_driving_force_hid_report_descriptor[] = {
+	0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+	0x09, 0x04,        // Usage (Joystick)
+	0xA1, 0x01,        // Collection (Application)
+	0xA1, 0x02,        //   Collection (Logical)
+	0x95, 0x01,        //     Report Count (1)
+	0x75, 0x0A,        //     Report Size (10)
+	0x15, 0x00,        //     Logical Minimum (0)
+	0x26, 0xFF, 0x03,  //     Logical Maximum (1023)
+	0x35, 0x00,        //     Physical Minimum (0)
+	0x46, 0xFF, 0x03,  //     Physical Maximum (1023)
+	0x09, 0x30,        //     Usage (X)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x0C,        //     Report Count (12)
+	0x75, 0x01,        //     Report Size (1)
+	0x25, 0x01,        //     Logical Maximum (1)
+	0x45, 0x01,        //     Physical Maximum (1)
+	0x05, 0x09,        //     Usage Page (Button)
+	0x19, 0x01,        //     Usage Minimum (0x01)
+	0x29, 0x0C,        //     Usage Maximum (0x0C)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x02,        //     Report Count (2)
+	0x06, 0x00, 0xFF,  //     Usage Page (Vendor Defined 0xFF00)
+	0x09, 0x01,        //     Usage (0x01)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x05, 0x01,        //     Usage Page (Generic Desktop Ctrls)
+	0x09, 0x31,        //     Usage (Y)
+	0x26, 0xFF, 0x00,  //     Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //     Physical Maximum (255)
+	0x95, 0x01,        //     Report Count (1)
+	0x75, 0x08,        //     Report Size (8)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x25, 0x07,        //     Logical Maximum (7)
+	0x46, 0x3B, 0x01,  //     Physical Maximum (315)
+	0x75, 0x04,        //     Report Size (4)
+	0x65, 0x14,        //     Unit (System: English Rotation, Length: Centimeter)
+	0x09, 0x39,        //     Usage (Hat switch)
+	0x81, 0x42,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,Null State)
+	0x75, 0x01,        //     Report Size (1)
+	0x95, 0x04,        //     Report Count (4)
+	0x65, 0x00,        //     Unit (None)
+	0x06, 0x00, 0xFF,  //     Usage Page (Vendor Defined 0xFF00)
+	0x09, 0x01,        //     Usage (0x01)
+	0x25, 0x01,        //     Logical Maximum (1)
+	0x45, 0x01,        //     Physical Maximum (1)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x02,        //     Report Count (2)
+	0x75, 0x08,        //     Report Size (8)
+	0x26, 0xFF, 0x00,  //     Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //     Physical Maximum (255)
+	0x09, 0x02,        //     Usage (0x02)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0xC0,              //   End Collection
+	0xA1, 0x02,        //   Collection (Logical)
+	0x26, 0xFF, 0x00,  //     Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //     Physical Maximum (255)
+	0x95, 0x07,        //     Report Count (7)
+	0x75, 0x08,        //     Report Size (8)
+	0x09, 0x03,        //     Usage (0x03)
+	0x91, 0x02,        //     Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0xC0,              //   End Collection
+	0xC0,              // End Collection
+
+	// 130 bytes
+};
+
 static const uint8_t pad_driving_force_pro_hid_report_descriptor[] = {
 	0x05, 0x01, /* Usage Page (Desktop), */
 	0x09, 0x04, /* Usage (Joystik), */
@@ -450,8 +574,8 @@ static const uint8_t pad_momo_hid_report_descriptor[] = {
 	0xA1, 0x02, /* Collection (Logical), */
 	0x95, 0x01, /* Report Count (1), */
 	0x75, 0x0A, /* Report Size (10), */
-	0x14, 0x00, /* Logical Minimum (0), */
-	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x14, /* Logical Minimum (0), */
+	0x26, 0xFF, 0x03, /* Logical Maximum (1023), */
 	0x35, 0x00, /* Physical Minimum (0), */
 	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
 	0x09, 0x30, /* Usage (X), */
@@ -496,8 +620,8 @@ static const uint8_t pad_generic_hid_report_descriptor[] = {
 	0xA1, 0x02, /* Collection (Logical), */
 	0x95, 0x01, /* Report Count (1), */
 	0x75, 0x0A, /* Report Size (10), */
-	0x14, 0x00, /* Logical Minimum (0), */
-	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x14, /* Logical Minimum (0), */
+	0x26, 0xFF, 0x03, /* Logical Maximum (1023), */
 	0x35, 0x00, /* Physical Minimum (0), */
 	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
 	0x09, 0x30, /* Usage (X), */
@@ -539,14 +663,58 @@ static const uint8_t pad_generic_hid_report_descriptor[] = {
 
 //TODO
 static const uint8_t pad_gtforce_hid_report_descriptor[] = {
+	0x05, 0x01,    // Usage Page (Generic Desktop Ctrls)
+	0x09, 0x04,    // Usage (Joystick)
+	0xA1, 0x01,    // Collection (Application)
+	0xA1, 0x02,    //   Collection (Logical)
+	0x95, 0x01,    //   Report Count (1)
+	0x75, 0x0A,    //   Report Size (10)
+	0x15, 0x00,    //   Logical Minimum (0)
+	0x26, 0xFF, 0x03,  //   Logical Maximum (1023)
+	0x35, 0x00,    //   Physical Minimum (0)
+	0x46, 0xFF, 0x03,  //   Physical Maximum (1023)
+	0x09, 0x30,    //   Usage (X)
+	0x81, 0x02,    //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x06,    //   Report Count (6)
+	0x75, 0x01,    //   Report Size (1)
+	0x25, 0x01,    //   Logical Maximum (1)
+	0x45, 0x01,    //   Physical Maximum (1)
+	0x05, 0x09,    //   Usage Page (Button)
+	0x19, 0x01,    //   Usage Minimum (0x01)
+	0x29, 0x06,    //   Usage Maximum (0x06)
+	0x81, 0x02,    //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x01,    //   Report Count (1)
+	0x75, 0x08,    //   Report Size (8)
+	0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //   Physical Maximum (255)
+	//0x06, 0x00, 0xFF,  //   Usage Page (Vendor Defined 0xFF00)
+	0x09, 0x01,    //   Usage (0x01)
+	0x81, 0x02,    //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x05, 0x01,    //   Usage Page (Generic Desktop Ctrls)
+	0x09, 0x31,    //   Usage (Y)
+	0x81, 0x02,    //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	//0x06, 0x00, 0xFF,  //   Usage Page (Vendor Defined 0xFF00)
+	0x09, 0x01,    //   Usage (0x01)
+	0x95, 0x03,    //   Report Count (3)
+	0x81, 0x02,    //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0xC0,        //   End Collection
+	0xA1, 0x02,    //   Collection (Logical)
+	0x09, 0x02,    //   Usage (0x02)
+	0x95, 0x07,    //   Report Count (7)
+	0x91, 0x02,    //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0xC0,        //   End Collection
+	0xC0,        // End Collection
+};
+
+static const uint8_t pad_gtforce_hid_report_descriptor_prolly_incorrect[] = {
 	0x05, 0x01, /* Usage Page (Desktop), */
 	0x09, 0x04, /* Usage (Joystik), */
 	0xA1, 0x01, /* Collection (Application), */
 	0xA1, 0x02, /* Collection (Logical), */
 	0x95, 0x01, /* Report Count (1), */
 	0x75, 0x0A, /* Report Size (10), */
-	0x14, 0x00, /* Logical Minimum (0), */
-	0x25, 0xFF, 0x03, /* Logical Maximum (1023), */
+	0x14, /* Logical Minimum (0), */
+	0x26, 0xFF, 0x03, /* Logical Maximum (1023), */
 	0x35, 0x00, /* Physical Minimum (0), */
 	0x46, 0xFF, 0x03, /* Physical Maximum (1023), */
 	0x09, 0x30, /* Usage (X), */
@@ -592,53 +760,100 @@ static const uint8_t pad_gtforce_hid_report_descriptor[] = {
 #define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
 
 static const uint8_t df_config_descriptor[] = {
-	0x09,   /* bLength */
+	USB_CONFIGURATION_DESC_SIZE,          /* bLength */
 	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-	WBVAL(41),                        /* wTotalLength */
+	WBVAL(41),                            /* wTotalLength */
 	0x01,                                 /* bNumInterfaces */
 	0x01,                                 /* bConfigurationValue */
 	0x00,                                 /* iConfiguration */
-	0xc0,               /* bmAttributes */
+	0xc0,                                 /* bmAttributes */
 	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
 
 	/* Interface Descriptor */
-	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
-	0x04,                   // INTERFACE descriptor type
+	USB_INTERFACE_DESC_SIZE,       // Size of this descriptor in bytes
+	USB_INTERFACE_DESCRIPTOR_TYPE, // INTERFACE descriptor type
 	0,                      // Interface Number
 	0,                      // Alternate Setting Number
 	2,                      // Number of endpoints in this intf
-	USB_CLASS_HID,               // Class code
+	USB_CLASS_HID,          // Class code
 	0,     // Subclass code
 	0,     // Protocol code
-	0,                      // Interface string index
+	0,     // Interface string index
 
 	/* HID Class-Specific Descriptor */
-	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
-	0x21,                // HID descriptor type
-	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
+	0x09,                      // Size of this descriptor in bytes RRoj hack
+	USB_DT_HID,                // HID descriptor type
+	DESC_CONFIG_WORD(0x0100),  // HID Spec Release Number in BCD format (1.11)
 	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
 	1,                      // Number of class descriptors, see usbcfg.h
-	0x22,//DSC_RPT,                // Report descriptor type
+	USB_DT_REPORT,          // Report descriptor type
 	DESC_CONFIG_WORD(sizeof(pad_driving_force_hid_report_descriptor)), // Size of the report descriptor
 
 	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_IN(1),                 //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x02,                       //Interval
+	0x0A,                               //Interval
 
 	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_OUT(1),                //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x02,                        //Interval 0x2 - 2ms (G27) , 0x0A default?
+	0x0A,                               //Interval 0x2 - 2ms (G27) , 0x0A default?
 };
 
 static const uint8_t dfp_config_descriptor[] = {
+	USB_CONFIGURATION_DESC_SIZE,          /* bLength */
+	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
+	WBVAL(41),                            /* wTotalLength */
+	0x01,                                 /* bNumInterfaces */
+	0x01,                                 /* bConfigurationValue */
+	0x00,                                 /* iConfiguration */
+	0xc0,                                 /* bmAttributes */
+	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
+
+	/* Interface Descriptor */
+	USB_INTERFACE_DESC_SIZE,   // Size of this descriptor in bytes
+	USB_INTERFACE_DESCRIPTOR_TYPE, // INTERFACE descriptor type
+	0,                      // Interface Number
+	0,                      // Alternate Setting Number
+	2,                      // Number of endpoints in this intf
+	USB_CLASS_HID,          // Class code
+	0,     // Subclass code
+	0,     // Protocol code
+	0,     // Interface string index
+
+	/* HID Class-Specific Descriptor */
+	0x09,                      // Size of this descriptor in bytes RRoj hack
+	USB_DT_HID,                // HID descriptor type
+	DESC_CONFIG_WORD(0x0100),  // HID Spec Release Number in BCD format (1.11)
+	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
+	1,                      // Number of class descriptors, see usbcfg.h
+	USB_DT_REPORT,          // Report descriptor type
+	DESC_CONFIG_WORD(sizeof(pad_driving_force_pro_hid_report_descriptor)),
+
+	/* Endpoint Descriptor */
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_IN(1),                 //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size, might be 16 bytes
+	0x0A,                               //Interval
+
+	/* Endpoint Descriptor */
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_OUT(1),                //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x0A,                               //Interval
+};
+
+static const uint8_t gtforce_config_descriptor[] = {
 	0x09,   /* bLength */
 	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
 	WBVAL(41),                        /* wTotalLength */
@@ -666,15 +881,15 @@ static const uint8_t dfp_config_descriptor[] = {
 	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
 	1,                      // Number of class descriptors, see usbcfg.h
 	0x22,//DSC_RPT,                // Report descriptor type
-	DESC_CONFIG_WORD(sizeof(pad_driving_force_pro_hid_report_descriptor)),
+	DESC_CONFIG_WORD(sizeof(pad_gtforce_hid_report_descriptor)), // Size of the report descriptor
 
 	/* Endpoint Descriptor */
 	0x07,/*sizeof(USB_EP_DSC)*/
 	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
 	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
 	0x03, //_INTERRUPT,                 //Attributes
-	DESC_CONFIG_WORD(USB_PSIZE),        //size, might be 16 bytes
-	0x02,                       //Interval
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
+	0x0A,                       //Interval
 
 	/* Endpoint Descriptor */
 	0x07,/*sizeof(USB_EP_DSC)*/
@@ -682,7 +897,141 @@ static const uint8_t dfp_config_descriptor[] = {
 	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
 	0x03, //_INTERRUPT,                 //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x02,                        //Interval 0x2 - 2ms (G27) , 0x0A default?
+	0x0A,                        //Interval
+};
+
+// Should be usb 2.0, but seems to make no difference with Rock Band games 
+static const uint8_t rb1_dev_descriptor[] = {
+	/* bLength             */ 0x12, //(18)
+	/* bDescriptorType     */ 0x01, //(1)
+	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bDeviceClass        */ 0x00, //(0)
+	/* bDeviceSubClass     */ 0x00, //(0)
+	/* bDeviceProtocol     */ 0x00, //(0)
+	/* bMaxPacketSize0     */ 0x40, //(64)
+	/* idVendor            */ WBVAL(0x12ba),
+	/* idProduct           */ WBVAL(0x0210),
+	/* bcdDevice           */ WBVAL(0x1000), //(26.00)
+	/* iManufacturer       */ 0x01, //(1)
+	/* iProduct            */ 0x02, //(2)
+	/* iSerialNumber       */ 0x00, //(0)
+	/* bNumConfigurations  */ 0x01, //(1)
+};
+
+//Wii Rock Band drum kit
+static const uint8_t rb1_config_descriptor[] = {
+	0x09,        // bLength
+	0x02,        // bDescriptorType (Configuration)
+	0x29, 0x00,  // wTotalLength 41
+	0x01,        // bNumInterfaces 1
+	0x01,        // bConfigurationValue
+	0x00,        // iConfiguration (String Index)
+	0x80,        // bmAttributes
+	0x32,        // bMaxPower 100mA
+
+	0x09,        // bLength
+	0x04,        // bDescriptorType (Interface)
+	0x00,        // bInterfaceNumber 0
+	0x00,        // bAlternateSetting
+	0x02,        // bNumEndpoints 2
+	0x03,        // bInterfaceClass
+	0x00,        // bInterfaceSubClass
+	0x00,        // bInterfaceProtocol
+	0x00,        // iInterface (String Index)
+
+	0x09,        // bLength
+	0x21,        // bDescriptorType (HID)
+	0x11, 0x01,  // bcdHID 1.11
+	0x00,        // bCountryCode
+	0x01,        // bNumDescriptors
+	0x22,        // bDescriptorType[0] (HID)
+	0x89, 0x00,  // wDescriptorLength[0] 137
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x02,        // bEndpointAddress (OUT/H2D)
+	0x03,        // bmAttributes (Interrupt)
+	0x40, 0x00,  // wMaxPacketSize 64
+	0x0A,        // bInterval 10 (unit depends on device speed)
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x81,        // bEndpointAddress (IN/D2H)
+	0x03,        // bmAttributes (Interrupt)
+	0x40, 0x00,  // wMaxPacketSize 64
+	0x0A,        // bInterval 10 (unit depends on device speed)
+	// 41 bytes
+};
+
+//Wii Rock Band drum kit
+static const uint8_t rb1_hid_report_descriptor[] = {
+	0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+	0x09, 0x05,        // Usage (Game Pad)
+	0xA1, 0x01,        // Collection (Application)
+	0x15, 0x00,        //   Logical Minimum (0)
+	0x25, 0x01,        //   Logical Maximum (1)
+	0x35, 0x00,        //   Physical Minimum (0)
+	0x45, 0x01,        //   Physical Maximum (1)
+	0x75, 0x01,        //   Report Size (1)
+	0x95, 0x0D,        //   Report Count (13)
+	0x05, 0x09,        //   Usage Page (Button)
+	0x19, 0x01,        //   Usage Minimum (0x01)
+	0x29, 0x0D,        //   Usage Maximum (0x0D)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x95, 0x03,        //   Report Count (3)
+	0x81, 0x01,        //   Input (Const,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x05, 0x01,        //   Usage Page (Generic Desktop Ctrls)
+	0x25, 0x07,        //   Logical Maximum (7)
+	0x46, 0x3B, 0x01,  //   Physical Maximum (315)
+	0x75, 0x04,        //   Report Size (4)
+	0x95, 0x01,        //   Report Count (1)
+	0x65, 0x14,        //   Unit (System: English Rotation, Length: Centimeter)
+	0x09, 0x39,        //   Usage (Hat switch)
+	0x81, 0x42,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,Null State)
+	0x65, 0x00,        //   Unit (None)
+	0x95, 0x01,        //   Report Count (1)
+	0x81, 0x01,        //   Input (Const,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //   Physical Maximum (255)
+	0x09, 0x30,        //   Usage (X)
+	0x09, 0x31,        //   Usage (Y)
+	0x09, 0x32,        //   Usage (Z)
+	0x09, 0x35,        //   Usage (Rz)
+	0x75, 0x08,        //   Report Size (8)
+	0x95, 0x04,        //   Report Count (4)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x06, 0x00, 0xFF,  //   Usage Page (Vendor Defined 0xFF00)
+	0x09, 0x20,        //   Usage (0x20)
+	0x09, 0x21,        //   Usage (0x21)
+	0x09, 0x22,        //   Usage (0x22)
+	0x09, 0x23,        //   Usage (0x23)
+	0x09, 0x24,        //   Usage (0x24)
+	0x09, 0x25,        //   Usage (0x25)
+	0x09, 0x26,        //   Usage (0x26)
+	0x09, 0x27,        //   Usage (0x27)
+	0x09, 0x28,        //   Usage (0x28)
+	0x09, 0x29,        //   Usage (0x29)
+	0x09, 0x2A,        //   Usage (0x2A)
+	0x09, 0x2B,        //   Usage (0x2B)
+	0x95, 0x0C,        //   Report Count (12)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x0A, 0x21, 0x26,  //   Usage (0x2621)
+	0x95, 0x08,        //   Report Count (8)
+	0xB1, 0x02,        //   Feature (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0x0A, 0x21, 0x26,  //   Usage (0x2621)
+	0x91, 0x02,        //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0x26, 0xFF, 0x03,  //   Logical Maximum (1023)
+	0x46, 0xFF, 0x03,  //   Physical Maximum (1023)
+	0x09, 0x2C,        //   Usage (0x2C)
+	0x09, 0x2D,        //   Usage (0x2D)
+	0x09, 0x2E,        //   Usage (0x2E)
+	0x09, 0x2F,        //   Usage (0x2F)
+	0x75, 0x10,        //   Report Size (16)
+	0x95, 0x04,        //   Report Count (4)
+	0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0xC0,              // End Collection
+
+	// 137 bytes
 };
 
 struct dfp_buttons_t
@@ -802,9 +1151,32 @@ struct random_data_t
 	uint32_t pad2 : 8;
 };
 
+struct rb1drumkit_t
+{
+	union u {
+		uint16_t buttons;
+		struct s {
+			uint16_t blue: 1;
+			uint16_t green: 1;
+			uint16_t red: 1;
+			uint16_t yellow: 1;
+			uint16_t orange: 1;
+			uint16_t something0: 3;
+
+			uint16_t select: 1;
+			uint16_t start: 1;
+			uint16_t something1: 6;
+		} s;
+	} u;
+
+	uint8_t hatswitch;
+};
+
 void ResetData(generic_data_t *d);
 void ResetData(dfp_data_t *d);
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data);
 //Convert DF Pro buttons to selected wheel type
 uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn);
+
+} //namespace
 #endif

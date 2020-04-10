@@ -635,90 +635,12 @@ void usb_desc_init(USBDevice *dev)
 	if (desc->full) {
 		dev->speedmask |= USB_SPEED_MASK_FULL;
 	}
-	/*if (desc->high) {
-		dev->speedmask |= USB_SPEED_MASK_HIGH;
-	}
-	if (desc->super) {
-		dev->speedmask |= USB_SPEED_MASK_SUPER;
-	}*/
-	if (desc->msos && (dev->flags & (1 << USB_DEV_FLAG_MSOS_DESC_ENABLE))) {
-		dev->flags |= (1 << USB_DEV_FLAG_MSOS_DESC_IN_USE);
-		usb_desc_set_string(dev, 0xee, "MSFT100Q");
-	}
 	usb_desc_setdefaults(dev);
 }
 
 void usb_desc_attach(USBDevice *dev)
 {
 	usb_desc_setdefaults(dev);
-}
-
-void usb_desc_set_string(USBDevice *dev, uint8_t index, const char *str)
-{
-	USBDescString *s;
-
-	QLIST_FOREACH(s, &dev->strings, next) {
-		if (s->index == index) {
-			break;
-		}
-	}
-	if (s == NULL) {
-		s = static_cast<USBDescString *>(my_g_malloc0(sizeof(*s)));
-		s->index = index;
-		QLIST_INSERT_HEAD(&dev->strings, s, next);
-	}
-	my_g_free(s->str);
-	s->str = strdup(str);
-}
-
-/*
- * This function creates a serial number for a usb device.
- * The serial number should:
- *   (a) Be unique within the virtual machine.
- *   (b) Be constant, so you don't get a new one each
- *       time the guest is started.
- * So we are using the physical location to generate a serial number
- * from it.  It has three pieces:  First a fixed, device-specific
- * prefix.  Second the device path of the host controller (which is
- * the pci address in most cases).  Third the physical port path.
- * Results in serial numbers like this: "314159-0000:00:1d.7-3".
- */
-void usb_desc_create_serial(USBDevice *dev)
-{
-	//DeviceState *hcd = dev->qdev.parent_bus->parent;
-	const USBDesc *desc = usb_device_get_usb_desc(dev);
-	int index = desc->id.iSerialNumber;
-	//char *path, *serial;
-
-	if (dev->serial) {
-		/* 'serial' usb bus property has priority if present */
-		usb_desc_set_string(dev, index, dev->serial);
-		return;
-	}
-
-	/*assert(index != 0 && desc->str[index] != NULL);
-	path = qdev_get_dev_path(hcd);
-	if (path) {
-		serial = g_strdup_printf("%s-%s-%s", desc->str[index],
-								 path, dev->port->path);
-	} else {
-		serial = g_strdup_printf("%s-%s", desc->str[index], dev->port->path);
-	}*/
-	usb_desc_set_string(dev, index, "1234567890" /*serial*/);
-	//g_free(path);
-	//g_free(serial);
-}
-
-const char *usb_desc_get_string(USBDevice *dev, uint8_t index)
-{
-	USBDescString *s;
-
-	QLIST_FOREACH(s, &dev->strings, next) {
-		if (s->index == index) {
-			return s->str;
-		}
-	}
-	return NULL;
 }
 
 int usb_desc_string(USBDevice *dev, int index, uint8_t *dest, size_t len)
@@ -739,12 +661,9 @@ int usb_desc_string(USBDevice *dev, int index, uint8_t *dest, size_t len)
 		return 4;
 	}
 
-	str = usb_desc_get_string(dev, index);
+	str = usb_device_get_usb_desc(dev)->str[index];
 	if (str == NULL) {
-		str = usb_device_get_usb_desc(dev)->str[index];
-		if (str == NULL) {
-			return 0;
-		}
+		return 0;
 	}
 
 	bLength = strlen(str) * 2 + 2;
@@ -821,7 +740,7 @@ int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 		break;
 
 	default:
-		fprintf(stderr, "%s: %d unknown type %d (len %zd)\n", __FUNCTION__,
+		OSDebugOut(TEXT("%s: %d unknown type %d (len %zd)\n"), __func__,
 				dev->addr, type, len);
 		break;
 	}
@@ -929,30 +848,4 @@ int usb_desc_handle_control(USBDevice *dev, USBPacket *p,
 		break;
 	}
 	return ret;
-}
-
-/* function to support old binary blob descriptors */
-int set_usb_string(uint8_t *dest, const char *str, int len)
-{
-	uint8_t bLength, pos, i;
-	if (len < 4) {
-		return -1;
-	}
-
-	bLength = strlen(str) * 2 + 2;
-	dest[0] = bLength;
-	dest[1] = USB_DT_STRING;
-	i = 0; pos = 2;
-	while (pos+1 < bLength && pos+1 < len) {
-		dest[pos++] = str[i++];
-		dest[pos++] = 0;
-	}
-	return pos;
-}
-
-/* function to support old binary blob descriptors */
-/* XXX: fix overflow */
-int set_usb_string(uint8_t *dest, const char *str)
-{
-	return set_usb_string(dest, str, 254);
 }

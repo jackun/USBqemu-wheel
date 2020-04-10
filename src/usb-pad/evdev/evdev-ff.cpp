@@ -1,8 +1,11 @@
 #include "evdev-ff.h"
 #include "osdebugout.h"
+#include "usb-pad/lg/lg_ff.h"
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+
+namespace usb_pad { namespace evdev {
 
 #define BITS_TO_UCHAR(x) \
 	(((x) + 8 * sizeof (unsigned char) - 1) / (8 * sizeof (unsigned char)))
@@ -10,53 +13,54 @@
 
 EvdevFF::EvdevFF(int fd): mHandle(fd), mUseRumble(false)
 {
-	mEffConstant.id = -1;
-
 	unsigned char features[BITS_TO_UCHAR(FF_MAX)];
-	if (ioctl(mHandle, EVIOCGBIT(EV_FF, sizeof(features)), features) < 0)
-	{
+	if (ioctl(mHandle, EVIOCGBIT(EV_FF, sizeof(features)), features) < 0) {
 		OSDebugOut("Get features failed: %s\n", strerror(errno));
 	}
 
 	int effects = 0;
-	if (ioctl(mHandle, EVIOCGEFFECTS, &effects) < 0)
-	{
+	if (ioctl(mHandle, EVIOCGEFFECTS, &effects) < 0) {
 		OSDebugOut("Get effects failed: %s\n", strerror(errno));
 	}
 
-	if (!testBit(FF_CONSTANT, features))
-	{
+	if (!testBit(FF_CONSTANT, features)) {
 		OSDebugOut("device does not support FF_CONSTANT\n");
 		if (testBit(FF_RUMBLE, features))
 			mUseRumble = true;
 	}
 
-	if (!testBit(FF_GAIN, features))
-	{
+	if (!testBit(FF_SPRING, features)) {
+		OSDebugOut("device does not support FF_SPRING\n");
+	}
+
+	if (!testBit(FF_DAMPER, features)) {
+		OSDebugOut("device does not support FF_DAMPER\n");
+	}
+
+	if (!testBit(FF_GAIN, features)) {
 		OSDebugOut("device does not support FF_GAIN\n");
 	}
 
-	if (!testBit(FF_AUTOCENTER, features))
-	{
+	if (!testBit(FF_AUTOCENTER, features)) {
 		OSDebugOut("device does not support FF_AUTOCENTER\n");
 	}
 
+	memset(&mEffect, 0, sizeof(mEffect));
+
 	// TODO check features and do FF_RUMBLE instead if gamepad?
 	// XXX linux status (hid-lg4ff.c) - only constant and autocenter are implemented
-	mEffConstant.type = FF_CONSTANT;
-	mEffConstant.id = -1;
-	mEffConstant.u.constant.level = 0;	/* Strength : 0x2000 == 25 % */
+	mEffect.u.constant.level = 0;	/* Strength : 0x2000 == 25 % */
 	// Logitech wheels' force vs turn direction: 255 - left, 127/128 - neutral, 0 - right
 	// left direction
-	mEffConstant.direction = 0x4000;
-	mEffConstant.u.constant.envelope.attack_length = 0;//0x100;
-	mEffConstant.u.constant.envelope.attack_level = 0;
-	mEffConstant.u.constant.envelope.fade_length = 0;//0x100;
-	mEffConstant.u.constant.envelope.fade_level = 0;
-	mEffConstant.trigger.button = 0;
-	mEffConstant.trigger.interval = 0;
-	mEffConstant.replay.length = 0x7FFFUL;  /* mseconds */
-	mEffConstant.replay.delay = 0;
+	mEffect.direction = 0x4000;
+	mEffect.u.constant.envelope.attack_length = 0;//0x100;
+	mEffect.u.constant.envelope.attack_level = 0;
+	mEffect.u.constant.envelope.fade_length = 0;//0x100;
+	mEffect.u.constant.envelope.fade_level = 0;
+	mEffect.trigger.button = 0;
+	mEffect.trigger.interval = 0;
+	mEffect.replay.length = 0x7FFFUL;  /* mseconds */
+	mEffect.replay.delay = 0;
 
 	mEffRumble.type = FF_RUMBLE;
 	mEffRumble.u.rumble.strong_magnitude = 0;
@@ -65,23 +69,39 @@ EvdevFF::EvdevFF(int fd): mHandle(fd), mUseRumble(false)
 	mEffRumble.replay.delay = 0;
 	mEffRumble.id = -1;
 
-	SetGain(75);
+	SetGain(100);
 	SetAutoCenter(0);
 }
 
 EvdevFF::~EvdevFF()
 {
-	if (mEffConstant.id != -1 && ioctl(mHandle, EVIOCRMFF, mEffConstant.id) == -1)
-	{
+	if (mEffIds[EFF_CONSTANT] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[EFF_CONSTANT]) == -1) {
 		OSDebugOut("Failed to unload constant force effect.\n");
 	}
 
-	if (mEffRumble.id != -1 && ioctl(mHandle, EVIOCRMFF, mEffRumble.id) == -1)
-	{
+	if (mEffIds[EFF_SPRING] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[EFF_SPRING]) == -1) {
+		OSDebugOut("Failed to unload spring force effect.\n");
+	}
+
+	if (mEffIds[EFF_DAMPER] != -1 && ioctl(mHandle, EVIOCRMFF, mEffIds[EFF_DAMPER]) == -1) {
+		OSDebugOut("Failed to unload damper force effect.\n");
+	}
+
+	if (mEffRumble.id != -1 && ioctl(mHandle, EVIOCRMFF, mEffRumble.id) == -1) {
 		OSDebugOut("Failed to unload rumble effect.\n");
 	}
 }
 
+void EvdevFF::DisableForce(EffectID force)
+{
+	struct input_event play;
+	play.type = EV_FF;
+	play.code = mEffIds[force];
+	play.value = 0;
+	if (write(mHandle, (const void*) &play, sizeof(play)) == -1) {
+		OSDebugOut("Stop effect failed: %s\n", strerror(errno));
+	}
+}
 
 void EvdevFF::SetConstantForce(int force)
 {
@@ -90,13 +110,16 @@ void EvdevFF::SetConstantForce(int force)
 	play.value = 1;
 
 	if (!mUseRumble) {
-		mEffConstant.u.constant.level = -(127-force) * 0x8000 / 127;
-		OSDebugOut("force: %d, level: %d\n", force, mEffConstant.u.constant.level);
+		mEffect.type = FF_CONSTANT;
+		mEffect.id = mEffIds[EFF_CONSTANT];
+		mEffect.u.constant.level = ff_lg_u8_to_s16(force);
+		OSDebugOut("force: %d, level: %d\n", force, mEffect.u.constant.level);
 
-		if (ioctl(mHandle, EVIOCSFF, &(mEffConstant)) < 0) {
+		if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
 			OSDebugOut("Failed to upload constant effect: %s\n", strerror(errno));
 		}
-		play.code = mEffConstant.id;
+		play.code = mEffect.id;
+		mEffIds[EFF_CONSTANT] = mEffect.id;
 	} else {
 
 		mEffRumble.u.rumble.weak_magnitude = 0;
@@ -115,6 +138,7 @@ void EvdevFF::SetConstantForce(int force)
 
 		if (ioctl(mHandle, EVIOCSFF, &(mEffRumble)) < 0) {
 			OSDebugOut("Failed to upload constant effect: %s\n", strerror(errno));
+			return;
 		}
 		play.code = mEffRumble.id;
 	}
@@ -125,20 +149,109 @@ void EvdevFF::SetConstantForce(int force)
 
 }
 
-void EvdevFF::DisableConstantForce()
+void EvdevFF::SetSpringForce(const spring& force, int caps)
 {
 	struct input_event play;
 	play.type = EV_FF;
-	play.code = mEffConstant.id;
-	play.value = 0;
+	play.value = 1;
+
+	mEffect.type = FF_SPRING;
+	mEffect.id = mEffIds[EFF_SPRING];
+	mEffect.u.condition[0].left_saturation = ff_lg_u8_to_u16(force.clip);
+	mEffect.u.condition[0].right_saturation = ff_lg_u8_to_u16(force.clip);
+	mEffect.u.condition[0].left_coeff =
+		ff_lg_get_condition_coef(caps, force.k1, force.s1);
+	mEffect.u.condition[0].right_coeff =
+		ff_lg_get_condition_coef(caps, force.k2, force.s2);
+
+	if (caps & FF_LG_CAPS_HIGH_RES_DEADBAND)
+	{
+		uint16_t d2 = ff_lg_get_spring_deadband(caps, force.dead2, (force.s2 >> 1) & 0x7);
+		uint16_t d1 = ff_lg_get_spring_deadband(caps, force.dead1, (force.s1 >> 1) & 0x7);
+		mEffect.u.condition[0].center = ff_lg_u16_to_s16((d1 + d2) / 2);
+		mEffect.u.condition[0].deadband = d2 - d1;
+	}
+	else
+	{
+		mEffect.u.condition[0].center = ff_lg_u8_to_s16((force.dead1 + force.dead2) / 2);
+		mEffect.u.condition[0].deadband = ff_lg_u8_to_u16(force.dead2 - force.dead1);
+	}
+
+	if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
+		OSDebugOut("Failed to upload spring effect: %s\n", strerror(errno));
+		return;
+	}
+
+	play.code = mEffect.id;
+	mEffIds[EFF_SPRING] = mEffect.id;
+
 	if (write(mHandle, (const void*) &play, sizeof(play)) == -1) {
-		OSDebugOut("Stop effect failed: %s\n", strerror(errno));
+		OSDebugOut("Play effect failed: %s\n", strerror(errno));
 	}
 }
 
-void EvdevFF::SetSpringForce(int force)
+void EvdevFF::SetDamperForce(const damper& force, int caps)
 {
+	struct input_event play;
+	play.type = EV_FF;
+	play.value = 1;
 
+	mEffect.type = FF_DAMPER;
+	mEffect.id = mEffIds[EFF_DAMPER];
+	mEffect.u.condition[0].left_saturation = ff_lg_get_damper_clip(caps, force.clip);
+	mEffect.u.condition[0].right_saturation = ff_lg_get_damper_clip(caps, force.clip);
+	mEffect.u.condition[0].left_coeff =
+		ff_lg_get_condition_coef(caps, force.k1, force.s1);
+	mEffect.u.condition[0].right_coeff =
+		ff_lg_get_condition_coef(caps, force.k2, force.s2);
+	mEffect.u.condition[0].center = 0;
+	mEffect.u.condition[0].deadband = 0;
+
+	if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
+		OSDebugOut("Failed to upload damper effect: %s\n", strerror(errno));
+		return;
+	}
+
+	play.code = mEffect.id;
+	mEffIds[EFF_DAMPER] = mEffect.id;
+
+	if (write(mHandle, (const void*) &play, sizeof(play)) == -1) {
+		OSDebugOut("Play effect failed: %s\n", strerror(errno));
+	}
+}
+
+void EvdevFF::SetFrictionForce(const friction& frict)
+{
+	struct input_event play;
+	play.type = EV_FF;
+	play.value = 1;
+
+	mEffect.type = FF_FRICTION;
+	mEffect.id = mEffIds[EFF_FRICTION];
+
+	//noideaTM
+	mEffect.u.condition[0].center = 0;
+	mEffect.u.condition[0].deadband = 0;
+	int s1 = frict.s1 & 1 ? -1 : 1;
+	int s2 = frict.s2 & 1 ? -1 : 1;
+
+	mEffect.u.condition[0].left_coeff = frict.k1 * 0x7FFF / 255 * s1;
+	mEffect.u.condition[0].right_coeff = frict.k2 * 0x7FFF / 255 * s2;
+
+	mEffect.u.condition[0].left_saturation = 0x7FFF * frict.clip / 255;
+	mEffect.u.condition[0].right_saturation = mEffect.u.condition[0].left_saturation;
+
+	if (ioctl(mHandle, EVIOCSFF, &(mEffect)) < 0) {
+		OSDebugOut("Failed to upload friction effect: %s\n", strerror(errno));
+		return;
+	}
+
+	play.code = mEffect.id;
+	mEffIds[EFF_FRICTION] = mEffect.id;
+
+	if (write(mHandle, (const void*) &play, sizeof(play)) == -1) {
+		OSDebugOut("Play effect failed: %s\n", strerror(errno));
+	}
 }
 
 void EvdevFF::SetAutoCenter(int value)
@@ -165,8 +278,9 @@ void EvdevFF::SetGain(int gain /* between 0 and 100 */)
 		OSDebugOut("Failed to set gain: %s\n", strerror(errno));
 }
 
-void EvdevFF::TokenOut(ff_data *ffdata, bool hires)
+void EvdevFF::TokenOut(ff_data *ffdata, bool isDFP)
 {
+	int caps = 0;
 	OSDebugOut(TEXT("FFB %02X, %02X, %02X, %02X : %02X, %02X, %02X, %02X\n"),
 		ffdata->cmdslot, ffdata->type, ffdata->u.params[0], ffdata->u.params[1],
 		ffdata->u.params[2], ffdata->u.params[3], ffdata->u.params[4], ffdata->padd0);
@@ -223,23 +337,51 @@ void EvdevFF::TokenOut(ff_data *ffdata, bool hires)
 					}
 				}
 				break;
-			//case FTYPE_SPRING:
-			//case FTYPE_HIGH_RESOLUTION_SPRING:
-				//SetSpringForce(NormalizeSteering(mWheelData.steering, mType), ffdata->u.spring, hires);
-				//break;
+			case FTYPE_SPRING:
+				SetSpringForce(ffdata->u.spring, isDFP ? 0 : FF_LG_CAPS_OLD_LOW_RES_COEF);
+				break;
+			case FTYPE_HIGH_RESOLUTION_SPRING:
+				SetSpringForce(ffdata->u.spring, FF_LG_CAPS_HIGH_RES_COEF | FF_LG_CAPS_HIGH_RES_DEADBAND);
+				break;
 			case FTYPE_VARIABLE: //Ramp-like
 				//SetRampVariable(ffdata->u.variable);
-				SetConstantForce(ffdata->u.params[0]);
+				//SetConstantForce(ffdata->u.params[0]);
+				static int warned = 0;
+				if (slots & (1 << 0)) {
+					if (ffdata->u.variable.t1 && ffdata->u.variable.s1) {
+						if (warned == 0) {
+							OSDebugOut("variable force cannot be converted to constant force (l1=%hu, t1=%hu, s1=%hu, d1=%hu\n",
+								ffdata->u.variable.l1, ffdata->u.variable.t1, ffdata->u.variable.s1, ffdata->u.variable.d1);
+							warned = 1;
+						}
+					} else {
+						SetConstantForce(ffdata->u.variable.l1);
+					}
+				}
+				else if (slots & (1 << 2)) {
+					if (ffdata->u.variable.t2 && ffdata->u.variable.s2) {
+						if (warned == 0) {
+							OSDebugOut("variable force cannot be converted to constant force (l2=%hu, t2=%hu, s2=%hu, d2=%hu\n",
+								ffdata->u.variable.l2, ffdata->u.variable.t2, ffdata->u.variable.s2, ffdata->u.variable.d2);
+							warned = 1;
+						}
+					} else {
+						SetConstantForce(ffdata->u.variable.l2);
+					}
+				}
 				break;
-			//case FTYPE_FRICTION:
-				//SetFrictionForce(ffdata->u.friction);
-				//break;
-			//case FTYPE_DAMPER:
-				//SetDamper(ffdata->u.damper, false);
-				//break;
-			//case FTYPE_HIGH_RESOLUTION_DAMPER:
-				//SetDamper(ffdata->u.damper, hires);
-				//break;
+			case FTYPE_FRICTION:
+				SetFrictionForce(ffdata->u.friction);
+				break;
+			case FTYPE_DAMPER:
+				SetDamperForce(ffdata->u.damper, 0);
+				break;
+			case FTYPE_HIGH_RESOLUTION_DAMPER:
+				caps = FF_LG_CAPS_HIGH_RES_COEF;
+				if (isDFP)
+					caps |= FF_LG_CAPS_DAMPER_CLIP;
+				SetDamperForce(ffdata->u.damper, caps);
+				break;
 			default:
 				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
 				break;
@@ -248,44 +390,36 @@ void EvdevFF::TokenOut(ff_data *ffdata, bool hires)
 		break;
 		case CMD_STOP: //0x03
 		{
-			if (slots == 0x0F) //disable all effects, usually on startup
+			for (int i = 0; i < 4; i++)
 			{
-				DisableConstantForce();
-				//SetSpringForce(DI_FFNOMINALMAX + 1, spring { 0 }, hires);
-			}
-			else
-			{
-				for (int i = 0; i < 4; i++)
+				if (slots & (1 << i))
 				{
-					if (slots & (1 << i))
+					switch (mFFstate.slot_type[i])
 					{
-						switch (mFFstate.slot_type[i])
-						{
-						case FTYPE_CONSTANT:
-							DisableConstantForce();
-							break;
-						case FTYPE_VARIABLE:
-							//DisableRamp();
-							DisableConstantForce();
-							break;
-						//case FTYPE_SPRING:
-						//case FTYPE_HIGH_RESOLUTION_SPRING:
-							//DisableSpring();
-							//break;
-						//case FTYPE_AUTO_CENTER_SPRING:
-							//DisableSpring();
-							//break;
-						//case FTYPE_FRICTION:
-							//DisableFriction();
-							//break;
-						//case FTYPE_DAMPER:
-						//case FTYPE_HIGH_RESOLUTION_DAMPER:
-							//DisableDamper();
-							//break;
-						default:
-							OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
-							break;
-						}
+					case FTYPE_CONSTANT:
+						DisableForce(EFF_CONSTANT);
+						break;
+					case FTYPE_VARIABLE:
+						//DisableRamp();
+						DisableForce(EFF_CONSTANT);
+						break;
+					case FTYPE_SPRING:
+					case FTYPE_HIGH_RESOLUTION_SPRING:
+						DisableForce(EFF_SPRING);
+						break;
+					//case FTYPE_AUTO_CENTER_SPRING:
+						//DisableSpring();
+						//break;
+					case FTYPE_FRICTION:
+						DisableForce(EFF_FRICTION);
+						break;
+					case FTYPE_DAMPER:
+					case FTYPE_HIGH_RESOLUTION_DAMPER:
+						DisableForce(EFF_DAMPER);
+						break;
+					default:
+						OSDebugOut(TEXT("CMD_STOP: unhandled force type 0x%02X in slot 0x%02X\n"), ffdata->type, slots);
+						break;
 					}
 				}
 			}
@@ -334,3 +468,5 @@ void EvdevFF::TokenOut(ff_data *ffdata, bool hires)
 			ffdata->type, ffdata->u.params[0], ffdata->u.params[1]);
 	}
 }
+
+}} //namespace

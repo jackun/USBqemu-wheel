@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <vector>
 #include <map>
-#include <atomic>
 #include <sstream>
 
 #include "stdio.h"
@@ -22,10 +21,16 @@
 #include "stdio.h"
 #include "../../configuration.h"
 #include "../../osdebugout.h"
+#include "di.h"
 
-static std::atomic<int> refCount (0);
+//dialog window stuff
+//HINSTANCE hInstance = NULL;
+extern HINSTANCE hInst;
+extern HWND gsWnd;
+
+namespace usb_pad { namespace dx {
+
 DWORD LOG = 0;
-DWORD INVERTFORCES[2] = { 0 };
 DWORD BYPASSCAL = 0;
 
 TCHAR	*pStr, strPath[255], strTemp[255];
@@ -33,12 +38,7 @@ static bool useRamp = false;
 
 char key[255]={0};
 
-//dialog window stuff
-//HINSTANCE hInstance = NULL;
-extern HINSTANCE hInst;
-
 bool dialogOpen = false;
-extern HWND gsWnd;
 HWND hWin = NULL;
 DWORD pid = 0;
 DWORD old = 0;
@@ -68,23 +68,6 @@ HDC m_hAADC;
 HBITMAP m_hOldMemBitmap;
 HBITMAP m_hMemBitmap;
 HDC m_hMemDC;
-
-
-
-
-//dinput control mappings
-
-const DWORD numc = 20; //total control maps
-
-LONG AXISID[2][numc] = { { 0 } };
-LONG INVERT[2][numc] = { { 0 } };
-LONG HALF[2][numc] = { { 0 } };
-LONG BUTTON[2][numc] = { { 0 } };
-LONG LINEAR[2][numc] = { { 0 } };
-LONG OFFSET[2][numc] = { { 0 } };
-LONG DEADZONE[2][numc] = { { 0 } };
-LONG GAINZ[2][1] = { { 0 } };
-LONG FFMULTI[2][1] = { { 0 } };
 
 
 //label enum
@@ -162,15 +145,15 @@ void GetID(TCHAR * name)
 	::GetWindowThreadProcessId(hWin, &pid);
 }
 
-void SaveMain(int port)
+void SaveMain(int port, const char *dev_type)
 {
 	GetIniFile(strMySystemFile);
 
 	swprintf_s(strTemp, L"%u", LOG);WriteToFile(L"MAIN", L"LOG", strTemp);
 	swprintf_s(strTemp, L"%u", BYPASSCAL);WriteToFile(L"MAIN", L"BYPASSCAL", strTemp);
 
-	wchar_t section[128];
-	swprintf_s(section, L"CONTROLS %d", port);
+	wchar_t section[256];
+	swprintf_s(section, L"%S CONTROLS %d", dev_type, port);
 
 	swprintf_s(strTemp, L"%u", INVERTFORCES[port]); WriteToFile(section, L"INVERTFORCES", strTemp);
 
@@ -187,12 +170,16 @@ void SaveMain(int port)
 	swprintf_s(strTemp, L"%i", GAINZ[port][0]); WriteToFile(section, TEXT("GAINZ"), strTemp);
 	swprintf_s(strTemp, L"%i", FFMULTI[port][0]); WriteToFile(section, TEXT("FFMULTI"), strTemp);
 	//only for config dialog
-	CONFIGVARIANT var(L"UseRamp", useRamp);
-	SaveSetting(port, "dinput", var);
+	SaveSetting(dev_type, port, "dinput", TEXT("UseRamp"), useRamp);
 }
 
-void LoadMain(int port)
+void LoadMain(int port, const char *dev_type)
 {
+	if (countof(AXISID) <= port)
+	{
+		assert(port < countof(AXISID));
+		return;
+	}
 	memset(AXISID[port], 0xFF, sizeof(LONG)*numc);
 	memset(INVERT[port], 0xFF, sizeof(LONG)*numc);
 	memset(HALF[port], 0xFF, sizeof(LONG)*numc);
@@ -205,7 +192,7 @@ void LoadMain(int port)
 	if (!fp)
 	{
 		CreateDirectory(L"inis",NULL);
-		SaveMain(port);//save
+		SaveMain(port, dev_type);//save
 	}
 	else
 		fclose(fp);
@@ -216,18 +203,18 @@ void LoadMain(int port)
 	if (ReadFromFile(L"MAIN", L"LOG", szText)) LOG = wcstol(szText, NULL, 10);
 	if (ReadFromFile(L"MAIN", L"BYPASSCAL", szText)) BYPASSCAL = wcstol(szText, NULL, 10);
 
-	wchar_t section[128];
-	swprintf_s(section, L"CONTROLS %d", port);
+	wchar_t section[256];
+	swprintf_s(section, L"%S CONTROLS %d", dev_type, port);
 
 	if (ReadFromFile(section, L"INVERTFORCES", szText)) INVERTFORCES[port] = wcstol(szText, NULL, 10);
 	for(int i=0; i<numc;i++){
-		swprintf_s(text, TEXT("AXISID%i"), i); if (ReadFromFile(section, text, szText)) AXISID[port][i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("INVERT%i"), i); if (ReadFromFile(section, text, szText)) INVERT[port][i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("HALF%i"), i); if (ReadFromFile(section, text, szText)) HALF[port][i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("BUTTON%i"), i); if (ReadFromFile(section, text, szText)) BUTTON[port][i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("LINEAR%i"), i); if (ReadFromFile(section, text, szText)) LINEAR[port][i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("OFFSET%i"), i); if (ReadFromFile(section, text, szText)) OFFSET[port][i] = wcstol(szText, NULL, 10);
-		swprintf_s(text, TEXT("DEADZONE%i"), i); if (ReadFromFile(section, text, szText)) DEADZONE[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"AXISID%i", i); if (ReadFromFile(section, text, szText)) AXISID[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"INVERT%i", i); if (ReadFromFile(section, text, szText)) INVERT[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"HALF%i",   i); if (ReadFromFile(section, text, szText)) HALF[port][i]   = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"BUTTON%i", i); if (ReadFromFile(section, text, szText)) BUTTON[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"LINEAR%i", i); if (ReadFromFile(section, text, szText)) LINEAR[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"OFFSET%i", i); if (ReadFromFile(section, text, szText)) OFFSET[port][i] = wcstol(szText, NULL, 10);
+		swprintf_s(text, L"DEADZONE%i", i); if (ReadFromFile(section, text, szText)) DEADZONE[port][i] = wcstol(szText, NULL, 10);
 	}
 
 	if (ReadFromFile(section, TEXT("GAINZ"), szText))
@@ -241,17 +228,14 @@ void LoadMain(int port)
 		FFMULTI[port][0] = 0;
 
 	//only for config dialog
-	CONFIGVARIANT var(L"UseRamp", CONFIG_TYPE_BOOL);
-	if (LoadSetting(port, "dinput", var))
-		useRamp = var.boolValue;
+	LoadSetting(dev_type, port, "dinput", TEXT("UseRamp"), useRamp);
 }
 
 //use direct input
-#include "di.h"
-void InitDI(int port)
+void InitDI(int port, const char *dev_type)
 {
 
-	LoadMain(port);
+	LoadMain(port, dev_type);
 	if(gsWnd) {
 		hWin = gsWnd;
 	} else {
@@ -309,3 +293,5 @@ float GetControl(int port, int id,  bool axisbutton)
 	}
 	return 0.f;
 }
+
+}} //namespace

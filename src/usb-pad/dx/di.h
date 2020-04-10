@@ -1,10 +1,15 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
+#include <atomic>
+#include "usb-pad/lg/lg_ff.h"
 
 #define SAFE_DELETE(p)  { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }
 
 #define SAMPLE_BUFFER_SIZE 16
+namespace usb_pad { namespace dx {
+
+static std::atomic<int> refCount (0);
 
 LPDIRECTINPUT8       g_pDI       = NULL;
 LPDIRECTINPUTDEVICE8 g_pKeyboard = NULL;
@@ -43,7 +48,22 @@ DIJOYSTATE2 jsi[10] = {0};           // DInput joystick initial state
 
 DWORD numj = 0;							//current attached joysticks
 DWORD maxj = 10;						//maximum attached joysticks
+const DWORD PRECMULTI = 100;
 
+//dinput control mappings
+
+const DWORD numc = 20; //total control maps
+
+LONG AXISID[2][numc] = { { 0 } };
+LONG INVERT[2][numc] = { { 0 } };
+LONG HALF[2][numc] = { { 0 } };
+LONG BUTTON[2][numc] = { { 0 } };
+LONG LINEAR[2][numc] = { { 0 } };
+LONG OFFSET[2][numc] = { { 0 } };
+LONG DEADZONE[2][numc] = { { 0 } };
+LONG GAINZ[2][1] = { { 0 } };
+LONG FFMULTI[2][1] = { { 0 } };
+DWORD INVERTFORCES[2] = { 0 };
 
 bool listening = false;
 DWORD listenend = 0;
@@ -78,6 +98,7 @@ void ReleaseFFB(int port)
 
 void CreateFFB(int port, DWORD joy)
 {
+	HRESULT hres = 0;
 	ReleaseFFB(port);
 
 	if (joy >= numj)
@@ -100,7 +121,7 @@ void CreateFFB(int port, DWORD joy)
 		eff.dwGain = MIN(MAX(GAINZ[port][0], 0), 10000);
 		eff.dwTriggerButton = DIEB_NOTRIGGER;
 		eff.dwTriggerRepeatInterval = 0;
-		eff.cAxes = ARRAY_SIZE(rgdwAxes);
+		eff.cAxes = countof(rgdwAxes);
 		eff.rgdwAxes = rgdwAxes;
 		eff.rglDirection = rglDirection;
 		eff.dwStartDelay = 0;
@@ -116,26 +137,26 @@ void CreateFFB(int port, DWORD joy)
 
 		eff.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
 		eff.lpvTypeSpecificParams = &cfw;
-		g_pJoysticks[joy]->CreateEffect(GUID_ConstantForce, &eff, &g_pEffect[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_ConstantForce, &eff, &g_pEffect[port], NULL);
 
 		cSpring.lNegativeCoefficient = 0;
 		cSpring.lPositiveCoefficient = 0;
 
 		effSpring.cbTypeSpecificParams = sizeof(DICONDITION);
 		effSpring.lpvTypeSpecificParams = &cSpring;
-		g_pJoysticks[joy]->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
 
 		effFriction.cbTypeSpecificParams = sizeof(DICONDITION);
 		effFriction.lpvTypeSpecificParams = &cFriction;
-		g_pJoysticks[joy]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
 
 		effRamp.cbTypeSpecificParams = sizeof(DIRAMPFORCE);
 		effRamp.lpvTypeSpecificParams = &cRamp;
-		g_pJoysticks[joy]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
 
 		effDamper.cbTypeSpecificParams = sizeof(DICONDITION);
 		effDamper.lpvTypeSpecificParams = &cDamper;
-		g_pJoysticks[joy]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
+		hres = g_pJoysticks[joy]->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
 
 		FFBindex[port] = joy;
 		FFB[port] = true;
@@ -185,11 +206,21 @@ BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
     HRESULT hr;
 
     // Obtain an interface to the enumerated joystick.
-    hr = g_pDI->CreateDevice( pdidInstance->guidInstance, &g_pJoysticks[numj], NULL );
+	if (FAILED(hr = g_pDI->CreateDevice(pdidInstance->guidInstance, &g_pJoysticks[numj], NULL))) {
+		USB_LOG("DINPUT: joystick[%d]: CreateDevice failed: %08x\n", numj, hr);
+	}
+	else
+	{
+		USB_LOG("DINPUT: joystick[%d]: CreateDevice(%p)\n", numj, g_pJoysticks[numj]);
+	}
+	
 	numj++;
 
 	//too many joysticks please stop
-	if (numj >= maxj)return DIENUM_STOP;
+	if (numj >= maxj) {
+		USB_LOG("DINPUT: joystick limit reached (%d), stopping enumeration\n", numj);
+		return DIENUM_STOP;
+	}
 
 	return DIENUM_CONTINUE;
 
@@ -251,6 +282,7 @@ void PollDevices()
 		hr = g_pKeyboard->GetDeviceState( sizeof(diks), diks );
 		if( FAILED(hr) )
 		{
+			USB_LOG("DINPUT: g_pKeyboard->GetDeviceState() failed, reacquiring: %08x\n", hr);
 			g_pKeyboard->Acquire();
 		}
 	}
@@ -261,8 +293,10 @@ void PollDevices()
 		ZeroMemory( &dims2, sizeof(dims2) );
 		hr = g_pMouse->GetDeviceState( sizeof(DIMOUSESTATE2), &dims2 );
 
-		if( FAILED(hr) )
+		if (FAILED(hr)) {
+			USB_LOG("DINPUT: g_pMouse->GetDeviceState() failed, reacquiring: %08x\n", hr);
 			g_pMouse->Acquire();
+		}
 	}
 
 	//JOYSTICK
@@ -272,13 +306,15 @@ void PollDevices()
 			hr = g_pJoysticks[i]->Poll();
 			if( FAILED(hr) )
 			{
+				USB_LOG("DINPUT: g_pJoysticks[%d]->Poll() failed, reacquiring\n", i);
 				g_pJoysticks[i]->Acquire();
-
 			}
 			else
 			{
-				g_pJoysticks[i]->GetDeviceState( sizeof(DIJOYSTATE2), &js[i] );
-
+				hr = g_pJoysticks[i]->GetDeviceState( sizeof(DIJOYSTATE2), &js[i] );
+				if (FAILED(hr)) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->GetDeviceState() failed: %08x\n", i, hr);
+				}
 			}
 		}
 	}
@@ -410,11 +446,12 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead)
 	//ugly, but it works gooood
 
 	float hs=0;
-	if(linear>0){hs = (float)(1.0-((linear*2) *(float)0.01));}	//format+shorten variable
-	else{hs = (float)(1.0-(abs(linear*2) *(float)0.01));}		//format+shorten variable
-	float hs2 = (float)(offset+50) * (float)0.01;				//format+shorten variable
+	float linearf = float(linear) / PRECMULTI;
+	if(linear>0){hs = (float)(1.0-((linearf*2) *(float)0.01));}	//format+shorten variable
+	else{hs = (float)(1.0-(abs(linearf*2) *(float)0.01));}		//format+shorten variable
+	float hs2 = (float)(offset+50 * PRECMULTI) / PRECMULTI * (float)0.01;				//format+shorten variable
 	float v = input;											//format+shorten variable
-	float d = (dead) * (float)0.005;							//format+shorten variable
+	float d = float(dead) / PRECMULTI * (float)0.005;							//format+shorten variable
 
 	//format and apply deadzone
 	v=(v*(1.0f+(d*2.0f)))-d;
@@ -690,7 +727,7 @@ void SetRampVariable(int port, int forceids, const variable& var)
 	// Force0 only (Force2 is Y axis?)
 	if (forceids & 1)
 	{
-		int force = var.initial1;
+		int force = var.l1;
 		int dir = (var.d1 & 1 ? 1 : -1);
 
 		if (INVERTFORCES[port])
@@ -788,6 +825,38 @@ void SetSpringForce(int port, const spring& spring, bool hires, bool isdfp)
 			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
 
+void SetSpringForceGIMX(int port, const spring& spring, int caps)
+{
+	cSpring.dwNegativeSaturation = spring.clip * DI_FFNOMINALMAX / 255;
+	cSpring.dwPositiveSaturation = cSpring.dwNegativeSaturation;
+
+	cSpring.lNegativeCoefficient =
+		ff_lg_get_condition_coef(caps, spring.k1, spring.s1, DI_FFNOMINALMAX);
+	cSpring.lPositiveCoefficient =
+		ff_lg_get_condition_coef(caps, spring.k2, spring.s2, DI_FFNOMINALMAX);
+
+	if (caps & FF_LG_CAPS_HIGH_RES_DEADBAND)
+	{
+		uint16_t d2 = ff_lg_get_spring_deadband(caps, spring.dead2, (spring.s2 >> 1) & 0x7);
+		uint16_t d1 = ff_lg_get_spring_deadband(caps, spring.dead1, (spring.s1 >> 1) & 0x7);
+		cSpring.lOffset = ff_lg_u16_to_s16((d1 + d2) / 2) * DI_FFNOMINALMAX / 0x7FFF;
+		cSpring.lDeadBand = (d2 - d1) * DI_FFNOMINALMAX / 0x7FFF;
+	}
+	else
+	{
+		cSpring.lOffset = ff_lg_u8_to_s16((spring.dead1 + spring.dead2) / 2, DI_FFNOMINALMAX);
+		cSpring.lDeadBand = ff_lg_u8_to_u16(spring.dead2 - spring.dead1, DI_FFNOMINALMAX);
+	}
+
+	OSDebugOut(TEXT("spring: %d  %d coeff:%d/%d sat:%d/%d\n"),
+		cSpring.lOffset, cSpring.lDeadBand,
+		cSpring.lNegativeCoefficient, cSpring.lPositiveCoefficient,
+		cSpring.dwNegativeSaturation, cSpring.dwPositiveSaturation);
+
+	if (g_pEffectSpring[port])
+			g_pEffectSpring[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
 void DisableSpring(int port)
 {
 	if (g_pEffectSpring[port])
@@ -809,7 +878,22 @@ void SetDamper(int port, const damper& damper, bool isdfp)
 	}
 
 	if (g_pEffectDamper[port])
-		g_pEffectDamper[port]->SetParameters(&effSpring, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+		g_pEffectDamper[port]->SetParameters(&effDamper, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+}
+
+void SetDamperGIMX(int port, const damper& damper, int caps)
+{
+	cDamper.lNegativeCoefficient = ff_lg_get_condition_coef(caps, damper.k1, damper.s1, DI_FFNOMINALMAX);
+	cDamper.lPositiveCoefficient = ff_lg_get_condition_coef(caps, damper.k2, damper.s2, DI_FFNOMINALMAX);
+	cDamper.dwNegativeSaturation = DI_FFNOMINALMAX;
+	cDamper.dwPositiveSaturation = DI_FFNOMINALMAX;
+	cDamper.lOffset = 0;
+	cDamper.lDeadBand = 0;
+
+	OSDebugOut(TEXT("damper %d/%d\n"), cDamper.lNegativeCoefficient, cDamper.lPositiveCoefficient);
+
+	if (g_pEffectDamper[port])
+		g_pEffectDamper[port]->SetParameters(&effDamper, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
 
 void DisableDamper(int port)
@@ -849,6 +933,10 @@ void SetFrictionForce(int port, const friction& frict)
 	cFriction.dwNegativeSaturation = DI_FFNOMINALMAX * frict.clip / 255;
 	cFriction.dwPositiveSaturation = cFriction.dwNegativeSaturation;
 
+	OSDebugOut(TEXT("friction %d/%d %d\n"),
+		cFriction.lNegativeCoefficient, cFriction.lPositiveCoefficient,
+		cFriction.dwNegativeSaturation);
+
 	if (g_pEffectFriction[port])
 		g_pEffectFriction[port]->SetParameters(&effFriction, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 }
@@ -887,27 +975,32 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		// Create a DInput object
 		OSDebugOut(TEXT("DINPUT: DirectInput8Create %p\n"), hWindow);
 		if (FAILED(hr = DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION,
-			IID_IDirectInput8, (VOID**)&g_pDI, NULL)))
+			IID_IDirectInput8, (VOID**)&g_pDI, NULL))) {
+			USB_LOG("DINPUT: DirectInput8Create failed: %08x\n", hr);
 			return hr;
+		}
 
 		OSDebugOut(TEXT("DINPUT: CreateDevice Keyboard %p\n"), hWindow);
 		//Create Keyboard
-		g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
+		hr = g_pDI->CreateDevice(GUID_SysKeyboard, &g_pKeyboard, NULL);
 		if (g_pKeyboard)
 		{
 			g_pKeyboard->SetDataFormat(&c_dfDIKeyboard);
 			g_pKeyboard->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			g_pKeyboard->Acquire();
 		}
+		USB_LOG("DINPUT: CreateDevice(keyboard@%p): %08x\n", g_pKeyboard, hr);
+
 		OSDebugOut(TEXT("DINPUT: CreateDevice Mouse %p\n"), hWindow);
 		//Create Mouse
-		g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
+		hr = g_pDI->CreateDevice(GUID_SysMouse, &g_pMouse, NULL);
 		if (g_pMouse)
 		{
 			g_pMouse->SetDataFormat(&c_dfDIMouse2);
 			g_pMouse->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			g_pMouse->Acquire();
 		}
+		USB_LOG("DINPUT: CreateDevice(mouse@%p): %08x\n", g_pMouse, hr);
 
 		//Create Joysticks
 		FFBindex[port] = -1;
@@ -915,7 +1008,9 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 		//enumerate attached only
 		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWindow);
-		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
+		if (FAILED(hr = g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY))) {
+			USB_LOG("DINPUT: EnumDevices(GAMECTRL) failed: %08x\n", hr);
+		}
 	}
 
 	++refCount;
@@ -928,13 +1023,18 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			if (refCount == 1)
 			{
 				OSDebugOut(TEXT("DINPUT: SetDataFormat Joystick %i\n"), i);
-				g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2);
+				if (FAILED(hr = g_pJoysticks[i]->SetDataFormat(&c_dfDIJoystick2))) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->SetDataFormat(DIJoystick2) failed: %08x\n", i, hr);
+				}
 				OSDebugOut(TEXT("DINPUT: SetCooperativeLevel Joystick %i\n"), i);
 			}
 
 			DIDEVCAPS diCaps;
 			diCaps.dwSize = sizeof(DIDEVCAPS);
-			g_pJoysticks[i]->GetCapabilities(&diCaps);
+			if (FAILED(hr = g_pJoysticks[i]->GetCapabilities(&diCaps))) {
+				USB_LOG("DINPUT: g_pJoysticks[%d]->GetCapabilities() failed: %08x\n", i, hr);
+				continue;
+			}
 
 			//TODO Select joystick for FFB that has X axis (assumed!!) mapped as wheel
 			int joyid = AXISID[port][0] / 8;
@@ -944,7 +1044,9 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 				//First FFB device detected
 
 				//Exclusive
-				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
+				if (FAILED(hr = g_pJoysticks[i]->SetCooperativeLevel(hWindow, DISCL_EXCLUSIVE | DISCL_BACKGROUND))) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->SetCooperativeLevel(EXCLUSIVE) failed: %08x\n", i, hr);
+				}
 
 				AutoCenter(i, false); //TODO some games set autocenter. Figure out default for ones that don't.
 
@@ -958,15 +1060,20 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 				str << instance_.guidInstance;*/
 
 			}
-			else
-				g_pJoysticks[i]->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
+			else if (FAILED(hr = g_pJoysticks[i]->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND))) {
+				USB_LOG("DINPUT: g_pJoysticks[%d]->SetCooperativeLevel(NONEXCLUSIVE) failed: %08x\n", i, hr);
+			}
 
 			if (refCount == 1)
 			{
 				OSDebugOut(TEXT("DINPUT: EnumObjects Joystick %i\n"), i);
-				g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, g_pJoysticks[i], DIDFT_ALL);
+				if (FAILED(hr = g_pJoysticks[i]->EnumObjects(EnumObjectsCallback, g_pJoysticks[i], DIDFT_ALL))) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->EnumObjects() failed: %08x\n", i, hr);
+				}
 				OSDebugOut(TEXT("DINPUT: Acquire Joystick %i\n"), i);
-				g_pJoysticks[i]->Acquire();
+				if (FAILED(hr = g_pJoysticks[i]->Acquire())) {
+					USB_LOG("DINPUT: g_pJoysticks[%d]->Acquire() failed: %08x\n", i, hr);
+				}
 			}
 		}
 	}
@@ -976,3 +1083,4 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 
 }
 
+}} //namespace

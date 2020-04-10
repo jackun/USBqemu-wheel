@@ -3,6 +3,28 @@
 
 // Annoying defines
 // ---------------------------------------------------------------------
+// make sure __POSIX__ is defined for all systems where we assume POSIX
+// compliance
+#if defined(__linux__) || defined(__APPLE__) || defined(__unix__) || defined(__CYGWIN__) || defined(__LINUX__)
+#if !defined(__POSIX__)
+#define __POSIX__ 1
+#endif
+#endif
+
+#ifdef _WIN32
+#	define CALLBACK			__stdcall
+#else
+#	define CALLBACK			__attribute__((stdcall))
+#endif
+
+#ifndef EXPORT_C_
+#ifdef _MSC_VER
+#define EXPORT_C_(type) extern "C" type CALLBACK
+#else
+#define EXPORT_C_(type) extern "C" __attribute__((stdcall,externally_visible,visibility("default"))) type
+#endif
+#endif
+
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -13,6 +35,10 @@
 #define ftello64 _ftelli64
 #define TSTDSTRING std::wstring
 
+#ifdef _MSC_VER
+typedef SSIZE_T ssize_t;
+#endif
+
 //FIXME narrow string fmt
 #ifdef UNICODE
 #define SFMTs "S"
@@ -21,6 +47,14 @@
 #endif
 
 #define __builtin_constant_p(p) false
+
+#if _UNICODE
+void SysMessageW(const wchar_t *fmt, ...);
+#define SysMessage SysMessageW
+#else
+void SysMessageA(const char *fmt, ...);
+#define SysMessage SysMessageA
+#endif
 
 #else //_WIN32
 
@@ -36,6 +70,8 @@
 #define TCHAR char
 #define wfopen fopen
 #define TSTDSTRING std::string
+
+void SysMessage(const char *fmt, ...);
 
 #endif //_WIN32
 
@@ -63,34 +99,24 @@ errno_t wcstombs_s(
 	return wcstombs_s(pReturnValue, mbstr, size, wcstr, count);
 }
 
-#if 0 //newer mingw has it defined
-template <size_t size>  
-errno_t wcsncpy_s(  
-	wchar_t (&strDest)[size],  
-	const wchar_t *strSource,  
-	size_t count
-)
-{
-	return wcsncpy_s(strDest, size, strSource, count);
-}
-#endif
-
 #endif //__MINGW32__
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x) ((sizeof(x) / sizeof((x)[0])))
 #endif
 
+#include <cstddef>
+
+template <class T, std::size_t N>
+constexpr std::size_t countof(const T (&)[N]) noexcept
+{
+    return N;
+}
+
 //TODO Idk, used only in desc.h and struct USBDescriptor should be already packed anyway
 #if defined(_WIN32) && !defined(__MINGW32__)
 #define PACK(def,name) __pragma( pack(push, 1) ) def name __pragma( pack(pop) )
 #else
 #define PACK(def,name) def __attribute__((gcc_struct, packed)) name
-#endif
-
-#ifdef _WIN64
-typedef __int64 ssize_t;
-#else
-typedef int     ssize_t;
 #endif
 #endif

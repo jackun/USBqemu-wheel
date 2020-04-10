@@ -2,6 +2,13 @@
 #define RINGBUFFER_H
 #include <algorithm> // for std::min
 #include <cstdint>
+#include <chrono>
+
+using hrc = std::chrono::high_resolution_clock;
+using ms = std::chrono::milliseconds;
+using us = std::chrono::microseconds;
+using ns = std::chrono::nanoseconds;
+using sec = std::chrono::seconds;
 
 class RingBuffer
 {
@@ -63,10 +70,16 @@ public:
 	template<typename T>
 	T* back() { return (T*)(m_data + m_end); }
 
+	long long MilliSecsSinceLastWrite()
+	{
+		return std::chrono::duration_cast<ms>(hrc::now()-mLastWrite).count();
+	}
+
 private:
 	bool m_overrun;
 	size_t m_begin, m_end, m_capacity;
 	char *m_data;
+	hrc::time_point mLastWrite = hrc::time_point(ns(0));
 };
 
 #endif

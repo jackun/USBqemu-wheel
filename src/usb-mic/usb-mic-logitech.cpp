@@ -2,8 +2,6 @@
 #include "audio.h"
 #include "../qemu-usb/desc.h"
 
-#define DEVICENAME "logitech_usbmic"
-
 namespace usb_mic_singstar {
 
 static const uint8_t logitech_mic_dev_descriptor[] = {
@@ -226,54 +224,37 @@ typedef struct SINGSTARMICMINIState {
     USBDescDevice desc_dev;
 } SINGSTARMICMINIState;
 
-class LogitechMicDevice : public SingstarDevice
+USBDevice* LogitechMicDevice::CreateDevice(int port)
 {
-public:
-	virtual ~LogitechMicDevice() {}
-	static USBDevice* CreateDevice(int port)
-	{
-		std::string api;
-		{
-			CONFIGVARIANT var(N_DEVICE_API, CONFIG_TYPE_CHAR);
-			if (LoadSetting(port, DEVICENAME, var))
-				api = var.strValue;
-		}
+	std::string api;
+	if (!LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, api))
+		return nullptr;
 
-		USBDevice* dev = SingstarDevice::CreateDevice(port, api);
-		if (!dev)
-			return NULL;
+	USBDevice* dev = SingstarDevice::CreateDevice(port, api);
+	if (!dev)
+		return nullptr;
 
-		SINGSTARMICMINIState *s = (SINGSTARMICMINIState *)dev;
-		const USBDescDevice *full = s->desc.full;
-		s->desc = {};
-		s->desc_dev = {};
+	SINGSTARMICMINIState *s = (SINGSTARMICMINIState *)dev;
+	const USBDescDevice *full = s->desc.full;
+	s->desc = {};
+	s->desc_dev = {};
 
-		s->desc.str = lt_desc_strings;
-		s->desc.full = &s->desc_dev;
+	s->desc.str = lt_desc_strings;
+	s->desc.full = &s->desc_dev;
 
-		if (usb_desc_parse_dev (logitech_mic_dev_descriptor, sizeof(logitech_mic_dev_descriptor), s->desc, s->desc_dev) < 0)
-			goto fail;
-		if (usb_desc_parse_config (logitech_mic_config_descriptor, sizeof(logitech_mic_config_descriptor), s->desc_dev) < 0)
-			goto fail;
+	if (usb_desc_parse_dev (logitech_mic_dev_descriptor, sizeof(logitech_mic_dev_descriptor), s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config (logitech_mic_config_descriptor, sizeof(logitech_mic_config_descriptor), s->desc_dev) < 0)
+		goto fail;
 
-		s->dev.klass.usb_desc       = &s->desc;
-		s->dev.klass.product_desc   = lt_desc_strings[2];
-		usb_desc_init(&s->dev);
-		return dev;
+	s->dev.klass.usb_desc       = &s->desc;
+	s->dev.klass.product_desc   = lt_desc_strings[2];
+	usb_desc_init(&s->dev);
+	return dev;
 fail:
-		s->dev.klass.unrealize (dev);
-		return NULL;
-	}
-	static const char* TypeName()
-	{
-		return DEVICENAME;
-	}
-	static const TCHAR* Name()
-	{
-		return TEXT("Logitech USB Mic");
-	}
-};
+	s->dev.klass.unrealize (dev);
+	return nullptr;
+}
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_MIC, DEVICENAME, LogitechMicDevice);
+REGISTER_DEVICE(DEVTYPE_LOGITECH_MIC, LogitechMicDevice);
 };
-#undef DEVICENAME
