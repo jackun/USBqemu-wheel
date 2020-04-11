@@ -85,7 +85,7 @@ function(enable_unity_build UB_SUFFIX SOURCE_VARIABLE_NAME)
 		FILE( APPEND ${unit_build_file} "#include <${CMAKE_CURRENT_SOURCE_DIR}/${source_file}>\n")
 	endforeach(source_file)
 	# Complement list of translation units with the name of ub
-	set(${SOURCE_VARIABLE_NAME} ${${SOURCE_VARIABLE_NAME}} ${unit_build_file} PARENT_SCOPE)  
+	set(${SOURCE_VARIABLE_NAME} ${${SOURCE_VARIABLE_NAME}} ${unit_build_file} PARENT_SCOPE)
 endfunction(enable_unity_build)
 
 # Generate version.h
@@ -220,6 +220,20 @@ SET(SRCS_HID
 	./src/usb-hid/noop.cpp
 )
 
+SET(HDRS_MIDI
+	./src/usb-midi/audio.h
+	./src/usb-midi/mididev.h
+	./src/usb-midi/midideviceproxy.h
+	./src/usb-midi/usb-midi-pc300.h
+	./src/usb-midi/mididev-noop.h
+)
+
+SET(SRCS_MIDI
+	./src/usb-midi/midideviceproxy.cpp
+	./src/usb-midi/usb-midi-pc300.cpp
+	./src/usb-midi/mididev-noop.cpp
+)
+
 # shared/global functions
 SET(HDRS_SHARED
 	./src/shared/shared.h
@@ -302,6 +316,7 @@ IF(WIN32)
 	SOURCE_GROUP("Header Files\\usb-pad" FILES ${HDRS_PAD})
 	SOURCE_GROUP("Header Files\\usb-msd" FILES ${HDRS_MSD})
 	SOURCE_GROUP("Header Files\\usb-hid" FILES ${HDRS_HID})
+	SOURCE_GROUP("Header Files\\usb-midi" FILES ${HDRS_MIDI})
 	SOURCE_GROUP("Header Files\\shared" FILES ${HDRS_SHARED})
 	SOURCE_GROUP("Header Files\\libsamplerate" FILES ${HDRS_SAMPLERATE})
 
@@ -312,6 +327,7 @@ IF(WIN32)
 	SOURCE_GROUP("Source Files\\usb-pad" FILES ${SRCS_PAD})
 	SOURCE_GROUP("Source Files\\usb-msd" FILES ${SRCS_MSD})
 	SOURCE_GROUP("Source Files\\usb-hid" FILES ${SRCS_HID})
+	SOURCE_GROUP("Source Files\\usb-midi" FILES ${SRCS_MIDI})
 	SOURCE_GROUP("Source Files\\shared" FILES ${SRCS_SHARED})
 	SOURCE_GROUP("Source Files\\libsamplerate" FILES ${SRCS_SAMPLERATE})
 
@@ -335,7 +351,7 @@ IF(WIN32)
 				get_windowssdk_library_dirs(${WINDOWSSDK_PREFERRED_DIR} BUILD_DX_LIB)
 			ENDIF(PLUGIN_FIND_WINSDK)
 		ENDIF(PLUGIN_BUILD_WITH_DXSDK)
-		
+
 		INCLUDE_DIRECTORIES(${BUILD_DX_INCLUDE})
 		LINK_DIRECTORIES(${BUILD_DX_LIB})
 		LIST(APPEND HDRS_DX
@@ -369,13 +385,13 @@ IF(WIN32)
 		)
 		SOURCE_GROUP("Header Files\\usb-pad\\Raw" FILES ${HDRS_RAW})
 		SOURCE_GROUP("Source Files\\usb-pad\\Raw" FILES ${SRCS_RAW})
-		
+
 		LIST(APPEND HDRS_PAD ${HDRS_RAW})
 		LIST(APPEND SRCS_PAD ${SRCS_RAW})
 		LIST(APPEND LIBS setupapi)
 		FILE(GLOB RAW_RCS ./src/usb-pad/raw/*.rc)
 	ENDIF(PLUGIN_BUILD_RAW)
-	
+
 	FILE(GLOB RCS ./src/Win32/*.rc)
 	FILE(GLOB DEF ./src/Win32/*.def)
 
@@ -393,7 +409,7 @@ ENDIF(WIN32)
 IF(UNIX)
 	FILE(GLOB SRCS_API_INITS ./src/*/api_init_linux.cpp)
 
-	LIST(APPEND HDRS 
+	LIST(APPEND HDRS
 		./src/linux/ini.h
 		./src/linux/actualfile.h
 		./src/linux/config.h
@@ -475,8 +491,8 @@ ENDIF()
 # Now smash it all together
 #
 
-LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_SHARED} ${HDRS_SAMPLERATE})
-LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_SHARED} ${SRCS_API_INITS})
+LIST(APPEND HDRS ${HDRS_PLG} ${HDRS_QEMU} ${HDRS_MSD} ${HDRS_MIC} ${HDRS_PAD} ${HDRS_HID} ${HDRS_MIDI} ${HDRS_SHARED} ${HDRS_SAMPLERATE})
+LIST(APPEND SRCS ${SRCS_PLG} ${SRCS_QEMU} ${SRCS_MSD} ${SRCS_MIC} ${SRCS_PAD} ${SRCS_HID} ${SRCS_MIDI} ${SRCS_SHARED} ${SRCS_API_INITS})
 
 IF(PLUGIN_ENABLE_UNITY_BUILD)
 enable_unity_build(${TargetName} SRCS)
