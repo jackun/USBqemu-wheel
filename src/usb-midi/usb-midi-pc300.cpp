@@ -31,29 +31,7 @@
 
 #include "audio.h"
 
-#define BUFFER_FRAMES 200
-
-/*
- * A Basic Audio Device uses these specific values
- */
-#define USBAUDIO_PACKET_SIZE     200 //192
-#define USBAUDIO_SAMPLE_RATE     48000
-#define USBAUDIO_PACKET_INTERVAL 1
-
 namespace usb_midi_pc300 {
-
-/*
- * A USB audio device supports an arbitrary number of alternate
- * interface settings for each interface.  Each corresponds to a block
- * diagram of parameterized blocks.  This can thus refer to things like
- * number of channels, data rates, or in fact completely different
- * block diagrams.  Alternative setting 0 is always the null block diagram,
- * which is used by a disabled device.
- */
-enum usb_audio_altset : int8_t {
-    ALTSET_OFF  = 0x00,         /* No endpoint */
-    ALTSET_ON   = 0x01,         /* Single endpoint */
-};
 
 typedef struct PC300KBDState {
     USBDevice dev;
@@ -67,20 +45,14 @@ typedef struct PC300KBDState {
     struct freeze {
         int port;
         int intf;
-
-        enum usb_audio_altset altset;
     } f; //freezable
 
     /* properties */
     uint32_t debug;
-    std::vector<int16_t> buffer[2];
 } PC300KBDState;
 
 static const USBDescStrings desc_strings = {
     "",
-    "Nam Tai E&E Products Ltd.",
-    "USBMIC",
-    "310420811",
 };
 
 static const uint8_t pc300_kbd_dev_descriptor[] = {
@@ -301,7 +273,7 @@ static void pc300_kbd_set_interface(USBDevice *dev, int intf,
 {
 	PC300KBDState *s = (PC300KBDState *)dev;
 	s->f.intf = alt_new;
-	OSDebugOut(TEXT("singstar: intf:%d alt:%d -> %d\n"), intf, alt_old, alt_new);
+	OSDebugOut(TEXT("pc300: intf:%d alt:%d -> %d\n"), intf, alt_old, alt_new);
 }
 
 static void pc300_kbd_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
@@ -310,7 +282,7 @@ static void pc300_kbd_handle_control(USBDevice *dev, USBPacket *p, int request, 
     PC300KBDState *s = (PC300KBDState *)dev;
     int ret = 0;
 
-	OSDebugOut(TEXT("singstar: req %04X val: %04X idx: %04X len: %d\n"), request, value, index, length);
+	OSDebugOut(TEXT("pc300: req %04X val: %04X idx: %04X len: %d\n"), request, value, index, length);
 
     ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
     if (ret >= 0) {
@@ -333,11 +305,9 @@ static void pc300_kbd_handle_data(USBDevice *dev, USBPacket *p)
 
     switch(p->pid) {
     case USB_TOKEN_IN:
-        //fprintf(stderr, "token in ep: %d len: %zd\n", devep, p->iov.size);
-		//OSDebugOut(TEXT("token in ep: %d len: %zd\n"), devep, p->iov.size);
         if (devep == 1) {
 			int32_t *dst = nullptr;
-			std::vector<int32_t> dst_alloc(0); //TODO
+			std::vector<int32_t> dst_alloc(0);
 			size_t len = p->iov.size;
 
 			if (p->iov.niov == 1) {
@@ -349,8 +319,8 @@ static void pc300_kbd_handle_data(USBDevice *dev, USBPacket *p)
 
 			memset(dst, 0, len);
 
-			OSDebugOut(TEXT("data len: %d bytes (%d messages)\n"), len, len / sizeof(int32_t));
-
+      // The game can't process packets quick enough if you send a ton at once
+      // so instead just return 1 MIDI command per update
       uint32_t curValue = 0xffffffff;
       if (s->midisrc) {
         curValue = s->midisrc->PopMidiCommand();
@@ -393,6 +363,7 @@ static void pc300_kbd_handle_destroy(USBDevice *dev)
       s->midisrc = NULL;
     }
 
+    // TODO: Why does this throw an exception?
     // if(s->midisrcproxy) {
     //   s->midisrcproxy->AudioDeinit();
     // }
@@ -443,7 +414,7 @@ USBDevice* MidiPc300Device::CreateDevice(int port, const std::string& api)
 	s->midisrcproxy = RegisterMidiDevice::instance().Proxy(api);
 	if (!s->midisrcproxy)
 	{
-		SysMessage(TEXT("singstar: Invalid MIDI API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
+		SysMessage(TEXT("pc300: Invalid MIDI API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
 		return NULL;
 	}
 
@@ -452,8 +423,6 @@ USBDevice* MidiPc300Device::CreateDevice(int port, const std::string& api)
 
 	s->desc.full = &s->desc_dev;
 	s->desc.str = desc_strings;
-
-  OSDebugOut(TEXT("pc300_kbd_config_descriptor: %d bytes\n"), sizeof(pc300_kbd_config_descriptor));
 
 	if (usb_desc_parse_dev (pc300_kbd_dev_descriptor, sizeof(pc300_kbd_dev_descriptor), s->desc, s->desc_dev) < 0) {
     OSDebugOut(TEXT("Failed usb_desc_parse_dev\n"));
@@ -475,7 +444,7 @@ USBDevice* MidiPc300Device::CreateDevice(int port, const std::string& api)
 	s->dev.klass.open           = pc300_kbd_handle_open;
 	s->dev.klass.close          = pc300_kbd_handle_close;
 	s->dev.klass.usb_desc       = &s->desc;
-	s->dev.klass.product_desc   = desc_strings[2];
+	s->dev.klass.product_desc   = desc_strings[0];
 
 	usb_desc_init(&s->dev);
 	usb_ep_init(&s->dev);
@@ -517,5 +486,5 @@ int MidiPc300Device::Freeze(int mode, USBDevice *dev, void *data)
 	return -1;
 }
 
-REGISTER_DEVICE(DEVTYPE_SINGSTAR, MidiPc300Device);
+REGISTER_DEVICE(DEVTYPE_MIDIKBD, MidiPc300Device);
 };

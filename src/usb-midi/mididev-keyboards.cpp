@@ -20,7 +20,6 @@ struct KeyboardsSettings
 	int port;
 	const char* dev_type;
 	MidiDeviceInfoList sourceDevs;
-	MidiDeviceInfoList sinkDevs;
 	std::wstring selectedDev;
 	int32_t midiOffset;
 };
