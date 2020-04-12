@@ -27,8 +27,8 @@ class MidiDeviceProxyBase : public ProxyBase
 	public:
 	MidiDeviceProxyBase() {};
 	MidiDeviceProxyBase(const std::string& name);
-	virtual MidiDevice* CreateObject(int port, const char* dev_type, int mic, MidiDir dir) const = 0; //Can be generalized? Probably not
-	virtual void MidiDevices(std::vector<MidiDeviceInfo> &devices, MidiDir) const = 0;
+	virtual MidiDevice* CreateObject(int port, const char* dev_type) const = 0; //Can be generalized? Probably not
+	virtual void MidiDevices(std::vector<MidiDeviceInfo> &devices) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
 };
@@ -43,15 +43,15 @@ class MidiDeviceProxy : public MidiDeviceProxyBase
 	MidiDeviceProxy(const std::string& name): MidiDeviceProxyBase(name) {} //Why can't it automagically, ugh
 	~MidiDeviceProxy() { OSDebugOut(TEXT("%p\n"), this); }
 
-	MidiDevice* CreateObject(int port, const char* dev_type, int mic, MidiDir dir) const
+	MidiDevice* CreateObject(int port, const char* dev_type) const
 	{
 		try
 		{
-			return new T(port, dev_type, mic, dir);
+			return new T(port, dev_type);
 		}
 		catch(MidiDeviceError& err)
 		{
-			OSDebugOut(TEXT("MidiDevice port %d mic %d: %") TEXT(SFMTs) TEXT("\n"), port, mic, err.what());
+			OSDebugOut(TEXT("MidiDevice port %d: %") TEXT(SFMTs) TEXT("\n"), port, err.what());
 			(void)err;
 			return nullptr;
 		}
@@ -64,9 +64,9 @@ class MidiDeviceProxy : public MidiDeviceProxyBase
 	{
 		return T::Configure(port, dev_type, data);
 	}
-	virtual void MidiDevices(std::vector<MidiDeviceInfo> &devices, MidiDir dir) const
+	virtual void MidiDevices(std::vector<MidiDeviceInfo> &devices) const
 	{
-		T::MidiDevices(devices, dir);
+		T::MidiDevices(devices);
 	}
 	virtual bool AudioInit()
 	{

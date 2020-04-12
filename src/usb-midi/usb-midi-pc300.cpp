@@ -28,11 +28,6 @@
 #include "../qemu-usb/desc.h"
 #include "usb-midi-pc300.h"
 #include <assert.h>
-#include <windows.h>
-
-#pragma comment(lib, "winmm.lib")
-
-static FILE *file = NULL;
 
 #include "audio.h"
 
@@ -65,6 +60,9 @@ typedef struct PC300KBDState {
 
     USBDesc desc;
     USBDescDevice desc_dev;
+
+    MidiDevice *midisrc;
+    MidiDeviceProxyBase *midisrcproxy;
 
     struct freeze {
         int port;
@@ -304,13 +302,6 @@ static void pc300_kbd_set_interface(USBDevice *dev, int intf,
 	PC300KBDState *s = (PC300KBDState *)dev;
 	s->f.intf = alt_new;
 	OSDebugOut(TEXT("singstar: intf:%d alt:%d -> %d\n"), intf, alt_old, alt_new);
-#if defined(_DEBUG)
-	/* close previous debug audio output file */
-	if (file && intf > 0 && alt_old != alt_new) {
-		fclose (file);
-		file = nullptr;
-	}
-#endif
 }
 
 static void pc300_kbd_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
@@ -334,43 +325,6 @@ static void pc300_kbd_handle_control(USBDevice *dev, USBPacket *p, int request, 
     }
 }
 
-std::queue<unsigned int> midiBuffer;
-void CALLBACK midiCallback(HMIDIIN hMidiIn, UINT wMsg, const DWORD_PTR dwInstance, const DWORD dwParam1, const DWORD dwParam2)
-{
-	switch (wMsg) {
-		case MIM_DATA:
-		{
-            DWORD dwParam = dwParam1;
-
-            if (dwParam & 0x80) {
-                const int note = dwParam >> 8 & 0x7f;
-                dwParam = dwParam & ~(0x7f << 8);
-                dwParam |= (note + 3) << 8;
-            }
-
-            midiBuffer.push(dwParam);
-		}
-	}
-}
-
-void get_midi_devices() {
-	HMIDIIN hMidiDevice = nullptr;
-
-    const int nMidiDeviceNum = midiInGetNumDevs();
-
-    OSDebugOut(TEXT("Found %d MIDI devices\n"), nMidiDeviceNum);
-
-	for (int i = 0; i < nMidiDeviceNum; i++) {
-        MIDIINCAPS caps;
-		midiInGetDevCaps(i, &caps, sizeof(MIDIINCAPS));
-
-        OSDebugOut(TEXT("Connecting MIDI device %s\n"), caps.szPname);
-
-        midiInOpen(&hMidiDevice, i, reinterpret_cast<DWORD_PTR>(midiCallback), static_cast<DWORD_PTR>(i) - 1, CALLBACK_FUNCTION);
-        midiInStart(hMidiDevice);
-	}
-}
-
 static void pc300_kbd_handle_data(USBDevice *dev, USBPacket *p)
 {
     PC300KBDState *s = (PC300KBDState *)dev;
@@ -386,25 +340,28 @@ static void pc300_kbd_handle_data(USBDevice *dev, USBPacket *p)
 			std::vector<int32_t> dst_alloc(0); //TODO
 			size_t len = p->iov.size;
 
-			if (p->iov.niov == 1)
+			if (p->iov.niov == 1) {
 				dst = (int32_t *)p->iov.iov[0].iov_base;
-			else
-			{
+            } else {
 				dst_alloc.resize(len / sizeof(int32_t));
 				dst = dst_alloc.data();
 			}
 
 			memset(dst, 0, len);
 
-			OSDebugOut(TEXT("data len: %d bytes\n"), len);
+			OSDebugOut(TEXT("data len: %d bytes (%d messages)\n"), len, len / sizeof(int32_t));
 
-            ret = 0;
-            for (int i = 0; i < len / sizeof(int32_t) && midiBuffer.size() > 0; i++) {
-                dst[i] = (midiBuffer.front() << 8) | ((midiBuffer.front() & 0xf0) >> 4);
-			    //OSDebugOut(TEXT("data: %08x\n"), dst[i]);
-                midiBuffer.pop();
-                ret += 4;
-            }
+      uint32_t curValue = 0xffffffff;
+      if (s->midisrc) {
+        curValue = s->midisrc->PopMidiCommand();
+      }
+
+      if (curValue != 0xffffffff) {
+        dst[0] = (curValue << 8) | ((curValue & 0xf0) >> 4);
+        ret += 4;
+      } else {
+        ret = 0;
+      }
 
 			if (p->iov.niov > 1)
 			{
@@ -428,49 +385,85 @@ static void pc300_kbd_handle_data(USBDevice *dev, USBPacket *p)
 
 static void pc300_kbd_handle_destroy(USBDevice *dev)
 {
-    // TODO: MIDI Cleanup
-    PC300KBDState *s = (PC300KBDState *)dev;
+  PC300KBDState *s = (PC300KBDState *)dev;
+
+  if (s) {
+    if(s->midisrc) {
+      s->midisrc->Stop();
+      s->midisrc = NULL;
+    }
+
+    // if(s->midisrcproxy) {
+    //   s->midisrcproxy->AudioDeinit();
+    // }
+  }
+
 	delete s;
 }
 
 static int pc300_kbd_handle_open(USBDevice *dev)
 {
 	PC300KBDState *s = (PC300KBDState *)dev;
+
+	if (s)
+	{
+    if(s->midisrc) {
+      s->midisrc->Start();
+    }
+	}
 	return 0;
 }
 
 static void pc300_kbd_handle_close(USBDevice *dev)
 {
 	PC300KBDState *s = (PC300KBDState *)dev;
+	if (s)
+	{
+    if(s->midisrc) {
+      s->midisrc->Stop();
+    }
+	}
 }
 
 //USBDevice *pc300_kbd_init(int port, TSTDSTRING *devs)
 USBDevice* MidiPc300Device::CreateDevice(int port)
 {
 	std::string api;
+  port = port  ? 0 : 1;
 	LoadSetting(nullptr, port, MidiPc300Device::TypeName(), N_DEVICE_API, api);
 	return MidiPc300Device::CreateDevice(port, api);
 }
+
 USBDevice* MidiPc300Device::CreateDevice(int port, const std::string& api)
 {
-    PC300KBDState *s;
+  PC300KBDState *s;
 
-    s = new PC300KBDState();
+  s = new PC300KBDState();
+
+	s->midisrcproxy = RegisterMidiDevice::instance().Proxy(api);
+	if (!s->midisrcproxy)
+	{
+		SysMessage(TEXT("singstar: Invalid MIDI API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
+		return NULL;
+	}
+
+	s->midisrcproxy->AudioInit();
+	s->midisrc = s->midisrcproxy->CreateObject(port, TypeName());
 
 	s->desc.full = &s->desc_dev;
 	s->desc.str = desc_strings;
 
-    OSDebugOut(TEXT("pc300_kbd_config_descriptor: %d bytes\n"), sizeof(pc300_kbd_config_descriptor));
+  OSDebugOut(TEXT("pc300_kbd_config_descriptor: %d bytes\n"), sizeof(pc300_kbd_config_descriptor));
 
 	if (usb_desc_parse_dev (pc300_kbd_dev_descriptor, sizeof(pc300_kbd_dev_descriptor), s->desc, s->desc_dev) < 0) {
-        OSDebugOut(TEXT("Failed usb_desc_parse_dev\n"));
-		goto fail;
-    }
+    OSDebugOut(TEXT("Failed usb_desc_parse_dev\n"));
+    goto fail;
+  }
 
 	if (usb_desc_parse_config (pc300_kbd_config_descriptor, sizeof(pc300_kbd_config_descriptor), s->desc_dev) < 0) {
-        OSDebugOut(TEXT("Failed usb_desc_parse_config\n"));
+    OSDebugOut(TEXT("Failed usb_desc_parse_config\n"));
 		goto fail;
-    }
+  }
 
 	s->dev.speed = USB_SPEED_FULL;
 	s->dev.klass.handle_attach  = usb_desc_attach;
@@ -488,9 +481,7 @@ USBDevice* MidiPc300Device::CreateDevice(int port, const std::string& api)
 	usb_ep_init(&s->dev);
 	pc300_kbd_handle_reset ((USBDevice *)s);
 
-    get_midi_devices();
-
-    return (USBDevice *)s;
+  return (USBDevice *)s;
 
 fail:
 	pc300_kbd_handle_destroy ((USBDevice *)s);

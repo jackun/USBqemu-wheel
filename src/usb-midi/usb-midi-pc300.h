@@ -39,20 +39,5 @@ public:
 	}
 };
 
-class LogitechMicDevice : public MidiPc300Device
-{
-public:
-	virtual ~LogitechMicDevice() {}
-	static USBDevice* CreateDevice(int port);
-	static const char* TypeName()
-	{
-		return "logitech_usbmic";
-	}
-	static const TCHAR* Name()
-	{
-		return TEXT("Logitech USB Mic");
-	}
-};
-
 }
 #endif

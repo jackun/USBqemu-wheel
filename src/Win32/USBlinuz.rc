@@ -7,17 +7,19 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "winresrc.h"
+#include "WinResrc.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (United States) resources
+// English (U.S.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
+#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -103,6 +105,20 @@ BEGIN
     EDITTEXT        IDC_BUFFER2,122,186,40,12,ES_AUTOHSCROLL | ES_NUMBER
 END
 
+IDD_DLGMIDIKBD DIALOGEX 0, 0, 295, 80
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "MIDI Keyboard Settings"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,185,63,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,237,63,50,14
+    GROUPBOX        "MIDI Input",IDC_STATIC,7,7,280,53
+    LTEXT           "MIDI Device",IDC_STATIC,12,20,39,8
+    COMBOBOX        IDC_COMBO1,70,18,216,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Key Offset (+/-):",IDC_STATIC,12,36,55,8
+    EDITTEXT        IDC_BUFFER1,70,34,40,12,ES_AUTOHSCROLL | ES_NUMBER
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -111,17 +127,17 @@ END
 
 IDD_DLGMIC AFX_DIALOG_LAYOUT
 BEGIN
-    0
+    0x0000
 END
 
 IDD_CONFIG AFX_DIALOG_LAYOUT
 BEGIN
-    0
+    0x0000
 END
 
 IDD_DLGWASAPI AFX_DIALOG_LAYOUT
 BEGIN
-    0
+    0x0000
 END
 
 
@@ -133,13 +149,17 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO
 BEGIN
-    IDD_DLGWASAPI, DIALOG
+    IDD_DLGMIDIKBD, DIALOG
     BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 287
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 77
     END
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // English (United States) resources
+#endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -147,8 +167,10 @@ END
 // Spanish (Argentina) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
+#ifdef _WIN32
 LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
 #pragma code_page(1252)
+#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -156,18 +178,18 @@ LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE 
+1 TEXTINCLUDE
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE 
+2 TEXTINCLUDE
 BEGIN
     "#include ""WinResrc.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE 
+3 TEXTINCLUDE
 BEGIN
     "\r\n"
     "\0"
