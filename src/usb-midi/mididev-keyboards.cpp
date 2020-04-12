@@ -22,6 +22,7 @@ struct KeyboardsSettings
 	MidiDeviceInfoList sourceDevs;
 	std::wstring selectedDev;
 	int32_t midiOffset;
+	int32_t midiOffsetNegative;
 };
 
 struct MidiInfo {
@@ -40,12 +41,22 @@ void CALLBACK midiCallback(HMIDIIN hMidiIn, UINT wMsg, const DWORD_PTR dwInstanc
 		{
 			DWORD dwParam = dwParam1;
 
-			//OSDebugOut(TEXT("cmd: %02x"), dwParam & 0xff);
-
+			// Only send on/off commands as to not flood the game
 			if (dwParam & 0x80) {
 				const int note = dwParam >> 8 & 0x7f;
+
+				// Clear note data completely from command
 				dwParam = dwParam & ~(0x7f << 8);
+
+				// Some keyboards don't map the MIDI ranges how the game expects.
+				// As a workaround, I've made it possible to add an offset to
+				// make up for the differences in ranges.
+				// This is noticeable with my device (Line 6 Mobile Keys 25) which
+				// has the farthest left D Sharp (+3 from C) mapped as C in-game,
+				// so I would use 3 to make up for the difference so that D Sharp on
+				// device maps to D Sharp in-game.
 				dwParam |= ((note + midiInfo.midiOffset) % 0x7f) << 8;
+
 				midiInfo.midiBuffer[dwInstance].push(dwParam);
 			}
 		}
@@ -80,6 +91,12 @@ void KeyboardMidiDevice::Start()
 	hMidiDevice = nullptr;
 
 	LoadSetting(mDevType, mPort, APINAME, KEY_OFFSET, midiInfo.midiOffset);
+
+	int32_t isNegative = 0;
+	LoadSetting(mDevType, mPort, APINAME, KEY_OFFSET_NEGATIVE, isNegative);
+	if (isNegative) {
+		midiInfo.midiOffset = -midiInfo.midiOffset;
+	}
 
 	int ret = midiInOpen(&hMidiDevice, _wtoi(mDevID.c_str()), reinterpret_cast<DWORD_PTR>(midiCallback), mPort, CALLBACK_FUNCTION);
 	if (ret != MMSYSERR_NOERROR) {
@@ -129,6 +146,14 @@ void KeyboardMidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
 
 		MidiDeviceInfo info;
 
+		// MIDI uses generic product names and doesn't have a good way
+		// of detecting unique devices (for example, if two of the same
+		// device are plugged into the system).
+		// This method assumes that the user does not change the MIDI devices
+		// on their system and if they do, that they select the appropriate
+		// device from the list again.
+		// It's not ideal at all but the alternative is to match based on
+		// product name which would make managing two of the same device difficult.
 		wchar_t wstrID[4096] = {0};
 		wsprintf(wstrID, L"%d", i);
 
@@ -199,6 +224,12 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 
 		LoadSetting(s->dev_type, s->port, APINAME, N_AUDIO_SOURCE0, s->selectedDev);
 
+		if (!LoadSetting(s->dev_type, s->port, APINAME, KEY_OFFSET_NEGATIVE, s->midiOffsetNegative)) {
+			s->midiOffsetNegative = 0;
+		}
+
+		CheckDlgButton(hW, IDC_NEGATIVE, s->midiOffsetNegative);
+
 		RefreshInputKeyboardList(hW, -1, s);
 		return TRUE;
 	}
@@ -237,6 +268,9 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 				static wchar_t buff[4096] = { 0 };
 				GetWindowTextW(GetDlgItem(hW, IDC_BUFFER1), buff, countof(buff));
 				if (!SaveSetting(s->dev_type, s->port, APINAME, KEY_OFFSET, _wtoi(buff)))
+					res = RESULT_FAILED;
+
+				if (!SaveSetting(s->dev_type, s->port, APINAME, KEY_OFFSET_NEGATIVE, (int)IsDlgButtonChecked(hW, IDC_NEGATIVE)))
 					res = RESULT_FAILED;
 
 				EndDialog(hW, res);

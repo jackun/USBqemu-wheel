@@ -12,6 +12,7 @@
 #define S_AUDIO_SOURCE0	TEXT("Audio source 1")
 #define N_AUDIO_SOURCE0	TEXT("audio_src_0")
 #define KEY_OFFSET TEXT("key_offset")
+#define KEY_OFFSET_NEGATIVE TEXT("key_offset_negative")
 
 //TODO sufficient for linux too?
 struct MidiDeviceInfoA
