@@ -88,6 +88,11 @@ bool KeyboardMidiDevice::Reinitialize()
 
 void KeyboardMidiDevice::Start()
 {
+	if (hMidiDevice) {
+		midiInStop(hMidiDevice);
+		midiInClose(hMidiDevice);
+	}
+
 	hMidiDevice = nullptr;
 
 	LoadSetting(mDevType, mPort, APINAME, KEY_OFFSET, midiInfo.midiOffset);
