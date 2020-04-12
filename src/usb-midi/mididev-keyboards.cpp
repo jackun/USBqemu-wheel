@@ -125,7 +125,7 @@ void KeyboardMidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
         MIDIINCAPS caps;
 		midiInGetDevCaps(i, &caps, sizeof(MIDIINCAPS));
 
-        OSDebugOut(TEXT("Connecting MIDI device %s\n"), caps.szPname);
+        OSDebugOut(TEXT("MIDI device %d: %s\n"), i, caps.szPname);
 
 		MidiDeviceInfo info;
 
