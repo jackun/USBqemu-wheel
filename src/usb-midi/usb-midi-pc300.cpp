@@ -400,7 +400,7 @@ static void pc300_kbd_handle_close(USBDevice *dev)
 USBDevice* MidiPc300Device::CreateDevice(int port)
 {
 	std::string api;
-  port = port  ? 0 : 1;
+  // port = port  ? 0 : 1;
 	LoadSetting(nullptr, port, MidiPc300Device::TypeName(), N_DEVICE_API, api);
 	return MidiPc300Device::CreateDevice(port, api);
 }
