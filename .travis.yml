@@ -34,10 +34,6 @@ matrix:
     - env: VERSION=5 BITS=32 TARGET_DISTRIB=ubuntu
       compiler: gcc
       os: linux
-    # Ubuntu 14.04 LTS (libstdc++6 < 5)
-    - env: VERSION=4.9 BITS=32 TARGET_DISTRIB=ubuntu
-      compiler: gcc
-      os: linux
 
 before_install:
   - ./travis.sh before_install
