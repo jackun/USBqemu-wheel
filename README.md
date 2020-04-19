@@ -76,7 +76,7 @@ On Windows:
 	cd some/where/USBqemu-wheel
 	mkdir build
 	cd build
-	cmake .. -G"Visual Studio 14"
+	cmake .. -G"Visual Studio 16 2019" -A Win32
 	cmake --build . --config Release
 	cmake --build . --target install
 

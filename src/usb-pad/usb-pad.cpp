@@ -30,6 +30,13 @@ static const USBDescStrings rb1_desc_strings = {
 	"Harmonix Drum Kit for PlayStation(R)3"
 };
 
+static const USBDescStrings buzz_desc_strings = {
+	"",
+	"Logitech Buzz(tm) Controller V1",
+	"",
+	"Logitech"
+};
+
 void PadDevice::Initialize()
 {
 	RegisterPad::Initialize();
@@ -383,8 +390,19 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 	case WT_ROCKBAND1_DRUMKIT:
 		w->lo = (data.buttons & 0xFFF);
 		w->lo |= (data.hatswitch & 0xF) << 16;
-
 		break;
+
+	case WT_BUZZ_CONTROLLER:
+		// https://gist.github.com/Lewiscowles1986/eef220dac6f0549e4702393a7b9351f6
+		w->hi = 0x7f;
+		w->lo = 0x7f << 24;
+		w->lo |= ((data.buttons >> PAD_CIRCLE)   & 1) << 16; // red
+		w->lo |= ((data.buttons >> PAD_CROSS)    & 1) << 20; // blue
+		w->lo |= ((data.buttons >> PAD_R1)       & 1) << 19; // orange
+		w->lo |= ((data.buttons >> PAD_SQUARE)   & 1) << 18; // green
+		w->lo |= ((data.buttons >> PAD_TRIANGLE) & 1) << 17; // yellow
+		break;
+
 	default:
 		break;
 	}
@@ -652,6 +670,94 @@ int RBDrumKitDevice::Freeze(int mode, USBDevice *dev, void *data)
 	return PadDevice::Freeze(mode, dev, data);
 }
 
+// ---- Buzz ----
+
+USBDevice* BuzzDevice::CreateDevice(int port)
+{
+	std::string varApi;
+	LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
+	PadProxyBase* proxy = RegisterPad::instance().Proxy(varApi);
+	if (!proxy)
+	{
+		SysMessage(TEXT("Buzz: Invalid input API.\n"));
+		USB_LOG("usb-pad: %s: Invalid input API.\n", TypeName());
+		return NULL;
+	}
+
+	USB_LOG("usb-pad: creating device '%s' on port %d with %s\n", TypeName(), port, varApi.c_str());
+	Pad* pad = proxy->CreateObject(port, TypeName());
+
+	if (!pad)
+		return NULL;
+
+	pad->Type(WT_BUZZ_CONTROLLER);
+	PADState* s = new PADState();
+
+	s->desc.full = &s->desc_dev;
+	s->desc.str = buzz_desc_strings;
+
+	if (usb_desc_parse_dev(buzz_dev_descriptor, sizeof(buzz_dev_descriptor), s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config(buzz_config_descriptor, sizeof(buzz_config_descriptor), s->desc_dev) < 0)
+		goto fail;
+
+	s->f.wheel_type = pad->Type();
+	s->pad = pad;
+	s->port = port;
+	s->dev.speed = USB_SPEED_FULL;
+	s->dev.klass.handle_attach = usb_desc_attach;
+	s->dev.klass.handle_reset = pad_handle_reset;
+	s->dev.klass.handle_control = pad_handle_control;
+	s->dev.klass.handle_data = pad_handle_data;
+	s->dev.klass.unrealize = pad_handle_destroy;
+	s->dev.klass.open = pad_open;
+	s->dev.klass.close = pad_close;
+	s->dev.klass.usb_desc = &s->desc;
+	s->dev.klass.product_desc = s->desc.str[2];
+
+	usb_desc_init(&s->dev);
+	usb_ep_init(&s->dev);
+	pad_handle_reset((USBDevice*)s);
+
+	return (USBDevice*)s;
+
+fail:
+	pad_handle_destroy((USBDevice*)s);
+	return nullptr;
+}
+
+std::list<std::string> BuzzDevice::ListAPIs()
+{
+	return RegisterPad::instance().Names();
+}
+
+const TCHAR* BuzzDevice::LongAPIName(const std::string& name)
+{
+	auto proxy = RegisterPad::instance().Proxy(name);
+	if (proxy)
+		return proxy->Name();
+	return nullptr;
+}
+
+int BuzzDevice::Configure(int port, const std::string& api, void* data)
+{
+	auto proxy = RegisterPad::instance().Proxy(api);
+	if (proxy)
+		return proxy->Configure(port, TypeName(), data);
+	return RESULT_CANCELED;
+}
+
+int BuzzDevice::Freeze(int mode, USBDevice* dev, void* data)
+{
+	return PadDevice::Freeze(mode, dev, data);
+}
+
+void BuzzDevice::Initialize()
+{
+	RegisterPad::Initialize();
+}
+
 REGISTER_DEVICE(DEVTYPE_PAD, PadDevice);
 REGISTER_DEVICE(DEVTYPE_RBKIT, RBDrumKitDevice);
+REGISTER_DEVICE(DEVTYPE_BUZZ, BuzzDevice);
 } //namespace
