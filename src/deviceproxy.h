@@ -24,6 +24,7 @@ enum DeviceType
 	DEVTYPE_HIDKBD,
 	DEVTYPE_HIDMOUSE,
 	DEVTYPE_RBKIT,
+	DEVTYPE_BUZZ,
 };
 
 struct SelectDeviceName {
