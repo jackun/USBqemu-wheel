@@ -8,7 +8,6 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "winresrc.h"
-#define IDC_STATIC -1
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -92,8 +91,7 @@ END
 
 IDD_DIALOG1 DIALOGEX 0, 0, 670, 309
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION 
-"Qemu USB DirectInput Wheel Mod by jackun/Racer_S/EC Sim Hardware"
+CAPTION "Qemu USB DirectInput Wheel Mod by jackun/Racer_S/EC Sim Hardware"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     CTEXT           "AXIS",IDC_GROUP1,6,6,186,12
@@ -206,6 +204,99 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,582,282,80,20
 END
 
+IDD_DLG_BUZZ DIALOGEX 0, 0, 407, 159
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Buzz device"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Controller#1",IDC_STATIC,5,5,99,135
+    LTEXT           "Red",IDC_BZ_CTL1_LBL1,10,15,38,8
+    LTEXT           "Blue",IDC_BZ_CTL1_LBL2,10,40,38,8
+    LTEXT           "Orange",IDC_BZ_CTL1_LBL3,10,65,38,8
+    LTEXT           "Green",IDC_BZ_CTL1_LBL4,10,90,38,8
+    LTEXT           "Yellow",IDC_BZ_CTL1_LBL5,10,115,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL0,10,27,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL4,10,52,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL3,10,77,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL2,10,102,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL1,10,127,38,8
+    PUSHBUTTON      "Add",IDC_ASS0,55,15,20,20
+    PUSHBUTTON      "Del",IDC_DEL0,80,15,20,20
+    PUSHBUTTON      "Add",IDC_ASS4,55,40,20,20
+    PUSHBUTTON      "Del",IDC_DEL4,80,40,20,20
+    PUSHBUTTON      "Add",IDC_ASS3,55,65,20,20
+    PUSHBUTTON      "Del",IDC_DEL3,80,65,20,20
+    PUSHBUTTON      "Add",IDC_ASS2,55,90,20,20
+    PUSHBUTTON      "Del",IDC_DEL2,80,90,20,20
+    PUSHBUTTON      "Add",IDC_ASS1,55,115,20,20
+    PUSHBUTTON      "Del",IDC_DEL1,80,115,20,20
+    GROUPBOX        "Controller#2",IDC_STATIC,105,5,99,135
+    LTEXT           "Red",IDC_BZ_CTL2_LBL1,110,15,38,8
+    LTEXT           "Blue",IDC_BZ_CTL2_LBL2,110,40,38,8
+    LTEXT           "Orange",IDC_BZ_CTL2_LBL3,110,65,38,8
+    LTEXT           "Green",IDC_BZ_CTL2_LBL4,110,90,38,8
+    LTEXT           "Yellow",IDC_BZ_CTL2_LBL5,110,115,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL5,110,27,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL9,110,52,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL8,110,77,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL7,110,102,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL6,110,127,38,8
+    PUSHBUTTON      "Add",IDC_ASS5,155,15,20,20
+    PUSHBUTTON      "Del",IDC_DEL5,180,15,20,20
+    PUSHBUTTON      "Add",IDC_ASS9,155,40,20,20
+    PUSHBUTTON      "Del",IDC_DEL9,180,40,20,20
+    PUSHBUTTON      "Add",IDC_ASS8,155,65,20,20
+    PUSHBUTTON      "Del",IDC_DEL8,180,65,20,20
+    PUSHBUTTON      "Add",IDC_ASS7,155,90,20,20
+    PUSHBUTTON      "Del",IDC_DEL7,180,90,20,20
+    PUSHBUTTON      "Add",IDC_ASS6,155,115,20,20
+    PUSHBUTTON      "Del",IDC_DEL6,180,115,20,20
+    GROUPBOX        "Controller#3",IDC_STATIC,205,5,99,135
+    LTEXT           "Red",IDC_BZ_CTL3_LBL1,210,15,38,8
+    LTEXT           "Blue",IDC_BZ_CTL3_LBL2,210,40,38,8
+    LTEXT           "Orange",IDC_BZ_CTL3_LBL3,210,65,38,8
+    LTEXT           "Green",IDC_BZ_CTL3_LBL4,210,90,38,8
+    LTEXT           "Yellow",IDC_BZ_CTL3_LBL5,210,115,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL10,210,27,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL14,210,52,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL13,210,77,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL12,210,102,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL11,210,127,38,8
+    PUSHBUTTON      "Add",IDC_ASS10,255,15,20,20
+    PUSHBUTTON      "Del",IDC_DEL10,280,15,20,20
+    PUSHBUTTON      "Add",IDC_ASS14,255,40,20,20
+    PUSHBUTTON      "Del",IDC_DEL14,280,40,20,20
+    PUSHBUTTON      "Add",IDC_ASS13,255,65,20,20
+    PUSHBUTTON      "Del",IDC_DEL13,280,65,20,20
+    PUSHBUTTON      "Add",IDC_ASS12,255,90,20,20
+    PUSHBUTTON      "Del",IDC_DEL12,280,90,20,20
+    PUSHBUTTON      "Add",IDC_ASS11,255,115,20,20
+    PUSHBUTTON      "Del",IDC_DEL11,280,115,20,20
+    GROUPBOX        "Controller#4",IDC_STATIC,305,5,99,135
+    LTEXT           "Red",IDC_BZ_CTL4_LBL1,310,15,38,8
+    LTEXT           "Blue",IDC_BZ_CTL4_LBL2,310,40,38,8
+    LTEXT           "Orange",IDC_BZ_CTL4_LBL3,310,65,38,8
+    LTEXT           "Green",IDC_BZ_CTL4_LBL4,310,90,38,8
+    LTEXT           "Yellow",IDC_BZ_CTL4_LBL5,310,115,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL15,310,27,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL19,310,52,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL18,310,77,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL17,310,102,38,8
+    LTEXT           "1/1/1/1",IDC_LABEL16,310,127,38,8
+    PUSHBUTTON      "Add",IDC_ASS15,355,15,20,20
+    PUSHBUTTON      "Del",IDC_DEL15,380,15,20,20
+    PUSHBUTTON      "Add",IDC_ASS19,355,40,20,20
+    PUSHBUTTON      "Del",IDC_DEL19,380,40,20,20
+    PUSHBUTTON      "Add",IDC_ASS18,355,65,20,20
+    PUSHBUTTON      "Del",IDC_DEL18,380,65,20,20
+    PUSHBUTTON      "Add",IDC_ASS17,355,90,20,20
+    PUSHBUTTON      "Del",IDC_DEL17,380,90,20,20
+    PUSHBUTTON      "Add",IDC_ASS16,355,115,20,20
+    PUSHBUTTON      "Del",IDC_DEL16,380,115,20,20
+    DEFPUSHBUTTON   "OK",IDOK,302,142,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,354,142,50,14
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -221,6 +312,10 @@ BEGIN
         RIGHTMARGIN, 663
         TOPMARGIN, 7
         BOTTOMMARGIN, 302
+    END
+
+    IDD_DLG_BUZZ, DIALOG
+    BEGIN
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -241,6 +336,11 @@ IDB_BITMAP3             BITMAP                  "toca.bmp"
 //
 
 IDD_DIALOG1 AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_DLG_BUZZ AFX_DIALOG_LAYOUT
 BEGIN
     0
 END

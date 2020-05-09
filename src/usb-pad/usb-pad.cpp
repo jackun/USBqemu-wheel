@@ -394,13 +394,11 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 
 	case WT_BUZZ_CONTROLLER:
 		// https://gist.github.com/Lewiscowles1986/eef220dac6f0549e4702393a7b9351f6
-		w->hi = 0xf0;
-		w->lo = 0x7f << 8 | 0x7f;
-		w->lo |= ((data.buttons >> PAD_CIRCLE)   & 1) << 16; // red
-		w->lo |= ((data.buttons >> PAD_CROSS)    & 1) << 20; // blue
-		w->lo |= ((data.buttons >> PAD_R1)       & 1) << 19; // orange
-		w->lo |= ((data.buttons >> PAD_SQUARE)   & 1) << 18; // green
-		w->lo |= ((data.buttons >> PAD_TRIANGLE) & 1) << 17; // yellow
+		buf[0] = 0x7f;
+		buf[1] = 0x7f;
+		buf[2] = data.buttons & 0xff;
+		buf[3] = (data.buttons >> 8) & 0xff;
+		buf[4] = 0xf0 | ((data.buttons >> 16) & 0xf);
 		break;
 
 	default:

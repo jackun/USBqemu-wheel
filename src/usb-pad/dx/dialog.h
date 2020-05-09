@@ -578,6 +578,47 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 					SetBkMode((HDC) wParam, TRANSPARENT);
 					return (INT_PTR) GetStockObject(NULL_BRUSH);
 				}
+				if ((HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL1_LBL1)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL2_LBL1)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL3_LBL1)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL4_LBL1)) {
+					SetTextColor((HDC)wParam, RGB(255, 0, 0));
+					SetBkMode((HDC)wParam, TRANSPARENT);
+					return (INT_PTR)GetStockObject(NULL_BRUSH);
+				}
+				if ((HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL1_LBL2)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL2_LBL2)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL3_LBL2)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL4_LBL2)) {
+					SetTextColor((HDC)wParam, RGB(0, 192, 255));
+					SetBkMode((HDC)wParam, TRANSPARENT);
+					return (INT_PTR)GetStockObject(NULL_BRUSH);
+				}
+				if ((HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL1_LBL3)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL2_LBL3)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL3_LBL3)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL4_LBL3)) {
+					SetTextColor((HDC)wParam, RGB(255, 165, 0));
+					SetBkMode((HDC)wParam, TRANSPARENT);
+					return (INT_PTR)GetStockObject(NULL_BRUSH);
+				}
+				if ((HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL1_LBL4)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL2_LBL4)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL3_LBL4)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL4_LBL4)) {
+					SetTextColor((HDC)wParam, RGB(0, 140, 0));
+					SetBkMode((HDC)wParam, TRANSPARENT);
+					return (INT_PTR)GetStockObject(NULL_BRUSH);
+				}
+				if ((HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL1_LBL5)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL2_LBL5)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL3_LBL5)
+				|| (HWND)lParam == GetDlgItem(hWnd, IDC_BZ_CTL4_LBL5)) {
+					SetTextColor((HDC)wParam, RGB(204, 204, 0));
+					SetBkMode((HDC)wParam, TRANSPARENT);
+					return (INT_PTR)GetStockObject(NULL_BRUSH);
+				}
+
 				break;
 			}
 		case WM_TIMER:

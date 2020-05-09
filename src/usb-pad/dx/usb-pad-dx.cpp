@@ -49,6 +49,16 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 	PollDevices();
 
+	if (mType == WT_BUZZ_CONTROLLER) {
+		for (int i = 0; i < 20; i++) {
+			if (GetControl(mPort, i-1)) {
+				mWheelData.buttons |= 1 << i;
+			}
+		}
+		pad_copy_data(mType, buf, mWheelData);
+		return 5;
+	}
+
 	//Allow in both ports but warn in configure dialog that only one DX wheel is supported for now
 	//if(idx == 0){
 		//mWheelData.steering = 8191 + (int)(GetControl(STEERING, false)* 8191.0f) ;
@@ -347,6 +357,9 @@ int DInputPad::Configure(int port, const char* dev_type, void *data)
 	struct DXDlgSettings s;
 	s.port = port;
 	s.dev_type = dev_type;
+	if (strcmp(dev_type, "buzz_device") == 0) {
+		return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DLG_BUZZ), h.hWnd, DxDialogProc, (LPARAM)&s);
+	}
 	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, (LPARAM)&s);
 }
 
