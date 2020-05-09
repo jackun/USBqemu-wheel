@@ -78,7 +78,6 @@ class RegisterPad
 
 	void Clear()
 	{
-		printf("registerPadMap.size: %d\n", registerPadMap.size());
 		registerPadMap.clear();
 	}
 

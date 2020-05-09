@@ -407,6 +407,9 @@ void OnPaint(int port)
 
 	int px = rect.left;
 	int py = rect.top;
+	if (px <= 0 || py <= 0) {
+		return;
+	}
 	int pwidth = rect.right-rect.left;
 	int pheight = rect.bottom-rect.top;
 
