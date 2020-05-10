@@ -15,6 +15,20 @@ namespace usb_pad { namespace evdev {
 #define NORM(x, n) (((uint32_t)(32768 + x) * n)/0xFFFF)
 #define NORM2(x, n) (((uint32_t)(32768 + x) * n)/0x7FFF)
 
+bool str_ends_with(const char * str, const char * suffix)
+{
+	if (str == nullptr || suffix == nullptr)
+		return false;
+
+	size_t str_len = strlen(str);
+	size_t suffix_len = strlen(suffix);
+
+	if (suffix_len > str_len)
+		return false;
+
+	return 0 == strncmp( str + str_len - suffix_len, suffix, suffix_len );
+}
+
 bool FindHidraw(const std::string &evphys, std::string& hid_dev)
 {
 	int fd;
@@ -66,6 +80,7 @@ quit:
 	return false;
 }
 
+#define EVDEV_DIR "/dev/input/by-id/"
 void EnumerateDevices(vstring& list)
 {
 	int fd;
@@ -78,9 +93,9 @@ void EnumerateDevices(vstring& list)
 	//TODO do some caching? ioctl is "very" slow
 	static vstring list_cache;
 
-	DIR* dirp = opendir("/dev/input/");
+	DIR* dirp = opendir(EVDEV_DIR);
 	if (!dirp) {
-		perror("Error opening /dev/input/");
+		perror("Error opening " EVDEV_DIR);
 		return;
 	}
 
@@ -94,11 +109,15 @@ void EnumerateDevices(vstring& list)
 
 	while ((dp = readdir(dirp)))
 	{
-		if (strncmp(dp->d_name, "event", 5) == 0) {
-			OSDebugOut("/dev/input/%s\n", dp->d_name);
+		//if (strncmp(dp->d_name, "event", 5) == 0) {
+		if (str_ends_with(dp->d_name, "event-kbd")
+			|| str_ends_with(dp->d_name, "event-mouse")
+			|| str_ends_with(dp->d_name, "event-joystick"))
+		{
+			OSDebugOut(EVDEV_DIR "%s\n", dp->d_name);
 
 			str.clear(); str.str("");
-			str << "/dev/input/" << dp->d_name;
+			str << EVDEV_DIR << dp->d_name;
 			std::string path = str.str();
 
 			auto it = std::find_if(list_cache.begin(), list_cache.end(),
@@ -115,14 +134,16 @@ void EnumerateDevices(vstring& list)
 				continue;
 			}
 
-			res = ioctl(fd, EVIOCGNAME(sizeof(buf)), buf);
+			list_cache.push_back(std::make_pair(std::string(dp->d_name), path));
+
+			/*res = ioctl(fd, EVIOCGNAME(sizeof(buf)), buf);
 			if (res < 0)
 				perror("EVIOCGNAME");
 			else
 			{
 				OSDebugOut("Evdev device name: %s\n", buf);
 				list_cache.push_back(std::make_pair(std::string(buf) + " (evdev)", path));
-			}
+			}*/
 
 			close(fd);
 		}
