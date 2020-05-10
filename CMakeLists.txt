@@ -396,11 +396,15 @@ ENDIF(WIN32)
 IF(UNIX)
 	FILE(GLOB SRCS_API_INITS ./src/*/api_init_linux.cpp)
 
-	LIST(APPEND HDRS 
+	LIST(APPEND HDRS
+		./src/icon_buzz_24.h
 		./src/linux/ini.h
 		./src/linux/actualfile.h
 		./src/linux/config.h
 		./src/linux/util.h
+	)
+	LIST(APPEND SRCS_PLG
+		./src/icon_buzz_24.cpp
 	)
 	LIST(APPEND SRCS_MSD
 		./src/usb-msd/usb-msd-gtk.cpp
