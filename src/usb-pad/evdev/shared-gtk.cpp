@@ -360,9 +360,10 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 
 	// Remapping
 	{
-		GtkWidget* table = gtk_table_new (5, 8, true);
+		GtkWidget* table = gtk_table_new (5, 7, true);
 		gtk_container_add (GTK_CONTAINER(right_vbox), table);
-		GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
+		//GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
+		GtkAttachOptions opt = (GtkAttachOptions)(GTK_FILL);
 
 		const char* button_labels[] = {
 			"L2", "L1 / L", "R2", "R1 / R / Orange",
@@ -374,18 +375,18 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		const Point button_pos[] = {
 			{1, 0, JOY_L2},
 			{1, 1, JOY_L1},
-			{6, 0, JOY_R2},
-			{6, 1, JOY_R1},
+			{5, 0, JOY_R2},
+			{5, 1, JOY_R1},
 			{0, 3, JOY_LEFT},
 			{1, 2, JOY_UP},
 			{2, 3, JOY_RIGHT},
 			{1, 4, JOY_DOWN},
-			{5, 3, JOY_SQUARE},
-			{6, 4, JOY_CROSS},
-			{7, 3, JOY_CIRCLE},
-			{6, 2, JOY_TRIANGLE},
+			{4, 3, JOY_SQUARE},
+			{5, 4, JOY_CROSS},
+			{6, 3, JOY_CIRCLE},
+			{5, 2, JOY_TRIANGLE},
 			{3, 3, JOY_SELECT},
-			{4, 3, JOY_START},
+			{3, 2, JOY_START},
 		};
 
 		for (int i=0; i<countof(button_labels); i++)
@@ -447,7 +448,7 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		{
 			std::stringstream str;
 			str << it.first;
-			if (!it.second.empty())
+			if (strcmp(apiname, "evdev") && !it.second.empty())
 				str << " [" << it.second << "]";
 
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), str.str().c_str ());
