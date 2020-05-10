@@ -581,6 +581,9 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 
 	inverted = false;
 
+	// wait to avoid some false positives like mouse movement
+	std::this_thread::sleep_for(ms(250));
+
 	// empty event queues
 	for (const auto& js: fds)
 		while ((len = read(js.second.fd, &event, sizeof(event))) > 0);
@@ -614,7 +617,7 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 	if (event_fd == -1)
 		return false;
 
-	if (ioctl(event_fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit) >= 0) {
+	if (isaxis && ioctl(event_fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit) >= 0) {
 		for (int i = 0; i < ABS_MAX; ++i) {
 			if (test_bit(i, absbit)) {
 				struct input_absinfo absinfo;
@@ -652,8 +655,23 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 		auto dur = std::chrono::duration_cast<ms>(sys_clock::now()-last).count();
 		if (dur > 5000) goto error;
 
-		if ((len = read(event_fd, &event, sizeof(event))) > -1 && (len == sizeof(event)))
+		if (!isaxis) {
+			event_fd = -1;
+			for (const auto& js: fds)
+			{
+				if (FD_ISSET(js.second.fd, &fdset)) {
+					event_fd = js.second.fd;
+					dev_name = js.first;
+
+					OSDebugOut("PollInput: polling...%s\n", dev_name.c_str());
+					break;
+				}
+			}
+		}
+
+		if (event_fd > -1 && (len = read(event_fd, &event, sizeof(event))) > -1 && (len == sizeof(event)))
 		{
+			OSDebugOut("PollInput: event...%d\n", event.type);
 			if (isaxis && event.type == EV_ABS)
 			{
 				auto& val = axisVal[event.code];
