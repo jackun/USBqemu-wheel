@@ -482,17 +482,18 @@ int EvDevPad::Open()
 		case WT_GT_FORCE:
 		case WT_DRIVING_FORCE_PRO:
 		case WT_DRIVING_FORCE_PRO_1102:
-		if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
 		{
-			OSDebugOut("Cannot load device setting: %s\n", N_JOYSTICK);
-			return 1;
+			if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
+			{
+				OSDebugOut("Cannot load device setting: %s\n", N_JOYSTICK);
+				return 1;
+			}
+			LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
 		}
 		break;
 		default:
 		break;
 	}
-
-	LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
 
 	if (mUseRawFF) {
 		if (joypath.empty() || !file_exists(joypath))
@@ -574,8 +575,16 @@ int EvDevPad::Open()
 			return false;
 		}*/
 
-		LoadMappings(mDevType, mPort, device.name,
-			device.mappings, device.axis_inverted);
+		switch(mType) {
+			case WT_BUZZ_CONTROLLER:
+				LoadBuzzMappings(mDevType, mPort, device.name,
+					device.mappings);
+			break;
+			default:
+				LoadMappings(mDevType, mPort, device.name,
+					device.mappings, device.axis_inverted);
+			break;
+		}
 
 		// Map hatswitches automatically
 		//FIXME has_mappings is gonna ignore hatsw only devices
@@ -674,7 +683,7 @@ int EvDevPad::Open()
 			}
 		}
 		if (!has_mappings) {
-			OSDebugOut("Device %s [%s] has no mappings, discarding\n", device.name.c_str(), it.second.c_str());
+			OSDebugOut("Device %s [%s] has no mappings, discarding\n", device.name.c_str(), ""); //it.second.c_str());
 			close(device.fd);
 			mDevices.pop_back();
 		}
