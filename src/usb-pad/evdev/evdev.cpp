@@ -278,6 +278,9 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 				{
 					case EV_ABS:
 					{
+						if (mType == WT_BUZZ_CONTROLLER)
+							break;
+
 						value = AxisCorrect(device.abs_correct[event.code], event.value);
 						/*if (event.code == 0)
 							OSDebugOut("Axis: %d, mapped: 0x%02x, val: %d, corrected: %d\n",
@@ -291,6 +294,18 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 						code = device.btn_map[event.code] != (uint16_t)-1 ? device.btn_map[event.code] : event.code;
 						OSDebugOut("%s Button: 0x%02x, mapped: 0x%02x, val: %d\n",
 							device.name.c_str(), event.code, device.btn_map[event.code], event.value);
+
+						if (mType == WT_BUZZ_CONTROLLER) {
+							OSDebugOut("evdev buzz: code: %d, map: %08x\n", event.code, device.btn_map[event.code]);
+							if (device.btn_map[event.code] != (uint16_t)-1) {
+								if (event.value)
+									mWheelData.buttons |= 1 << (code & ~0x8000); //on
+								else
+									mWheelData.buttons &= ~(1 << (code & ~0x8000)); //off
+							}
+
+							break;
+						}
 
 						PS2Buttons button = PAD_BUTTON_COUNT;
 						if (code >= (0x8000 | JOY_CROSS) && // user mapped
@@ -462,10 +477,19 @@ int EvDevPad::Open()
 	memset(&info, 0x0, sizeof(info));
 
 	std::string joypath;
-	if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
-	{
-		OSDebugOut("Cannot load device setting: %s\n", N_JOYSTICK);
-		return 1;
+	switch(mType) {
+		case WT_GENERIC:
+		case WT_GT_FORCE:
+		case WT_DRIVING_FORCE_PRO:
+		case WT_DRIVING_FORCE_PRO_1102:
+		if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
+		{
+			OSDebugOut("Cannot load device setting: %s\n", N_JOYSTICK);
+			return 1;
+		}
+		break;
+		default:
+		break;
 	}
 
 	LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);

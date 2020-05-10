@@ -1,5 +1,6 @@
 #include "shared.h"
 #include "../../osdebugout.h"
+#include "icon_buzz_24.h"
 
 #include <chrono>
 #include <thread>
@@ -78,6 +79,52 @@ bool SaveMappings(const char *dev_type, int port, const std::string& joyname, co
 	return true;
 }
 
+bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings)
+{
+	std::stringstream str;
+
+	if (joyname.empty())
+		return false;
+
+	int j = 0;
+
+	mappings.resize(countof(buzz_map_names) * 4);
+	for (auto& i: mappings)
+	{
+		str.str("");
+		str.clear();
+		str << "map_" << buzz_map_names[j % 5] << "_" << (j / 5);
+		const std::string& name = str.str();
+		int32_t var;
+		if (LoadSetting(dev_type, port, joyname, name.c_str(), var))
+			i = var;
+		else
+			i = -1;
+		j++;
+	}
+	return true;
+}
+
+bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings)
+{
+	if (joyname.empty())
+		return false;
+
+	std::stringstream str;
+
+	const size_t c = countof(buzz_map_names);
+	for (size_t i=0; i < mappings.size(); i++)
+	{
+		str.str("");
+		str.clear();
+		str << "map_" << buzz_map_names[i % c] << "_" << (i / c);
+		const std::string& name = str.str();
+		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(mappings[i])))
+			return false;
+	}
+	return true;
+}
+
 static void refresh_store(ConfigData *cfg)
 {
 	GtkTreeIter iter;
@@ -98,8 +145,10 @@ static void refresh_store(ConfigData *cfg)
 			if (!strcmp(cfg->dev_type, BuzzDevice::TypeName())) {
 
 				std::stringstream ss;
-				ss << buzz_map_names[i % countof(buzz_map_names)]
-				<< " " << (i / countof(buzz_map_names));
+				ss << (1 + i / countof(buzz_map_names));
+				ss << " ";
+				ss << buzz_map_names[i % countof(buzz_map_names)];
+
 				std::string name = ss.str();
 
 				gtk_list_store_set (cfg->store, &iter,
@@ -151,7 +200,7 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 		bool is_axis = (type >= JOY_STEERING && type <= JOY_BRAKE);
 
 		gtk_label_set_text (GTK_LABEL (cfg->label), "Polling for input for 5 seconds...");
-		OSDebugOut("Polling: isaxis:%d %s\n" , is_axis, JoystickMapNames[type]);
+		OSDebugOut("Polling: isaxis:%d %d\n" , is_axis, type);
 
 		// let label change its text
 		while (gtk_events_pending ())
@@ -169,6 +218,45 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 				it->second.mappings[type] = value;
 				if (is_axis)
 					it->second.inverted[type - JOY_STEERING] = inverted;
+				refresh_store(cfg);
+			}
+		}
+		gtk_label_set_text (GTK_LABEL (cfg->label), "");
+	}
+}
+
+static void button_clicked_buzz (GtkComboBox *widget, gpointer data)
+{
+	int port = reinterpret_cast<uintptr_t> (data);
+	int type = reinterpret_cast<uintptr_t> (g_object_get_data (G_OBJECT (widget), JOYTYPE));
+	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
+
+	if (cfg /*&& type < cfg->mappings.size() && cfg->js_iter != cfg->joysticks.end()*/)
+	{
+		int value;
+		std::string dev_name;
+		bool inverted = false;
+
+		gtk_label_set_text (GTK_LABEL (cfg->label), "Polling for input for 5 seconds...");
+		OSDebugOut("Polling: %s\n", buzz_map_names[type]);
+
+		// let label change its text
+		while (gtk_events_pending ())
+			gtk_main_iteration_do (FALSE);
+
+		if (cfg->cb->poll(cfg->jsconf, dev_name, false, value, inverted))
+		{
+			auto it = std::find_if(cfg->jsconf.begin(), cfg->jsconf.end(),
+				[&dev_name](auto& i)->bool {
+					return i.first == dev_name;
+				});
+
+			if (it != cfg->jsconf.end() && type < it->second.mappings.size())
+			{
+				OSDebugOut("setting mappings for %s %s_%d=%d\n", dev_name.c_str(),
+					buzz_map_names[type % countof(buzz_map_names)],
+					type / countof(buzz_map_names), value);
+				it->second.mappings[type] = value;
 				refresh_store(cfg);
 			}
 		}
@@ -202,7 +290,7 @@ static void view_remove_binding (GtkTreeModel *model,
 		});
 	if (it != js.end()) {
 		it->second.mappings[binding] = (uint16_t)-1;
-		OSDebugOut("Delete binding '%s' for '%s'\n", JoystickMapNames[binding], it->first.c_str());
+		OSDebugOut("Delete binding '%d' for '%s'\n", binding, it->first.c_str());
 	}
 	gtk_list_store_remove (GTK_LIST_STORE(model), iter);
 	//refresh_store(cfg);
@@ -252,7 +340,7 @@ static void clear_all_clicked (GtkWidget *widget, gpointer data)
 {
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 	for (auto& it: cfg->jsconf)
-		it.second.mappings.assign(JOY_MAPS_COUNT, -1);
+		it.second.mappings.assign(it.second.mappings.size(), -1);
 	refresh_store(cfg);
 }
 
@@ -346,6 +434,8 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		-1, "PS2", render, "text", COL_PS2, NULL);
 	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
 		-1, "PC", render, "text", COL_PC, NULL);
+
+	gtk_tree_view_set_tooltip_column (GTK_TREE_VIEW(treeview), 0);
 
 	gtk_tree_view_column_set_resizable (gtk_tree_view_get_column(GTK_TREE_VIEW (treeview), 0), TRUE);
 	gtk_tree_view_column_set_resizable (gtk_tree_view_get_column(GTK_TREE_VIEW (treeview), 1), TRUE);
@@ -496,6 +586,235 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		if (is_evdev) {
 			SaveSetting(dev_type, port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
 		}
+	}
+	else
+		ret = RESULT_CANCELED;
+
+	for (auto& it: cfg.jsconf)
+		close(it.second.fd);
+
+	gtk_widget_destroy (dlg);
+	return ret;
+}
+
+GtkWidget * make_color_icon(uint32_t rgb)
+{
+	std::vector<uint8_t> data;
+	data.resize(24*24*4);
+
+	for (size_t i=0; i<24*24; i++) {
+		data[i * 4 + 0] = rgb & 0xFF;
+		data[i * 4 + 1] = (rgb >> 8) & 0xFF;
+		data[i * 4 + 2] = (rgb >> 16) & 0xFF;
+		data[i * 4 + 3] = icon_buzz_24[i];
+	}
+
+	GBytes * bytes = g_bytes_new (data.data(), data.size());
+	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_bytes (bytes,
+				GDK_COLORSPACE_RGB, TRUE, 8,
+				24, 24, 24 * 4);
+
+	GtkWidget *w = gtk_image_new_from_pixbuf (pixbuf);
+	g_object_unref (G_OBJECT(pixbuf));
+	g_bytes_unref (bytes);
+	return w;
+}
+
+
+int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs)
+{
+	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb;
+	GtkWidget *main_hbox, *right_vbox, *left_vbox, *treeview;
+	GtkWidget *button;
+
+	int fd;
+	ConfigData cfg;
+
+	apicbs.populate(cfg.joysticks);
+
+	cfg.js_iter = cfg.joysticks.end();
+	cfg.label = gtk_label_new ("");
+	cfg.store = gtk_list_store_new (NUM_COLS,
+		G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT, G_TYPE_INT);
+	cfg.cb = &apicbs;
+	cfg.dev_type = dev_type;
+
+	for (const auto& it: cfg.joysticks) {
+		if ((fd = open(it.second.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
+		{
+			OSDebugOut("Cannot open device: %s\n", it.second.c_str());
+			continue;
+		}
+
+		ConfigMapping c; c.fd = fd;
+		LoadBuzzMappings (cfg.dev_type, port, it.first, c.mappings);
+		cfg.jsconf.push_back(std::make_pair(it.first, c));
+		OSDebugOut("mappings for '%s': %d\n", it.first.c_str(), c.mappings.size());
+	}
+
+	refresh_store(&cfg);
+
+	// ---------------------------
+	std::string title = "Buzz ";
+	title += apititle;
+
+	GtkWidget *dlg = gtk_dialog_new_with_buttons (
+		title.c_str(), parent, GTK_DIALOG_MODAL,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		NULL);
+	gtk_window_set_position (GTK_WINDOW (dlg), GTK_WIN_POS_CENTER);
+	gtk_window_set_resizable (GTK_WINDOW (dlg), TRUE);
+	gtk_window_set_default_size (GTK_WINDOW(dlg), 320, 240);
+
+	// ---------------------------
+	GtkWidget *dlg_area_box = gtk_dialog_get_content_area (GTK_DIALOG (dlg));
+
+	main_hbox = gtk_hbox_new (FALSE, 5);
+	gtk_container_add (GTK_CONTAINER(dlg_area_box), main_hbox);
+
+	left_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_box_pack_start (GTK_BOX (main_hbox), left_vbox, TRUE, TRUE, 5);
+	right_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_box_pack_start (GTK_BOX (main_hbox), right_vbox, TRUE, TRUE, 5);
+
+	// ---------------------------
+	treeview = gtk_tree_view_new ();
+	cfg.treeview = GTK_TREE_VIEW(treeview);
+	auto selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(treeview));
+	gtk_tree_selection_set_mode(selection, GTK_SELECTION_MULTIPLE);
+
+	GtkCellRenderer *render = gtk_cell_renderer_text_new ();
+
+	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
+		-1, "Name", render, "text", COL_NAME, "width", COL_COLUMN_WIDTH, NULL);
+	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
+		-1, "PS2", render, "text", COL_PS2, NULL);
+	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (treeview),
+		-1, "PC", render, "text", COL_PC, NULL);
+
+	gtk_tree_view_set_tooltip_column (GTK_TREE_VIEW(treeview), 0);
+
+	gtk_tree_view_column_set_resizable (gtk_tree_view_get_column(GTK_TREE_VIEW (treeview), 0), TRUE);
+	gtk_tree_view_column_set_resizable (gtk_tree_view_get_column(GTK_TREE_VIEW (treeview), 1), TRUE);
+	gtk_tree_view_column_set_resizable (gtk_tree_view_get_column(GTK_TREE_VIEW (treeview), 2), TRUE);
+
+	gtk_tree_view_set_model (GTK_TREE_VIEW (treeview), GTK_TREE_MODEL (cfg.store));
+	g_object_unref (GTK_TREE_MODEL (cfg.store)); //treeview has its own ref
+
+	GtkWidget *scwin = gtk_scrolled_window_new(NULL, NULL);
+	gtk_container_add(GTK_CONTAINER(scwin), treeview);
+	gtk_widget_set_size_request (GTK_WIDGET(scwin), 200, 100);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scwin), GTK_POLICY_AUTOMATIC,
+								   GTK_POLICY_ALWAYS);
+	gtk_box_pack_start (GTK_BOX (left_vbox), scwin, TRUE, TRUE, 5);
+
+	button = gtk_button_new_with_label ("Clear binding");
+	gtk_box_pack_start (GTK_BOX (left_vbox), button, FALSE, FALSE, 5);
+	g_object_set_data (G_OBJECT (button), CFG, &cfg);
+	g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (clear_binding_clicked), reinterpret_cast<gpointer> (port));
+
+	button = gtk_button_new_with_label ("Clear All");
+	gtk_box_pack_start (GTK_BOX (left_vbox), button, FALSE, FALSE, 5);
+	g_object_set_data (G_OBJECT (button), CFG, &cfg);
+	g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (clear_all_clicked), reinterpret_cast<gpointer> (port));
+
+
+	// ---------------------------
+
+	// Remapping
+	{
+		GtkWidget* table = gtk_table_new (5, 4, true);
+		gtk_container_add (GTK_CONTAINER(right_vbox), table);
+		GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
+
+		const char* button_labels[] {
+			"Red",
+			"Blue",
+			"Orange",
+			"Green",
+			"Yellow",
+		};
+
+		Buzz buzz_btns[] {
+			BUZZ_RED,
+			BUZZ_BLUE,
+			BUZZ_ORANGE,
+			BUZZ_GREEN,
+			BUZZ_YELLOW,
+		};
+
+		uint32_t icon_colors[] {
+			0x0000FF,
+			0xFF0000,
+			0x0080FF,
+			0x00FF00,
+			0x00FFFF,
+		};
+
+		for (int j=0; j < 4; j++) {
+			for (int i=0; i < countof(button_labels); i++)
+			{
+				GtkWidget *button = gtk_button_new_with_label (button_labels[i]);
+
+
+				GtkWidget *icon = make_color_icon(icon_colors[i]);
+				gtk_button_set_image (GTK_BUTTON(button), icon);
+				gtk_button_set_image_position (GTK_BUTTON(button), GTK_POS_LEFT);
+
+				GList *children = gtk_container_get_children(GTK_CONTAINER(button));
+				//OSDebugOut("widget: %s\n", gtk_widget_get_name(GTK_WIDGET(children->data)));
+
+				//Gtk 3.16+
+				//gtk_label_set_xalign (GTK_WIDGET(children), 0.0)
+
+				//gtk_misc_set_alignment (GTK_MISC (children->data), 0.0, 0.5);
+				if (GTK_IS_ALIGNMENT (children->data))
+					gtk_alignment_set (GTK_ALIGNMENT (children->data), 0.0f, 0.5f, 0.2f, 0.f);
+
+				g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (button_clicked_buzz), reinterpret_cast<gpointer> (port));
+
+				g_object_set_data (G_OBJECT (button), JOYTYPE, reinterpret_cast<gpointer> (j * countof(buzz_btns) + buzz_btns[i]));
+				g_object_set_data (G_OBJECT (button), CFG, &cfg);
+
+				gtk_table_attach (GTK_TABLE (table), button,
+						j, 1 + j,
+						i + 1, 2 + i,
+						opt, opt, 5, 1);
+			}
+
+			gtk_table_attach (GTK_TABLE (table), gtk_label_new ("Player 1"),
+								0, 1, 0, 1, opt, opt, 5, 1);
+			gtk_table_attach (GTK_TABLE (table), gtk_label_new ("Player 2"),
+								1, 2, 0, 1, opt, opt, 5, 1);
+			gtk_table_attach (GTK_TABLE (table), gtk_label_new ("Player 3"),
+								2, 3, 0, 1, opt, opt, 5, 1);
+			gtk_table_attach (GTK_TABLE (table), gtk_label_new ("Player 4"),
+								3, 4, 0, 1, opt, opt, 5, 1);
+
+		}
+
+		GtkWidget *hbox = gtk_hbox_new (false, 5);
+		gtk_container_add (GTK_CONTAINER (right_vbox), hbox);
+
+		gtk_box_pack_start (GTK_BOX (right_vbox), cfg.label, TRUE, TRUE, 5);
+	}
+
+	// ---------------------------
+	gtk_widget_show_all (dlg);
+	gint result = gtk_dialog_run (GTK_DIALOG (dlg));
+
+	int ret = RESULT_OK;
+	if (result == GTK_RESPONSE_OK)
+	{
+		if (cfg.js_iter != cfg.joysticks.end()) {
+			if (!SaveSetting(dev_type, port, apiname, N_JOYSTICK, cfg.js_iter->second))
+				ret = RESULT_FAILED;
+		}
+
+		for (auto& it: cfg.jsconf)
+			SaveBuzzMappings(dev_type, port, it.first, it.second.mappings);
+
 	}
 	else
 		ret = RESULT_CANCELED;

@@ -134,6 +134,9 @@ error:
 
 int JoyDevPad::Configure(int port, const char* dev_type, void *data)
 {
+	if (!strcmp(dev_type, BuzzDevice::TypeName()))
+		return RESULT_CANCELED;
+
 	evdev::ApiCallbacks apicbs {GetEventName, EnumerateDevices, PollInput};
 	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
 	return ret;
