@@ -85,22 +85,39 @@ static void refresh_store(ConfigData *cfg)
 	gtk_list_store_clear (cfg->store);
 	for (auto& it: cfg->jsconf)
 	{
-		for (int i = 0; i < JOY_MAPS_COUNT && i < it.second.mappings.size(); i++)
+		for (int i = 0; /*i < JOY_MAPS_COUNT && */i < it.second.mappings.size(); i++)
 		{
 			if (it.second.mappings[i] == (uint16_t)-1)
 				continue;
 
 			const char *pc_name = "Unknown";
-			cfg->cb->get_event_name(i, it.second.mappings[i], &pc_name);
+			cfg->cb->get_event_name(cfg->dev_type, i, it.second.mappings[i], &pc_name);
 
 			gtk_list_store_append (cfg->store, &iter);
-			gtk_list_store_set (cfg->store, &iter,
-				COL_NAME, it.first.c_str(),
-				COL_PS2, JoystickMapNames[i],
-				COL_PC, pc_name,
-				COL_COLUMN_WIDTH, 50,
-				COL_BINDING, i,
-				-1);
+
+			if (!strcmp(cfg->dev_type, BuzzDevice::TypeName())) {
+
+				std::stringstream ss;
+				ss << buzz_map_names[i % countof(buzz_map_names)]
+				<< " " << (i / countof(buzz_map_names));
+				std::string name = ss.str();
+
+				gtk_list_store_set (cfg->store, &iter,
+					COL_NAME, it.first.c_str(),
+					COL_PS2, name.c_str(),
+					COL_PC, pc_name,
+					COL_COLUMN_WIDTH, 50,
+					COL_BINDING, i,
+					-1);
+			} else {
+				gtk_list_store_set (cfg->store, &iter,
+					COL_NAME, it.first.c_str(),
+					COL_PS2, JoystickMapNames[i],
+					COL_PC, pc_name,
+					COL_COLUMN_WIDTH, 50,
+					COL_BINDING, i,
+					-1);
+			}
 		}
 	}
 }

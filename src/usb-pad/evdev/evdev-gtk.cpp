@@ -542,12 +542,12 @@ const std::array<const char *, 525> key_to_str = {
   "RFKILL", /* linux:524 (KEY_RFKILL) */
 };
 
-static bool GetEventName(int map, int event, const char **name)
+static bool GetEventName(const char *dev_type, int map, int event, const char **name)
 {
 	if (!name)
 		return false;
 
-	if (map < JOY_STEERING) {
+	if (map < JOY_STEERING || !strcmp(dev_type, BuzzDevice::TypeName())) {
 		if (event < key_to_str.size()) {
 			*name = key_to_str[event];
 			return true;

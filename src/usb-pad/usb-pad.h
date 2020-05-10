@@ -308,6 +308,15 @@ enum PS2HatSwitch {
 	PAD_HAT_COUNT
 };
 
+enum Buzz
+{
+	BUZZ_RED,
+	BUZZ_YELLOW,
+	BUZZ_GREEN,
+	BUZZ_ORANGE,
+	BUZZ_BLUE,
+};
+
 static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 
 #define PAD_VID			0x046D

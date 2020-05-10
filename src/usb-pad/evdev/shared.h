@@ -66,6 +66,14 @@ static const char* JoystickMapNames [] = {
 	"brake"
 };
 
+static const char* buzz_map_names[] = {
+	"red",
+	"yellow",
+	"green",
+	"orange",
+	"blue",
+};
+
 struct Point { int x; int y; JoystickMap type; };
 
 struct ConfigMapping
@@ -77,7 +85,7 @@ struct ConfigMapping
 
 struct ApiCallbacks
 {
-	bool (*get_event_name)(int map, int event, const char **name);
+	bool (*get_event_name)(const char *dev_type, int map, int event, const char **name);
 	void (*populate)(vstring& jsdata);
 	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted);
 };

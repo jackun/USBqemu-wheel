@@ -15,7 +15,7 @@ using ms = std::chrono::milliseconds;
 #define JOYTYPE "joytype"
 #define CFG "cfg"
 
-static bool GetEventName(int map, int event, const char **name)
+static bool GetEventName(const char *dev_type, int map, int event, const char **name)
 {
 	static char buf[256] = {0};
 	if (map < evdev::JOY_STEERING) {
