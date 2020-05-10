@@ -609,14 +609,13 @@ GtkWidget * make_color_icon(uint32_t rgb)
 		data[i * 4 + 3] = icon_buzz_24[i];
 	}
 
-	GBytes * bytes = g_bytes_new (data.data(), data.size());
-	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_bytes (bytes,
+	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_data (data.data(),
 				GDK_COLORSPACE_RGB, TRUE, 8,
-				24, 24, 24 * 4);
+				24, 24, 24 * 4,
+				nullptr, nullptr);
 
 	GtkWidget *w = gtk_image_new_from_pixbuf (pixbuf);
 	g_object_unref (G_OBJECT(pixbuf));
-	g_bytes_unref (bytes);
 	return w;
 }
 
