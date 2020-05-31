@@ -17,7 +17,7 @@ void RegisterDevice::Register()
 	inst.Add(DEVTYPE_HIDKBD, new DeviceProxy<usb_hid::HIDKbdDevice>());
 	inst.Add(DEVTYPE_HIDMOUSE, new DeviceProxy<usb_hid::HIDMouseDevice>());
 	inst.Add(DEVTYPE_RBKIT, new DeviceProxy<usb_pad::RBDrumKitDevice>());
-	//inst.Add(DEVTYPE_EYETOY_WEBCAM, new DeviceProxy<usb_eyetoy::EyeToyWebCamDevice>()); // not ready
+	inst.Add(DEVTYPE_EYETOY_WEBCAM, new DeviceProxy<usb_eyetoy::EyeToyWebCamDevice>()); // not ready
 
 	RegisterAPIs();
 }
