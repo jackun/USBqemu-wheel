@@ -99,7 +99,7 @@ static const uint8_t eyetoy_config_descriptor[] = {
 	0x03,        // bNumInterfaces 3
 	0x01,        // bConfigurationValue
 	0x00,        // iConfiguration (String Index)
-	0x90,        // bmAttributes
+	0x80,        // bmAttributes
 	0xFA,        // bMaxPower 500mA
 
 	0x09,        // bLength
@@ -341,21 +341,27 @@ static void eyetoy_handle_control(USBDevice *dev, USBPacket *p, int request, int
 	EYETOYState *s = (EYETOYState *)dev;
 	int ret = 0;
 
-    ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
-    if (ret >= 0) {
-        return;
-    }
+	ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
+	if (ret >= 0) {
+		fprintf(stderr, "control = req:%02x, val:%02x, idx:%02x, len:%02x, data: ", request, value, index, length);
+		for (int i = 0; i < length; i++) {
+			fprintf(stderr, "%02x ", data[i]);
+		}
+		fprintf(stderr, "\n");
+		return;
+	}
 
 	switch(request) {
 	case VendorDeviceRequest | 0x1: //Read register
 		data[0] = s->regs[index & 0xFF];
-		OSDebugOut(TEXT("=== READ  reg 0x%02x = 0x%02x (%d)\n"), index, data[0], data[0]);
+		fprintf(stderr, "=== READ  reg 0x%02x = 0x%02x (%d)\n", index, data[0], data[0]);
 		p->actual_length = 1;
 		break;
 
 	case VendorDeviceOutRequest | 0x1: //Write register
-		if (!(index >= R51x_I2C_SADDR_3 && index <= R518_I2C_CTL))
-		OSDebugOut(TEXT("*** WRITE reg 0x%02x = 0x%02x (%d)\n"), index, data[0], data[0]);
+		if (!(index >= R51x_I2C_SADDR_3 && index <= R518_I2C_CTL)) {
+			fprintf(stderr, "*** WRITE reg 0x%02x = 0x%02x (%d)\n", index, data[0], data[0]);
+		}
 
 		switch (index)
 		{
@@ -422,6 +428,12 @@ static void eyetoy_handle_control(USBDevice *dev, USBPacket *p, int request, int
 		p->status = USB_RET_STALL;
 		break;
 	}
+
+	fprintf(stderr, "control = req:%02x, val:%02x, idx:%02x, len:%02x, data: ", request, value, index, length);
+	for (int i = 0; i < length; i++) {
+		fprintf(stderr, "%02x ", data[i]);
+	}
+	fprintf(stderr, "\n");
 }
 
 static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
@@ -465,6 +477,30 @@ static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 			*  00
 			*  03 00 00 00 0e 4b
 			*/
+
+			int pos[] = { 0x000, 0x300, 0x600, 0x900, 0xc00, 0xf00, 0x1200, 0x12f0, 0, 0, 0, 0,
+				0x1300, 0x1600, 0x1900, 0x1c00, 0x1f00, 0x2200, 0x2500, 0x2800, 0x2890, 0, 0, 0, 0 };
+			int lng[] = { 0x300, 0x300, 0x300, 0x300, 0x300, 0x300,   0xf0,   0x10, 0, 0, 0, 0,
+				 0x300,  0x300,  0x300,  0x300,  0x300,  0x300,  0x300,   0x90,   0x10, 0, 0, 0, 0 };
+
+			memset(data, 0xff, 896);
+			memcpy(data, &mjpg_frame[pos[s->frame_offset]], lng[s->frame_offset]);
+
+			usb_packet_copy(p, data, 896);
+
+			fprintf(stderr, "s->state=%d \n", s->frame_offset);
+			for (int i = 0; i < 16; i++) {
+				fprintf(stderr, "%02x ", data[i]);
+			}
+			fprintf(stderr, "\n");
+
+			s->frame_offset++;
+			if (s->frame_offset == 25) {
+				s->frame_offset = 0;
+			}
+			return;
+
+
 			int sz = std::min((int)len - 1, mjpg_frame_size - s->frame_offset);
 			static int counter = 0;
 			memset(data, 0, 16);
