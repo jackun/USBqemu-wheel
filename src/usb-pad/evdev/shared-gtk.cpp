@@ -599,8 +599,8 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 
 GtkWidget * make_color_icon(uint32_t rgb)
 {
-	std::vector<uint8_t> data;
-	data.resize(24*24*4);
+	GdkPixbuf *pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8, 24, 24);
+	guchar *data = gdk_pixbuf_get_pixels (pixbuf);
 
 	for (size_t i=0; i<24*24; i++) {
 		data[i * 4 + 0] = rgb & 0xFF;
@@ -609,16 +609,10 @@ GtkWidget * make_color_icon(uint32_t rgb)
 		data[i * 4 + 3] = icon_buzz_24[i];
 	}
 
-	GdkPixbuf *pixbuf = gdk_pixbuf_new_from_data (data.data(),
-				GDK_COLORSPACE_RGB, TRUE, 8,
-				24, 24, 24 * 4,
-				nullptr, nullptr);
-
 	GtkWidget *w = gtk_image_new_from_pixbuf (pixbuf);
 	g_object_unref (G_OBJECT(pixbuf));
 	return w;
 }
-
 
 int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs)
 {
