@@ -11,7 +11,7 @@ void RegisterAPIs()
 	usb_pad::RegisterPad::Register();
 	usb_mic::RegisterAudioDevice::Register();
 	usb_hid::RegisterUsbHID::Register();
-	//usb_eyetoy::RegisterVideoDevice::Register(); // someday, maybe...
+	usb_eyetoy::RegisterVideoDevice::Register();
 }
 
 void UnregisterAPIs()
@@ -19,5 +19,5 @@ void UnregisterAPIs()
 	usb_pad::RegisterPad::instance().Clear();
 	usb_mic::RegisterAudioDevice::instance().Clear();
 	usb_hid::RegisterUsbHID::instance().Clear();
-	//usb_eyetoy::RegisterVideoDevice::instance().Clear(); // someday, maybe...
+	usb_eyetoy::RegisterVideoDevice::instance().Clear();
 }

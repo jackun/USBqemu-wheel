@@ -27,9 +27,6 @@
 
 namespace usb_eyetoy {
 
-#include "../../cut2.cpp"
-const int mjpg_frame_size = sizeof(mjpg_frame);
-
 static const USBDescStrings desc_strings = {
 	"",
 	"Sony corporation",
@@ -46,21 +43,16 @@ typedef struct EYETOYState {
 	uint8_t regs[0xFF]; //OV519
 	uint8_t i2c_regs[0xFF]; //OV764x
 
-	int frame_offset;
+	int frame_step;
+	unsigned char *mpeg_frame_data;
+	unsigned int   mpeg_frame_size;
+	unsigned int   mpeg_frame_offset;
 	uint8_t alts[3];
 	uint8_t filter_log;
 //	} f;
 } EYETOYState;
 
-std::list<std::string> EyeToyWebCamDevice::ListAPIs()
-{
-	return RegisterVideoDevice::instance().Names();
-}
-
-const TCHAR* EyeToyWebCamDevice::LongAPIName(const std::string& name)
-{
-	return RegisterVideoDevice::instance().Proxy(name)->Name();
-}
+static EYETOYState *static_state;
 
 /*
 	Manufacturer:   OmniVision Technologies, Inc.
@@ -343,24 +335,19 @@ static void eyetoy_handle_control(USBDevice *dev, USBPacket *p, int request, int
 
 	ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
 	if (ret >= 0) {
-		fprintf(stderr, "control = req:%02x, val:%02x, idx:%02x, len:%02x, data: ", request, value, index, length);
-		for (int i = 0; i < length; i++) {
-			fprintf(stderr, "%02x ", data[i]);
-		}
-		fprintf(stderr, "\n");
 		return;
 	}
 
 	switch(request) {
 	case VendorDeviceRequest | 0x1: //Read register
 		data[0] = s->regs[index & 0xFF];
-		fprintf(stderr, "=== READ  reg 0x%02x = 0x%02x (%d)\n", index, data[0], data[0]);
+		OSDebugOut(TEXT("=== READ  reg 0x%02x = 0x%02x (%d)\n"), index, data[0], data[0]);
 		p->actual_length = 1;
 		break;
 
 	case VendorDeviceOutRequest | 0x1: //Write register
 		if (!(index >= R51x_I2C_SADDR_3 && index <= R518_I2C_CTL)) {
-			fprintf(stderr, "*** WRITE reg 0x%02x = 0x%02x (%d)\n", index, data[0], data[0]);
+			OSDebugOut(TEXT("*** WRITE reg 0x%02x = 0x%02x (%d)\n"), index, data[0], data[0]);
 		}
 
 		switch (index)
@@ -423,23 +410,17 @@ static void eyetoy_handle_control(USBDevice *dev, USBPacket *p, int request, int
 
 		break;
 	default:
-	fail:
 	OSDebugOut(TEXT("default ******************* %04x\n"), request);
 		p->status = USB_RET_STALL;
 		break;
 	}
-
-	fprintf(stderr, "control = req:%02x, val:%02x, idx:%02x, len:%02x, data: ", request, value, index, length);
-	for (int i = 0; i < length; i++) {
-		fprintf(stderr, "%02x ", data[i]);
-	}
-	fprintf(stderr, "\n");
 }
 
 static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 {
 	EYETOYState *s = (EYETOYState *)dev;
-	uint8_t data[896];
+	static const int max_ep_size = 896;
+	uint8_t data[max_ep_size];
 	int ret = 0;
 	uint8_t devep = p->ep->nr;
 	size_t len = p->iov.size;
@@ -447,104 +428,50 @@ static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 	switch(p->pid) {
 	case USB_TOKEN_IN:
 		if (devep == 1) {
-			// get image
-			/* Header of ov519 is 16 bytes:
-			*  Byte  Value   Description
-			*  0     0xff    magic
-			*  1     0xff    magic
-			*  2     0xff    magic
-			*  3     0xXX    0x50 = SOF, 0x51 = EOF
-			*  9     0xXX    0x01 initial frame without data,
-			*                0x00 standard frame with image
-			*  14    Lo      in EOF: length of image data / 8
-			*  15    Hi
-			* 
-			* start:
-			*  ff ff ff 50
-			*  00
-			*  7e 1b 63  67
-			*  00
-			*  03 00 00 00 10 4b
-			* last:
-			*  ff ff ff 51
-			*  00 6b e1 87  67
-			*  00
-			*  03 00 4b 0e 90 0b
-			* next
-			*  ff ff ff 50
-			*  00
-			*  7b 08 88  67
-			*  00
-			*  03 00 00 00 0e 4b
-			*/
 
-			int pos[] = { 0x000, 0x300, 0x600, 0x900, 0xc00, 0xf00, 0x1200, 0x12f0, 0, 0, 0, 0,
-				0x1300, 0x1600, 0x1900, 0x1c00, 0x1f00, 0x2200, 0x2500, 0x2800, 0x2890, 0, 0, 0, 0 };
-			int lng[] = { 0x300, 0x300, 0x300, 0x300, 0x300, 0x300,   0xf0,   0x10, 0, 0, 0, 0,
-				 0x300,  0x300,  0x300,  0x300,  0x300,  0x300,  0x300,   0x90,   0x10, 0, 0, 0, 0 };
+			memset(data, 0xff, sizeof(data));
 
-			memset(data, 0xff, 896);
-			memcpy(data, &mjpg_frame[pos[s->frame_offset]], lng[s->frame_offset]);
+			if (s->frame_step == 0) {
 
-			usb_packet_copy(p, data, 896);
+				s->mpeg_frame_size = s->videodev->GetImage(s->mpeg_frame_data, 320 * 240 * 2);
+				if (s->mpeg_frame_size == 0) {
+					goto send_packet;
+				}
 
-			fprintf(stderr, "s->state=%d \n", s->frame_offset);
-			for (int i = 0; i < 16; i++) {
-				fprintf(stderr, "%02x ", data[i]);
+				s->mpeg_frame_offset = 0;
+				uint8_t header1[] = {
+					0xFF, 0xFF, 0xFF, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00
+				};
+				memcpy(data, header1, sizeof(header1));
+				uint8_t header2[] = {
+					0x69, 0x70, 0x75, 0x6D, 0x00, 0x00, 0x00, 0x00, 0x40, 0x01, 0xF0, 0x00, 0x01, 0x00, 0x00, 0x00,
+					0x00
+				};
+				memcpy(data + sizeof(header1), header2, sizeof(header2));
+				
+				int data_pk = max_ep_size - sizeof(header1) - sizeof(header2);
+				memcpy(data + sizeof(header1) + sizeof(header2), s->mpeg_frame_data + s->mpeg_frame_offset, data_pk);
+				s->mpeg_frame_offset = data_pk;
+
+				s->frame_step++;
+			} else if (s->frame_step < 10) {
+				int data_pk = s->mpeg_frame_size - s->mpeg_frame_offset;
+				if (data_pk > max_ep_size)
+					data_pk = max_ep_size;
+				memcpy(data, s->mpeg_frame_data + s->mpeg_frame_offset, data_pk);
+				s->mpeg_frame_offset += data_pk;
+
+				s->frame_step++;
+			} else if (s->frame_step == 10) {
+				uint8_t footer[] = {
+					0xFF, 0xFF, 0xFF, 0x51, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00
+				};
+				memcpy(data, footer, sizeof(footer));
+				s->frame_step = 0;
 			}
-			fprintf(stderr, "\n");
 
-			s->frame_offset++;
-			if (s->frame_offset == 25) {
-				s->frame_offset = 0;
-			}
-			return;
-
-
-			int sz = std::min((int)len - 1, mjpg_frame_size - s->frame_offset);
-			static int counter = 0;
-			memset(data, 0, 16);
-			data[0] = 0xFF;
-			data[1] = 0xFF;
-			data[2] = 0xFF;
-			
-			data[10] = 0x03;
-			
-			counter = 1 + counter % 255;
-			if (s->frame_offset == 0) {
-				data[3] = 0x50;
-				*(uint16_t*)&data[14] = mjpg_frame_size / 8;
-				memcpy(data + 16, &mjpg_frame[s->frame_offset], sz - 16);
-				s->frame_offset += sz - 16;
-				s->regs[0xea] ++;
-				counter = 0;
-			}
-			else if (s->frame_offset >= mjpg_frame_size) {
-				s->frame_offset = 0;
-				data[3] = 0x51;
-				data[9] = 0x1; // discard, no data frame
-				*(uint16_t*)&data[14] = mjpg_frame_size / 8;
-				sz = 16;
-				fprintf(stderr, "last packet, nodata\n");
-			}
-			else if (s->frame_offset + sz >= mjpg_frame_size && sz + 16 <= len) {
-				fprintf(stderr, "last %d %d\n", s->frame_offset, sz);
-				sz = (mjpg_frame_size - s->frame_offset) + 16;
-				data[3] = 0x51;
-				*(uint16_t*)&data[14] = mjpg_frame_size / 8;
-				memcpy(data + 16, &mjpg_frame[s->frame_offset], sz - 16);
-				s->frame_offset += sz - 16;
-			}
-			else
-			{
-				//memcpy(data, &mjpg_frame[s->frame_offset], sz);
-				memset(data, (s->frame_offset>>2) & 0xFF, sz);
-				s->frame_offset += sz;
-			}
-			fprintf(stderr, "memcpy %02x len %d sz %d %d/%d\n", data[3], len, sz, s->frame_offset, mjpg_frame_size);
-
-			data[sz] = counter;
-			usb_packet_copy (p, data, sz + 1);
+send_packet:
+			usb_packet_copy(p, data, max_ep_size);
 		}
 		else if (devep == 2) {
 			// get audio
@@ -555,7 +482,6 @@ static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 		break;
 	case USB_TOKEN_OUT:
 	default:
-	fail:
 		p->status = USB_RET_STALL;
 		break;
 	}
@@ -571,30 +497,32 @@ static void eyetoy_handle_destroy(USBDevice *dev)
 int eyetoy_open(USBDevice *dev)
 {
 	EYETOYState *s = (EYETOYState *) dev;
+	s->videodev->Open();
 	return 1;
 }
 
 void eyetoy_close(USBDevice *dev)
 {
 	EYETOYState *s = (EYETOYState *) dev;
+	s->videodev->Close();
 }
 
 USBDevice *EyeToyWebCamDevice::CreateDevice(int port)
 {
 	VideoDevice *videodev = nullptr;
-	/*CONFIGVARIANT varApi(N_DEVICE_API, CONFIG_TYPE_CHAR);
-	LoadSetting(port, DEVICENAME, varApi);
-	VideoDeviceProxyBase *proxy = RegisterVideoDevice::instance().Proxy(varApi.strValue);
+	std::string varApi;
+	LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
+	VideoDeviceProxyBase *proxy = RegisterVideoDevice::instance().Proxy(varApi);
 	if (!proxy)
 	{
-		SysMessage(TEXT("Invalid video device API: " SFMTs "\n"), varApi.strValue.c_str());
+		SysMessage(TEXT("Invalid video device API: " SFMTs "\n"), varApi.c_str());
 		return NULL;
 	}
 
 	videodev = proxy->CreateObject(port);
 
 	if (!videodev)
-		return NULL;*/
+		return NULL;
 
 	EYETOYState *s;
 
@@ -627,10 +555,13 @@ USBDevice *EyeToyWebCamDevice::CreateDevice(int port)
 	eyetoy_handle_reset((USBDevice *)s);
 
 	reset_i2c(s);
-	s->frame_offset = 0;
+	s->frame_step = 0;
+	s->mpeg_frame_data = (unsigned char *) calloc(1, 320 * 240 * 4); // TODO: 640x480 ?
+	s->mpeg_frame_offset = 0;
 	s->regs[OV519_R10_H_SIZE] = 320>>4;
 	s->regs[OV519_R11_V_SIZE] = 240>>3;
 
+	static_state = s;
 	return (USBDevice *)s;
 fail:
 	eyetoy_handle_destroy((USBDevice *)s);
