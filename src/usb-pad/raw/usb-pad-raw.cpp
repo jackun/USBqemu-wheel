@@ -50,7 +50,7 @@ void RawInputPad::ReaderThread(void *ptr)
 			if (!pad->mReportData.try_enqueue(report)) // TODO May leave queue with too stale data. Use multi-producer/consumer queue?
 			{
 				if (!errCount)
-					fprintf(stderr, "%s: Could not enqueue report data: %d\n", APINAME, pad->mReportData.size_approx());
+					fprintf(stderr, "%s: Could not enqueue report data: %zd\n", APINAME, pad->mReportData.size_approx());
 				errCount = (++errCount) % 16;
 			}
 		}
@@ -496,7 +496,7 @@ int RawInputPad::Configure(int port, const char* dev_type, void *data)
 		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
 		shared::rawinput::Uninitialize();
 	}
-	return res;
+	return (int)res;
 }
 
 }} //namespace

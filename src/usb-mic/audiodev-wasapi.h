@@ -118,7 +118,7 @@ private:
 	std::wstring mDevID;
 	bool mDeviceLost;
 	std::wstring mDeviceName;
-	int mBuffering;
+	LONGLONG mBuffering;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;

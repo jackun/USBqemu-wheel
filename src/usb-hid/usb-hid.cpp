@@ -511,7 +511,7 @@ static void usb_hid_handle_data(USBDevice *dev, USBPacket *p)
     UsbHIDState *us = reinterpret_cast<UsbHIDState *>(dev);
     HIDState *hs = &us->f.hid;
     std::vector<uint8_t> buf(p->iov.size);
-    int len = 0;
+    size_t len = 0;
 
     switch (p->pid) {
     case USB_TOKEN_IN:

@@ -226,7 +226,7 @@ static LRESULT CALLBACK HookWndProc(INT code, WPARAM wParam, LPARAM lParam)
 
 static LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
 {
-	fprintf(stderr, "kb hook: %d, %u, %d\n", code, wParam, lParam);
+	fprintf(stderr, "kb hook: %d, %zd, %zd\n", code, wParam, lParam);
 	KBDLLHOOKSTRUCT *kb = reinterpret_cast<KBDLLHOOKSTRUCT*> (lParam);
 	//if(code == HC_ACTION)
 	//	RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
