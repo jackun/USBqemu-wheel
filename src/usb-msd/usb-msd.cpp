@@ -804,7 +804,6 @@ static void usb_msd_handle_data(USBDevice *dev, USBPacket *p)
     int ret = 0;
     size_t file_ret = 0;
     struct usb_msd_cbw cbw;
-    struct usb_msd_csw csw;
     uint8_t devep = p->ep->nr;
 
     //XXX Note for self if using async td: see qemu dev-storage.c

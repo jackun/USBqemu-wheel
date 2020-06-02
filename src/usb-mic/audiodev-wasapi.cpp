@@ -234,7 +234,7 @@ bool MMAudioDevice::Reinitialize()
 	//Random limit of 1ms to 1 seconds
 	if(mBuffering == 0)
 		mBuffering = 50;
-	mBuffering = std::min(std::max(mBuffering, 1), 1000);
+	mBuffering = std::min(std::max(mBuffering, 1LL), 1000LL);
 	OSDebugOut(TEXT("Buffering: %d\n"), mBuffering);
 
 	err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(mBuffering), 0, pwfx, NULL);
@@ -836,7 +836,7 @@ int MMAudioDevice::Configure(int port, const char* dev_type, void *data)
 	settings.port = port;
 	settings.dev_type = dev_type;
 
-	return DialogBoxParam(h.hInst,
+	return (int)DialogBoxParam(h.hInst,
 		MAKEINTRESOURCE(IDD_DLGWASAPI),
 		h.hWnd,
 		(DLGPROC)WASAPIDlgProc, (LPARAM)&settings);

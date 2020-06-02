@@ -106,9 +106,9 @@ void SetControlLabel(int cid, const InputMapped& im)
 		return;
 
 	if (im.type == MT_AXIS)
-		swprintf_s(text, L"Axis %i/%i/%s/%i", im.index, im.mapped, im.INVERTED ? L"i" : L"n", im.HALF);
+		swprintf_s(text, L"Axis %zi/%i/%s/%i", im.index, im.mapped, im.INVERTED ? L"i" : L"n", im.HALF);
 	else if (im.type == MT_BUTTON)
-		swprintf_s(text, L"Button %i/%i", im.index, im.mapped);
+		swprintf_s(text, L"Button %zi/%i", im.index, im.mapped);
 	else
 		swprintf_s(text, L"Unmapped");
 
@@ -166,7 +166,7 @@ bool AxisDown(size_t ijoy, InputMapped& im)
 		std::endl;
 
 	LONG detectrange = 2000;
-	for (size_t axisid = 0; axisid < DINPUT_AXES_COUNT; axisid++)
+	for (int32_t axisid = 0; axisid < DINPUT_AXES_COUNT; axisid++)
 	{
 		LONG diff = 0;
 		im.index = ijoy;
