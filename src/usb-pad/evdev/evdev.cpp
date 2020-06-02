@@ -575,10 +575,12 @@ int EvDevPad::Open()
 			return false;
 		}*/
 
+		int max_buttons = JOY_STEERING;
 		switch(mType) {
 			case WT_BUZZ_CONTROLLER:
 				LoadBuzzMappings(mDevType, mPort, device.name,
 					device.mappings);
+				max_buttons = 20;
 			break;
 			default:
 				LoadMappings(mDevType, mPort, device.name,
@@ -615,7 +617,8 @@ int EvDevPad::Open()
 						device.is_dualanalog = true;
 				}
 
-				for (int k = JOY_STEERING; k < JOY_MAPS_COUNT; k++)
+				// FIXME axes as buttons
+				for (int k = max_buttons /*JOY_STEERING*/; k < JOY_MAPS_COUNT; k++)
 				{
 					if (i == device.mappings[k]) {
 						has_mappings = true;
@@ -645,7 +648,7 @@ int EvDevPad::Open()
 					device.is_gamepad = true;
 					OSDebugOut("Device is a gamepad\n");
 				}
-				for (int k = 0; k < JOY_STEERING; k++)
+				for (int k = 0; k < max_buttons; k++)
 				{
 					if (i == device.mappings[k]) {
 						has_mappings = true;
@@ -660,7 +663,7 @@ int EvDevPad::Open()
 				OSDebugOut("Device has button: 0x%x\n", i);
 				device.btn_map[i] = -1;//device.buttons;
 				++device.buttons;
-				for (int k = 0; k < JOY_STEERING; k++)
+				for (int k = 0; k < max_buttons; k++)
 				{
 					if (i == device.mappings[k]) {
 						has_mappings = true;
