@@ -428,7 +428,7 @@ int EvDevPad::TokenOut(const uint8_t *data, int len)
 			data[0], data[1], data[2], data[3], data[4], data[5], data[6]);
 
 		if (data[0] == 0x8 || data[0] == 0xB) return len;
-		if (data[0] == 0xF8 && 
+		if (data[0] == 0xF8 &&
 			/* Allow range changes */
 			!(data[1] == 0x81 || data[1] == 0x02 || data[1] == 0x03))
 			return len; //don't send extended commands
@@ -453,7 +453,6 @@ int EvDevPad::TokenOut(const uint8_t *data, int len)
 
 int EvDevPad::Open()
 {
-	int t;
 	std::stringstream name;
 	vstring device_list;
 	char buf[1024];
@@ -481,18 +480,12 @@ int EvDevPad::Open()
 
 	std::string evphys, hid_dev;
 
-	std::string joypath;
 	switch(mType) {
 		case WT_GENERIC:
 		case WT_GT_FORCE:
 		case WT_DRIVING_FORCE_PRO:
 		case WT_DRIVING_FORCE_PRO_1102:
 		{
-			if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath))
-			{
-				OSDebugOut("Cannot load device setting: %s\n", N_JOYSTICK);
-				return 1;
-			}
 			LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
 		}
 		break;
@@ -501,6 +494,13 @@ int EvDevPad::Open()
 	}
 
 	if (mUseRawFF) {
+		// TODO could just use device fd below whose axis is mapped to steering
+		std::string joypath;
+		if (!LoadSetting(mDevType, mPort, APINAME, N_JOYSTICK, joypath)) {
+			OSDebugOut("Cannot load device setting: %s\n", N_JOYSTICK);
+			return 1;
+		}
+
 		if (joypath.empty() || !file_exists(joypath))
 			goto quit;
 
@@ -508,7 +508,7 @@ int EvDevPad::Open()
 		if ((fd = open(joypath.c_str(), O_RDWR | O_NONBLOCK)) < 0)
 		{
 			OSDebugOut("Cannot open device: %s\n", joypath.c_str());
-			goto quit;
+			return 1;
 		}
 
 		memset(buf, 0, sizeof(buf));
@@ -620,7 +620,9 @@ int EvDevPad::Open()
 					if (i == device.mappings[k]) {
 						has_mappings = true;
 						device.axis_map[i] = 0x80 | k;
-						if (k == JOY_STEERING && !mFFdev)
+						// TODO Instead of single FF instance, create for every device with X-axis???
+						// and then switch between them according to which device was used recently
+						if (k == JOY_STEERING && !mFFdev && !mUseRawFF)
 							mFFdev = new EvdevFF(device.fd);
 					}
 				}
@@ -674,9 +676,6 @@ int EvDevPad::Open()
 		}
 	}
 
-	// TODO Instead of single FF instance, create for every device with X-axis???
-	// and then switch between them according to which device was used recently
-	//mFFdev = new EvdevFF(mHandle);
 	return 0;
 
 quit:
