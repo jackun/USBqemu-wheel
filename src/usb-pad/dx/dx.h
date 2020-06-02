@@ -168,7 +168,7 @@ private:
 };
 
 extern std::vector<JoystickDevice *> g_pJoysticks;
-extern std::map<ControlID, InputMapped> g_Controls[2];
+extern std::map<int, InputMapped> g_Controls[2];
 
 void LoadDInputConfig(int port, const char *dev_type);
 void SaveDInputConfig(int port, const char *dev_type);
@@ -183,13 +183,13 @@ float FilterControl(float input, LONG linear, LONG offset, LONG dead);
 bool KeyDown(DWORD KeyID);
 void TestForce(int port);
 LONG GetAxisValueFromOffset(int axis, const DIJOYSTATE2& j);
-bool GetControl(int port, ControlID id);
+bool GetControl(int port, int id);
 float GetAxisControl(int port, ControlID id);
 void CreateFFB(int port, LPDIRECTINPUTDEVICE8 device, DWORD axis);
 bool FindFFDevice(int port);
 
-void AddInputMap(int port, ControlID cid, const InputMapped& im);
-void RemoveInputMap(int port, ControlID cid);
-bool GetInputMap(int port, ControlID cid, InputMapped& im);
+void AddInputMap(int port, int cid, const InputMapped& im);
+void RemoveInputMap(int port, int cid);
+bool GetInputMap(int port, int cid, InputMapped& im);
 
 }} //namespace

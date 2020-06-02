@@ -19,7 +19,7 @@ DWORD old = 0;
 static LPDIRECTINPUT8       g_pDI       = NULL;
 
 std::vector<JoystickDevice *> g_pJoysticks;
-std::map<ControlID, InputMapped> g_Controls[2];
+std::map<int, InputMapped> g_Controls[2];
 
 static DWORD rgdwAxes[1] = { DIJOFS_X }; //FIXME if steering uses two axes, then this needs DIJOFS_Y too?
 static LONG  rglDirection[1] = { 0 };
@@ -221,19 +221,19 @@ void ReleaseFFB(int port)
 	FFB[port] = false;
 }
 
-void AddInputMap(int port, ControlID cid, const InputMapped& im)
+void AddInputMap(int port, int cid, const InputMapped& im)
 {
 	g_Controls[port][cid] = im;
 }
 
-void RemoveInputMap(int port, ControlID cid)
+void RemoveInputMap(int port, int cid)
 {
 	g_Controls[port].erase(cid); //FIXME ini doesn't clear old entries duh
 	// override with MT_NONE instead
 	//g_Controls[port][cid].type = MT_NONE;
 }
 
-bool GetInputMap(int port, ControlID cid, InputMapped& im)
+bool GetInputMap(int port, int cid, InputMapped& im)
 {
 	auto it = g_Controls[port].find(cid);
 	if (it != g_Controls[port].end()) {
@@ -467,7 +467,7 @@ float ReadAxis(const InputMapped& im)
 	return retval;
 }
 
-float ReadAxis(int port, ControlID cid)
+float ReadAxis(int port, int cid)
 {
 	InputMapped im;
 	if (!GetInputMap(port, cid, im))
@@ -476,7 +476,7 @@ float ReadAxis(int port, ControlID cid)
 }
 
 //using both above functions
-float ReadAxisFiltered(int port, ControlID cid)
+float ReadAxisFiltered(int port, int cid)
 {
 	InputMapped im;
 	if (!GetInputMap(port, cid, im))
@@ -848,7 +848,7 @@ void InitDI(int port, const char *dev_type)
 	FindFFDevice(port);
 }
 
-bool GetControl(int port, ControlID id)
+bool GetControl(int port, int id)
 {
 	InputMapped im;
 	if (!GetInputMap(port, id, im))
