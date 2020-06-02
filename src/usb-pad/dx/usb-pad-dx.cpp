@@ -28,7 +28,7 @@ int DInputPad::TokenIn(uint8_t *buf, int len)
 
 	if (mType == WT_BUZZ_CONTROLLER) {
 		for (int i = 0; i < 20; i++) {
-			if (GetControl(mPort, i-1)) {
+			if (GetControl(mPort, i)) {
 				mWheelData.buttons |= 1 << i;
 			}
 		}
