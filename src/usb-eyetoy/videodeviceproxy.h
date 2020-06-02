@@ -23,6 +23,7 @@ class VideoDeviceProxyBase : public ProxyBase
 	VideoDeviceProxyBase(const VideoDeviceProxyBase&) = delete;
 
 	public:
+	VideoDeviceProxyBase() {}
 	VideoDeviceProxyBase(const std::string& name);
 	virtual VideoDevice* CreateObject(int port) const = 0;
 };
@@ -33,6 +34,7 @@ class VideoDeviceProxy : public VideoDeviceProxyBase
 	VideoDeviceProxy(const VideoDeviceProxy&) = delete;
 
 	public:
+	VideoDeviceProxy() {}
 	VideoDeviceProxy(const std::string& name): VideoDeviceProxyBase(name) {}
 	VideoDevice* CreateObject(int port) const
 	{
@@ -50,9 +52,9 @@ class VideoDeviceProxy : public VideoDeviceProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, void *data)
+	virtual int Configure(int port, const char *dev_type, void *data)
 	{
-		return T::Configure(port, data);
+		return T::Configure(port, dev_type, data);
 	}
 };
 

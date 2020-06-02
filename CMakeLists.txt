@@ -214,11 +214,14 @@ SET(SRCS_MIC
 )
 
 SET(SRCS_EYETOY
-	#./src/usb-eyetoy/usb-eyetoy.cpp
+	./src/usb-eyetoy/jpgd/jpgd.cpp
+	./src/usb-eyetoy/jo_mpeg.c
 	./src/usb-eyetoy/usb-eyetoy-webcam.cpp
 )
 
 SET(HDRS_EYETOY
+	./src/usb-eyetoy/jpgd/jpgd.h
+	./src/usb-eyetoy/jo_mpeg.h
 	./src/usb-eyetoy/videodeviceproxy.h
 	./src/usb-eyetoy/videodev.h
 	./src/usb-eyetoy/usb-eyetoy-webcam.h
@@ -314,6 +317,14 @@ IF(WIN32)
 	LIST(APPEND SRCS_HID
 	#	./src/usb-hid/win32/mouse.cpp
 		./src/usb-hid/raw/rawinput.cpp
+	)
+
+	LIST(APPEND HDRS_EYETOY
+		./src/usb-eyetoy/cam-windows.h
+	)
+
+	LIST(APPEND SRCS_EYETOY
+		./src/usb-eyetoy/cam-windows.cpp
 	)
 
 	LIST(APPEND HDRS ${HDRS_WIN32})
@@ -427,6 +438,12 @@ IF(UNIX)
 	LIST(APPEND SRCS_HID
 		./src/usb-hid/evdev/evdev.cpp
 		./src/usb-hid/evdev/evdev-gtk.cpp
+	)
+	LIST(APPEND HDRS_EYETOY
+		./src/usb-eyetoy/cam-linux.h
+	)
+	LIST(APPEND SRCS_EYETOY
+		./src/usb-eyetoy/cam-linux.cpp
 	)
 	LIST(APPEND SRCS_LINUX
 		./src/linux/config.cpp
