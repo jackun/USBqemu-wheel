@@ -8,7 +8,6 @@ namespace usb_eyetoy {
 class VideoDevice
 {
 public:
-	VideoDevice(int port) : mPort(port) {}
 	virtual ~VideoDevice() {}
 	virtual int Open() = 0;
 	virtual int Close() = 0;
