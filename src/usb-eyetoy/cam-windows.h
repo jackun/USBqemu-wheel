@@ -113,8 +113,8 @@ public:
 	int NumDevices();
 
 protected:
-	void InitializeGraph();
-	void InitializeVideo();
+	int InitializeGraph();
+	int InitializeVideo();
 
 private:
 	IFilterGraph2 *pGraph;

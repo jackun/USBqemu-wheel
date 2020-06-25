@@ -107,7 +107,7 @@ DShowVideoCapture::DShowVideoCapture() {
 	InitializeGraph();
 	InitializeVideo();
 
-	pControl->Run();	
+	pControl->Run();
 	for (int i = 0; i < num_devices; i++) {
 		devices[i].Stop();
 	}
@@ -125,38 +125,51 @@ int DShowVideoCapture::NumDevices() {
 	return num_devices;
 }
 
-void DShowVideoCapture::InitializeGraph() {
+int DShowVideoCapture::InitializeGraph() {
 	// Create the Capture Graph Builder.
 	HRESULT hr = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pGraphBuilder));
-	if (FAILED(hr)) throw hr;
+	if (FAILED(hr)) {
+		fprintf(stderr, "CoCreateInstance CLSID_CaptureGraphBuilder2 err : %x\n", hr);
+		return -1;
+	}
 
 	// Create the Filter Graph Manager.
 	hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pGraph));
-	if (FAILED(hr)) throw hr;
+	if (FAILED(hr)) {
+		fprintf(stderr, "CoCreateInstance CLSID_FilterGraph err : %x\n", hr);
+		return -1;
+	}
 
 	hr = pGraphBuilder->SetFiltergraph(pGraph);
-	if (FAILED(hr)) throw hr;
+	if (FAILED(hr)) {
+		fprintf(stderr, "SetFiltergraph err : %x\n", hr);
+		return -1;
+	}
 
 	hr = pGraph->QueryInterface(IID_IMediaControl, (void **)&pControl);
-	if (FAILED(hr)) throw hr;
+	if (FAILED(hr)) {
+		fprintf(stderr, "QueryInterface IID_IMediaControl err : %x\n", hr);
+		return -1;
+	}
+	return 0;
 }
 
-void DShowVideoCapture::InitializeVideo() {
+int DShowVideoCapture::InitializeVideo() {
 	HRESULT hr;
 
 	// enumerate all video capture devices
 	ICreateDevEnum *pCreateDevEnum = 0;
 	hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pCreateDevEnum));
-	if (hr != NOERROR) {
+	if (FAILED(hr)) {
 		fprintf(stderr, "Error Creating Device Enumerator");
-		return;
+		return -1;
 	}
 
 	IEnumMoniker *pEm = 0;
 	hr = pCreateDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEm, NULL);
-	if (hr != NOERROR) {
+	if (FAILED(hr)) {
 		fprintf(stderr, "You have no video capture hardware");
-		return;
+		return -1;
 	};
 
 	pEm->Reset();
@@ -167,111 +180,147 @@ void DShowVideoCapture::InitializeVideo() {
 		IPropertyBag *pBag = 0;
 
 		hr = pM->BindToStorage(0, 0, IID_IPropertyBag, (void**)&pBag);
+		if (FAILED(hr)) {
+			fprintf(stderr, "BindToStorage err : %x\n", hr);
+			goto freeMoniker;
+		}
+
+		VARIANT var;
+		VariantInit(&var);
+		hr = pBag->Read(L"Description", &var, 0);
+		if (FAILED(hr)) {
+			hr = pBag->Read(L"FriendlyName", &var, 0);
+		}
+		if (FAILED(hr)) {
+			fprintf(stderr, "Read name err : %x\n", hr);
+			goto freeVar;
+		}
+
+		DShowVideoDevice *dev = devices + num_devices++;
+		BSTR ptr = var.bstrVal;
+
+		for (int c = 0; *ptr; c++, ptr++) {
+			dev->filtername[c] = *ptr;
+			dev->friendlyname[c] = *ptr & 0xFF;
+		}
+		fprintf(stderr, "Camera %d: %s\n", num_devices, dev->friendlyname);
+
+		//add a filter for the device
+		hr = pGraph->AddSourceFilterForMoniker(pM, NULL, dev->filtername, &dev->sourcefilter);
+		if (FAILED(hr)) {
+			fprintf(stderr, "AddSourceFilterForMoniker err : %x\n", hr);
+			goto freeVar;
+		}
+
+		// Create the Sample Grabber filter.
+		hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dev->samplegrabberfilter));
+		if (FAILED(hr)) {
+			fprintf(stderr, "CoCreateInstance CLSID_SampleGrabber err : %x\n", hr);
+			goto freeVar;
+		}
+
+		//set mediatype on the samplegrabber
+		hr = dev->samplegrabberfilter->QueryInterface(IID_PPV_ARGS(&dev->samplegrabber));
+		if (FAILED(hr)) {
+			fprintf(stderr, "QueryInterface err : %x\n", hr);
+			goto freeVar;
+		}
+
+		WCHAR filtername[MAX_DEVICE_NAME + 2];
+		wcscpy(filtername, L"SG ");
+		wcscpy(filtername+3, dev->filtername);
+		pGraph->AddFilter(dev->samplegrabberfilter, filtername);
+
+		hr = pGraphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, dev->sourcefilter, IID_IAMStreamConfig, (void **)&dev->pStreamConfig);
 		if (SUCCEEDED(hr)) {
-			VARIANT var;
-			VariantInit(&var);
-			hr = pBag->Read(L"Description", &var, 0);
-			if (FAILED(hr)) {
-				hr = pBag->Read(L"FriendlyName", &var, 0);
-			}
-			if (SUCCEEDED(hr)) {
-				DShowVideoDevice *dev = devices + num_devices++;
-				BSTR ptr = var.bstrVal;
+			int iCount = 0, iSize = 0;
+			hr = dev->pStreamConfig->GetNumberOfCapabilities(&iCount, &iSize);
 
-				for (int c = 0; *ptr; c++, ptr++) {
-					dev->filtername[c] = *ptr;
-					dev->friendlyname[c] = *ptr & 0xFF;
-				}
-				
-				//add a filter for the device
-				hr = pGraph->AddSourceFilterForMoniker(pM, NULL, dev->filtername, &dev->sourcefilter);
-				if (hr != S_OK) throw hr;
+			// Check the size to make sure we pass in the correct structure.
+			if (iSize == sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
+				// Use the video capabilities structure.
+				for (int iFormat = 0; iFormat < iCount; iFormat++) {
+					VIDEO_STREAM_CONFIG_CAPS scc;
+					AM_MEDIA_TYPE *pmtConfig;
+					hr = dev->pStreamConfig->GetStreamCaps(iFormat, &pmtConfig, (BYTE *)&scc);
+					fprintf(stderr, "GetStreamCaps min=%dx%d max=%dx%d, fmt=%x\n",
+							scc.MinOutputSize.cx, scc.MinOutputSize.cy,
+							scc.MaxOutputSize.cx, scc.MaxOutputSize.cy,
+							pmtConfig->subtype);
 
-				// Create the Sample Grabber filter.
-				hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dev->samplegrabberfilter));
-				if (FAILED(hr)) throw hr;
+					if (SUCCEEDED(hr)) {
+						if ((pmtConfig->majortype == MEDIATYPE_Video) &&
+							(pmtConfig->formattype == FORMAT_VideoInfo) &&
+							(pmtConfig->cbFormat >= sizeof(VIDEOINFOHEADER)) &&
+							(pmtConfig->pbFormat != NULL)) {
 
-				//set mediatype on the samplegrabber
-				hr = dev->samplegrabberfilter->QueryInterface(IID_PPV_ARGS(&dev->samplegrabber));
-				if (hr != S_OK) throw hr;
-
-				WCHAR filtername[MAX_DEVICE_NAME + 2];
-				wcscpy(filtername, L"SG ");
-				wcscpy(filtername+3, dev->filtername);
-				pGraph->AddFilter(dev->samplegrabberfilter, filtername);
-
-				hr = pGraphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, dev->sourcefilter, IID_IAMStreamConfig, (void **)&dev->pStreamConfig);
-				if (SUCCEEDED(hr)) {
-					int iCount = 0, iSize = 0;
-					hr = dev->pStreamConfig->GetNumberOfCapabilities(&iCount, &iSize);
-
-					// Check the size to make sure we pass in the correct structure.
-					if (iSize == sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
-						// Use the video capabilities structure.
-						for (int iFormat = 0; iFormat < iCount; iFormat++) {
-							VIDEO_STREAM_CONFIG_CAPS scc;
-							AM_MEDIA_TYPE *pmtConfig;
-							hr = dev->pStreamConfig->GetStreamCaps(iFormat, &pmtConfig, (BYTE *)&scc);
-							fprintf(stderr, "GetStreamCaps min=%dx%d max=%dx%d, fmt=%x\n",
-									scc.MinOutputSize.cx, scc.MinOutputSize.cy,
-									scc.MaxOutputSize.cx, scc.MaxOutputSize.cy,
-									pmtConfig->subtype);
-
-							if (SUCCEEDED(hr)) {
-								if ((pmtConfig->majortype == MEDIATYPE_Video) &&
-									(pmtConfig->formattype == FORMAT_VideoInfo) &&
-									(pmtConfig->cbFormat >= sizeof(VIDEOINFOHEADER)) &&
-									(pmtConfig->pbFormat != NULL)) {
-
-									VIDEOINFOHEADER *pVih = (VIDEOINFOHEADER *)pmtConfig->pbFormat;
-									pVih->bmiHeader.biWidth = 320;
-									pVih->bmiHeader.biHeight = 240;
-									pVih->bmiHeader.biSizeImage = DIBSIZE(pVih->bmiHeader);
-									hr = dev->pStreamConfig->SetFormat(pmtConfig);
-								}
-								//DeleteMediaType(pmtConfig);
-							}
+							VIDEOINFOHEADER *pVih = (VIDEOINFOHEADER *)pmtConfig->pbFormat;
+							pVih->bmiHeader.biWidth = 320;
+							pVih->bmiHeader.biHeight = 240;
+							pVih->bmiHeader.biSizeImage = DIBSIZE(pVih->bmiHeader);
+							hr = dev->pStreamConfig->SetFormat(pmtConfig);
 						}
+						//DeleteMediaType(pmtConfig);
 					}
 				}
-
-				AM_MEDIA_TYPE mt;
-				ZeroMemory(&mt, sizeof(mt));
-				mt.majortype = MEDIATYPE_Video;
-				mt.subtype = MEDIASUBTYPE_RGB24;
-				hr = dev->samplegrabber->SetMediaType(&mt);
-				if (FAILED(hr)) throw hr;
-				
-				//add the callback to the samplegrabber
-				hr = dev->samplegrabber->SetCallback(dev->callbackhandler, 0);
-				if (hr != S_OK) throw hr;
-
-				//set the null renderer
-				hr = CoCreateInstance(CLSID_NullRenderer, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dev->nullrenderer));
-				if (FAILED(hr)) throw hr;
-
-				wcscpy(filtername, L"NR ");
-				wcscpy(filtername+3, dev->filtername);
-				pGraph->AddFilter(dev->nullrenderer, filtername);
-
-				//set the render path
-				hr = pGraphBuilder->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, dev->sourcefilter, dev->samplegrabberfilter, dev->nullrenderer);
-				if (FAILED(hr)) throw hr;
-
-				//if the stream is started, start capturing immediatly
-				LONGLONG start = 0, stop = MAXLONGLONG;
-				hr = pGraphBuilder->ControlStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, dev->sourcefilter, &start, &stop, 1, 2);
-				if (FAILED(hr)) throw hr;
-				
-				//reference the graph
-				dev->pGraph = pGraph;
-				dev->id = num_devices;
 			}
-			VariantClear(&var);
-			pBag->Release();
 		}
+
+		AM_MEDIA_TYPE mt;
+		ZeroMemory(&mt, sizeof(mt));
+		mt.majortype = MEDIATYPE_Video;
+		mt.subtype = MEDIASUBTYPE_RGB24;
+		hr = dev->samplegrabber->SetMediaType(&mt);
+		if (FAILED(hr)) {
+			fprintf(stderr, "SetMediaType err : %x\n", hr);
+			goto freeVar;
+		}
+
+		//add the callback to the samplegrabber
+		hr = dev->samplegrabber->SetCallback(dev->callbackhandler, 0);
+		if (hr != S_OK) {
+			fprintf(stderr, "SetCallback err : %x\n", hr);
+			goto freeVar;
+		}
+
+		//set the null renderer
+		hr = CoCreateInstance(CLSID_NullRenderer, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dev->nullrenderer));
+		if (FAILED(hr)) {
+			fprintf(stderr, "CoCreateInstance CLSID_NullRenderer err : %x\n", hr);
+			goto freeVar;
+		}
+
+		wcscpy(filtername, L"NR ");
+		wcscpy(filtername+3, dev->filtername);
+		pGraph->AddFilter(dev->nullrenderer, filtername);
+
+		//set the render path
+		hr = pGraphBuilder->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, dev->sourcefilter, dev->samplegrabberfilter, dev->nullrenderer);
+		if (FAILED(hr)) {
+			fprintf(stderr, "RenderStream err : %x\n", hr);
+			goto freeVar;
+		}
+
+		//if the stream is started, start capturing immediatly
+		LONGLONG start = 0, stop = MAXLONGLONG;
+		hr = pGraphBuilder->ControlStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, dev->sourcefilter, &start, &stop, 1, 2);
+		if (FAILED(hr)) {
+			fprintf(stderr, "ControlStream err : %x\n", hr);
+			goto freeVar;
+		}
+
+		//reference the graph
+		dev->pGraph = pGraph;
+		dev->id = num_devices;
+
+	freeVar:
+		VariantClear(&var);
+		pBag->Release();
+
+	freeMoniker:
 		pM->Release();
 	}
+	return 0;
 }
 
 /////////////////////////////////////////////////////////
@@ -336,9 +385,6 @@ int DirectShow::Open() {
 	devices = vc->GetDevices();
 	int num_devices = vc->NumDevices();
 
-	for (int i = 0; i < num_devices; i++) {
-		fprintf(stderr, "cam : %d, %s\n", i, devices[i].GetFriendlyName());
-	}
 	devices[0].SetCallback(dshow_callback);
 	devices[0].Start();
 
