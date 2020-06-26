@@ -1,5 +1,5 @@
 #include "videodev.h"
-
+#include <mutex>
 
 #pragma comment(lib, "strmiids")
 
@@ -8,7 +8,6 @@
 
 extern "C" {
 	extern GUID IID_ISampleGrabberCB;
-	extern GUID IID_ISampleGrabber;
 	extern GUID CLSID_SampleGrabber;
 	extern GUID CLSID_NullRenderer;
 }
@@ -41,10 +40,6 @@ SampleGrabber;
 #define MAXLONGLONG 0x7FFFFFFFFFFFFFFF
 #endif
 
-#ifndef MAX_DEVICES
-#define MAX_DEVICES 8
-#endif
-
 #ifndef MAX_DEVICE_NAME
 #define MAX_DEVICE_NAME 80
 #endif
@@ -53,99 +48,24 @@ SampleGrabber;
 #define BITS_PER_PIXEL 24
 #endif
 
-class DShowVideoDevice;
-typedef void (*DShowVideoCaptureCallback)(unsigned char *data, int len, int bitsperpixel, DShowVideoDevice *dev);
-
-class DShowVideoDevice {
-public:
-	DShowVideoDevice();
-	~DShowVideoDevice();
-
-	int GetId();
-	const char *GetFriendlyName();
-	void SetCallback(DShowVideoCaptureCallback cb);
-
-	void Start();
-	void Stop();
-
-private:
-	int	id;
-	char *friendlyname;
-	WCHAR *filtername;
-	
-	IBaseFilter *sourcefilter;
-	IBaseFilter *samplegrabberfilter;
-	IBaseFilter *nullrenderer;
-	IAMStreamConfig *pStreamConfig;
-
-	ISampleGrabber *samplegrabber;
-
-	IFilterGraph2 *pGraph;
-
-	class CallbackHandler : public ISampleGrabberCB {
-	public:
-		CallbackHandler(DShowVideoDevice *parent);
-		~CallbackHandler();
-
-		void SetCallback(DShowVideoCaptureCallback cb);
-
-		virtual HRESULT __stdcall SampleCB(double time, IMediaSample *sample);
-		virtual HRESULT __stdcall BufferCB(double time, BYTE *buffer, long len);
-		virtual HRESULT __stdcall QueryInterface(REFIID iid, LPVOID *ppv);
-		virtual ULONG	__stdcall AddRef();
-		virtual ULONG	__stdcall Release();
-
-	private:
-		DShowVideoCaptureCallback callback;
-		DShowVideoDevice *parent;
-
-	} *callbackhandler;
-
-	friend class DShowVideoCapture;
-};
-
-class DShowVideoCapture {
-public:
-	DShowVideoCapture();
-	~DShowVideoCapture();
-
-	DShowVideoDevice *GetDevices();
-	int NumDevices();
-
-protected:
-	int InitializeGraph();
-	int InitializeVideo();
-
-private:
-	IFilterGraph2 *pGraph;
-	ICaptureGraphBuilder2 *pGraphBuilder;
-	IMediaControl *pControl;
-
-	bool playing;
-
-	DShowVideoDevice *devices;
-	DShowVideoDevice *current;
-
-	int num_devices;
-};
-
-
-typedef struct {
-	void *start = NULL;
-	size_t length;
-} buffer_t;
-
 namespace usb_eyetoy
 {
 namespace windows_api
 {
 
+typedef void (*DShowVideoCaptureCallback)(unsigned char *data, int len, int bitsperpixel);
+
+typedef struct {
+	void *start = NULL;
+	size_t length = 0;
+} buffer_t;
+
 static const char *APINAME = "DirectShow";
 
 class DirectShow : public VideoDevice {
 public:
-	DirectShow(int port) : mPort(port) {};
-	~DirectShow(){};
+	DirectShow(int port);
+	~DirectShow() {}
 	int Open();
 	int Close();
 	int GetImage(uint8_t *buf, int len);
@@ -154,15 +74,48 @@ public:
 	static const TCHAR *Name() {
 		return TEXT("DirectShow");
 	}
-	static int Configure(int port, const char *dev_type, void *data) {
-		return 0;
-	};
+	static int Configure(int port, const char *dev_type, void *data);
 
 	int Port() { return mPort; }
 	void Port(int port) { mPort = port; }
 
 protected:
+	void SetCallback(DShowVideoCaptureCallback cb) { callbackhandler->SetCallback(cb); }
+	void Start();
+	void Stop();
+	int InitializeDevice(std::wstring selectedDevice);
+
+private:
 	int mPort;
+
+	ICaptureGraphBuilder2 *pGraphBuilder;
+	IFilterGraph2 *pGraph;
+	IMediaControl *pControl;
+
+	IBaseFilter *sourcefilter;
+	IAMStreamConfig *pSourceConfig;
+	IBaseFilter *samplegrabberfilter;
+	ISampleGrabber *samplegrabber;
+	IBaseFilter *nullrenderer;
+
+	class CallbackHandler : public ISampleGrabberCB
+	{
+	public:
+		CallbackHandler() { callback = 0; }
+		~CallbackHandler() {}
+
+		void SetCallback(DShowVideoCaptureCallback cb) { callback = cb; }
+
+		virtual HRESULT __stdcall SampleCB(double time, IMediaSample *sample);
+		virtual HRESULT __stdcall BufferCB(double time, BYTE *buffer, long len) { return S_OK; }
+		virtual HRESULT __stdcall QueryInterface(REFIID iid, LPVOID *ppv);
+		virtual ULONG __stdcall AddRef() { return 1; }
+		virtual ULONG __stdcall Release() { return 2; }
+
+	private:
+		DShowVideoCaptureCallback callback;
+
+	} * callbackhandler;
 };
 
 } // namespace windows_api
