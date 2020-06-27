@@ -125,7 +125,7 @@ int DirectShow::InitializeDevice(std::wstring selectedDevice) {
 	pEnum->Reset();
 
 	IMoniker *pMoniker;
-	while (pEnum->Next(1, &pMoniker, NULL) == S_OK) {
+	while (pEnum->Next(1, &pMoniker, NULL) == S_OK && sourcefilter == NULL) {
 		IPropertyBag *pPropBag = 0;
 		hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
 		if (FAILED(hr)) {
@@ -144,7 +144,7 @@ int DirectShow::InitializeDevice(std::wstring selectedDevice) {
 			fprintf(stderr, "Read name err : %x\n", hr);
 			goto freeVar;
 		}
-		fprintf(stderr, "Camera: %ls\n", var.bstrVal);
+		fprintf(stderr, "Camera: '%ls'\n", var.bstrVal);
 		if (!selectedDevice.empty() && selectedDevice != var.bstrVal) {
 			goto freeVar;
 		}
@@ -264,6 +264,9 @@ int DirectShow::InitializeDevice(std::wstring selectedDevice) {
 		pMoniker->Release();
 	}
 	pEnum->Release();
+	if (sourcefilter == NULL) {
+		return -1;
+	}
 	return 0;
 }
 
@@ -353,7 +356,11 @@ int DirectShow::Open() {
 	std::wstring selectedDevice;
 	LoadSetting(EyeToyWebCamDevice::TypeName(), Port(), APINAME, N_DEVICE, selectedDevice);
 
-	InitializeDevice(selectedDevice);
+	int ret = InitializeDevice(selectedDevice);
+	if (ret < 0) {
+		fprintf(stderr, "Camera: cannot find '%ls'\n", selectedDevice.c_str());
+		return -1;
+	}
 
 	pControl->Run();
 	this->Stop();
@@ -364,18 +371,20 @@ int DirectShow::Open() {
 };
 
 int DirectShow::Close() {
-	this->Stop();
-	pControl->Stop();
+	if (sourcefilter != NULL) {
+		this->Stop();
+		pControl->Stop();
+
+		sourcefilter->Release();
+		pSourceConfig->Release();
+		samplegrabberfilter->Release();
+		samplegrabber->Release();
+		nullrenderer->Release();
+	}
 
 	pGraphBuilder->Release();
 	pGraph->Release();
 	pControl->Release();
-
-	sourcefilter->Release();
-	pSourceConfig->Release();
-	samplegrabberfilter->Release();
-	samplegrabber->Release();
-	nullrenderer->Release();
 
 	if (mpeg_buffer.start != NULL) {
 		free(mpeg_buffer.start);
