@@ -393,10 +393,6 @@ int DirectShow::GetImage(uint8_t *buf, int len) {
 	return len2;
 };
 
-int DirectShow::Reset() {
-	return 0;
-};
-
 BOOL CALLBACK DirectShowDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	int port;
 

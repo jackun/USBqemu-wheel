@@ -5,6 +5,11 @@ namespace usb_eyetoy
 namespace linux_api
 {
 
+typedef struct {
+	void   *start;
+	size_t  length;
+} buffer_t;
+
 static const char *APINAME = "V4L2";
 
 class V4L2 : public VideoDevice
@@ -15,19 +20,17 @@ public:
 	int Open();
 	int Close();
 	int GetImage(uint8_t *buf, int len);
-	int Reset();
+	int Reset() { return 0; };
 
 	static const TCHAR *Name() {
 		return TEXT("V4L2");
 	}
-	static int Configure(int port, const char *dev_type, void *data){
-		return 0;
-	};
+	static int Configure(int port, const char *dev_type, void *data);
 
 	int Port() { return mPort; }
 	void Port(int port) { mPort = port; }
 
-protected:
+private:
 	int mPort;
 };
 
