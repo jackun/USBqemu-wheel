@@ -69,7 +69,7 @@ public:
 	int Open();
 	int Close();
 	int GetImage(uint8_t *buf, int len);
-	int Reset();
+	int Reset() { return 0; };
 
 	static const TCHAR *Name() {
 		return TEXT("DirectShow");

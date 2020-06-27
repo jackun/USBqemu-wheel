@@ -13,17 +13,21 @@
 
 #include <linux/videodev2.h>
 
+#include "gtk.h"
+
 #include "cam-linux.h"
 #include "usb-eyetoy-webcam.h"
 #include "jpgd/jpgd.h"
 #include "jo_mpeg.h"
 
+GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
+
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
-typedef struct {
-	void   *start;
-	size_t  length;
-} buffer_t;
+namespace usb_eyetoy
+{
+namespace linux_api
+{
 
 static pthread_t _eyetoy_thread;
 static pthread_t *eyetoy_thread = &_eyetoy_thread;
@@ -102,28 +106,64 @@ static int read_frame() {
 	return 1;
 }
 
-static int v4l_open() {
-	static char dev_name[] = "/dev/video0";
-
-	struct stat st;
-	if (-1 == stat(dev_name, &st)) {
-		fprintf(stderr, "Cannot identify '%s': %d, %s\n", dev_name, errno, strerror(errno));
-		return -1;
-	}
-
-	if (!S_ISCHR(st.st_mode)) {
-		fprintf(stderr, "%s is no device\n", dev_name);
-		return -1;
-	}
-
-	fd = open(dev_name, O_RDWR | O_NONBLOCK, 0);
-	if (-1 == fd) {
-		fprintf(stderr, "Cannot open '%s': %d, %s\n", dev_name, errno, strerror(errno));
-		return -1;
-	}
-
-
+std::vector<std::string> getDevList() {
+	std::vector<std::string> devList;
+	char dev_name[64];
+	int fd;
 	struct v4l2_capability cap;
+
+	for (int index = 0; index < 64; index++) {
+		snprintf(dev_name, sizeof(dev_name), "/dev/video%d", index);
+
+		if ((fd = open(dev_name, O_RDONLY)) < 0) {
+			continue;
+		}
+
+		if(ioctl(fd, VIDIOC_QUERYCAP, &cap) >= 0) {
+			devList.push_back((char*)cap.card);
+		}
+
+		close(fd);
+	}
+	return devList;
+}
+
+static int v4l_open(std::string selectedDevice) {
+	char dev_name[64];
+	struct v4l2_capability cap;
+
+	fd = -1;
+	for (int index = 0; index < 64; index++) {
+		snprintf(dev_name, sizeof(dev_name), "/dev/video%d", index);
+
+		if ((fd = open(dev_name, O_RDWR | O_NONBLOCK, 0)) < 0) {
+			continue;
+		}
+
+		CLEAR(cap);
+		if(ioctl(fd, VIDIOC_QUERYCAP, &cap) >= 0) {
+			fprintf(stderr, "Camera: %s / %s\n", dev_name, (char*)cap.card);
+			if (!selectedDevice.empty() && strcmp(selectedDevice.c_str(), (char*)cap.card) == 0) {
+				goto cont;
+			}
+		}
+
+		close(fd);
+		fd = -1;
+	}
+
+	if (fd < 0) {
+		snprintf(dev_name, sizeof(dev_name), "/dev/video0");
+		fd = open(dev_name, O_RDWR | O_NONBLOCK, 0);
+		if (-1 == fd) {
+			fprintf(stderr, "Cannot open '%s': %d, %s\n", dev_name, errno, strerror(errno));
+			return -1;
+		}
+	}
+
+cont:
+
+	CLEAR(cap);
 	if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &cap)) {
 		if (EINVAL == errno) {
 			fprintf(stderr, "%s is no V4L2 device\n", dev_name);
@@ -328,12 +368,6 @@ void create_dummy_frame() {
 	free(mpegData);
 }
 
-
-namespace usb_eyetoy
-{
-namespace linux_api
-{
-
 int V4L2::Open() {
 	mpeg_buffer.start = calloc(1, 320 * 240 * 2);
 	create_dummy_frame();
@@ -343,7 +377,9 @@ int V4L2::Open() {
 		v4l_close();
 	}
 	eyetoy_running = 1;
-	if (v4l_open() != 0)
+	std::string selectedDevice;
+	LoadSetting(EyeToyWebCamDevice::TypeName(), mPort, APINAME, N_DEVICE, selectedDevice);
+	if (v4l_open(selectedDevice) != 0)
 		return -1;
 	pthread_create(eyetoy_thread, NULL, &v4l_thread, NULL);
 	return 0;
@@ -367,8 +403,66 @@ int V4L2::GetImage(uint8_t *buf, int len) {
 	return len2;
 };
 
-int V4L2::Reset() {
-	return 0;
+static void deviceChanged(GtkComboBox *widget, gpointer data) {
+	*(int*) data = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+}
+
+int GtkConfigure(int port, const char* dev_type, void *data) {
+	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label;
+
+	std::string selectedDevice;
+	LoadSetting(dev_type, port, APINAME, N_DEVICE, selectedDevice);
+
+	GtkWidget *dlg = gtk_dialog_new_with_buttons(
+		"V4L2 Settings", GTK_WINDOW(data), GTK_DIALOG_MODAL,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		GTK_STOCK_OK, GTK_RESPONSE_OK,
+		NULL);
+	gtk_window_set_position(GTK_WINDOW(dlg), GTK_WIN_POS_CENTER);
+	gtk_window_set_resizable(GTK_WINDOW(dlg), TRUE);
+	gtk_window_set_default_size(GTK_WINDOW(dlg), 320, 75);
+
+	GtkWidget *dlg_area_box = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+	GtkWidget *main_hbox = gtk_hbox_new(FALSE, 5);
+	gtk_container_add(GTK_CONTAINER(dlg_area_box), main_hbox);
+	GtkWidget *right_vbox = gtk_vbox_new(FALSE, 5);
+	gtk_box_pack_start(GTK_BOX(main_hbox), right_vbox, TRUE, TRUE, 5);
+
+	GtkWidget *rs_cb = new_combobox("Device:", right_vbox);
+
+	std::vector<std::string> devList = getDevList();
+	int sel_idx = 0;
+	for (auto idx = 0; idx < devList.size(); idx++) {
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(rs_cb), devList.at(idx).c_str());
+		if (!selectedDevice.empty() && selectedDevice == devList.at(idx)) {
+			gtk_combo_box_set_active(GTK_COMBO_BOX(rs_cb), idx);
+			sel_idx = idx;
+		}
+	}
+
+	int sel_new;
+	g_signal_connect(G_OBJECT(rs_cb), "changed", G_CALLBACK(deviceChanged), (gpointer)&sel_new);
+
+	gtk_widget_show_all(dlg);
+	gint result = gtk_dialog_run(GTK_DIALOG(dlg));
+
+	int ret = RESULT_OK;
+	if (result == GTK_RESPONSE_OK) {
+		if (sel_new != sel_idx) {
+			if (!SaveSetting(dev_type, port, APINAME, N_DEVICE, devList.at(sel_new))) {
+				ret = RESULT_FAILED;
+			}
+		}
+	} else {
+		ret = RESULT_CANCELED;
+	}
+
+	gtk_widget_destroy(dlg);
+	return ret;
+}
+
+int V4L2::Configure(int port, const char *dev_type, void *data) {
+	return GtkConfigure(port, dev_type, data);
 };
 
 } // namespace linux_api
