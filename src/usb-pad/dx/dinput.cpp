@@ -44,7 +44,7 @@ static DIRAMPFORCE cRamp;
 static DICONDITION cDamper;
 
 std::ostream& operator<<(std::ostream& os, REFGUID guid) {
-
+	std::ios_base::fmtflags f(os.flags());
 	os << std::uppercase;
 	os.width(8);
 	os << std::hex << guid.Data1 << '-';
@@ -66,7 +66,7 @@ std::ostream& operator<<(std::ostream& os, REFGUID guid) {
 		<< static_cast<short>(guid.Data4[5])
 		<< static_cast<short>(guid.Data4[6])
 		<< static_cast<short>(guid.Data4[7]);
-	os << std::nouppercase;
+	os.flags(f);
 	return os;
 }
 
@@ -733,47 +733,41 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 		//enumerate attached only
 		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWindow);
 		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
-	}
 
-	++refCount;
-
-	//loop through all attached joysticks
-	for (size_t i=0; i<g_pJoysticks.size(); i++) {
-		auto joy = g_pJoysticks[i];
-		auto device = joy->GetDevice();
-		if (refCount == 1)
-		{
+		//loop through all attached joysticks
+		for (size_t i = 0; i < g_pJoysticks.size(); i++) {
+			auto joy = g_pJoysticks[i];
+			auto device = joy->GetDevice();
 			OSDebugOut(_T("DINPUT: SetDataFormat Joystick %s\n"), joy->Product().c_str());
 			device->SetDataFormat(&c_dfDIJoystick2);
-		}
 
-		DIDEVCAPS diCaps;
-		diCaps.dwSize = sizeof(DIDEVCAPS);
-		device->GetCapabilities(&diCaps);
+			DIDEVCAPS diCaps;
+			diCaps.dwSize = sizeof(DIDEVCAPS);
+			device->GetCapabilities(&diCaps);
 
-		if (diCaps.dwFlags & DIDC_FORCEFEEDBACK) {
-			OSDebugOut(_T("DINPUT: SetCooperativeLevel Joystick %s\n"), joy->Product().c_str());
-			//Exclusive
-			device->SetCooperativeLevel( hWindow, DISCL_EXCLUSIVE|DISCL_BACKGROUND );
+			if (diCaps.dwFlags & DIDC_FORCEFEEDBACK) {
+				OSDebugOut(_T("DINPUT: SetCooperativeLevel Joystick %s\n"), joy->Product().c_str());
+				//Exclusive
+				device->SetCooperativeLevel(hWindow, DISCL_EXCLUSIVE | DISCL_BACKGROUND);
 
-			/*DIDEVICEINSTANCE instance_;
-			ZeroMemory(&instance_, sizeof(DIDEVICEINSTANCE));
-			instance_.dwSize = sizeof(DIDEVICEINSTANCE);
-			g_pJoysticks[i]->GetDeviceInfo(&instance_);
-			std::stringstream str;
-			str << instance_.guidInstance;*/
-		}
-		else
-			device->SetCooperativeLevel( hWindow, DISCL_NONEXCLUSIVE|DISCL_BACKGROUND );
+				/*DIDEVICEINSTANCE instance_;
+				ZeroMemory(&instance_, sizeof(DIDEVICEINSTANCE));
+				instance_.dwSize = sizeof(DIDEVICEINSTANCE);
+				g_pJoysticks[i]->GetDeviceInfo(&instance_);
+				std::stringstream str;
+				str << instance_.guidInstance;*/
+			}
+			else
+				device->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 
-		if (refCount == 1)
-		{
 			OSDebugOut(TEXT("DINPUT: EnumObjects Joystick %i\n"), i);
 			device->EnumObjects(EnumObjectsCallback, device, DIDFT_ALL);
 			OSDebugOut(TEXT("DINPUT: Acquire Joystick %i\n"), i);
 			device->Acquire();
 		}
 	}
+
+	++refCount;
 
 	didDIinit=true;
 	return S_OK;

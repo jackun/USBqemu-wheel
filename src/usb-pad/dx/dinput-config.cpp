@@ -1033,39 +1033,28 @@ void SaveDInputConfig(int port, const char *dev_type)
 	ClearSection(section);
 	SaveSetting(section, _T("INVERTFORCES"), INVERTFORCES[port]);
 
+	SaveSetting(section, _T("# CONTROL n"), "GUID,MAPPING TYPE,MAPPED TO,INVERTED,HALF,LINEAR,OFFSET,DEADZONE");
+
 	for (auto& control : g_Controls[port])
 	{
 		int cid = control.first;
 		const InputMapped& im = control.second;
 		auto joy = g_pJoysticks[im.index];
 
-		//TODO all of it
 		std::stringstream ss;
-		ss << joy->GetGUID();
-		//swprintf_s(section, _T("%" SFMTs " dinput %d - {%" SFMTs "}"), dev_type, port, ss.str().c_str());
-		swprintf_s(section, _T("%" SFMTs " dinput %d"), dev_type, port);
-
+		ss << joy->GetGUID() << "," << im.type << "," << im.mapped;
 		//SaveSetting(section, _T("ProductName"), joy->Product());
 
-		swprintf_s(text, _T("GUID %i"), cid);
-		SaveSetting(section, text, ss.str());
-		swprintf_s(text, _T("MAPPINGTYPE %i"), cid);
-		SaveSetting(section, text, im.type);
-		swprintf_s(text, _T("CONTROL %i"), cid);
-		SaveSetting(section, text, im.mapped);
-
 		if (joy->GetControlType() == CT_JOYSTICK) {
-			swprintf_s(text, _T("INVERTED %i"), cid);
-			SaveSetting(section, text, im.INVERTED);
-			swprintf_s(text, _T("HALF %i"), cid);
-			SaveSetting(section, text, im.HALF);
-			swprintf_s(text, _T("LINEAR %i"), cid);
-			SaveSetting(section, text, LINEAR[port][cid]);
-			swprintf_s(text, _T("OFFSET %i"), cid);
-			SaveSetting(section, text, OFFSET[port][cid]);
-			swprintf_s(text, _T("DEADZONE %i"), cid);
-			SaveSetting(section, text, DEADZONE[port][cid]);
+			ss << "," << im.INVERTED
+				<< "," << im.HALF
+				<< "," << im.LINEAR
+				<< "," << im.OFFSET
+				<< "," << im.DEADZONE;
 		}
+
+		swprintf_s(text, _T("CONTROL %i"), cid);
+		SaveSetting(section, text, ss.str());
 	}
 
 	SaveSetting(section, _T("GAINZ"), GAINZ[port][0]);
@@ -1088,29 +1077,28 @@ void LoadDInputConfig(int port, const char* dev_type)
 	if (!LoadSetting(section, _T("FFMULTI"), FFMULTI[port][0]))
 		FFMULTI[port][0] = 0;
 
-	//for (size_t i = 0; i < g_pJoysticks.size(); i++)
+	try
 	{
-		//TODO all of it
-		//std::stringstream ss;
-		//ss << g_pJoysticks[i]->GetGUID();
-
-		//swprintf_s(section, _T("%" SFMTs " dinput %d - {%" SFMTs "}"), dev_type, port, ss.str().c_str());
 		swprintf_s(section, _T("%" SFMTs " dinput %d"), dev_type, port);
 
 		for (int cid = 0; cid < CID_COUNT; cid++)
 		{
 			InputMapped im = {};
 			bool found = false;
-			std::string guid;
+			std::string control, guid, value;
+			std::stringstream ss;
 
-			swprintf_s(text, _T("GUID %i"), cid);
-			if (!LoadSetting(section, text, guid))
+			swprintf_s(text, _T("CONTROL %i"), cid);
+			if (!LoadSetting(section, text, control))
 				continue;
 
+			ss << control;
+			std::getline(ss, guid, ',');
+
 			for (size_t i = 0; i < g_pJoysticks.size(); i++) {
-				std::stringstream ss;
-				ss << g_pJoysticks[i]->GetGUID();
-				if (ss.str() == guid) {
+				std::stringstream ss_guid;
+				ss_guid << g_pJoysticks[i]->GetGUID();
+				if (ss_guid.str() == guid) {
 					im.index = i;
 					found = true;
 					break;
@@ -1120,31 +1108,29 @@ void LoadDInputConfig(int port, const char* dev_type)
 			if (!found)
 				continue;
 
-			swprintf_s(text, _T("MAPPINGTYPE %i"), cid);
-			if (!LoadSetting(section, text, (int32_t&)im.type))
-				continue;
+			std::getline(ss, value, ',');
+			im.type = (MappingType)std::stoi(value);
 
 			if (im.type == MT_NONE) {
 				OSDebugOut(_T("Skipping control %d (%s), mapping type is None\n"), cid, g_pJoysticks[im.index]->Product().c_str());
 				continue;
 			}
 
-			swprintf_s(text, _T("CONTROL %i"), cid);
-			if (!LoadSetting(section, text, im.mapped))
-				continue;
+			std::getline(ss, value, ',');
+			im.mapped = std::stoi(value);
 
 			if (g_pJoysticks[im.index]->GetControlType() == CT_JOYSTICK)
 			{
-				swprintf_s(text, _T("INVERTED %i"), cid);
-				LoadSetting(section, text, im.INVERTED);
-				swprintf_s(text, _T("HALF %i"), cid);
-				LoadSetting(section, text, im.HALF);
-				swprintf_s(text, _T("LINEAR %i"), cid);
-				LoadSetting(section, text, im.LINEAR);
-				swprintf_s(text, _T("OFFSET %i"), cid);
-				LoadSetting(section, text, im.OFFSET);
-				swprintf_s(text, _T("DEADZONE %i"), cid);
-				LoadSetting(section, text, im.DEADZONE);
+				std::getline(ss, value, ',');
+				im.INVERTED = std::stoi(value);
+				std::getline(ss, value, ',');
+				im.HALF = std::stoi(value);
+				std::getline(ss, value, ',');
+				im.LINEAR = std::stoi(value);
+				std::getline(ss, value, ',');
+				im.OFFSET = std::stoi(value);
+				std::getline(ss, value, ',');
+				im.DEADZONE = std::stoi(value);
 			}
 
 			//if (cid <= CID_BRAKE)
@@ -1154,9 +1140,11 @@ void LoadDInputConfig(int port, const char* dev_type)
 				DEADZONE[port][cid] = im.DEADZONE;
 			}
 
-
 			AddInputMap(port, (ControlID)cid, im);
 		}
+	}
+	catch (std::exception& err) {
+		OSDebugOut(TEXT("%" SFMTs "\n"), err.what());
 	}
 
 	LoadSetting(section, _T("UseRamp"), useRamp);
