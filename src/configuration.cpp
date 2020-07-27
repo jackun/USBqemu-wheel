@@ -37,6 +37,7 @@ EXPORT_C_(void) USBsetLogDir( const char* dir )
 	size_t num = 0;
 	mbstowcs_s(&num, dst, dir, countof(dst));
 	LogDir = dst;
+	LogDir.append(_T("USBqemu-wheel.log"));
 #else
 	LogDir = dir;
 #endif
@@ -130,6 +131,8 @@ bool SaveSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TC
 
 void SaveConfig() {
 
+	SaveSetting(_T("MAIN"), _T("log"), conf.Log);
+
 	SaveSetting(nullptr, 0, N_DEVICE_PORT, N_DEVICE, conf.Port[0]);
 	SaveSetting(nullptr, 1, N_DEVICE_PORT, N_DEVICE, conf.Port[1]);
 
@@ -148,6 +151,8 @@ void SaveConfig() {
 void LoadConfig() {
 	std::cerr << "USB load config\n" << std::endl;
 	ciniFile.Load(IniPath);
+
+	LoadSetting(_T("MAIN"), _T("log"), conf.Log);
 
 	LoadSetting(nullptr, 0, N_DEVICE_PORT, N_DEVICE, conf.Port[0]);
 	LoadSetting(nullptr, 1, N_DEVICE_PORT, N_DEVICE, conf.Port[1]);

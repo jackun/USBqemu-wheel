@@ -229,7 +229,12 @@ EXPORT_C_(s32) USBinit() {
 
 	if (conf.Log && !usbLog)
 	{
-		usbLog = fopen("logs/usbLog.txt", "w");
+		usbLog =
+#if _UNICODE
+			_wfopen(LogDir.c_str(), L"wb");// L"wb,ccs=UNICODE");
+#else
+			fopen(LogDir.c_str(), "w");
+#endif
 		//if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
 		USB_LOG("usbqemu wheel mod plugin version %d.%d.%d\n", VER_REV, VER_BLD, VER_FIX);
 		USB_LOG("USBinit\n");
