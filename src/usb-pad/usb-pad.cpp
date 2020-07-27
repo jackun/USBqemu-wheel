@@ -173,7 +173,7 @@ static void pad_handle_data(USBDevice *dev, USBPacket *p)
 		break;
 	case USB_TOKEN_OUT:
 		usb_packet_copy (p, data, MIN(p->iov.size, sizeof(data)));
-		/*fprintf(stderr,"usb-pad: data token out len=0x%X %X,%X,%X,%X,%X,%X,%X,%X\n",len, 
+		/*fprintf(stderr,"usb-pad: data token out len=0x%X %X,%X,%X,%X,%X,%X,%X,%X\n",len,
 			data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]);*/
 		//fprintf(stderr,"usb-pad: data token out len=0x%X\n",len);
 		ret = s->pad->TokenOut(data, p->iov.size);
@@ -347,7 +347,7 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		w->hi |= 0x11 << 24; //enables wheel and pedals?
 
 		//PrintBits(w, sizeof(*w));
-		OSDebugOut(TEXT("DFP thr: %u brake: %u\n"), (w->hi >> 8) & 0xFF, (w->hi >> 16) & 0xFF);
+		//OSDebugOut(TEXT("DFP thr: %u brake: %u\n"), (w->hi >> 8) & 0xFF, (w->hi >> 16) & 0xFF);
 
 		break;
 	case WT_DRIVING_FORCE_PRO_1102:

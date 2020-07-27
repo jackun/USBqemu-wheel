@@ -80,8 +80,8 @@ struct Point { int x; int y; JoystickMap type; };
 
 struct ConfigMapping
 {
-	std::vector<uint16_t> mappings;
-	bool inverted[3];
+	std::vector<uint16_t> controls;
+	int inverted[3];
 	int initial[3];
 	int fd = -1;
 };
@@ -102,7 +102,7 @@ struct ConfigData
 	GtkListStore *store;
 	GtkTreeView *treeview;
 	ApiCallbacks *cb;
-	bool use_hidraw_ff_pt;
+	int use_hidraw_ff_pt;
 	const char *dev_type;
 };
 
@@ -114,25 +114,21 @@ struct axis_correct
 
 struct device_data
 {
-	int fd;
+	ConfigMapping cfg;
 	std::string name;
 	uint8_t axis_map[ABS_MAX + 1];
-	bool axis_inverted[3];
-	int axis_initial[3];
 	uint16_t btn_map[KEY_MAX + 1];
 	struct axis_correct abs_correct[ABS_MAX];
-	int axes = 0;
-	int buttons = 0;
-	std::vector<uint16_t> mappings;
 	bool is_gamepad; //xboxish gamepad
 	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
 					// determine if its unpressed value is zero
+
 };
 
 int GtkPadConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
 int GtkBuzzConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
-bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3], int (&initial)[3]);
-bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3], int (&initial)[3]);
-bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings);
-bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings);
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, ConfigMapping& cfg);
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const ConfigMapping& cfg);
+bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, ConfigMapping& cfg);
+bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const ConfigMapping& cfg);
 }} //namespace

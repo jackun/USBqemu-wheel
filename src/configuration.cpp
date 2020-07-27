@@ -67,19 +67,13 @@ bool LoadSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TC
 	CIniKey *key;
 	auto sect = ciniFile.GetSection(section);
 	if (sect && (key = sect->GetKey(param))) {
-		value = std::stoi(key->GetValue());
-		return true;
-	}
-	return false;
-}
-
-bool LoadSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TCHAR* param, bool& value)
-{
-	CIniKey *key;
-	auto sect = ciniFile.GetSection(section);
-	if (sect && (key = sect->GetKey(param))) {
-		value = !(std::stoi(key->GetValue()) == 0);
-		return true;
+		try {
+			value = std::stoi(key->GetValue());
+			return true;
+		}
+		catch (std::exception& err) {
+			OSDebugOut(TEXT("%" SFMTs "\n"), err.what());
+		}
 	}
 	return false;
 }
@@ -93,12 +87,6 @@ bool SaveSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TC
 bool SaveSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TCHAR* param, int32_t value)
 {
 	ciniFile.SetKeyValue(section, param, TSTDTOSTRING(value));
-	return true;
-}
-
-bool SaveSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TCHAR* param, bool value)
-{
-	ciniFile.SetKeyValue(section, param, TSTDTOSTRING(value ? 1 : 0));
 	return true;
 }
 

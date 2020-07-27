@@ -171,7 +171,7 @@ void EvDevPad::PollAxesValues(const device_data& device)
 	for (int i = ABS_X; i < ABS_MAX; i++) {
 		absinfo = {};
 
-		if ((ioctl(device.fd, EVIOCGABS(i), &absinfo) >= 0) &&
+		if ((ioctl(device.cfg.fd, EVIOCGABS(i), &absinfo) >= 0) &&
 			device.abs_correct[i].used) {
 			absinfo.value = AxisCorrect(device.abs_correct[i], absinfo.value);
 		}
@@ -188,7 +188,7 @@ void EvDevPad::SetAxis(const device_data& device, int event_code, int value)
 	switch (code)
 	{
 		case 0x80 | JOY_STEERING:
-		case ABS_X: mWheelData.steering = device.axis_inverted[0] ? range - NORM(value, range) : NORM(value, range); break;
+		case ABS_X: mWheelData.steering = device.cfg.inverted[0] ? range - NORM(value, range) : NORM(value, range); break;
 		//case ABS_Y: mWheelData.clutch = NORM(value, 0xFF); break; //no wheel on PS2 has one, afaik
 		//case ABS_RX: mWheelData.axis_rx = NORM(event.value, 0xFF); break;
 		case ABS_RY:
@@ -205,7 +205,7 @@ void EvDevPad::SetAxis(const device_data& device, int event_code, int value)
 			/*if (mIsGamepad)
 				mWheelData.brake = 0xFF - NORM(value, 0xFF);
 			else*/
-				mWheelData.throttle = device.axis_inverted[1] ? NORM(value, 0xFF) : 0xFF - NORM(value, 0xFF);
+				mWheelData.throttle = device.cfg.inverted[1] ? NORM(value, 0xFF) : 0xFF - NORM(value, 0xFF);
 		break;
 		case 0x80 | JOY_BRAKE:
 		case ABS_RZ:
@@ -214,7 +214,7 @@ void EvDevPad::SetAxis(const device_data& device, int event_code, int value)
 			else if (mIsDualAnalog)
 				goto treat_me_like_ABS_RY;
 			else*/
-				mWheelData.brake = device.axis_inverted[2] ? NORM(value, 0xFF) : 0xFF - NORM(value, 0xFF);
+				mWheelData.brake = device.cfg.inverted[2] ? NORM(value, 0xFF) : 0xFF - NORM(value, 0xFF);
 		break;
 
 		//TODO hatswitch mapping maybe
@@ -256,8 +256,8 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 	maxfd = -1;
 
 	for (auto& device: mDevices) {
-		FD_SET(device.fd, &fds);
-		if (maxfd < device.fd) maxfd = device.fd;
+		FD_SET(device.cfg.fd, &fds);
+		if (maxfd < device.cfg.fd) maxfd = device.cfg.fd;
 	}
 
 	struct timeval timeout;
@@ -270,13 +270,12 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 
 	for (auto& device: mDevices)
 	{
-		if (!FD_ISSET(device.fd, &fds)) {
+		if (!FD_ISSET(device.cfg.fd, &fds)) {
 			continue;
 		}
 
-		const auto& mappings = device.mappings;
 		//Non-blocking read sets len to -1 and errno to EAGAIN if no new data
-		while((len = read(device.fd, &events, sizeof(events))) > -1)
+		while((len = read(device.cfg.fd, &events, sizeof(events))) > -1)
 		{
 			len /= sizeof(events[0]);
 			for (int i = 0; i < len; i++)
@@ -524,7 +523,7 @@ int EvDevPad::Open()
 					|| pid == 0xc262 /* G920 hid mode */
 					|| pid == 0xc261 /* G920 xbox mode */
 				) {
-					mUseRawFF = false;
+					mUseRawFF = 0;
 				}
 
 				// check if still using hidraw and run the thread
@@ -551,14 +550,14 @@ int EvDevPad::Open()
 		struct device_data& device = mDevices.back();
 		device.name = it.first;
 
-		if ((device.fd = open(it.second.c_str(), O_RDWR | O_NONBLOCK)) < 0)
+		if ((device.cfg.fd = open(it.second.c_str(), O_RDWR | O_NONBLOCK)) < 0)
 		{
 			OSDebugOut("Cannot open device: %s\n", it.second.c_str());
 			continue;
 		}
 
-		int ret_abs = ioctl(device.fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit);
-		int ret_key = ioctl(device.fd, EVIOCGBIT(EV_KEY, sizeof(keybit)), keybit);
+		int ret_abs = ioctl(device.cfg.fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit);
+		int ret_key = ioctl(device.cfg.fd, EVIOCGBIT(EV_KEY, sizeof(keybit)), keybit);
 		memset(device.axis_map, 0xFF, sizeof(device.axis_map));
 		memset(device.btn_map, 0xFF, sizeof(device.btn_map));
 
@@ -578,13 +577,11 @@ int EvDevPad::Open()
 		int max_buttons = JOY_STEERING;
 		switch(mType) {
 			case WT_BUZZ_CONTROLLER:
-				LoadBuzzMappings(mDevType, mPort, device.name,
-					device.mappings);
+				LoadBuzzMappings(mDevType, mPort, device.name, device.cfg);
 				max_buttons = 20;
 			break;
 			default:
-				LoadMappings(mDevType, mPort, device.name,
-					device.mappings, device.axis_inverted, device.axis_initial);
+				LoadMappings(mDevType, mPort, device.name, device.cfg);
 			break;
 		}
 
@@ -599,7 +596,7 @@ int EvDevPad::Open()
 			if (test_bit(i, absbit)) {
 				struct input_absinfo absinfo;
 
-				if (ioctl(device.fd, EVIOCGABS(i), &absinfo) < 0) {
+				if (ioctl(device.cfg.fd, EVIOCGABS(i), &absinfo) < 0) {
 					continue;
 				}
 
@@ -620,37 +617,35 @@ int EvDevPad::Open()
 				// FIXME axes as buttons
 				for (int k = max_buttons /*JOY_STEERING*/; k < JOY_MAPS_COUNT; k++)
 				{
-					if (i == device.mappings[k]) {
+					if (i == device.cfg.controls[k]) {
 						has_mappings = true;
 						device.axis_map[i] = 0x80 | k;
 						// TODO Instead of single FF instance, create for every device with X-axis???
 						// and then switch between them according to which device was used recently
 						if (k == JOY_STEERING && !mFFdev && !mUseRawFF)
-							mFFdev = new EvdevFF(device.fd);
+							mFFdev = new EvdevFF(device.cfg.fd);
 					}
 				}
-
-				++device.axes;
 			}
 		}
 
+#ifndef NDEBUG
 		for(int i = 0; i < ABS_MAX; ++i) {
 			if (device.axis_map[i] != (uint8_t)-1 && (device.axis_map[i] & 0x80))
 				OSDebugOut("Axis: 0x%02x -> %s\n", i, JoystickMapNames[device.axis_map[i] & ~0x80]);
 		}
+#endif
 
 		for (int i = BTN_JOYSTICK; i < KEY_MAX; ++i) {
 			if (test_bit(i, keybit)) {
 				//OSDebugOut("Device has button: 0x%x\n", i);
 				device.btn_map[i] = -1;//device.buttons;
-				++device.buttons;
 				if (i == BTN_GAMEPAD) {
 					device.is_gamepad = true;
 					OSDebugOut("Device is a gamepad\n");
 				}
-				for (int k = 0; k < max_buttons; k++)
-				{
-					if (i == device.mappings[k]) {
+				for (int k = 0; k < max_buttons; k++) {
+					if (i == device.cfg.controls[k]) {
 						has_mappings = true;
 						device.btn_map[i] = 0x8000 | k;
 						OSDebugOut("Remap button: 0x%x -> %s\n", i, JoystickMapNames[k]);
@@ -662,10 +657,8 @@ int EvDevPad::Open()
 			if (test_bit(i, keybit)) {
 				OSDebugOut("Device has button: 0x%x\n", i);
 				device.btn_map[i] = -1;//device.buttons;
-				++device.buttons;
-				for (int k = 0; k < max_buttons; k++)
-				{
-					if (i == device.mappings[k]) {
+				for (int k = 0; k < max_buttons; k++) {
+					if (i == device.cfg.controls[k]) {
 						has_mappings = true;
 						device.btn_map[i] = 0x8000 | k;
 					}
@@ -674,7 +667,7 @@ int EvDevPad::Open()
 		}
 		if (!has_mappings) {
 			OSDebugOut("Device %s [%s] has no mappings, discarding\n", device.name.c_str(), ""); //it.second.c_str());
-			close(device.fd);
+			close(device.cfg.fd);
 			mDevices.pop_back();
 		}
 	}
@@ -700,8 +693,8 @@ int EvDevPad::Close()
 
 	mHidHandle = -1;
 	for (auto& it : mDevices) {
-		close(it.fd);
-		it.fd = -1;
+		close(it.cfg.fd);
+		it.cfg.fd = -1;
 	}
 	return 0;
 }

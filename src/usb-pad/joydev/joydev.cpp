@@ -70,8 +70,8 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 	maxfd = -1;
 
 	for (auto& device: mDevices) {
-		FD_SET(device.fd, &fds);
-		if (maxfd < device.fd) maxfd = device.fd;
+		FD_SET(device.cfg.fd, &fds);
+		if (maxfd < device.cfg.fd) maxfd = device.cfg.fd;
 	}
 
 	struct timeval timeout;
@@ -84,13 +84,13 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 
 	for (auto& device: mDevices)
 	{
-		if (!FD_ISSET(device.fd, &fds)) {
+		if (!FD_ISSET(device.cfg.fd, &fds)) {
 			continue;
 		}
 
-		const auto& mappings = device.mappings;
+		const auto& mappings = device.cfg.controls;
 		//Non-blocking read sets len to -1 and errno to EAGAIN if no new data
-		while((len = read(device.fd, &events, sizeof(events))) > -1)
+		while((len = read(device.cfg.fd, &events, sizeof(events))) > -1)
 		{
 			len /= sizeof(events[0]);
 			for (int i = 0; i < len; i++)
@@ -102,7 +102,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 					switch (device.axis_map[event.number])
 					{
 						case 0x80 | JOY_STEERING:
-						case ABS_X: mWheelData.steering = device.axis_inverted[0] ? range - NORM(event.value, range) : NORM(event.value, range); break;
+						case ABS_X: mWheelData.steering = device.cfg.inverted[0] ? range - NORM(event.value, range) : NORM(event.value, range); break;
 						case ABS_Y: mWheelData.clutch = NORM(event.value, 0xFF); break;
 						//case ABS_RX: mWheelData.axis_rx = NORM(event.value, 0xFF); break;
 						case ABS_RY:
@@ -119,7 +119,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 							if (device.is_gamepad)
 								mWheelData.brake = 0xFF - NORM(event.value, 0xFF);
 							else
-								mWheelData.throttle = device.axis_inverted[1] ? NORM(event.value, 0xFF) : 0xFF - NORM(event.value, 0xFF);
+								mWheelData.throttle = device.cfg.inverted[1] ? NORM(event.value, 0xFF) : 0xFF - NORM(event.value, 0xFF);
 						break;
 						case 0x80 | JOY_BRAKE:
 						case ABS_RZ:
@@ -128,7 +128,7 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 							else if (device.is_dualanalog)
 								goto treat_me_like_ABS_RY;
 							else
-								mWheelData.brake = device.axis_inverted[2] ? NORM(event.value, 0xFF) : 0xFF - NORM(event.value, 0xFF);
+								mWheelData.brake = device.cfg.inverted[2] ? NORM(event.value, 0xFF) : 0xFF - NORM(event.value, 0xFF);
 						break;
 
 						//FIXME hatswitch mapping maybe
@@ -264,6 +264,7 @@ int JoyDevPad::Open()
 {
 	vstring device_list;
 	bool has_steering;
+	int count;
 	memset(&mWheelData, 0, sizeof(wheel_data_t));
 
 	// Setting to unpressed
@@ -294,7 +295,7 @@ int JoyDevPad::Open()
 		struct device_data& device = mDevices.back();
 		device.name = it.first;
 
-		if ((device.fd = open(it.second.c_str(), O_RDWR | O_NONBLOCK)) < 0)
+		if ((device.cfg.fd = open(it.second.c_str(), O_RDWR | O_NONBLOCK)) < 0)
 		{
 			OSDebugOut("Cannot open device: %s\n", it.second.c_str());
 			continue;
@@ -304,7 +305,7 @@ int JoyDevPad::Open()
 		//fcntl(device.fd, F_SETFL, flags | O_NONBLOCK);
 
 		unsigned int version;
-		if (ioctl(device.fd, JSIOCGVERSION, &version) < 0)
+		if (ioctl(device.cfg.fd, JSIOCGVERSION, &version) < 0)
 		{
 			SysMessage("%s: Get version failed: %s\n", APINAME, strerror(errno));
 			continue;
@@ -316,55 +317,56 @@ int JoyDevPad::Open()
 			continue;
 		}
 
-		LoadMappings(mDevType, mPort, device.name,
-			device.mappings, device.axis_inverted, device.axis_initial);
+		LoadMappings(mDevType, mPort, device.name, device.cfg);
 
 		// Axis Mapping
-		if (ioctl(device.fd, JSIOCGAXMAP, device.axis_map) < 0)
+		if (ioctl(device.cfg.fd, JSIOCGAXMAP, device.axis_map) < 0)
 		{
 			SysMessage("%s: Axis mapping failed: %s\n", APINAME, strerror(errno));
 			continue;
 		}
 		else
 		{
-			ioctl(device.fd, JSIOCGAXES, &(device.axes));
-			for(int i = 0; i < device.axes; ++i)
-				OSDebugOut("Axis: %d -> %d\n", i, device.axis_map[i] );
+			if (ioctl(device.cfg.fd, JSIOCGAXES, &(count)) >= 0) {
+				for(int i = 0; i < count; ++i)
+					OSDebugOut("Axis: %d -> %d\n", i, device.axis_map[i] );
 
-			for (int k = 0; k < device.axes; k++)
-				for (int i = JOY_STEERING; i < JOY_MAPS_COUNT; i++)
-				{
-					if (k == device.mappings[i]) {
-						device.axis_map[k] = 0x80 | i;
-						if (i == JOY_STEERING)
-							has_steering = true;
+				for (int k = 0; k < count; k++) {
+					for (int i = JOY_STEERING; i < JOY_MAPS_COUNT; i++) {
+						if (k == device.cfg.controls[i]) {
+							device.axis_map[k] = 0x80 | i;
+							if (i == JOY_STEERING)
+								has_steering = true;
+						}
 					}
 				}
+			}
 		}
 
 		// Button Mapping
-		if (ioctl(device.fd, JSIOCGBTNMAP, device.btn_map) < 0)
+		if (ioctl(device.cfg.fd, JSIOCGBTNMAP, device.btn_map) < 0)
 		{
 			SysMessage("%s: Button mapping failed: %s\n", APINAME, strerror(errno));
 			continue;
 		}
 		else
 		{
-			ioctl(device.fd, JSIOCGBUTTONS, &(device.buttons));
-			for(int i = 0; i < device.buttons; ++i)
-			{
-				OSDebugOut("Button: %d -> %d BTN_[GAMEPAD|SOUTH]: %d\n", i, device.btn_map[i], device.btn_map[i] == BTN_GAMEPAD );
-				if (device.btn_map[i] == BTN_GAMEPAD)
-					device.is_gamepad = true;
-			}
-
-			if (!device.is_gamepad) //TODO Don't remap if gamepad?
-			for (int k = 0; k < device.buttons; k++)
-				for (int i = 0; i < JOY_STEERING; i++)
+			if (ioctl(device.cfg.fd, JSIOCGBUTTONS, &(count)) >= 0) {
+				for(int i = 0; i < count; ++i)
 				{
-					if (k == device.mappings[i])
-						device.btn_map[k] = 0x8000 | i;
+					OSDebugOut("Button: %d -> %d BTN_[GAMEPAD|SOUTH]: %d\n", i, device.btn_map[i], device.btn_map[i] == BTN_GAMEPAD );
+					if (device.btn_map[i] == BTN_GAMEPAD)
+						device.is_gamepad = true;
 				}
+
+				if (!device.is_gamepad) //TODO Don't remap if gamepad?
+				for (int k = 0; k < count; k++) {
+					for (int i = 0; i < JOY_STEERING; i++) {
+						if (k == device.cfg.controls[i])
+							device.btn_map[k] = 0x8000 | i;
+					}
+				}
+			}
 		}
 
 		std::stringstream event;
@@ -417,8 +419,8 @@ int JoyDevPad::Close()
 
 	mHandleFF = -1;
 	for (auto& it : mDevices) {
-		close(it.fd);
-		it.fd = -1;
+		close(it.cfg.fd);
+		it.cfg.fd = -1;
 	}
 	return 0;
 }

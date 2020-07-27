@@ -14,7 +14,7 @@
 
 namespace usb_pad { namespace dx {
 
-static bool useRamp = false;
+static int32_t useRamp = 0;
 
 bool listening = false;
 DWORD listenend = 0;
@@ -36,10 +36,10 @@ int32_t LINEAR[2][CID_COUNT];
 int32_t OFFSET[2][CID_COUNT];
 int32_t DEADZONE[2][CID_COUNT];
 
-bool BYPASSCAL = 0;
+int32_t BYPASSCAL = 0;
 int32_t GAINZ[2][1];
 int32_t FFMULTI[2][1];
-bool INVERTFORCES[2] = { false, false };
+int32_t INVERTFORCES[2] {};
 
 bool dialogOpen = false;
 
@@ -1026,7 +1026,6 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 void SaveDInputConfig(int port, const char *dev_type)
 {
 	SaveSetting(_T("dinput"), _T("BYPASSCAL"), BYPASSCAL);
-	//SaveSetting(_T("dinput"), _T("controllers"), (int32_t)g_pJoysticks.size());
 
 	wchar_t section[256];
 	swprintf_s(section, L"%S dinput %d", dev_type, port);

@@ -8,7 +8,7 @@ static const char *APINAME = "dinput";
 class DInputPad : public Pad
 {
 public:
-	DInputPad(int port, const char* dev_type) : Pad(port, dev_type), mUseRamp(false){}
+	DInputPad(int port, const char* dev_type) : Pad(port, dev_type), mUseRamp(0){}
 	~DInputPad();
 	int Open();
 	int Close();
@@ -23,7 +23,7 @@ public:
 
 	static int Configure(int port, const char* dev_type, void *data);
 private:
-	bool mUseRamp;
+	int32_t mUseRamp;
 };
 
 }} //namespace

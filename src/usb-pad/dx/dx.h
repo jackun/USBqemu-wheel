@@ -20,7 +20,7 @@
 
 namespace usb_pad { namespace dx {
 
-extern bool BYPASSCAL;
+extern int32_t BYPASSCAL;
 
 //dinput control mappings
 
@@ -28,7 +28,7 @@ static const DWORD PRECMULTI = 100; //floating point precision multiplier, 100 -
 
 extern int32_t GAINZ[2][1];
 extern int32_t FFMULTI[2][1];
-extern bool INVERTFORCES[2];
+extern int32_t INVERTFORCES[2];
 
 static bool didDIinit = false;					//we have a handle
 

@@ -15,7 +15,7 @@ using ms = std::chrono::milliseconds;
 #define JOYTYPE "joytype"
 #define CFG "cfg"
 
-bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3], int (&initial)[3])
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, ConfigMapping& cfg)
 {
 	assert(JOY_MAPS_COUNT == countof(JoystickMapNames));
 	std::stringstream str;
@@ -24,8 +24,8 @@ bool LoadMappings(const char *dev_type, int port, const std::string& joyname, st
 		return false;
 
 	int j = 0;
-	mappings.resize(JOY_MAPS_COUNT);
-	for (auto& i: mappings)
+	cfg.controls.resize(JOY_MAPS_COUNT);
+	for (auto& i: cfg.controls)
 	{
 		str.clear();
 		str.str("");
@@ -44,25 +44,25 @@ bool LoadMappings(const char *dev_type, int port, const std::string& joyname, st
 		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
 		{
 			const std::string& name = str.str();
-			if (!LoadSetting(dev_type, port, joyname, name.c_str(), inverted[i]))
-				inverted[i] = false;
+			if (!LoadSetting(dev_type, port, joyname, name.c_str(), cfg.inverted[i]))
+				cfg.inverted[i] = 0;
 		}
 
 		str.clear(); str.str("");
 		str << "initial_" << JoystickMapNames[JOY_STEERING + i];
 		{
 			const std::string& name = str.str();
-			if (!LoadSetting(dev_type, port, joyname, name.c_str(), initial[i]))
-				initial[i] = 0;
+			if (!LoadSetting(dev_type, port, joyname, name.c_str(), cfg.initial[i]))
+				cfg.initial[i] = 0;
 		}
 	}
 	return true;
 }
 
-bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3], int (&initial)[3])
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const ConfigMapping& cfg)
 {
 	assert(JOY_MAPS_COUNT == countof(JoystickMapNames));
-	if (joyname.empty() || mappings.size() != JOY_MAPS_COUNT)
+	if (joyname.empty() || cfg.controls.size() != JOY_MAPS_COUNT)
 		return false;
 
 	std::stringstream str;
@@ -72,7 +72,7 @@ bool SaveMappings(const char *dev_type, int port, const std::string& joyname, co
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
 		const std::string& name = str.str();
-		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(mappings[i])))
+		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(cfg.controls[i])))
 			return false;
 	}
 
@@ -82,7 +82,7 @@ bool SaveMappings(const char *dev_type, int port, const std::string& joyname, co
 		str << "inverted_" << JoystickMapNames[JOY_STEERING + i];
 		{
 			const std::string& name = str.str();
-			if (!SaveSetting(dev_type, port, joyname, name.c_str(), inverted[i]))
+			if (!SaveSetting(dev_type, port, joyname, name.c_str(), cfg.inverted[i]))
 				return false;
 		}
 
@@ -90,14 +90,14 @@ bool SaveMappings(const char *dev_type, int port, const std::string& joyname, co
 		str << "initial_" << JoystickMapNames[JOY_STEERING + i];
 		{
 			const std::string& name = str.str();
-			if (!SaveSetting(dev_type, port, joyname, name.c_str(), initial[i]))
+			if (!SaveSetting(dev_type, port, joyname, name.c_str(), cfg.initial[i]))
 				return false;
 		}
 	}
 	return true;
 }
 
-bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings)
+bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, ConfigMapping& cfg)
 {
 	std::stringstream str;
 
@@ -106,8 +106,8 @@ bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname
 
 	int j = 0;
 
-	mappings.resize(countof(buzz_map_names) * 4);
-	for (auto& i: mappings)
+	cfg.controls.resize(countof(buzz_map_names) * 4);
+	for (auto& i: cfg.controls)
 	{
 		str.str("");
 		str.clear();
@@ -123,7 +123,7 @@ bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname
 	return true;
 }
 
-bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings)
+bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const ConfigMapping& cfg)
 {
 	if (joyname.empty())
 		return false;
@@ -131,13 +131,13 @@ bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname
 	std::stringstream str;
 
 	const size_t c = countof(buzz_map_names);
-	for (size_t i=0; i < mappings.size(); i++)
+	for (size_t i=0; i < cfg.controls.size(); i++)
 	{
 		str.str("");
 		str.clear();
 		str << "map_" << buzz_map_names[i % c] << "_" << (i / c);
 		const std::string& name = str.str();
-		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(mappings[i])))
+		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(cfg.controls[i])))
 			return false;
 	}
 	return true;
@@ -150,13 +150,13 @@ static void refresh_store(ConfigData *cfg)
 	gtk_list_store_clear (cfg->store);
 	for (auto& it: cfg->jsconf)
 	{
-		for (int i = 0; /*i < JOY_MAPS_COUNT && */i < it.second.mappings.size(); i++)
+		for (int i = 0; /*i < JOY_MAPS_COUNT && */i < it.second.controls.size(); i++)
 		{
-			if (it.second.mappings[i] == (uint16_t)-1)
+			if (it.second.controls[i] == (uint16_t)-1)
 				continue;
 
 			const char *pc_name = "Unknown";
-			cfg->cb->get_event_name(cfg->dev_type, i, it.second.mappings[i], &pc_name);
+			cfg->cb->get_event_name(cfg->dev_type, i, it.second.controls[i], &pc_name);
 
 			gtk_list_store_append (cfg->store, &iter);
 
@@ -232,9 +232,9 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 					return i.first == dev_name;
 				});
 
-			if (it != cfg->jsconf.end() && type < it->second.mappings.size())
+			if (it != cfg->jsconf.end() && type < it->second.controls.size())
 			{
-				it->second.mappings[type] = value;
+				it->second.controls[type] = value;
 				if (is_axis) {
 					it->second.inverted[type - JOY_STEERING] = inverted;
 					it->second.initial[type - JOY_STEERING] = initial;
@@ -272,12 +272,12 @@ static void button_clicked_buzz (GtkComboBox *widget, gpointer data)
 					return i.first == dev_name;
 				});
 
-			if (it != cfg->jsconf.end() && type < it->second.mappings.size())
+			if (it != cfg->jsconf.end() && type < it->second.controls.size())
 			{
-				OSDebugOut("setting mappings for %s %s_%d=%d\n", dev_name.c_str(),
+				OSDebugOut("setting mappings for %s %s_%lu=%d\n", dev_name.c_str(),
 					buzz_map_names[type % countof(buzz_map_names)],
 					type / countof(buzz_map_names), value);
-				it->second.mappings[type] = value;
+				it->second.controls[type] = value;
 				refresh_store(cfg);
 			}
 		}
@@ -310,7 +310,7 @@ static void view_remove_binding (GtkTreeModel *model,
 			return i.first == dev_name;
 		});
 	if (it != js.end()) {
-		it->second.mappings[binding] = (uint16_t)-1;
+		it->second.controls[binding] = (uint16_t)-1;
 		OSDebugOut("Delete binding '%d' for '%s'\n", binding, it->first.c_str());
 	}
 	gtk_list_store_remove (GTK_LIST_STORE(model), iter);
@@ -361,7 +361,7 @@ static void clear_all_clicked (GtkWidget *widget, gpointer data)
 {
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 	for (auto& it: cfg->jsconf)
-		it.second.mappings.assign(it.second.mappings.size(), -1);
+		it.second.controls.assign(it.second.controls.size(), -1);
 	refresh_store(cfg);
 }
 
@@ -400,9 +400,9 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		}
 
 		ConfigMapping c; c.fd = fd;
-		LoadMappings (cfg.dev_type, port, it.first, c.mappings, c.inverted, c.initial);
+		LoadMappings (cfg.dev_type, port, it.first, c);
 		cfg.jsconf.push_back(std::make_pair(it.first, c));
-		OSDebugOut("mappings for '%s': %d\n", it.first.c_str(), c.mappings.size());
+		OSDebugOut("mappings for '%s': %zu\n", it.first.c_str(), c.controls.size());
 	}
 
 	refresh_store(&cfg);
@@ -602,7 +602,7 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		}
 
 		for (auto& it: cfg.jsconf)
-			SaveMappings(dev_type, port, it.first, it.second.mappings, it.second.inverted, it.second.initial);
+			SaveMappings(dev_type, port, it.first, it.second);
 
 		if (is_evdev) {
 			SaveSetting(dev_type, port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
@@ -661,9 +661,9 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 		}
 
 		ConfigMapping c; c.fd = fd;
-		LoadBuzzMappings (cfg.dev_type, port, it.first, c.mappings);
+		LoadBuzzMappings (cfg.dev_type, port, it.first, c);
 		cfg.jsconf.push_back(std::make_pair(it.first, c));
-		OSDebugOut("mappings for '%s': %d\n", it.first.c_str(), c.mappings.size());
+		OSDebugOut("mappings for '%s': %lu\n", it.first.c_str(), c.controls.size());
 	}
 
 	refresh_store(&cfg);
@@ -733,7 +733,6 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 	g_object_set_data (G_OBJECT (button), CFG, &cfg);
 	g_signal_connect (G_OBJECT (button), "clicked", G_CALLBACK (clear_all_clicked), reinterpret_cast<gpointer> (port));
 
-
 	// ---------------------------
 
 	// Remapping
@@ -770,7 +769,6 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 			for (int i=0; i < countof(button_labels); i++)
 			{
 				GtkWidget *button = gtk_button_new_with_label (button_labels[i]);
-
 
 				GtkWidget *icon = make_color_icon(icon_colors[i]);
 				gtk_button_set_image (GTK_BUTTON(button), icon);
@@ -827,7 +825,7 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 		}
 
 		for (auto& it: cfg.jsconf)
-			SaveBuzzMappings(dev_type, port, it.first, it.second.mappings);
+			SaveBuzzMappings(dev_type, port, it.first, it.second);
 
 	}
 	else

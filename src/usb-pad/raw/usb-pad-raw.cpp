@@ -432,7 +432,7 @@ int RawInputPad::Open()
 		HidD_GetAttributes(mUsbHandle, &(attr));
 		if (attr.VendorID != PAD_VID || attr.ProductID == 0xC262) {
 			fwprintf(stderr, TEXT("USBqemu: Vendor is not Logitech or wheel is G920. Not sending force feedback commands for safety reasons.\n"));
-			mDoPassthrough = false;
+			mDoPassthrough = 0;
 			Close();
 		}
 		else if (!mWriterThreadIsRunning)
