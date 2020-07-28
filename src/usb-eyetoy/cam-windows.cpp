@@ -292,7 +292,7 @@ void DirectShow::Stop() {
 	if (FAILED(hr)) throw hr;
 }
 
-buffer_t mpeg_buffer = { NULL, 0 };
+buffer_t mpeg_buffer {};
 std::mutex mpeg_mutex;
 
 void store_mpeg_frame(unsigned char *data, unsigned int len) {
