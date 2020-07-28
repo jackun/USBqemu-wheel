@@ -92,6 +92,7 @@ void EvdevFF::SetConstantForce(/*const parsed_ff_data& ff*/ int level)
 	struct input_event play;
 	play.type = EV_FF;
 	play.value = 1;
+	mEffect.u = {};
 
 	if (!mUseRumble) {
 		mEffect.type = FF_CONSTANT;
@@ -148,6 +149,7 @@ void EvdevFF::SetSpringForce(const parsed_ff_data& ff)
 
 	mEffect.type = FF_SPRING;
 	mEffect.id = mEffIds[EFF_SPRING];
+	mEffect.u = {};
 	mEffect.u.condition[0].left_saturation = ff.u.condition.left_saturation;
 	mEffect.u.condition[0].right_saturation = ff.u.condition.right_saturation;
 	mEffect.u.condition[0].left_coeff = ff.u.condition.left_coeff;
@@ -178,6 +180,7 @@ void EvdevFF::SetDamperForce(const parsed_ff_data& ff)
 	play.type = EV_FF;
 	play.value = 1;
 
+	mEffect.u = {};
 	mEffect.type = FF_DAMPER;
 	mEffect.id = mEffIds[EFF_DAMPER];
 	mEffect.u.condition[0].left_saturation = ff.u.condition.left_saturation;
@@ -208,6 +211,7 @@ void EvdevFF::SetFrictionForce(const parsed_ff_data& ff)
 	play.type = EV_FF;
 	play.value = 1;
 
+	mEffect.u = {};
 	mEffect.type = FF_FRICTION;
 	mEffect.id = mEffIds[EFF_FRICTION];
 	mEffect.u.condition[0].left_saturation = ff.u.condition.left_saturation;
