@@ -90,22 +90,22 @@ void SysMessage(const char *fmt, ...);
 #define DBL_EPSILON 2.2204460492503131e-16
 #define FLT_EPSILON 1.1920928955078125e-7f
 
-template <size_t size>  
-errno_t mbstowcs_s(  
-	size_t *pReturnValue,  
-	wchar_t (&wcstr)[size],  
-	const char *mbstr,  
+template <size_t size>
+errno_t mbstowcs_s(
+	size_t *pReturnValue,
+	wchar_t (&wcstr)[size],
+	const char *mbstr,
 	size_t count
 )
 {
 	return mbstowcs_s(pReturnValue, wcstr, size, mbstr, count);
 }
 
-template <size_t size>  
-errno_t wcstombs_s(  
-	size_t *pReturnValue,  
-	char (&mbstr)[size],  
-	const wchar_t *wcstr,  
+template <size_t size>
+errno_t wcstombs_s(
+	size_t *pReturnValue,
+	char (&mbstr)[size],
+	const wchar_t *wcstr,
 	size_t count
 )
 {
@@ -124,6 +124,12 @@ template <class T, std::size_t N>
 constexpr std::size_t countof(const T (&)[N]) noexcept
 {
     return N;
+}
+
+template <class T>
+constexpr std::size_t countof(const T N)
+{
+    return N.size();
 }
 
 //TODO Idk, used only in desc.h and struct USBDescriptor should be already packed anyway
