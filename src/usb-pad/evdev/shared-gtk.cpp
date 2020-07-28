@@ -637,7 +637,6 @@ GtkWidget * make_color_icon(uint32_t rgb)
 
 int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs)
 {
-	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb;
 	GtkWidget *main_hbox, *right_vbox, *left_vbox, *treeview;
 	GtkWidget *button;
 
@@ -741,7 +740,7 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 		gtk_container_add (GTK_CONTAINER(right_vbox), table);
 		GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
 
-		const char* button_labels[] {
+		static const char* button_labels[] {
 			"Red",
 			"Blue",
 			"Orange",
@@ -749,7 +748,7 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 			"Yellow",
 		};
 
-		Buzz buzz_btns[] {
+		static const Buzz buzz_btns[] {
 			BUZZ_RED,
 			BUZZ_BLUE,
 			BUZZ_ORANGE,
@@ -757,7 +756,7 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 			BUZZ_YELLOW,
 		};
 
-		uint32_t icon_colors[] {
+		static const uint32_t icon_colors[] {
 			0x0000FF,
 			0xFF0000,
 			0x0080FF,
