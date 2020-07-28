@@ -86,7 +86,7 @@ function(enable_unity_build UB_SUFFIX SOURCE_VARIABLE_NAME)
 		FILE( APPEND ${unit_build_file} "#include <${CMAKE_CURRENT_SOURCE_DIR}/${source_file}>\n")
 	endforeach(source_file)
 	# Complement list of translation units with the name of ub
-	set(${SOURCE_VARIABLE_NAME} ${${SOURCE_VARIABLE_NAME}} ${unit_build_file} PARENT_SCOPE)  
+	set(${SOURCE_VARIABLE_NAME} ${${SOURCE_VARIABLE_NAME}} ${unit_build_file} PARENT_SCOPE)
 endfunction(enable_unity_build)
 
 # Generate version.h
@@ -344,7 +344,7 @@ IF(WIN32)
 				get_windowssdk_library_dirs(${WINDOWSSDK_PREFERRED_DIR} BUILD_DX_LIB)
 			ENDIF(PLUGIN_FIND_WINSDK)
 		ENDIF(PLUGIN_BUILD_WITH_DXSDK)
-		
+
 		INCLUDE_DIRECTORIES(${BUILD_DX_INCLUDE})
 		LINK_DIRECTORIES(${BUILD_DX_LIB})
 		LIST(APPEND HDRS_DX
@@ -377,13 +377,13 @@ IF(WIN32)
 		)
 		SOURCE_GROUP("Header Files\\usb-pad\\Raw" FILES ${HDRS_RAW})
 		SOURCE_GROUP("Source Files\\usb-pad\\Raw" FILES ${SRCS_RAW})
-		
+
 		LIST(APPEND HDRS_PAD ${HDRS_RAW})
 		LIST(APPEND SRCS_PAD ${SRCS_RAW})
 		LIST(APPEND LIBS setupapi)
 		FILE(GLOB RAW_RCS ./src/usb-pad/raw/*.rc)
 	ENDIF(PLUGIN_BUILD_RAW)
-	
+
 	FILE(GLOB RCS ./src/Win32/*.rc)
 	FILE(GLOB DEF ./src/Win32/*.def)
 
