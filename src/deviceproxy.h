@@ -29,6 +29,7 @@ enum DeviceType
 	DEVTYPE_RBKIT,
 	DEVTYPE_BUZZ,
 	DEVTYPE_EYETOY,
+	DEVTYPE_BEATMANIA_DADADA,
 };
 
 struct SelectDeviceName {
