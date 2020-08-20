@@ -207,11 +207,7 @@ static GtkWidget* new_frame(const char *label, GtkWidget *box)
 	return vbox;
 }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void CALLBACK USBconfigure() {
+EXPORT_C_(void) USBconfigure() {
 
 	RegisterDevice::Register();
 	LoadConfig();
@@ -325,9 +321,5 @@ void CALLBACK USBconfigure() {
 //	ClearAPIs();
 }
 
-void CALLBACK USBabout() {
+EXPORT_C_(void) USBabout() {
 }
-
-#ifdef __cplusplus
-} //extern "C"
-#endif
