@@ -228,7 +228,7 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 		if (cfg->cb->poll(cfg->jsconf, dev_name, is_axis, value, inverted, initial))
 		{
 			auto it = std::find_if(cfg->jsconf.begin(), cfg->jsconf.end(),
-				[&dev_name](auto& i)->bool {
+				[&dev_name](MappingPair& i)->bool {
 					return i.first == dev_name;
 				});
 
@@ -268,7 +268,7 @@ static void button_clicked_buzz (GtkComboBox *widget, gpointer data)
 		if (cfg->cb->poll(cfg->jsconf, dev_name, false, value, inverted, initial))
 		{
 			auto it = std::find_if(cfg->jsconf.begin(), cfg->jsconf.end(),
-				[&dev_name](auto& i)->bool {
+				[&dev_name](MappingPair& i)->bool {
 					return i.first == dev_name;
 				});
 
@@ -306,7 +306,7 @@ static void view_remove_binding (GtkTreeModel *model,
 
 	auto& js = cfg->jsconf;
 	auto it = std::find_if(js.begin(), js.end(),
-		[&dev_name](auto i){
+		[&dev_name](MappingPair i){
 			return i.first == dev_name;
 		});
 	if (it != js.end()) {

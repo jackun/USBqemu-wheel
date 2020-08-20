@@ -7,7 +7,8 @@
 
 #define N_HIDRAW_FF_PT	"hidraw_ff_pt"
 
-typedef std::vector< std::pair<std::string, std::string> > vstring;
+typedef std::pair<std::string, std::string> StringPair;
+typedef std::vector<StringPair> vstring;
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox);
 
 namespace usb_pad { namespace evdev {
@@ -93,9 +94,10 @@ struct ApiCallbacks
 	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial);
 };
 
+typedef std::pair<std::string, ConfigMapping> MappingPair;
 struct ConfigData
 {
-	std::vector<std::pair<std::string, ConfigMapping> > jsconf;
+	std::vector<MappingPair> jsconf;
 	vstring joysticks;
 	vstring::const_iterator js_iter;
 	GtkWidget *label;

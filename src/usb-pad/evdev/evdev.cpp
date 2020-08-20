@@ -130,7 +130,7 @@ void EnumerateDevices(vstring& list)
 			std::string path = str.str();
 
 			auto it = std::find_if(list_cache.begin(), list_cache.end(),
-				[&path](auto& pair){
+				[&path](StringPair& pair){
 					return pair.second == path;
 			});
 			if (it != list_cache.end())
