@@ -72,6 +72,12 @@ void SetFrictionForce(FFDevice *ffdev, const friction& frict)
 	ffdev->SetFrictionForce(ff);
 }
 
+void SetAutoCenter(FFDevice *ffdev, const autocenter& effect)
+{
+	OSDebugOut(_T("%s: k1 %d k2 %d clip %d\n"), __func__, effect.k1, effect.k2, effect.clip);
+	ffdev->SetAutoCenter((effect.k1 * effect.clip / 255) * 100 / 255); // FIXME
+}
+
 // Unless passing ff packets straight to a device, parse it here
 void Pad::ParseFFData(const ff_data *ffdata, bool isDFP)
 {
@@ -179,6 +185,9 @@ void Pad::ParseFFData(const ff_data *ffdata, bool isDFP)
 					caps |= FF_LG_CAPS_DAMPER_CLIP;
 				SetDamperForce(mFFdev, ffdata->u.damper, caps);
 				break;
+			case FTYPE_AUTO_CENTER_SPRING:
+				SetAutoCenter(mFFdev, ffdata->u.autocenter);
+				break;
 			default:
 				OSDebugOut(TEXT("CMD_DOWNLOAD_AND_PLAY: unhandled force type 0x%02X in slots 0x%02X\n"), ffdata->type, slots);
 				break;
@@ -204,9 +213,9 @@ void Pad::ParseFFData(const ff_data *ffdata, bool isDFP)
 					case FTYPE_HIGH_RESOLUTION_SPRING:
 						mFFdev->DisableForce(EFF_SPRING);
 						break;
-					//case FTYPE_AUTO_CENTER_SPRING:
-						//mFFdev->DisableSpring();
-						//break;
+					case FTYPE_AUTO_CENTER_SPRING:
+						mFFdev->SetAutoCenter(0);
+						break;
 					case FTYPE_FRICTION:
 						mFFdev->DisableForce(EFF_FRICTION);
 						break;

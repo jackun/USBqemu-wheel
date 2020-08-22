@@ -265,6 +265,7 @@ int JoyDevPad::Open()
 	vstring device_list;
 	bool has_steering;
 	int count;
+	int32_t b_gain, gain, b_ac, ac;
 	memset(&mWheelData, 0, sizeof(wheel_data_t));
 
 	// Setting to unpressed
@@ -286,6 +287,15 @@ int JoyDevPad::Open()
 	}*/
 
 	EnumerateDevices(device_list);
+
+	if (!LoadSetting(mDevType, mPort, APINAME, N_GAIN_ENABLED, b_gain))
+		b_gain = 1;
+	if (!LoadSetting(mDevType, mPort, APINAME, N_GAIN, gain))
+		gain = 100;
+	if (!LoadSetting(mDevType, mPort, APINAME, N_AUTOCENTER_MANAGED, b_ac))
+		b_ac = 1;
+	if (!LoadSetting(mDevType, mPort, APINAME, N_AUTOCENTER, ac))
+		ac = 100;
 
 	for (const auto& it : device_list)
 	{
@@ -398,7 +408,7 @@ int JoyDevPad::Open()
 				OSDebugOut("%s: Cannot open '%s'\n", APINAME, event.str().c_str());
 			}
 			else
-				mFFdev = new evdev::EvdevFF(mHandleFF);
+				mFFdev = new evdev::EvdevFF(mHandleFF, b_gain, gain, b_ac, ac);
 		}
 	}
 
