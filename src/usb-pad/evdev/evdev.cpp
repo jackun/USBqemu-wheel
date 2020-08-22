@@ -456,6 +456,7 @@ int EvDevPad::Open()
 	vstring device_list;
 	char buf[1024];
 	mWheelData = {};
+	int32_t b_gain, gain, b_ac, ac;
 
 	unsigned long keybit[NBITS(KEY_MAX)];
 	unsigned long absbit[NBITS(ABS_MAX)];
@@ -582,6 +583,14 @@ int EvDevPad::Open()
 			break;
 			default:
 				LoadMappings(mDevType, mPort, device.name, device.cfg);
+				if (!LoadSetting(mDevType, mPort, APINAME, N_GAIN_ENABLED, b_gain))
+					b_gain = 1;
+				if (!LoadSetting(mDevType, mPort, APINAME, N_GAIN, gain))
+					gain = 100;
+				if (!LoadSetting(mDevType, mPort, APINAME, N_AUTOCENTER_MANAGED, b_ac))
+					b_ac = 1;
+				if (!LoadSetting(mDevType, mPort, APINAME, N_AUTOCENTER, ac))
+					ac = 100;
 			break;
 		}
 
@@ -622,8 +631,9 @@ int EvDevPad::Open()
 						device.axis_map[i] = 0x80 | k;
 						// TODO Instead of single FF instance, create for every device with X-axis???
 						// and then switch between them according to which device was used recently
-						if (k == JOY_STEERING && !mFFdev && !mUseRawFF)
-							mFFdev = new EvdevFF(device.cfg.fd);
+						if (k == JOY_STEERING && !mFFdev && !mUseRawFF) {
+							mFFdev = new EvdevFF(device.cfg.fd, b_gain, gain, b_ac, ac);
+						}
 					}
 				}
 			}

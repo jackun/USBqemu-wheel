@@ -263,7 +263,7 @@ struct FFDevice
 	virtual void SetSpringForce(const parsed_ff_data& ff) = 0;
 	virtual void SetDamperForce(const parsed_ff_data& ff) = 0;
 	virtual void SetFrictionForce(const parsed_ff_data& ff) = 0;
-	//virtual void SetAutoCenter(int value) = 0;
+	virtual void SetAutoCenter(int value) = 0;
 	//virtual void SetGain(int gain) = 0;
 	virtual void DisableForce(EffectID force) = 0;
 };

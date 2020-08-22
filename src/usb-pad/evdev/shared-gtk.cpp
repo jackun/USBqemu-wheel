@@ -365,12 +365,11 @@ static void clear_all_clicked (GtkWidget *widget, gpointer data)
 	refresh_store(cfg);
 }
 
-static void hidraw_toggled (GtkToggleButton *widget, gpointer data)
+static void checkbox_toggled (GtkToggleButton *widget, gpointer data)
 {
-	int port = reinterpret_cast<uintptr_t> (data);
-	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
-	if (cfg) {
-		cfg->use_hidraw_ff_pt = (bool) gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
+	gboolean *val = reinterpret_cast<gboolean *> (data);
+	if (val) {
+		*val = (bool) gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
 	}
 }
 
@@ -555,6 +554,62 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		gtk_box_pack_start (GTK_BOX (right_vbox), cfg.label, TRUE, TRUE, 5);
 	}
 
+	ro_frame = gtk_frame_new ("Force feedback");
+	gtk_box_pack_start (GTK_BOX (right_vbox), ro_frame, TRUE, FALSE, 5);
+
+	//GtkWidget *frame_vbox = gtk_vbox_new (FALSE, 5);
+	//gtk_container_add (GTK_CONTAINER (ro_frame), frame_vbox);
+
+	const char *labels_buff[][2] = {{"Set gain", "Gain"}, {"Managed by game", "Autocenter strength"}};
+	const char *ff_var_name[][2] = {{N_GAIN_ENABLED, N_GAIN}, {N_AUTOCENTER_MANAGED, N_AUTOCENTER}};
+	GtkWidget *ff_scales[2];
+	int32_t ff_enabled[2];
+
+	GtkWidget* table = gtk_table_new (3, 2, true);
+	gtk_container_add (GTK_CONTAINER (ro_frame), table);
+	gtk_table_set_homogeneous (GTK_TABLE (table), FALSE);
+	GtkAttachOptions opt = (GtkAttachOptions)(GTK_EXPAND | GTK_FILL); // default
+
+	for (int i=0; i<2; i++)
+	{
+		if (LoadSetting(dev_type, port, apiname, ff_var_name[i][0], ff_enabled[i]))
+			ff_enabled[i] = !!ff_enabled[i];
+		else
+			ff_enabled[i] = 1;
+
+		GtkWidget *chk_btn = gtk_check_button_new_with_label(labels_buff[i][0]);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (chk_btn), (gboolean)ff_enabled[i]);
+		g_signal_connect (G_OBJECT (chk_btn), "toggled", G_CALLBACK (checkbox_toggled), reinterpret_cast<gboolean *> (&ff_enabled[i]));
+		gtk_table_attach (GTK_TABLE (table), chk_btn,
+					2, 3,
+					0 + i, 1 + i,
+					GTK_FILL, GTK_SHRINK, 5, 1);
+
+		GtkWidget *label = gtk_label_new (labels_buff[i][1]);
+		gtk_misc_set_alignment(GTK_MISC(label), 1.0f, 0.5f);
+		gtk_table_attach (GTK_TABLE (table), label,
+					0, 1,
+					0 + i, 1 + i,
+					GTK_FILL, GTK_SHRINK, 5, 1);
+
+		//ff_scales[i] = gtk_scale_new_with_range (GTK_ORIENTATION_HORIZONTAL, 1, 100, 1);
+		ff_scales[i] = gtk_hscale_new_with_range (0, 100, 1);
+		for (int v=0; v<=100; v+=10)
+			gtk_scale_add_mark (GTK_SCALE (ff_scales[i]), v, GTK_POS_BOTTOM, nullptr);
+		gtk_table_attach (GTK_TABLE (table), ff_scales[i],
+					1, 2,
+					0 + i, 1 + i,
+					opt, opt, 5, 1);
+
+		int32_t var;
+		if (LoadSetting(dev_type, port, apiname, ff_var_name[i][1], var)) {
+			var = std::min(100, std::max(0, var));
+			gtk_range_set_value (GTK_RANGE (ff_scales[i]), var);
+		}
+		else
+			gtk_range_set_value (GTK_RANGE (ff_scales[i]), 100);
+	}
+
 	if (is_evdev)
 	{
 		ro_frame = gtk_frame_new ("Logitech wheel force feedback pass-through using hidraw");
@@ -565,8 +620,8 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 
 		GtkWidget *chk_btn = gtk_check_button_new_with_label("Enable");
 		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (chk_btn), (gboolean)cfg.use_hidraw_ff_pt);
-		g_object_set_data (G_OBJECT (chk_btn), CFG, &cfg);
-		g_signal_connect (G_OBJECT (chk_btn), "toggled", G_CALLBACK (hidraw_toggled), reinterpret_cast<gpointer> (port));
+		//g_object_set_data (G_OBJECT (chk_btn), CFG, &cfg);
+		g_signal_connect (G_OBJECT (chk_btn), "toggled", G_CALLBACK (checkbox_toggled), reinterpret_cast<gboolean *> (&cfg.use_hidraw_ff_pt));
 		gtk_box_pack_start (GTK_BOX(frame_vbox), chk_btn, FALSE, FALSE, 5);
 
 		rs_cb = new_combobox ("Device:", frame_vbox);
@@ -606,6 +661,12 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 
 		if (is_evdev) {
 			SaveSetting(dev_type, port, apiname, N_HIDRAW_FF_PT, cfg.use_hidraw_ff_pt);
+		}
+		for (int i=0; i<2; i++)
+		{
+			SaveSetting(dev_type, port, apiname, ff_var_name[i][0], ff_enabled[i]);
+			int val = gtk_range_get_value (GTK_RANGE (ff_scales[i]));
+			SaveSetting(dev_type, port, apiname, ff_var_name[i][1], val);
 		}
 	}
 	else

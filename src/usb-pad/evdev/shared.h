@@ -6,6 +6,10 @@
 #include "../../configuration.h"
 
 #define N_HIDRAW_FF_PT	"hidraw_ff_pt"
+#define N_GAIN_ENABLED  "gain_enabled"
+#define N_GAIN          "gain"
+#define N_AUTOCENTER          "autocenter"
+#define N_AUTOCENTER_MANAGED  "ac_managed"
 
 typedef std::pair<std::string, std::string> StringPair;
 typedef std::vector<StringPair> vstring;
