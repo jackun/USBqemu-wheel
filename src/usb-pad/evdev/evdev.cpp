@@ -532,7 +532,7 @@ int EvDevPad::Open()
 				{
 					if (mWriterThread.joinable())
 						mWriterThread.join();
-					mWriterThread = std::thread(EvDevPad::WriterThread, this);
+					mWriterThread = std::thread(&EvDevPad::WriterThread, this);
 				}
 			}
 		} else {
@@ -709,20 +709,19 @@ int EvDevPad::Close()
 	return 0;
 }
 
-void EvDevPad::WriterThread(void *ptr)
+void EvDevPad::WriterThread()
 {
 	std::array<uint8_t, 8> buf;
 	int res;
 
-	EvDevPad *pad = static_cast<EvDevPad *>(ptr);
-	pad->mWriterThreadIsRunning = true;
+	mWriterThreadIsRunning = true;
 
-	while (pad->mHidHandle != -1)
+	while (mHidHandle != -1)
 	{
-		//if (pad->mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000))) //FIXME SIGABORT :S
-		if (pad->mFFData.try_dequeue(buf))
+		//if (mFFData.wait_dequeue_timed(buf, std::chrono::milliseconds(1000))) //FIXME SIGABORT :S
+		if (mFFData.try_dequeue(buf))
 		{
-			res = write(pad->mHidHandle, buf.data(), buf.size());
+			res = write(mHidHandle, buf.data(), buf.size());
 			if (res < 0) {
 				printf("Error: %d\n", errno);
 				perror("write");
@@ -733,7 +732,7 @@ void EvDevPad::WriterThread(void *ptr)
 	}
 	OSDebugOut(TEXT("WriterThread exited.\n"));
 
-	pad->mWriterThreadIsRunning = false;
+	mWriterThreadIsRunning = false;
 }
 
 }} //namespace
