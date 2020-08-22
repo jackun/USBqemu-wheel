@@ -44,7 +44,7 @@ public:
 protected:
 	void PollAxesValues(const device_data& device);
 	void SetAxis(const device_data& device, int code, int value);
-	static void WriterThread(void *ptr);
+	void WriterThread();
 
 	int mHidHandle;
 	EvdevFF *mEvdevFF;
