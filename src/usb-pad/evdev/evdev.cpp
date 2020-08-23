@@ -327,6 +327,7 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 						}
 						else
 						{
+#if 0 // Will probably interfere more than is useful
 							// Map to xbox360ish controller
 							switch (code)
 							{
@@ -351,12 +352,13 @@ int EvDevPad::TokenIn(uint8_t *buf, int buflen)
 								case BTN_START: button = PAD_START; break;
 								case BTN_TR: button = PAD_R1; break;
 								case BTN_TL: button = PAD_L1; break;
-								case BTN_THUMBR: button = PAD_R2; break;
-								case BTN_THUMBL: button = PAD_L2; break;
+								case BTN_TR2: button = PAD_R2; break;
+								case BTN_TL2: button = PAD_L2; break;
 								default:
 									OSDebugOut("Unmapped Button: %d, %d\n", code, event.value);
 								break;
 							}
+#endif
 						}
 
 						//if (button != PAD_BUTTON_COUNT)
