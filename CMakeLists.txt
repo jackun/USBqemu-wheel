@@ -565,7 +565,10 @@ if (TOP_CMAKE_WAS_SOURCED)
 
 else (TOP_CMAKE_WAS_SOURCED)
 
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type -Wunused-variable -Wno-parentheses")
+	IF(UNIX) # hopefully compiling with gcc or the like
+		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type -Wunused-variable -Wno-parentheses")
+	ENDIF(UNIX)
+
 	ADD_LIBRARY(${TargetName} SHARED ${SRCS} ${SRCS_SAMPLERATE} ${HDRS} ${RAW_RCS} ${DX_RCS} ${RCS} ${DEF})
 	TARGET_LINK_LIBRARIES(${TargetName} ${LIBS})
 	SET_TARGET_PROPERTIES(${TargetName} PROPERTIES DEBUG_POSTFIX _d)
