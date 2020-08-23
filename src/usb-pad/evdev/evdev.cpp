@@ -29,6 +29,7 @@ bool str_ends_with(const char * str, const char * suffix)
 
 bool FindHidraw(const std::string &evphys, std::string& hid_dev, int *vid, int *pid)
 {
+
 	int fd;
 	int res;
 	char buf[256];

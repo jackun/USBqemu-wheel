@@ -545,7 +545,7 @@ static const USBDescIface *usb_desc_find_interface(USBDevice *dev,
 	return NULL;
 }
 
-//static 
+//static
 int usb_desc_set_interface(USBDevice *dev, int index, int value)
 {
 	const USBDescIface *iface;
@@ -567,7 +567,7 @@ int usb_desc_set_interface(USBDevice *dev, int index, int value)
 	return 0;
 }
 
-//static 
+//static
 int usb_desc_set_config(USBDevice *dev, int value)
 {
 	int i;
