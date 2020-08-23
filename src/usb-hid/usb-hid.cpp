@@ -146,13 +146,13 @@ static const uint8_t kbd_config_desc[] = {
     0x01,       /*  u8  bNumInterfaces; (1) */
     0x01,       /*  u8  bConfigurationValue; */
     0x04,       /*  u8  iConfiguration; */
-    0xa0,       /*  u8  bmAttributes; 
+    0xa0,       /*  u8  bmAttributes;
                  Bit 7: must be set,
                      6: Self-powered,
                      5: Remote wakeup,
                      4..0: resvd */
     50,         /*  u8  MaxPower; */
-      
+
     /* USB 1.1:
      * USB 2.0, single TT organization (mandatory):
      *  one interface, protocol 0
@@ -174,7 +174,7 @@ static const uint8_t kbd_config_desc[] = {
     0x01,       /*  u8  if_bInterfaceSubClass; */
     0x01,       /*  u8  if_bInterfaceProtocol; [usb1.1 or single tt] */
     0x05,       /*  u8  if_iInterface; */
-     
+
         /* HID descriptor */
         0x09,        /*  u8  bLength; */
         0x21,        /*  u8 bDescriptorType; */
@@ -222,13 +222,13 @@ static const uint8_t qemu_mouse_config_descriptor[] = {
     0x01,       /*  u8  bNumInterfaces; (1) */
     0x01,       /*  u8  bConfigurationValue; */
     0x04,       /*  u8  iConfiguration; */
-    0xa0,       /*  u8  bmAttributes; 
+    0xa0,       /*  u8  bmAttributes;
                  Bit 7: must be set,
                      6: Self-powered,
                      5: Remote wakeup,
                      4..0: resvd */
     50,         /*  u8  MaxPower; */
-      
+
     /* USB 1.1:
      * USB 2.0, single TT organization (mandatory):
      *  one interface, protocol 0
@@ -250,7 +250,7 @@ static const uint8_t qemu_mouse_config_descriptor[] = {
     0x01,       /*  u8  if_bInterfaceSubClass; */
     0x02,       /*  u8  if_bInterfaceProtocol; [usb1.1 or single tt] */
     0x05,       /*  u8  if_iInterface; */
-     
+
         /* HID descriptor */
         0x09,        /*  u8  bLength; */
         0x21,        /*  u8 bDescriptorType; */
@@ -277,13 +277,13 @@ static const uint8_t qemu_tablet_config_descriptor[] = {
     0x01,       /*  u8  bNumInterfaces; (1) */
     0x01,       /*  u8  bConfigurationValue; */
     0x04,       /*  u8  iConfiguration; */
-    0xa0,       /*  u8  bmAttributes; 
+    0xa0,       /*  u8  bmAttributes;
                  Bit 7: must be set,
                      6: Self-powered,
                      5: Remote wakeup,
                      4..0: resvd */
     50,         /*  u8  MaxPower; */
-      
+
     /* USB 1.1:
      * USB 2.0, single TT organization (mandatory):
      *  one interface, protocol 0
@@ -432,7 +432,7 @@ static const uint8_t qemu_keyboard_hid_report_descriptor[] = {
 static const uint8_t beatmania_dev_desc[] = {
     0x12,       /*  u8 bLength; */
     0x01,       /*  u8 bDescriptorType; Device */
-    WBVAL(0x110), /*  u16 bcdUSB; v1.0 */
+    WBVAL(0x110), /*  u16 bcdUSB; v1.10 */
 
     0x00,       /*  u8  bDeviceClass; */
     0x00,       /*  u8  bDeviceSubClass; */
@@ -669,7 +669,7 @@ static void usb_hid_unrealize(USBDevice *dev)
     UsbHIDState *us = reinterpret_cast<UsbHIDState *>(dev);
 
     hid_free(&us->f.hid);
-    
+
     delete us;
 }
 

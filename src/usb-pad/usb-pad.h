@@ -321,7 +321,7 @@ protected:
 
 //L3/R3 for newer wheels
 //enum PS2Buttons : uint32_t {
-//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
+//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE,
 //	PAD_L1, PAD_L2, PAD_R1, PAD_R2,
 //	PAD_SELECT, PAD_START,
 //	PAD_L3, PAD_R3, //order
@@ -330,10 +330,10 @@ protected:
 
 //???
 //enum DFButtons : uint32_t {
-//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
-//	PAD_R2, 
+//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE,
+//	PAD_R2,
 //	PAD_L2,
-//	PAD_R1, 
+//	PAD_R1,
 //	PAD_L1,
 //	PAD_SELECT, PAD_START,
 //	PAD_BUTTON_COUNT
@@ -349,7 +349,7 @@ enum PS2Buttons : uint32_t {
 	PAD_TRIANGLE, //Y
 	PAD_R1, //A? <pause> in GT4
 	PAD_L1, //B
-	PAD_R2, 
+	PAD_R2,
 	PAD_L2,
 	PAD_SELECT, PAD_START,
 	PAD_R3, PAD_L3, //order, only GT Force/Force EX?
@@ -407,10 +407,10 @@ static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 /**
   linux hid-lg4ff.c
   http://www.spinics.net/lists/linux-input/msg16570.html
-  Every Logitech wheel reports itself as generic Logitech Driving Force wheel (VID 046d, PID c294). This is done to ensure that the 
-  wheel will work on every USB HID-aware system even when no Logitech driver is available. It however limits the capabilities of the 
-  wheel - range is limited to 200 degrees, G25/G27 don't report the clutch pedal and there is only one combined axis for throttle and 
-  brake. The switch to native mode is done via hardware-specific command which is different for each wheel. When the wheel 
+  Every Logitech wheel reports itself as generic Logitech Driving Force wheel (VID 046d, PID c294). This is done to ensure that the
+  wheel will work on every USB HID-aware system even when no Logitech driver is available. It however limits the capabilities of the
+  wheel - range is limited to 200 degrees, G25/G27 don't report the clutch pedal and there is only one combined axis for throttle and
+  brake. The switch to native mode is done via hardware-specific command which is different for each wheel. When the wheel
   receives such command, it simulates reconnect and reports to the OS with its actual PID.
   Currently not emulating reattachment. Any games that expect to?
 **/
@@ -1000,7 +1000,7 @@ static const uint8_t gtforce_config_descriptor[] = {
 	0x0A,                               //Interval
 };
 
-// Should be usb 2.0, but seems to make no difference with Rock Band games 
+// Should be usb 2.0, but seems to make no difference with Rock Band games
 static const uint8_t rb1_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
@@ -1334,11 +1334,11 @@ struct gtforce_data_t
 
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
-	
+
 	uint32_t pad1 : 16;
 };
 
-struct random_data_t 
+struct random_data_t
 {
 	uint32_t axis_x : 10;
 	uint32_t buttons : 10;
