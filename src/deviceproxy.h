@@ -30,6 +30,7 @@ enum DeviceType
 	DEVTYPE_BUZZ,
 	DEVTYPE_EYETOY,
 	DEVTYPE_BEATMANIA_DADADA,
+	DEVTYPE_SEGA_SEAMIC,
 };
 
 struct SelectDeviceName {
