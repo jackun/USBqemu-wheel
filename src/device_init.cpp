@@ -9,6 +9,8 @@
 void RegisterDevice::Register()
 {
 	auto& inst = RegisterDevice::instance();
+	if (inst.Map().size()) // FIXME Don't clear proxies, singstar keeps a copy to uninit audio
+		return;
 	inst.Add(DEVTYPE_PAD, new DeviceProxy<usb_pad::PadDevice>());
 	inst.Add(DEVTYPE_MSD, new DeviceProxy<usb_msd::MsdDevice>());
 	inst.Add(DEVTYPE_SINGSTAR, new DeviceProxy<usb_mic::SingstarDevice>());
