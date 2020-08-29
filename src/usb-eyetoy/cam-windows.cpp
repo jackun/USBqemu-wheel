@@ -43,8 +43,8 @@ std::vector<std::wstring> getDevList() {
 	}
 
 	IEnumMoniker *pEnum = 0;
-	hr = pCreateDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnum, NULL);
-	if (FAILED(hr)) {
+	hr = pCreateDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnum, 0);
+	if (hr == S_FALSE || FAILED(hr)) {
 		fprintf(stderr, "You have no video capture hardware");
 		return devList;
 	};
@@ -116,8 +116,8 @@ int DirectShow::InitializeDevice(std::wstring selectedDevice) {
 	}
 
 	IEnumMoniker *pEnum = 0;
-	hr = pCreateDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnum, NULL);
-	if (FAILED(hr)) {
+	hr = pCreateDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnum, 0);
+	if (hr == S_FALSE || FAILED(hr)) {
 		fprintf(stderr, "You have no video capture hardware");
 		return -1;
 	};
