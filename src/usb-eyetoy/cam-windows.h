@@ -13,13 +13,13 @@ extern "C" {
 }
 
 #pragma region qedit.h
-struct __declspec(uuid("0579154a-2b53-4994-b0d0-e773148eff85"))
+struct //__declspec(uuid("0579154a-2b53-4994-b0d0-e773148eff85"))
 ISampleGrabberCB : IUnknown {
 	virtual HRESULT __stdcall SampleCB (double SampleTime, struct IMediaSample *pSample) = 0;
 	virtual HRESULT __stdcall BufferCB (double SampleTime, unsigned char *pBuffer, long BufferLen) = 0;
 };
 
-struct __declspec(uuid("6b652fff-11fe-4fce-92ad-0266b5d7c78f"))
+struct //__declspec(uuid("6b652fff-11fe-4fce-92ad-0266b5d7c78f"))
 ISampleGrabber : IUnknown {
 	virtual HRESULT __stdcall SetOneShot (long OneShot) = 0;
 	virtual HRESULT __stdcall SetMediaType (struct _AMMediaType *pType) = 0;
@@ -30,8 +30,8 @@ ISampleGrabber : IUnknown {
 	virtual HRESULT __stdcall SetCallback (struct ISampleGrabberCB *pCallback, long WhichMethodToCallback) = 0;
 };
 
-struct __declspec(uuid("c1f400a0-3f08-11d3-9f0b-006008039e37"))
-SampleGrabber;
+//struct __declspec(uuid("c1f400a0-3f08-11d3-9f0b-006008039e37"))
+//SampleGrabber;
 
 #pragma endregion
 

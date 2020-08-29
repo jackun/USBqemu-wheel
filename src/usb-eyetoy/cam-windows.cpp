@@ -1,5 +1,5 @@
 
-
+#include <guiddef.h>
 #include "videodev.h"
 #include "cam-windows.h"
 #include "usb-eyetoy-webcam.h"
@@ -7,6 +7,94 @@
 
 #include "../Win32/Config.h"
 #include "../Win32/resource.h"
+
+#ifndef DIBSIZE
+#define WIDTHBYTES(BTIS) ((DWORD)(((BTIS)+31) & (~31)) / 8)
+#define DIBWIDTHBYTES(BI) (DWORD)(BI).biBitCount) * (DWORD)WIDTHBYTES((DWORD)(BI).biWidth
+#define _DIBSIZE(BI) (DIBWIDTHBYTES(BI) * (DWORD)(BI).biHeight)
+#define DIBSIZE(BI) ((BI).biHeight < 0 ? (-1)*(_DIBSIZE(BI)) : _DIBSIZE(BI))
+#endif
+
+constexpr GUID make_guid(const char* const spec) {
+	#define nybble_from_hex(c)      ((c>='0'&&c<='9')?(c-'0'):((c>='a'&&c<='f')?(c-'a' + 10):((c>='A'&&c<='F')?(c-'A' + 10):0)))
+	#define byte_from_hex(c1, c2)   ((nybble_from_hex(c1)<<4)|nybble_from_hex(c2))
+
+	return {
+		// Data1
+		(((((((((((((
+			static_cast<unsigned __int32>( nybble_from_hex( spec[0] ) )
+			<< 4) | nybble_from_hex( spec[1] ))
+			<< 4) | nybble_from_hex( spec[2] ))
+			<< 4) | nybble_from_hex( spec[3] ))
+			<< 4) | nybble_from_hex( spec[4] ))
+			<< 4) | nybble_from_hex( spec[5] ))
+			<< 4) | nybble_from_hex( spec[6] ))
+			<< 4) | nybble_from_hex( spec[7] ),
+		// Data2
+		static_cast<unsigned short>(
+			(((((
+				static_cast<unsigned>( nybble_from_hex( spec[9] ) )
+				<< 4) | nybble_from_hex( spec[10] ))
+				<< 4) | nybble_from_hex( spec[11] ))
+				<< 4) | nybble_from_hex( spec[12] )
+			),
+		// Data 3
+		static_cast<unsigned short>(
+			(((((
+				static_cast<unsigned>( nybble_from_hex( spec[14] ) )
+				<< 4) | nybble_from_hex( spec[15] ))
+				<< 4) | nybble_from_hex( spec[16] ))
+				<< 4) | nybble_from_hex( spec[17] )
+			),
+		// Data 4
+		{
+			static_cast<unsigned char>( byte_from_hex( spec[19], spec[20] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[21], spec[22] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[24], spec[25] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[26], spec[27] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[28], spec[29] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[30], spec[31] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[32], spec[33] ) ),
+			static_cast<unsigned char>( byte_from_hex( spec[34], spec[35] ) )
+		}
+	};
+}
+
+#if defined( _MSC_VER )
+#   define CPPX_MSVC_UUID_FOR( name, spec )    \
+        class __declspec( uuid( spec ) ) name
+#else
+#   define CPPX_GNUC_UUID_FOR( name, spec )    \
+    template<>                                  \
+    inline                                      \
+    auto __mingw_uuidof<name>()                 \
+        -> GUID const&                          \
+    {                                           \
+        static constexpr GUID the_uuid = make_guid(spec); \
+                                                \
+        return the_uuid;                        \
+    }                                           \
+                                                \
+    template<>                                  \
+    inline                                      \
+    auto __mingw_uuidof<name*>()                \
+        -> GUID const&                          \
+    { return __mingw_uuidof<name>(); }          \
+                                                \
+    static_assert( true, "" )
+#endif
+
+#if !defined( CPPX_UUID_FOR )
+#   if defined( _MSC_VER )
+#       define CPPX_UUID_FOR    CPPX_MSVC_UUID_FOR
+#   elif defined( __GNUC__ )
+#       define CPPX_UUID_FOR    CPPX_GNUC_UUID_FOR
+#   endif
+#endif
+
+CPPX_UUID_FOR(ISampleGrabber, "6b652fff-11fe-4fce-92ad-0266b5d7c78f");
+CPPX_UUID_FOR(ISampleGrabberCB, "0579154a-2b53-4994-b0d0-e773148eff85");
+//CPPX_UUID_FOR(SampleGrabber, "c1f400a0-3f08-11d3-9f0b-006008039e37");
 
 namespace usb_eyetoy
 {
@@ -249,7 +337,8 @@ int DirectShow::InitializeDevice(std::wstring selectedDevice) {
 		}
 
 		// if the stream is started, start capturing immediatly
-		LONGLONG start = 0, stop = MAXLONGLONG;
+		LONGLONG start, stop;
+		start = 0; stop = MAXLONGLONG;
 		hr = pGraphBuilder->ControlStream(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, sourcefilter, &start, &stop, 1, 2);
 		if (FAILED(hr)) {
 			fprintf(stderr, "ControlStream err : %x\n", hr);
