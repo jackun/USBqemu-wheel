@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "gmem-size.h"
 
-#define G_MAXUINT64    0xffffffffffffffffUi64
+#define G_MAXUINT64    0xffffffffffffffffUL
 #define G_MAXUINT32    ((uint32_t)0xffffffff)
 
 void* my_g_malloc0 (size_t n_bytes);
