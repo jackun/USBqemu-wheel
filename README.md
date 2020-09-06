@@ -74,11 +74,15 @@ Building
 On Windows:
 
 	cd some/where/USBqemu-wheel
-	mkdir build
-	cd build
-	cmake .. -G"Visual Studio 16 2019" -A Win32
-	cmake --build . --config Release
-	cmake --build . --target install
+	cmake . -G"Visual Studio 16 2019" -A Win32 -B build-win32
+	cmake --build build-win32 --config Release
+	cmake --build build-win32 --target install
+or
+
+	cd some/where/USBqemu-wheel
+	cmake . -G"Visual Studio 16 2019" -A x64 -B build-win64
+	cmake --build build-win64 --config Release
+	cmake --build build-win64 --target install
 
 or optionally specify where PCSX2 plugin folder is
 
