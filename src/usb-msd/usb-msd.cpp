@@ -1053,10 +1053,10 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
     MSDState *s = (MSDState *)dev;
     MSDState::freeze *tmp;
 
+    if (!s) return 0;
     switch (mode)
     {
         case FREEZE_LOAD:
-            if (!s) return -1;
             //if (s->f.req) free (s->f.req);
 
             tmp = (MSDState::freeze *)data;
@@ -1071,7 +1071,6 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
             return sizeof(MSDState::freeze);// + sizeof(ReqState);
 
         case FREEZE_SAVE:
-            if (!s) return -1;
             tmp = (MSDState::freeze *)data;
             *tmp = s->f;
             return sizeof(MSDState::freeze);
@@ -1081,7 +1080,7 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
         default:
         break;
     }
-    return -1;
+    return 0;
 }
 
 #undef DPRINTF

@@ -580,15 +580,15 @@ int EyeToyWebCamDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
 	EYETOYState *s = (EYETOYState *)dev;
 
-	/*switch (mode)
+	/*
+	if (!s) return 0;
+	switch (mode)
 	{
 		case FREEZE_LOAD:
-			if (!s) return -1;
 			s->f = *(PADState::freeze *)data;
 			s->pad->Type((PS2WheelTypes)s->f.wheel_type);
 			return sizeof(PADState::freeze);
 		case FREEZE_SAVE:
-			if (!s) return -1;
 			*(PADState::freeze *)data = s->f;
 			return sizeof(PADState::freeze);
 		case FREEZE_SIZE:
@@ -596,7 +596,7 @@ int EyeToyWebCamDevice::Freeze(int mode, USBDevice *dev, void *data)
 		default:
 		break;
 	}*/
-	return -1;
+	return 0;
 }
 
 } //namespace

@@ -756,14 +756,13 @@ int HIDKbdDevice::Freeze(int mode, USBDevice *dev, void *data)
     auto s = reinterpret_cast<UsbHIDState *>(dev);
     auto freezed = reinterpret_cast<UsbHIDState::freeze *>(data);
 
+    if (!s) return 0;
     switch (mode)
     {
         case FREEZE_LOAD:
-            if (!s) return -1;
             s->f = *freezed;
             return sizeof(UsbHIDState::freeze);
         case FREEZE_SAVE:
-            if (!s) return -1;
             *freezed = s->f;
             return sizeof(UsbHIDState::freeze);
         case FREEZE_SIZE:
@@ -771,7 +770,7 @@ int HIDKbdDevice::Freeze(int mode, USBDevice *dev, void *data)
         default:
         break;
     }
-    return -1;
+    return 0;
 }
 
 USBDevice *HIDMouseDevice::CreateDevice(int port) {
