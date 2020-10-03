@@ -122,6 +122,7 @@ HRESULT DirectShow::CallbackHandler::QueryInterface(REFIID iid, LPVOID *ppv) {
 
 std::vector<std::wstring> getDevList() {
 	std::vector<std::wstring> devList;
+	devList.push_back(L"None");
 
 	ICreateDevEnum *pCreateDevEnum = 0;
 	HRESULT hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pCreateDevEnum));
@@ -371,6 +372,9 @@ void DirectShow::Start() {
 }
 
 void DirectShow::Stop() {
+	if (!sourcefilter)
+		return;
+
 	HRESULT hr = sourcefilter->Stop();
 	if (FAILED(hr)) throw hr;
 
@@ -460,16 +464,18 @@ int DirectShow::Open() {
 };
 
 int DirectShow::Close() {
-	if (sourcefilter != NULL) {
-		this->Stop();
-		pControl->Stop();
+	if (!sourcefilter)
+		return 0;
 
-		sourcefilter->Release();
-		pSourceConfig->Release();
-		samplegrabberfilter->Release();
-		samplegrabber->Release();
-		nullrenderer->Release();
-	}
+	this->Stop();
+	pControl->Stop();
+
+	sourcefilter->Release();
+	pSourceConfig->Release();
+	samplegrabberfilter->Release();
+	samplegrabber->Release();
+	nullrenderer->Release();
+	sourcefilter = nullptr;
 
 	pGraphBuilder->Release();
 	pGraph->Release();
