@@ -839,10 +839,10 @@ int SingstarDevice::Configure(int port, const std::string& api, void *data)
 int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
 	SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	if (!s) return 0;
 	switch (mode)
 	{
 		case FREEZE_LOAD:
-			if (!s) return -1;
 			s->f = *(SINGSTARMICState::freeze *)data;
 			if (s->audsrc[0])
 				s->audsrc[0]->SetResampling(s->f.srate[0]);
@@ -850,7 +850,6 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 				s->audsrc[1]->SetResampling(s->f.srate[1]);
 			return sizeof(SINGSTARMICState::freeze);
 		case FREEZE_SAVE:
-			if (!s) return -1;
 			*(SINGSTARMICState::freeze *)data = s->f;
 			return sizeof(SINGSTARMICState::freeze);
 		case FREEZE_SIZE:
@@ -858,7 +857,7 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 		default:
 		break;
 	}
-	return -1;
+	return 0;
 }
 
 }
