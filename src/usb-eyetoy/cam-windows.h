@@ -55,11 +55,6 @@ namespace windows_api
 
 typedef void (*DShowVideoCaptureCallback)(unsigned char *data, int len, int bitsperpixel);
 
-typedef struct {
-	void *start = NULL;
-	size_t length = 0;
-} buffer_t;
-
 static const char *APINAME = "DirectShow";
 
 class DirectShow : public VideoDevice {
@@ -80,10 +75,12 @@ public:
 	void Port(int port) { mPort = port; }
 
 protected:
-	void SetCallback(DShowVideoCaptureCallback cb) { callbackhandler->SetCallback(cb); }
 	void Start();
 	void Stop();
 	int InitializeDevice(std::wstring selectedDevice);
+	void store_mpeg_frame(const std::vector<unsigned char>& data);
+	void create_dummy_frame();
+	void dshow_callback(unsigned char* data, int len, int bitsperpixel);
 
 private:
 	int mPort;
@@ -98,13 +95,14 @@ private:
 	ISampleGrabber *samplegrabber;
 	IBaseFilter *nullrenderer;
 
+	std::vector<unsigned char> mpeg_buffer{};
+	std::mutex mpeg_mutex;
+
 	class CallbackHandler : public ISampleGrabberCB
 	{
 	public:
-		CallbackHandler() { callback = 0; }
+		CallbackHandler(DirectShow *parent_) : parent(parent_){ }
 		~CallbackHandler() {}
-
-		void SetCallback(DShowVideoCaptureCallback cb) { callback = cb; }
 
 		virtual HRESULT __stdcall SampleCB(double time, IMediaSample *sample);
 		virtual HRESULT __stdcall BufferCB(double time, BYTE *buffer, long len) { return S_OK; }
@@ -113,7 +111,7 @@ private:
 		virtual ULONG __stdcall Release() { return 2; }
 
 	private:
-		DShowVideoCaptureCallback callback;
+		DirectShow* parent;
 
 	} * callbackhandler;
 };

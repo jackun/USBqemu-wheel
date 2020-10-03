@@ -108,7 +108,7 @@ HRESULT DirectShow::CallbackHandler::SampleCB(double time, IMediaSample *sample)
 	hr = sample->GetPointer((BYTE**)&buffer);
 	if (hr != S_OK) return S_OK;
 
-	if (callback) callback(buffer, sample->GetActualDataLength(), BITS_PER_PIXEL);
+	if (parent) std::invoke(&DirectShow::dshow_callback, parent, buffer, sample->GetActualDataLength(), BITS_PER_PIXEL);
 	return S_OK;
 }
 
@@ -385,47 +385,43 @@ void DirectShow::Stop() {
 	if (FAILED(hr)) throw hr;
 }
 
-buffer_t mpeg_buffer {};
-std::mutex mpeg_mutex;
-
-void store_mpeg_frame(unsigned char *data, unsigned int len) {
-	mpeg_mutex.lock();
-	memcpy(mpeg_buffer.start, data, len);
-	mpeg_buffer.length = len;
-	mpeg_mutex.unlock();
+void DirectShow::store_mpeg_frame(const std::vector<unsigned char>& data) {
+	std::lock_guard<std::mutex> lk(mpeg_mutex);
+	mpeg_buffer = data;
 }
 
-void dshow_callback(unsigned char *data, int len, int bitsperpixel) {
+void DirectShow::dshow_callback(unsigned char *data, int len, int bitsperpixel) {
 	if (bitsperpixel == 24) {
-		unsigned char *mpegData = (unsigned char *)calloc(1, 320 * 240 * 2);
-		int mpegLen = jo_write_mpeg(mpegData, data, 320, 240, JO_RGB24, JO_FLIP_X, JO_FLIP_Y);
-		store_mpeg_frame(mpegData, mpegLen);
-		free(mpegData);
+		std::vector<unsigned char> mpegData (320 * 240 * 2);
+		int mpegLen = jo_write_mpeg(mpegData.data(), data, 320, 240, JO_RGB24, JO_FLIP_X, JO_FLIP_Y);
+		//OSDebugOut(_T("MPEG: alloced: %d, got: %d\n"), mpegData.size(), mpegLen);
+		mpegData.resize(mpegLen);
+		store_mpeg_frame(mpegData);
 	} else {
 		fprintf(stderr, "dshow_callback: unk format: len=%d bpp=%d\n", len, bitsperpixel);
 	}
 }
 
-void create_dummy_frame() {
+void DirectShow::create_dummy_frame() {
 	const int width = 320;
 	const int height = 240;
 	const int bytesPerPixel = 3;
 
-	unsigned char *rgbData = (unsigned char*) calloc(1, width * height * bytesPerPixel);
+	std::vector<unsigned char> rgbData (width * height * bytesPerPixel, 0);
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			unsigned char *ptr = rgbData + (y*width+x) * bytesPerPixel;
-			ptr[0] = 255-y;
-			ptr[1] = y;
-			ptr[2] = 255-y;
+			unsigned char *ptr = &rgbData [(y*width+x) * bytesPerPixel];
+			int c = (255 * y) / height;
+			ptr[0] = 255-c;
+			ptr[1] = c;
+			ptr[2] = 255-c;
 		}
 	}
-	unsigned char *mpegData = (unsigned char*) calloc(1, width * height * bytesPerPixel);
-	int mpegLen = jo_write_mpeg(mpegData, rgbData, width, height, JO_RGB24, JO_NONE, JO_NONE);
-	free(rgbData);
 
-	store_mpeg_frame(mpegData, mpegLen);
-	free(mpegData);
+	std::vector<unsigned char> mpegData (width * height * bytesPerPixel, 255);
+	int mpegLen = jo_write_mpeg(mpegData.data(), rgbData.data(), width, height, JO_RGB24, JO_NONE, JO_NONE);
+	mpegData.resize(mpegLen);
+	store_mpeg_frame(mpegData);
 }
 
 DirectShow::DirectShow(int port) {
@@ -438,12 +434,14 @@ DirectShow::DirectShow(int port) {
 	nullrenderer = NULL;
 	pSourceConfig = NULL;
 	samplegrabber = NULL;
-	callbackhandler = new CallbackHandler();
+	callbackhandler = new CallbackHandler(this);
 	CoInitialize(NULL);
 }
 
 int DirectShow::Open() {
-	mpeg_buffer.start = calloc(1, 320 * 240 * 2);
+	mpeg_buffer.resize(320 * 240 * 2);
+	std::fill(mpeg_buffer.begin(), mpeg_buffer.end(), 0);
+
 	create_dummy_frame();
 
 	std::wstring selectedDevice;
@@ -457,7 +455,6 @@ int DirectShow::Open() {
 
 	pControl->Run();
 	this->Stop();
-	this->SetCallback(dshow_callback);
 	this->Start();
 
 	return 0;
@@ -481,19 +478,17 @@ int DirectShow::Close() {
 	pGraph->Release();
 	pControl->Release();
 
-	if (mpeg_buffer.start != NULL) {
-		free(mpeg_buffer.start);
-		mpeg_buffer.start = NULL;
-	}
+	std::lock_guard<std::mutex>  lck(mpeg_mutex);
+	mpeg_buffer.resize(0);
+
 	return 0;
 };
 
 int DirectShow::GetImage(uint8_t *buf, int len) {
-	mpeg_mutex.lock();
-	int len2 = mpeg_buffer.length;
-	if (len < mpeg_buffer.length) len2 = len;
-	memcpy(buf, mpeg_buffer.start, len2);
-	mpeg_mutex.unlock();
+	std::lock_guard<std::mutex>  lck(mpeg_mutex);
+	int len2 = mpeg_buffer.size();
+	if (len < mpeg_buffer.size()) len2 = len;
+	memcpy(buf, mpeg_buffer.data(), len2);
 	return len2;
 };
 
