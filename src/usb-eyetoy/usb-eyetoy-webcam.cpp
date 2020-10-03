@@ -454,15 +454,15 @@ static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 				s->mpeg_frame_offset = data_pk;
 
 				s->frame_step++;
-			} else if (s->frame_step < 10) {
+			} else if (s->mpeg_frame_offset < s->mpeg_frame_size) {
 				int data_pk = s->mpeg_frame_size - s->mpeg_frame_offset;
 				if (data_pk > max_ep_size)
 					data_pk = max_ep_size;
 				memcpy(data, s->mpeg_frame_data + s->mpeg_frame_offset, data_pk);
 				s->mpeg_frame_offset += data_pk;
 
-				s->frame_step++;
-			} else if (s->frame_step == 10) {
+				//s->frame_step++;
+			} else {
 				uint8_t footer[] = {
 					0xFF, 0xFF, 0xFF, 0x51, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00
 				};
