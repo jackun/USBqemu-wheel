@@ -14,7 +14,7 @@ namespace usb_pad { namespace evdev {
 	(((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
 
-void EnumerateDevices(vstring& list);
+void EnumerateDevices(device_list& list);
 
 static const char* APINAME = "evdev";
 

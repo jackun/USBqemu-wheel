@@ -201,7 +201,7 @@ static void joystick_changed (GtkComboBox *widget, gpointer data)
 		return;
 
 	if (idx > -1) {
-		std::string name = (cfg->joysticks.begin() + idx)->first;
+		std::string name = (cfg->joysticks.begin() + idx)->name;
 		cfg->js_iter = (cfg->joysticks.begin() + idx);
 		OSDebugOut("Selected player %d idx: %d dev: '%s'\n", 2 - port, idx, name.c_str());
 	}
@@ -394,16 +394,16 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 	cfg.dev_type = dev_type;
 
 	for (const auto& it: cfg.joysticks) {
-		if ((fd = open(it.second.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
+		if ((fd = open(it.path.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
-			OSDebugOut("Cannot open device: %s\n", it.second.c_str());
+			OSDebugOut("Cannot open device: %s\n", it.path.c_str());
 			continue;
 		}
 
-		ConfigMapping c; c.fd = fd;
-		LoadMappings (cfg.dev_type, port, it.first, c);
-		cfg.jsconf.push_back(std::make_pair(it.first, c));
-		OSDebugOut("mappings for '%s': %zu\n", it.first.c_str(), c.controls.size());
+		ConfigMapping c(fd);
+		LoadMappings (cfg.dev_type, port, it.id, c);
+		cfg.jsconf.push_back(std::make_pair(it.id, c));
+		OSDebugOut("mappings for '%s': %zu\n", it.name.c_str(), c.controls.size());
 	}
 
 	refresh_store(&cfg);
@@ -632,12 +632,12 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 		for (auto& it : cfg.joysticks)
 		{
 			std::stringstream str;
-			str << it.first;
-			if (strcmp(apiname, "evdev") && !it.second.empty())
-				str << " [" << it.second << "]";
+			str << it.name;
+			if (!strcmp(apiname, "evdev") && !it.id.empty())
+				str << " [" << it.id << "]";
 
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), str.str().c_str ());
-			if (path == it.second)
+			if (path == it.path)
 				sel_idx = idx;
 			idx++;
 		}
@@ -654,7 +654,7 @@ int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const 
 	if (result == GTK_RESPONSE_OK)
 	{
 		if (cfg.js_iter != cfg.joysticks.end()) {
-			if (!SaveSetting(dev_type, port, apiname, N_JOYSTICK, cfg.js_iter->second))
+			if (!SaveSetting(dev_type, port, apiname, N_JOYSTICK, cfg.js_iter->path))
 				ret = RESULT_FAILED;
 		}
 
@@ -716,16 +716,16 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 	cfg.dev_type = dev_type;
 
 	for (const auto& it: cfg.joysticks) {
-		if ((fd = open(it.second.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
+		if ((fd = open(it.path.c_str(), O_RDONLY | O_NONBLOCK)) < 0)
 		{
-			OSDebugOut("Cannot open device: %s\n", it.second.c_str());
+			OSDebugOut("Cannot open device: %s\n", it.path.c_str());
 			continue;
 		}
 
 		ConfigMapping c; c.fd = fd;
-		LoadBuzzMappings (cfg.dev_type, port, it.first, c);
-		cfg.jsconf.push_back(std::make_pair(it.first, c));
-		OSDebugOut("mappings for '%s': %lu\n", it.first.c_str(), c.controls.size());
+		LoadBuzzMappings (cfg.dev_type, port, it.id, c);
+		cfg.jsconf.push_back(std::make_pair(it.id, c));
+		OSDebugOut("mappings for '%s': %lu\n", it.name.c_str(), c.controls.size());
 	}
 
 	refresh_store(&cfg);
@@ -882,7 +882,7 @@ int GtkBuzzConfigure(int port, const char* dev_type, const char *apititle, const
 	if (result == GTK_RESPONSE_OK)
 	{
 		if (cfg.js_iter != cfg.joysticks.end()) {
-			if (!SaveSetting(dev_type, port, apiname, N_JOYSTICK, cfg.js_iter->second))
+			if (!SaveSetting(dev_type, port, apiname, N_JOYSTICK, cfg.js_iter->path))
 				ret = RESULT_FAILED;
 		}
 
