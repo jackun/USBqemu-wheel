@@ -90,7 +90,7 @@ struct Point { int x; int y; JoystickMap type; };
 
 struct ConfigMapping
 {
-	std::vector<uint16_t> controls;
+	std::vector<int16_t> controls;
 	int inverted[3];
 	int initial[3];
 	int fd = -1;

@@ -73,7 +73,7 @@ bool SaveMappings(const char *dev_type, int port, const std::string& joyname, co
 		str.str("");
 		str << "map_" << JoystickMapNames[i];
 		const std::string& name = str.str();
-		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(cfg.controls[i])))
+		if (cfg.controls[i] >= 0 && !SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(cfg.controls[i])))
 			return false;
 	}
 
@@ -139,7 +139,7 @@ bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname
 		str.clear();
 		str << "map_" << buzz_map_names[i % c] << "_" << (i / c);
 		const std::string& name = str.str();
-		if (!SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(cfg.controls[i])))
+		if (cfg.controls[i] >= 0 && !SaveSetting(dev_type, port, joyname, name.c_str(), static_cast<int32_t>(cfg.controls[i])))
 			return false;
 	}
 	return true;
@@ -154,7 +154,7 @@ static void refresh_store(ConfigData *cfg)
 	{
 		for (int i = 0; /*i < JOY_MAPS_COUNT && */i < it.second.controls.size(); i++)
 		{
-			if (it.second.controls[i] == (uint16_t)-1)
+			if (it.second.controls[i] < 0)
 				continue;
 
 			const char *pc_name = "Unknown";
@@ -209,7 +209,6 @@ static void joystick_changed (GtkComboBox *widget, gpointer data)
 
 static void button_clicked (GtkComboBox *widget, gpointer data)
 {
-	int port = reinterpret_cast<uintptr_t> (data);
 	int type = reinterpret_cast<uintptr_t> (g_object_get_data (G_OBJECT (widget), JOYTYPE));
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 
@@ -250,7 +249,6 @@ static void button_clicked (GtkComboBox *widget, gpointer data)
 
 static void button_clicked_buzz (GtkComboBox *widget, gpointer data)
 {
-	int port = reinterpret_cast<uintptr_t> (data);
 	int type = reinterpret_cast<uintptr_t> (g_object_get_data (G_OBJECT (widget), JOYTYPE));
 	ConfigData *cfg = (ConfigData *) g_object_get_data (G_OBJECT(widget), CFG);
 
@@ -377,7 +375,7 @@ static void checkbox_toggled (GtkToggleButton *widget, gpointer data)
 
 int GtkPadConfigure(int port, const char* dev_type, const char *apititle, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs)
 {
-	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb;
+	GtkWidget *ro_frame, *rs_cb;
 	GtkWidget *main_hbox, *right_vbox, *left_vbox, *treeview;
 	GtkWidget *button;
 
