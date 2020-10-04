@@ -564,7 +564,7 @@ static bool GetEventName(const char *dev_type, int map, int event, const char **
 
 static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial)
 {
-	int event_fd = -1, t;
+	int event_fd = -1;
 	ssize_t len;
 	input_event event;
 	struct AxisValue { int16_t value; bool initial; };
