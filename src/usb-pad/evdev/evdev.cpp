@@ -91,7 +91,7 @@ quit:
 }
 
 #define EVDEV_DIR "/dev/input/by-id/"
-void EnumerateDevices(vstring& list)
+void EnumerateDevices(device_list& list)
 {
 	int fd;
 	int res;
@@ -101,7 +101,7 @@ void EnumerateDevices(vstring& list)
 	struct dirent* dp;
 
 	//TODO do some caching? ioctl is "very" slow
-	static vstring list_cache;
+	static device_list list_cache;
 
 	DIR* dirp = opendir(EVDEV_DIR);
 	if (!dirp) {
@@ -111,7 +111,7 @@ void EnumerateDevices(vstring& list)
 
 	// get rid of unplugged devices
 	for (int i=0; i < list_cache.size(); ) {
-		if (!file_exists(list_cache[i].second))
+		if (!file_exists(list_cache[i].path))
 			list_cache.erase(list_cache.begin() + i);
 		else
 			i++;
@@ -131,8 +131,8 @@ void EnumerateDevices(vstring& list)
 			std::string path = str.str();
 
 			auto it = std::find_if(list_cache.begin(), list_cache.end(),
-				[&path](StringPair& pair){
-					return pair.second == path;
+				[&path](evdev_device& dev){
+					return dev.path == path;
 			});
 			if (it != list_cache.end())
 				continue;
@@ -144,16 +144,16 @@ void EnumerateDevices(vstring& list)
 				continue;
 			}
 
-			list_cache.push_back(std::make_pair(std::string(dp->d_name), path));
+			//list_cache.push_back(std::make_pair(std::string(dp->d_name), path));
 
-			/*res = ioctl(fd, EVIOCGNAME(sizeof(buf)), buf);
+			res = ioctl(fd, EVIOCGNAME(sizeof(buf)), buf);
 			if (res < 0)
 				perror("EVIOCGNAME");
 			else
 			{
 				OSDebugOut("Evdev device name: %s\n", buf);
-				list_cache.push_back(std::make_pair(std::string(buf) + " (evdev)", path));
-			}*/
+				list_cache.push_back({buf, dp->d_name, path});
+			}
 
 			close(fd);
 		}
@@ -456,7 +456,7 @@ int EvDevPad::TokenOut(const uint8_t *data, int len)
 int EvDevPad::Open()
 {
 	std::stringstream name;
-	vstring device_list;
+	device_list device_list;
 	char buf[1024];
 	mWheelData = {};
 	int32_t b_gain, gain, b_ac, ac;
@@ -552,11 +552,11 @@ int EvDevPad::Open()
 		mDevices.push_back({});
 
 		struct device_data& device = mDevices.back();
-		device.name = it.first;
+		device.name = it.name;
 
-		if ((device.cfg.fd = open(it.second.c_str(), O_RDWR | O_NONBLOCK)) < 0)
+		if ((device.cfg.fd = open(it.path.c_str(), O_RDWR | O_NONBLOCK)) < 0)
 		{
-			OSDebugOut("Cannot open device: %s\n", it.second.c_str());
+			OSDebugOut("Cannot open device: %s\n", it.path.c_str());
 			continue;
 		}
 
@@ -581,11 +581,11 @@ int EvDevPad::Open()
 		int max_buttons = JOY_STEERING;
 		switch(mType) {
 			case WT_BUZZ_CONTROLLER:
-				LoadBuzzMappings(mDevType, mPort, device.name, device.cfg);
+				LoadBuzzMappings(mDevType, mPort, it.id, device.cfg);
 				max_buttons = 20;
 			break;
 			default:
-				LoadMappings(mDevType, mPort, device.name, device.cfg);
+				LoadMappings(mDevType, mPort, it.id, device.cfg);
 				if (!LoadSetting(mDevType, mPort, APINAME, N_GAIN_ENABLED, b_gain))
 					b_gain = 1;
 				if (!LoadSetting(mDevType, mPort, APINAME, N_GAIN, gain))

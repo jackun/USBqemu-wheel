@@ -11,8 +11,13 @@
 #define N_AUTOCENTER          "autocenter"
 #define N_AUTOCENTER_MANAGED  "ac_managed"
 
-typedef std::pair<std::string, std::string> StringPair;
-typedef std::vector<StringPair> vstring;
+struct evdev_device {
+	std::string name;
+	std::string id;
+	std::string path;
+};
+
+typedef std::vector<evdev_device> device_list;
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox);
 
 namespace usb_pad { namespace evdev {
@@ -89,12 +94,15 @@ struct ConfigMapping
 	int inverted[3];
 	int initial[3];
 	int fd = -1;
+
+	ConfigMapping() = default;
+	ConfigMapping(int fd_): fd(fd_) {}
 };
 
 struct ApiCallbacks
 {
 	bool (*get_event_name)(const char *dev_type, int map, int event, const char **name);
-	void (*populate)(vstring& jsdata);
+	void (*populate)(device_list& jsdata);
 	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial);
 };
 
@@ -102,8 +110,8 @@ typedef std::pair<std::string, ConfigMapping> MappingPair;
 struct ConfigData
 {
 	std::vector<MappingPair> jsconf;
-	vstring joysticks;
-	vstring::const_iterator js_iter;
+	device_list joysticks;
+	device_list::const_iterator js_iter;
 	GtkWidget *label;
 	GtkListStore *store;
 	GtkTreeView *treeview;

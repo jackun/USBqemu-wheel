@@ -5,7 +5,7 @@
 
 namespace usb_pad { namespace joydev {
 
-void EnumerateDevices(vstring& list);
+void EnumerateDevices(device_list& list);
 
 static const char *APINAME = "joydev";
 
