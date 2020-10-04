@@ -65,6 +65,7 @@ bool SaveMappings(const char *dev_type, int port, const std::string& joyname, co
 	if (joyname.empty() || cfg.controls.size() != JOY_MAPS_COUNT)
 		return false;
 
+	RemoveSection(dev_type, port, joyname);
 	std::stringstream str;
 	for (int i=0; i<JOY_MAPS_COUNT; i++)
 	{
@@ -128,6 +129,7 @@ bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname
 	if (joyname.empty())
 		return false;
 
+	RemoveSection(dev_type, port, joyname);
 	std::stringstream str;
 
 	const size_t c = countof(buzz_map_names);
