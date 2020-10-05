@@ -1585,7 +1585,7 @@ static USBPortOps ohci_port_ops = {
     /*.detach =*/ ohci_detach,
     //.child_detach = ohci_child_detach,
     /*.wakeup =*/ ohci_wakeup,
-    //.complete = ohci_async_complete_packet,
+    /*.complete =*/ ohci_async_complete_packet,
 };
 
 static USBBusOps ohci_bus_ops = {
