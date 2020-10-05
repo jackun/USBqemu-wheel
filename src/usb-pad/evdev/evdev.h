@@ -22,8 +22,6 @@ class EvDevPad : public Pad
 {
 public:
 	EvDevPad(int port, const char* dev_type): Pad(port, dev_type)
-	, mUseRawFF(0)
-	, mHidHandle(-1)
 	, mWriterThreadIsRunning(false)
 	{
 	}
@@ -46,11 +44,11 @@ protected:
 	void SetAxis(const device_data& device, int code, int value);
 	void WriterThread();
 
-	int mHidHandle;
-	EvdevFF *mEvdevFF;
-	struct wheel_data_t mWheelData;
+	int mHidHandle = -1;
+	EvdevFF *mEvdevFF = nullptr;
+	struct wheel_data_t mWheelData {};
 	std::vector<device_data> mDevices;
-	int32_t mUseRawFF;
+	int32_t mUseRawFF = 0;
 	std::thread mWriterThread;
 	std::atomic<bool> mWriterThreadIsRunning;
 	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 8>, 32> mFFData;

@@ -489,7 +489,8 @@ int EvDevPad::Open()
 		case WT_DRIVING_FORCE_PRO:
 		case WT_DRIVING_FORCE_PRO_1102:
 		{
-			LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF);
+			if (!LoadSetting(mDevType, mPort, APINAME, N_HIDRAW_FF_PT, mUseRawFF))
+				mUseRawFF = 0;
 		}
 		break;
 		default:

@@ -14,6 +14,7 @@ namespace usb_pad { namespace evdev {
 EvdevFF::EvdevFF(int fd, bool gain_enabled, int gain, bool ac_managed, int ac_strength)
 	: mHandle(fd)
 	, mUseRumble(false)
+	, mLastValue(0)
 	, m_gain_enabled(gain_enabled)
 	, m_gain(gain)
 	//, m_ac_managed(ac_enabled)
