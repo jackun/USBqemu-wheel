@@ -30,8 +30,8 @@ public:
 
 	static int Configure(int port, const char* dev_type, void *data);
 protected:
-	int mHandleFF;
-	struct wheel_data_t mWheelData;
+	int mHandleFF = -1;
+	struct wheel_data_t mWheelData {};
 	std::vector<evdev::device_data> mDevices;
 };
 

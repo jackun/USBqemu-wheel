@@ -412,10 +412,6 @@ int JoyDevPad::Open()
 	}
 
 	return 0;
-
-quit:
-	Close();
-	return 1;
 }
 
 int JoyDevPad::Close()
