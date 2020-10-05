@@ -35,7 +35,6 @@ static unsigned char eyetoy_running = 0;
 static int           fd = -1;
 buffer_t             *buffers;
 static unsigned int  n_buffers;
-static int           out_buf;
 static unsigned int  pixelformat;
 
 buffer_t             mpeg_buffer;

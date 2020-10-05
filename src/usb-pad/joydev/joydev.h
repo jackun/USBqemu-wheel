@@ -7,7 +7,7 @@ namespace usb_pad { namespace joydev {
 
 void EnumerateDevices(device_list& list);
 
-static const char *APINAME = "joydev";
+static constexpr const char *APINAME = "joydev";
 
 class JoyDevPad : public Pad
 {
