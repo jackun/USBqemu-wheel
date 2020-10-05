@@ -1330,7 +1330,46 @@ static void ohci_port_set_status(OHCIState *ohci, int portnum, uint32_t val)
         ohci_set_interrupt(ohci, OHCI_INTR_RHSC);
 }
 
+#ifdef DEBUG_OHCI
+static const char *reg_names[] = {
+    "HcRevision",
+    "HcControl",
+    "HcCommandStatus",
+    "HcInterruptStatus",
+    "HcInterruptEnable",
+    "HcInterruptDisable",
+    "HcHCCA",
+    "HcPeriodCurrentED",
+    "HcControlHeadED",
+    "HcControlCurrentED",
+    "HcBulkHeadED",
+    "HcBulkCurrentED",
+    "HcDoneHead",
+    "HcFmInterval",
+    "HcFmRemaining",
+    "HcFmNumber",
+    "HcPeriodicStart",
+    "HcLSThreshold",
+    "HcRhDescriptorA",
+    "HcRhDescriptorB",
+    "HcRhStatus",
+};
+
+uint32_t ohci_mem_read_impl(OHCIState *ptr, uint32_t addr);
 uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
+{
+    auto val = ohci_mem_read_impl(ptr, addr);
+    int idx = (addr - ptr->mem_base) >> 2;
+    if (idx < countof(reg_names)) {
+        fprintf(stderr, "ohci_mem_read %s(%d): %08x\n", reg_names[idx], idx, val);
+    }
+    return val;
+}
+
+uint32_t ohci_mem_read_impl(OHCIState *ptr, uint32_t addr)
+#else
+uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
+#endif
 {
     OHCIState *ohci = ptr;
 
@@ -1346,9 +1385,7 @@ uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
         /* HcRhPortStatus */
         return ohci->rhport[(addr - 0x54) >> 2].ctrl | OHCI_PORT_PPS;
     }
-#ifdef DEBUG_OHCI
-    OSDebugOut(TEXT("ohci_mem_read: addr %d\n"), addr >> 2);
-#endif
+
     switch (addr >> 2) {
     case 0: /* HcRevision */
         return 0x10;
@@ -1417,7 +1454,21 @@ uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
     }
 }
 
+#ifdef DEBUG_OHCI
+void ohci_mem_write_impl(OHCIState *ptr, uint32_t addr, uint32_t val);
+void ohci_mem_write(OHCIState *ptr, uint32_t addr, uint32_t val)
+{
+    int idx = (addr - ptr->mem_base) >> 2;
+    if (idx < countof(reg_names)) {
+        fprintf(stderr, "ohci_mem_write %s(%d): %08x\n", reg_names[idx], idx, val);
+    }
+    ohci_mem_write_impl(ptr, addr, val);
+}
+
+void ohci_mem_write_impl(OHCIState *ptr,uint32_t addr, uint32_t val)
+#else
 void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
+#endif
 {
     OHCIState *ohci = ptr;
 
@@ -1435,9 +1486,7 @@ void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
         ohci_port_set_status(ohci, (addr - 0x54) >> 2, val);
         return;
     }
-#ifdef DEBUG_OHCI
-	OSDebugOut(TEXT("ohci_mem_write: addr %d = 0x%08x\n"), addr >> 2, val);
-#endif
+
     switch (addr >> 2) {
     case 1: /* HcControl */
         ohci_set_ctl(ohci, val);
