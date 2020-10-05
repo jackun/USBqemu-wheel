@@ -611,7 +611,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
     MSDState *s = (MSDState *)opaque;
     DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x\n", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
 
-    uint32_t lba;
+    int64_t lba;
     uint32_t xfer_len;
     s->f.last_cmd = cbw->cmd[0];
 
@@ -693,7 +693,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
         s->f.data_len = xfer_len * LBA_BLOCK_SIZE;
         s->f.file_op_tag = s->f.tag;
 
-        DPRINTF("read lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+        DPRINTF("read lba=0x%llx, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
         if(xfer_len == 0) // nothing to do
             break;
