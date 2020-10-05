@@ -139,7 +139,7 @@ int JoyDevPad::Configure(int port, const char* dev_type, void *data)
 		return RESULT_CANCELED;
 
 	evdev::ApiCallbacks apicbs {GetEventName, EnumerateDevices, PollInput};
-	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
+	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", joydev::APINAME, GTK_WINDOW (data), apicbs);
 	return ret;
 }
 

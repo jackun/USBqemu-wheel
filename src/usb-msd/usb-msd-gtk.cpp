@@ -7,8 +7,10 @@ namespace usb_msd {
 
 static void entryChanged(GtkWidget *widget, gpointer data)
 {
-	const gchar *text = gtk_entry_get_text(GTK_ENTRY(widget));
-	//fprintf(stderr, "Entry text:%s\n", text);
+#ifndef NDEBUG
+    const gchar *text = gtk_entry_get_text(GTK_ENTRY(widget));
+	fprintf(stderr, "Entry text:%s\n", text);
+#endif
 }
 
 static void fileChooser( GtkWidget *widget, gpointer data)
@@ -43,7 +45,7 @@ static void fileChooser( GtkWidget *widget, gpointer data)
 
 int MsdDevice::Configure(int port, const std::string& api, void *data)
 {
-	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
+	GtkWidget *ro_frame, *ro_label, *rs_hbox, *vbox;
 
 	GtkWidget *dlg = gtk_dialog_new_with_buttons (
 		"Mass Storage Settings", GTK_WINDOW (data), GTK_DIALOG_MODAL,

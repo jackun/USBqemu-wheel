@@ -155,7 +155,7 @@ static void deviceChanged (GtkComboBox *widget, gpointer data)
 
 static int GtkConfigure(int port, const char* dev_type, void *data)
 {
-	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb, *vbox;
+	GtkWidget *ro_frame;
 
 	int dev_idxs[] = {0, 0, 0, 0};
 
@@ -741,7 +741,7 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 	if (ret != PA_OK)
 		return;
 
-	auto dur = std::chrono::duration_cast<ms>(hrc::now() - padev->mLastGetBuffer).count();
+	//auto dur = std::chrono::duration_cast<ms>(hrc::now() - padev->mLastGetBuffer).count();
 	if (padev->mPaused /*|| dur > 5000*/ || (!padata && nbytes /* hole */)) {
 		ret = pa_stream_drop(p);
 		if (ret != PA_OK)
@@ -812,7 +812,7 @@ void PulseAudioDevice::stream_read_cb (pa_stream *p, size_t nbytes, void *userda
 void PulseAudioDevice::stream_write_cb (pa_stream *p, size_t nbytes, void *userdata)
 {
 	void *pa_buffer = NULL;
-	size_t pa_bytes, old_size;
+	size_t pa_bytes;
 	// The length of the data to write in bytes, must be in multiples of the stream's sample spec frame size
 	ssize_t remaining_bytes = nbytes;
 	int ret = PA_OK;

@@ -88,7 +88,6 @@ int JoyDevPad::TokenIn(uint8_t *buf, int buflen)
 			continue;
 		}
 
-		const auto& mappings = device.cfg.controls;
 		//Non-blocking read sets len to -1 and errno to EAGAIN if no new data
 		while((len = read(device.cfg.fd, &events, sizeof(events))) > -1)
 		{

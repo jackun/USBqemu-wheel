@@ -56,7 +56,7 @@ enum JoystickMap
 	JOY_MAPS_COUNT
 };
 
-static const char* JoystickMapNames [] = {
+static constexpr const char* JoystickMapNames [] = {
 	"cross",
 	"square",
 	"circle",
@@ -78,7 +78,7 @@ static const char* JoystickMapNames [] = {
 	"brake"
 };
 
-static const char* buzz_map_names[] = {
+static constexpr const char* buzz_map_names[] = {
 	"red",
 	"yellow",
 	"green",

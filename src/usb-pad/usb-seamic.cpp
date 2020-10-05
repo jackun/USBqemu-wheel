@@ -286,7 +286,6 @@ static void pad_handle_reset(USBDevice *dev)
 static void pad_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
 								  int index, int length, uint8_t *data)
 {
-	SeamicState *s = (SeamicState *)dev;
 	int ret = 0;
 
 	switch(request) {
@@ -431,9 +430,8 @@ int SeamicDevice::Configure(int port, const std::string& api, void *data)
 
 int SeamicDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
-	SeamicState *s = (SeamicState *)dev;
 	return 0;
-
+//  SeamicState *s = (SeamicState *)dev;
 // 	switch (mode)
 // 	{
 // 		case FREEZE_LOAD:

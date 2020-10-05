@@ -801,8 +801,6 @@ static void usb_msd_cancel_io(USBDevice *dev, USBPacket *p)
 static void usb_msd_handle_data(USBDevice *dev, USBPacket *p)
 {
     MSDState *s = (MSDState *)dev;
-    int ret = 0;
-    size_t file_ret = 0;
     struct usb_msd_cbw cbw;
     uint8_t devep = p->ep->nr;
 
@@ -1049,7 +1047,6 @@ const char* MsdDevice::TypeName()
 
 int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
-    uint32_t fat32_serial = 0;
     MSDState *s = (MSDState *)dev;
     MSDState::freeze *tmp;
 

@@ -421,9 +421,7 @@ static void eyetoy_handle_data(USBDevice *dev, USBPacket *p)
 	EYETOYState *s = (EYETOYState *)dev;
 	static const int max_ep_size = 896;
 	uint8_t data[max_ep_size];
-	int ret = 0;
 	uint8_t devep = p->ep->nr;
-	size_t len = p->iov.size;
 
 	switch(p->pid) {
 	case USB_TOKEN_IN:
@@ -578,9 +576,9 @@ int EyeToyWebCamDevice::Configure(int port, const std::string& api, void *data)
 
 int EyeToyWebCamDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
+	/*
 	EYETOYState *s = (EYETOYState *)dev;
 
-	/*
 	if (!s) return 0;
 	switch (mode)
 	{
