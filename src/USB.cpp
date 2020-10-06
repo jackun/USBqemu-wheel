@@ -339,12 +339,12 @@ EXPORT_C_(void) USBclose() {
 }
 
 EXPORT_C_(u8) USBread8(u32 addr) {
-	USB_LOG("* Invalid 8bit read at address %lx\n", addr);
+	USB_LOG("* Invalid 8bit read at address %08x\n", addr);
 	return 0;
 }
 
 EXPORT_C_(u16) USBread16(u32 addr) {
-	USB_LOG("* Invalid 16bit read at address %lx\n", addr);
+	USB_LOG("* Invalid 16bit read at address %08x\n", addr);
 	return 0;
 }
 
@@ -353,21 +353,21 @@ EXPORT_C_(u32) USBread32(u32 addr) {
 
 	hard=ohci_mem_read(qemu_ohci,addr);
 
-	USB_LOG("* Known 32bit read at address %lx: %lx\n", addr, hard);
+	USB_LOG("* Known 32bit read at address %08x: %08x\n", addr, hard);
 
 	return hard;
 }
 
 EXPORT_C_(void) USBwrite8(u32 addr,  u8 value) {
-	USB_LOG("* Invalid 8bit write at address %lx value %x\n", addr, value);
+	USB_LOG("* Invalid 8bit write at address %08x value %x\n", addr, value);
 }
 
 EXPORT_C_(void) USBwrite16(u32 addr, u16 value) {
-	USB_LOG("* Invalid 16bit write at address %lx value %x\n", addr, value);
+	USB_LOG("* Invalid 16bit write at address %08x value %x\n", addr, value);
 }
 
 EXPORT_C_(void) USBwrite32(u32 addr, u32 value) {
-	USB_LOG("* Known 32bit write at address %lx value %lx\n", addr, value);
+	USB_LOG("* Known 32bit write at address %08x value %08x\n", addr, value);
 	ohci_mem_write(qemu_ohci,addr,value);
 }
 
@@ -401,7 +401,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 	{
 		if(data->size < sizeof(USBfreezeData))
 		{
-			SysMessage(TEXT("ERROR: Unable to load freeze data! Got %d bytes, expected >= %d.\n"), data->size, sizeof(USBfreezeData));
+			SysMessage(TEXT("ERROR: Unable to load freeze data! Got %d bytes, expected >= %zu.\n"), data->size, sizeof(USBfreezeData));
 			return -1;
 		}
 
