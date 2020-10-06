@@ -601,7 +601,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				return;
 			}
 
-			OSDebugOut(TEXT("data len: %d bytes, src[0]: %d frames, src[1]: %d frames\n"), len, out_frames[0], out_frames[1]);
+			OSDebugOut(TEXT("data len: %zu bytes, src[0]: %d frames, src[1]: %d frames\n"), len, out_frames[0], out_frames[1]);
 
 			//TODO well, it is 16bit interleaved, right?
 			//Merge with MIC_MODE_SHARED case?
@@ -694,6 +694,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
     case USB_TOKEN_OUT:
         printf("token out ep: %d\n", devep);
 		OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, p->actual_length);
+		break;
     default:
     fail:
         p->status = USB_RET_STALL;

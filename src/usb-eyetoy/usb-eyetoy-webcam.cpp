@@ -513,7 +513,7 @@ USBDevice *EyeToyWebCamDevice::CreateDevice(int port)
 	VideoDeviceProxyBase *proxy = RegisterVideoDevice::instance().Proxy(varApi);
 	if (!proxy)
 	{
-		SysMessage(TEXT("Invalid video device API: " SFMTs "\n"), varApi.c_str());
+		SysMessage(TEXT("Invalid video device API: %" SFMTs "\n"), varApi.c_str());
 		return NULL;
 	}
 

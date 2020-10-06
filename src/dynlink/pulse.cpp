@@ -83,7 +83,8 @@ bool DynLoadPulse()
 	//dlopen itself is refcounted too
 	pulse_handle = dlopen ("libpulse.so.0", RTLD_LAZY);
 	if (!pulse_handle) {
-		std::cerr << dlerror() << std::endl;
+		if (dlerror())
+			std::cerr << dlerror() << std::endl;
 		return false;
 	}
 
