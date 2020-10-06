@@ -88,6 +88,14 @@ DWORD LABELS[CID_COUNT] = {
 	IDC_LABEL21,
 	IDC_LABEL22,
 	IDC_LABEL23,
+	IDC_LABEL24,
+	IDC_LABEL25,
+	IDC_LABEL26,
+	IDC_LABEL27,
+	IDC_LABEL28,
+	IDC_LABEL29,
+	IDC_LABEL30,
+	IDC_LABEL31,
 };
 
 struct DXDlgSettings
@@ -972,7 +980,15 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_ASS20: { StartListen(CID_BUTTON20); break; }
 				case IDC_ASS21: { StartListen(CID_BUTTON21); break; }
 				case IDC_ASS22: { StartListen(CID_BUTTON22); break; }
-				case IDC_ASS23: { StartListen(CID_BUTTON23); break; }
+				case IDC_ASS23: { StartListen(CID_BUTTON23); break; } // g2
+				case IDC_ASS24: { StartListen(CID_BUTTON24); break; } // g#
+				case IDC_ASS25: { StartListen(CID_BUTTON25); break; } // a
+				case IDC_ASS26: { StartListen(CID_BUTTON26); break; } // a#
+				case IDC_ASS27: { StartListen(CID_BUTTON27); break; } // b
+				case IDC_ASS28: { StartListen(CID_BUTTON28); break; }
+				case IDC_ASS29: { StartListen(CID_BUTTON29); break; }
+				case IDC_ASS30: { StartListen(CID_BUTTON30); break; }
+				case IDC_ASS31: { StartListen(CID_BUTTON31); break; }
 				case IDC_DEL0: { DeleteControl(s->port, CID_STEERING); break; }
 				case IDC_DEL1: { DeleteControl(s->port, CID_STEERING_R); break; }
 				case IDC_DEL2: { DeleteControl(s->port, CID_THROTTLE); break; }

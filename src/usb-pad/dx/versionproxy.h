@@ -171,21 +171,29 @@
 #define IDC_BZ_CTL4_LBL4                1136
 #define IDC_BZ_CTL4_LBL5                1137
 #define IDC_LABEL20                     1138
-#define IDC_LABEL21                     1139
-#define IDC_LABEL22                     1140
-#define IDC_LABEL23                     1141
-#define IDC_LABEL24                     1142
-#define IDC_LABEL25                     1143
-#define IDC_LABEL26                     1144
-#define IDC_LABEL27                     1145
-#define IDC_ASS20                       1146
-#define IDC_ASS21                       1147
-#define IDC_ASS22                       1148
-#define IDC_ASS23                       1149
-#define IDC_ASS24                       1150
-#define IDC_ASS25                       1151
-#define IDC_ASS26                       1152
+#define IDC_ASS20                       1139
+#define IDC_LABEL21                     1140
+#define IDC_ASS21                       1141
+#define IDC_LABEL22                     1142
+#define IDC_ASS22                       1143
+#define IDC_LABEL23                     1144
+#define IDC_ASS23                       1145
+#define IDC_LABEL24                     1146
+#define IDC_ASS24                       1147
+#define IDC_LABEL25                     1148
+#define IDC_ASS25                       1149
+#define IDC_LABEL26                     1150
+#define IDC_ASS26                       1151
+#define IDC_LABEL27                     1152
 #define IDC_ASS27                       1153
+#define IDC_LABEL28                     1154
+#define IDC_ASS28                       1155
+#define IDC_LABEL29                     1156
+#define IDC_ASS29                       1157
+#define IDC_LABEL30                     1158
+#define IDC_ASS30                       1159
+#define IDC_LABEL31                     1160
+#define IDC_ASS31                       1161
 
 // Next default values for new objects
 // 
