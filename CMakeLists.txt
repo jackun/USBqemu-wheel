@@ -554,7 +554,7 @@ ENDIF(PLUGIN_ENABLE_UNITY_BUILD)
 
 IF(MINGW)
 	LIST(APPEND LIBS ksguid strmiids)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -static-libgcc -static-libstdc++ -static -lpthread")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -static-libgcc -static-libstdc++ -static -lpthread")
 ENDIF(MINGW)
 
 
