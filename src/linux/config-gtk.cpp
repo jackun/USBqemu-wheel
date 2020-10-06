@@ -251,6 +251,10 @@ EXPORT_C_(void) USBconfigure() {
 		for(auto& device : devices)
 		{
 			auto deviceProxy = RegisterDevice::instance().Device(device);
+			if (!deviceProxy) {
+				OSDebugOut(_T("Device '%" SFMTs "' is registered, but failed to get proxy!\n"), device.c_str());
+				continue;
+			}
 			auto name = deviceProxy->Name();
 			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (rs_cb), name );
 			idx++;
