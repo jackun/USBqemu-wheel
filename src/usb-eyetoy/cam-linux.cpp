@@ -18,7 +18,7 @@
 #include "cam-linux.h"
 #include "usb-eyetoy-webcam.h"
 #include "jpgd/jpgd.h"
-#include "jo_mpeg.h"
+#include "jo_mpeg/jo_mpeg.h"
 
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config-gtk.cpp
 

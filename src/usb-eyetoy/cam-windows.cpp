@@ -3,7 +3,7 @@
 #include "videodev.h"
 #include "cam-windows.h"
 #include "usb-eyetoy-webcam.h"
-#include "jo_mpeg.h"
+#include "jo_mpeg/jo_mpeg.h"
 
 #include "../Win32/Config.h"
 #include "../Win32/resource.h"
