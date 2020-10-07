@@ -4,7 +4,7 @@
 #include "shared/ringbuffer.h"
 #include "../osdebugout.h"
 #include "audiodeviceproxy.h"
-#include "../libsamplerate/samplerate.h"
+#include "libsamplerate/samplerate.h"
 //#include <typeinfo>
 //#include <thread>
 #include <mutex>

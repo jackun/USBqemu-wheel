@@ -124,20 +124,20 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/generated)
 #
 
 SET(HDRS_SAMPLERATE
-	./src/libsamplerate/common.h
-	./src/libsamplerate/config.h
-	./src/libsamplerate/fastest_coeffs.h
-	./src/libsamplerate/float_cast.h
-	./src/libsamplerate/high_qual_coeffs.h
-	./src/libsamplerate/mid_qual_coeffs.h
-	./src/libsamplerate/samplerate.h
+	./src/3rdparty/libsamplerate/common.h
+	./src/3rdparty/libsamplerate/config.h
+	./src/3rdparty/libsamplerate/fastest_coeffs.h
+	./src/3rdparty/libsamplerate/float_cast.h
+	./src/3rdparty/libsamplerate/high_qual_coeffs.h
+	./src/3rdparty/libsamplerate/mid_qual_coeffs.h
+	./src/3rdparty/libsamplerate/samplerate.h
 )
 
 SET(SRCS_SAMPLERATE
-	./src/libsamplerate/samplerate.c
-	./src/libsamplerate/src_linear.c
-	./src/libsamplerate/src_sinc.c
-	./src/libsamplerate/src_zoh.c
+	./src/3rdparty/libsamplerate/samplerate.c
+	./src/3rdparty/libsamplerate/src_linear.c
+	./src/3rdparty/libsamplerate/src_sinc.c
+	./src/3rdparty/libsamplerate/src_zoh.c
 )
 
 SET(HDRS_PLG
