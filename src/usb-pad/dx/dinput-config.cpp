@@ -1172,7 +1172,7 @@ int DInputPad::Configure(int port, const char* dev_type, void *data)
 	if (strcmp(dev_type, "buzz_device") == 0) {
 		return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DLG_BUZZ), h.hWnd, DxDialogProc, (LPARAM)&s);
 	}
-	if(strcmp(dev_type, "keyboardmania_device") == 0) {
+	if(strcmp(dev_type, "keyboardmania") == 0) {
 		return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DLG_KEYBOARDMANIA), h.hWnd, DxDialogProc, (LPARAM)&s);
 	}
 	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, (LPARAM)&s);

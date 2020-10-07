@@ -126,7 +126,6 @@ typedef struct u_wheel_data_t {
 		dfp_data_t dfp_data;
 		gtforce_data_t gtf_data;
 		rb1drumkit_t rb1dk_data;
-		kbm_data_t kbm_data;
 	} u;
 } u_wheel_data_t;
 
