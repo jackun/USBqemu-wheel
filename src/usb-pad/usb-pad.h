@@ -101,7 +101,7 @@ public:
 	}
 	static const char* TypeName()
 	{
-		return "keyboardmania_device";
+		return "keyboardmania";
 	}
 	static std::list<std::string> ListAPIs();
 	static const TCHAR* LongAPIName(const std::string& name);
@@ -1310,17 +1310,17 @@ static const uint8_t kbm_config_descriptor[] = {
 };
 
 static const uint8_t kbm_hid_report_descriptor[] = {
-    0x05, 0x01,  // USAGE_PAGE (Generic Desktop)
-    0x09, 0x05,  // USAGE (Game Pad)
-    0xA1, 0x01,  // COLLECTION (Application)
-    0x05, 0x09,  //   USAGE_PAGE (Button)
-    0x19, 0x3A,  //   USAGE_MINIMUM (Button 58)
-    0x29, 0x3F,  //   USAGE_MAXIMUM (Button 63)
-    0x15, 0x00,  //   LOGICAL_MINIMUM (0)
-    0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
-    0x75, 0x01,  //   REPORT_SIZE (1)
-    0x95, 0x06,  //   REPORT_COUNT (6)
-    0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x05, 0x01,  // USAGE_PAGE (Generic Desktop)
+	0x09, 0x05,  // USAGE (Game Pad)
+	0xA1, 0x01,  // COLLECTION (Application)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x3A,  //   USAGE_MINIMUM (Button 58)
+	0x29, 0x3F,  //   USAGE_MAXIMUM (Button 63)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x06,  //   REPORT_COUNT (6)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
 	0x75, 0x01,  //   REPORT_SIZE (1)
 	0x95, 0x02,  //   REPORT_COUNT (2)
 	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
@@ -1385,7 +1385,7 @@ static const uint8_t kbm_hid_report_descriptor[] = {
 	0x75, 0x08,  //   REPORT_SIZE (8)
 	0x95, 0x02,  //   REPORT_COUNT (2)
 	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
-    0xc0         // END_COLLECTION
+	0xc0         // END_COLLECTION
 };
 
 struct dfp_buttons_t
@@ -1524,13 +1524,6 @@ struct rb1drumkit_t
 	} u;
 
 	uint8_t hatswitch;
-};
-
-struct kbm_data_t // Is this needed?
-{
-	uint8_t report_id;
-	uint32_t buttons;
-
 };
 
 void pad_reset_data(generic_data_t *d);
