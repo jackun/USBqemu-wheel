@@ -84,6 +84,10 @@ DWORD LABELS[CID_COUNT] = {
 	IDC_LABEL17,
 	IDC_LABEL18,
 	IDC_LABEL19,
+	IDC_LABEL20,
+	IDC_LABEL21,
+	IDC_LABEL22,
+	IDC_LABEL23,
 };
 
 struct DXDlgSettings
@@ -965,6 +969,10 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_ASS17: { StartListen(CID_R3); break; }
 				case IDC_ASS18: { StartListen(CID_SELECT); break; }
 				case IDC_ASS19: { StartListen(CID_START); break; }
+				case IDC_ASS20: { StartListen(CID_BUTTON20); break; }
+				case IDC_ASS21: { StartListen(CID_BUTTON21); break; }
+				case IDC_ASS22: { StartListen(CID_BUTTON22); break; }
+				case IDC_ASS23: { StartListen(CID_BUTTON23); break; }
 				case IDC_DEL0: { DeleteControl(s->port, CID_STEERING); break; }
 				case IDC_DEL1: { DeleteControl(s->port, CID_STEERING_R); break; }
 				case IDC_DEL2: { DeleteControl(s->port, CID_THROTTLE); break; }
@@ -1147,6 +1155,9 @@ int DInputPad::Configure(int port, const char* dev_type, void *data)
 	s.dev_type = dev_type;
 	if (strcmp(dev_type, "buzz_device") == 0) {
 		return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DLG_BUZZ), h.hWnd, DxDialogProc, (LPARAM)&s);
+	}
+	if(strcmp(dev_type, "keyboardmania_device") == 0) {
+		return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DLG_KEYBOARDMANIA), h.hWnd, DxDialogProc, (LPARAM)&s);
 	}
 	return DialogBoxParam(h.hInst, MAKEINTRESOURCE(IDD_DIALOG1), h.hWnd, DxDialogProc, (LPARAM)&s);
 }

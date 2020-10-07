@@ -90,6 +90,25 @@ public:
 	static int Freeze(int mode, USBDevice *dev, void *data);
 };
 
+class KeyboardmaniaDevice
+{
+public:
+	virtual ~KeyboardmaniaDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Keyboardmania");
+	}
+	static const char* TypeName()
+	{
+		return "keyboardmania_device";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
+};
+
 // Most likely as seen on https://github.com/matlo/GIMX
 #define CMD_DOWNLOAD			0x00
 #define CMD_DOWNLOAD_AND_PLAY	0x01
@@ -138,6 +157,7 @@ enum PS2WheelTypes {
 	WT_ROCKBAND1_DRUMKIT,
 	WT_BUZZ_CONTROLLER,
 	WT_SEGA_SEAMIC,
+	WT_KEYBOARDMANIA_CONTROLLER,
 };
 
 inline int range_max(PS2WheelTypes type)
@@ -1233,6 +1253,141 @@ static const uint8_t buzz_hid_report_descriptor[] = {
 	// 78 bytes
 };
 
+///////////////////
+// Keyboardmania //
+///////////////////
+static const uint8_t kbm_dev_descriptor[] = {
+	0x12,        // bLength
+	0x01,        // bDescriptorType (Device)
+	0x10, 0x01,  // bcdUSB 1.10
+	0x00,        // bDeviceClass (Use class information in the Interface Descriptors)
+	0x00,        // bDeviceSubClass
+	0x00,        // bDeviceProtocol
+	0x08,        // bMaxPacketSize0 8
+	0x07, 0x05,  // idVendor 0x0507
+	0x10, 0x00,  // idProduct 0x0010
+	0x00, 0x01,  // bcdDevice 01.00
+	0x01,        // iManufacturer (String Index)
+	0x02,        // iProduct (String Index)
+	0x00,        // iSerialNumber (String Index)
+	0x01,        // bNumConfigurations 1
+};
+
+static const uint8_t kbm_config_descriptor[] = {
+	0x09,        // bLength
+	0x02,        // bDescriptorType (Configuration)
+	0x22, 0x00,  // wTotalLength 34
+	0x01,        // bNumInterfaces 1
+	0x01,        // bConfigurationValue
+	0x00,        // iConfiguration (String Index)
+	0x80,        // bmAttributes
+	0x19,        // bMaxPower 50mA
+
+	0x09,        // bLength
+	0x04,        // bDescriptorType (Interface)
+	0x00,        // bInterfaceNumber 0
+	0x00,        // bAlternateSetting
+	0x01,        // bNumEndpoints 1
+	0x03,        // bInterfaceClass
+	0x00,        // bInterfaceSubClass
+	0x00,        // bInterfaceProtocol
+	0x02,        // iInterface (String Index)
+
+	0x09,        // bLength
+	0x21,        // bDescriptorType (HID)
+	0x10, 0x01,  // bcdHID 1.11
+	0x00,        // bCountryCode
+	0x01,        // bNumDescriptors
+	0x22,        // bDescriptorType[0] (HID)
+	0x96, 0x00,  // wDescriptorLength[0] 150
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x81,        // bEndpointAddress (IN/D2H)
+	0x03,        // bmAttributes (Interrupt)
+	0x08, 0x00,  // wMaxPacketSize 8
+	0x04,        // bInterval 4 (unit depends on device speed)
+};
+
+static const uint8_t kbm_hid_report_descriptor[] = {
+    0x05, 0x01,  // USAGE_PAGE (Generic Desktop)
+    0x09, 0x05,  // USAGE (Game Pad)
+    0xA1, 0x01,  // COLLECTION (Application)
+    0x05, 0x09,  //   USAGE_PAGE (Button)
+    0x19, 0x3A,  //   USAGE_MINIMUM (Button 58)
+    0x29, 0x3F,  //   USAGE_MAXIMUM (Button 63)
+    0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+    0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+    0x75, 0x01,  //   REPORT_SIZE (1)
+    0x95, 0x06,  //   REPORT_COUNT (6)
+    0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x02,  //   REPORT_COUNT (2)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x01,  //   USAGE_MINIMUM (Button 1)
+	0x29, 0x07,  //   USAGE_MAXIMUM (Button 7)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x08,  //   USAGE_MINIMUM (Button 8)
+	0x29, 0x0E,  //   USAGE_MAXIMUM (Button 14)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x0F,  //   USAGE_MINIMUM (Button 15)
+	0x29, 0x15,  //   USAGE_MAXIMUM (Button 21)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x16,  //   USAGE_MINIMUM (Button 22)
+	0x29, 0x1C,  //   USAGE_MAXIMUM (Button 28)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x01,  //   USAGE_PAGE (Generic Desktop) 
+	0x09, 0x01,  //   USAGE (Pointer)
+	0xA1, 0x00,  //   COLLECTION (Physical)
+	0x09, 0x30,  //     USAGE (X)
+	0x09, 0x31,  //     USAGE (Y)
+	0x15, 0xFF,  //     LOGICAL_MINIMUM (-1)
+	0x25, 0x01,  //     LOGICAL_MAXIMUM (1)
+	0x95, 0x02,  //     REPORT_COUNT (2)
+	0x75, 0x02,  //     REPORT_SIZE (2)
+	0x81, 0x02,  //     INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x95, 0x04,  //     REPORT_COUNT (4)
+	0x75, 0x01,  //     REPORT_SIZE (1)
+	0x81, 0x01,  //     INPUT (Constant,Array,Absolute)
+	0xC0,        //   END_COLLECTION
+	0x75, 0x08,  //   REPORT_SIZE (8)
+	0x95, 0x02,  //   REPORT_COUNT (2)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+    0xc0         // END_COLLECTION
+};
+
 struct dfp_buttons_t
 {
 	uint16_t cross : 1;
@@ -1369,6 +1524,13 @@ struct rb1drumkit_t
 	} u;
 
 	uint8_t hatswitch;
+};
+
+struct kbm_data_t // Is this needed?
+{
+	uint8_t report_id;
+	uint32_t buttons;
+
 };
 
 void pad_reset_data(generic_data_t *d);
