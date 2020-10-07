@@ -225,14 +225,14 @@ SET(SRCS_MIC
 )
 
 SET(SRCS_EYETOY
-	./src/usb-eyetoy/jpgd/jpgd.cpp
-	./src/usb-eyetoy/jo_mpeg.c
+	./src/3rdparty/jpgd/jpgd.cpp
+	./src/3rdparty/jo_mpeg/jo_mpeg.c
 	./src/usb-eyetoy/usb-eyetoy-webcam.cpp
 )
 
 SET(HDRS_EYETOY
-	./src/usb-eyetoy/jpgd/jpgd.h
-	./src/usb-eyetoy/jo_mpeg.h
+	./src/3rdparty/jpgd/jpgd.h
+	./src/3rdparty/jo_mpeg/jo_mpeg.h
 	./src/usb-eyetoy/videodeviceproxy.h
 	./src/usb-eyetoy/videodev.h
 	./src/usb-eyetoy/usb-eyetoy-webcam.h
@@ -262,7 +262,7 @@ SET(SRCS_SHARED
 	./src/shared/ringbuffer.cpp
 )
 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src)
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty)
 ADD_DEFINITIONS(-DLIBSRC_ONLY_FAST -DHAVE_LRINT=1 -DHAVE_LRINTF=1)
 ADD_DEFINITIONS(-DHAVE_LIBM=1 -DHAVE_INTTYPES_H=1 -DHAVE_DLFCN_H=1)
 ADD_DEFINITIONS(-DGCC_MAJOR_VERSION=6)
