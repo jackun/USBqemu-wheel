@@ -192,8 +192,6 @@
 #define IDC_ASS29                       1157
 #define IDC_LABEL30                     1158
 #define IDC_ASS30                       1159
-#define IDC_LABEL31                     1160
-#define IDC_ASS31                       1161
 
 // Next default values for new objects
 // 
