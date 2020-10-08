@@ -955,6 +955,13 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 						TestForce(s->port);
 					}
 					break;
+				case IDC_DELALL:
+					{
+						for (int i = 0; i < CID_COUNT; i++) {
+							DeleteControl(s->port, (ControlID)i);
+						}
+					}
+					break;
 
 				case IDC_ASS0: { StartListen(CID_STEERING); break; }
 				case IDC_ASS1: { StartListen(CID_STEERING_R); break; }

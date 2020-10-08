@@ -413,12 +413,11 @@ void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data)
 		break;
 
 	case WT_KEYBOARDMANIA_CONTROLLER:
-		// I don't know what I'm doing
 		buf[0] = 0x3F;
 		buf[1] = data.buttons & 0xFF;
 		buf[2] = (data.buttons >> 8) & 0xFF;
-		buf[3] = (data.buttons >> 16) & 0xFF; // ?
-		buf[4] = (data.buttons >> 24) & 0xFF; // ?
+		buf[3] = (data.buttons >> 16) & 0xFF;
+		buf[4] = (data.buttons >> 24) & 0xFF;
 		break;
 		
 	default:
@@ -808,8 +807,6 @@ USBDevice* KeyboardmaniaDevice::CreateDevice(int port)
 
 	s->desc.full = &s->desc_dev;
 	s->desc.str = kbm_desc_strings;
-
-	// Wtf?
 
 	if (usb_desc_parse_dev(kbm_dev_descriptor, sizeof(kbm_dev_descriptor), s->desc, s->desc_dev) < 0)
 		goto fail;
