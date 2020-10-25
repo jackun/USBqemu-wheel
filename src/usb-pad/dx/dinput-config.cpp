@@ -28,14 +28,6 @@ extern DIMOUSESTATE2 dims2;     // DirectInput mouse state structure
 std::vector<DIJOYSTATE2> jso;   // DInput joystick old state, only for config
 std::vector<DIJOYSTATE2> jsi;   // DInput joystick initial state, only for config
 
-int32_t AXISID[2][CID_COUNT];
-int32_t BUTTON[2][CID_COUNT];
-int32_t INVERT[2][CID_COUNT];
-int32_t HALF[2][CID_COUNT];
-int32_t LINEAR[2][CID_COUNT];
-int32_t OFFSET[2][CID_COUNT];
-int32_t DEADZONE[2][CID_COUNT];
-
 int32_t BYPASSCAL = 0;
 int32_t GAINZ[2][1];
 int32_t FFMULTI[2][1];
@@ -46,7 +38,7 @@ bool dialogOpen = false;
 HWND hKey;
 HWND hWnd;
 TCHAR text[1024];
-ControlID CID = CID_COUNT;
+ControlID CID = CID_COUNT; //keep track of last assigned control
 
 HFONT hFont;
 HDC hDC;
@@ -272,17 +264,18 @@ void ApplyFilter(int port)
 
 	if(filtercontrol==-1)return;
 	//slider
-	LINEAR[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
-	OFFSET[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
-	DEADZONE[port][filtercontrol] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
+	auto& im = g_Controls[port][filtercontrol];
+	im.LINEAR = SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
+	im.OFFSET = SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
+	im.DEADZONE = SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_GETPOS, 0, 0)-50 * PRECMULTI;
 	GAINZ[port][0] = SendMessage(GetDlgItem(hWnd,IDC_SLIDER4), TBM_GETPOS, 0, 0);
 	FFMULTI[port][0] = SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_GETPOS, 0, 0);
 
-	swprintf_s(text, TEXT("LINEARITY: %0.02f"), float(LINEAR[port][filtercontrol]) / PRECMULTI);
+	swprintf_s(text, TEXT("LINEARITY: %0.02f"), float(im.LINEAR) / PRECMULTI);
 	SetWindowText(GetDlgItem(hWnd,IDC_LINEAR), text);
-	swprintf_s(text, TEXT("OFFSET: %0.02f"), float(OFFSET[port][filtercontrol]) / PRECMULTI);
+	swprintf_s(text, TEXT("OFFSET: %0.02f"), float(im.OFFSET) / PRECMULTI);
 	SetWindowText(GetDlgItem(hWnd,IDC_OFFSET), text);
-	swprintf_s(text, TEXT("DEAD-ZONE: %0.02f"), float(DEADZONE[port][filtercontrol]) / PRECMULTI);
+	swprintf_s(text, TEXT("DEAD-ZONE: %0.02f"), float(im.DEADZONE) / PRECMULTI);
 	SetWindowText(GetDlgItem(hWnd,IDC_DEADZONE), text);
 
 	GetClientRect(GetDlgItem(hWnd,IDC_PICTURE), &rect);
@@ -294,12 +287,11 @@ void LoadFilter(int port)
 {
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol==-1)return;
-	//InputMapped im = {};
-	//GetInputMap(port, (ControlID)filtercontrol, im);
+	auto& im = g_Controls[port][filtercontrol];
 	//slider
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, LINEAR[port][filtercontrol]+50 * PRECMULTI);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, OFFSET[port][filtercontrol]+50 * PRECMULTI);
-	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, DEADZONE[port][filtercontrol]+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER1), TBM_SETPOS, 1, im.LINEAR+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER2), TBM_SETPOS, 1, im.OFFSET+50 * PRECMULTI);
+	SendMessage(GetDlgItem(hWnd,IDC_SLIDER3), TBM_SETPOS, 1, im.DEADZONE+50 * PRECMULTI);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER4), TBM_SETPOS, 1, GAINZ[port][0]);
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER5), TBM_SETPOS, 1, FFMULTI[port][0]);
 
@@ -308,44 +300,48 @@ void LoadFilter(int port)
 
 void DefaultFilters(int port, LONG id)
 {
+	auto& im_l = g_Controls[port][CID_STEERING];
+	auto& im_r = g_Controls[port][CID_STEERING_R];
+
 	for(int i=0;i<6;i++)
 	{
-		LINEAR[port][i] = 0;
-		OFFSET[port][i] = 0;
-		DEADZONE[port][i] = 0;
+		auto& c = g_Controls[port][i];
+		c.LINEAR = 0;
+		c.OFFSET = 0;
+		c.DEADZONE = 0;
 	}
 
 	switch(id)
 	{
-		case 0: 
-			LINEAR[port][0]=0;
-			OFFSET[port][0]=0;
-			LINEAR[port][1]=0;
-			OFFSET[port][1]=0;
+		case 0:
+			im_l.LINEAR=0;
+			im_l.OFFSET=0;
+			im_r.LINEAR=0;
+			im_r.OFFSET=0;
 			break;
 		case 1: 
-			LINEAR[port][0]=6 * PRECMULTI;
-			OFFSET[port][0]=0;
-			LINEAR[port][1]=6 * PRECMULTI;
-			OFFSET[port][1]=0;
+			im_l.LINEAR=6 * PRECMULTI;
+			im_l.OFFSET=0;
+			im_r.LINEAR=6 * PRECMULTI;
+			im_r.OFFSET=0;
 			break;
 		case 2: 
-			LINEAR[port][0]=12 * PRECMULTI;
-			OFFSET[port][0]=0;
-			LINEAR[port][1]=12 * PRECMULTI;
-			OFFSET[port][1]=0;
+			im_l.LINEAR=12 * PRECMULTI;
+			im_l.OFFSET=0;
+			im_r.LINEAR=12 * PRECMULTI;
+			im_r.OFFSET=0;
 			break;
 		case 3: 
-			LINEAR[port][0]=18 * PRECMULTI;
-			OFFSET[port][0]=0;
-			LINEAR[port][1]=18 * PRECMULTI;
-			OFFSET[port][1]=0;
+			im_l.LINEAR=18 * PRECMULTI;
+			im_l.OFFSET=0;
+			im_r.LINEAR=18 * PRECMULTI;
+			im_r.OFFSET=0;
 			break;
-		case 4: 
-			LINEAR[port][0]=25 * PRECMULTI;
-			OFFSET[port][0]=0;
-			LINEAR[port][1]=25 * PRECMULTI;
-			OFFSET[port][1]=0;
+		case 4:
+			im_l.LINEAR=25 * PRECMULTI;
+			im_l.OFFSET=0;
+			im_r.LINEAR=25 * PRECMULTI;
+			im_r.OFFSET=0;
 			break;
 	}
 
@@ -364,7 +360,7 @@ void ControlTest(int port) //thread: waits for window
 		if (GetInputMap(port, (ControlID)filtercontrol, im))
 		{
 			TESTV = ReadAxis(im);
-			TESTVF = FilterControl(ReadAxis(im), LINEAR[port][filtercontrol], OFFSET[port][filtercontrol], DEADZONE[port][filtercontrol]);
+			TESTVF = FilterControl(ReadAxis(im), im.LINEAR, im.OFFSET, im.DEADZONE);
 			GetClientRect(GetDlgItem(hWnd, IDC_PICTURE), &rect);
 			MapWindowPoints(GetDlgItem(hWnd, IDC_PICTURE), hWnd, (POINT*)& rect, 2);
 			InvalidateRect(hWnd, &rect, TRUE);
@@ -382,12 +378,6 @@ void ListenForControl(int port)
 
 	if (FindControl(port, CID, im))
 	{
-		if (CID <= CID_BRAKE) {
-			LINEAR[port][CID] = im.LINEAR;
-			OFFSET[port][CID] = im.OFFSET;
-			DEADZONE[port][CID] = im.DEADZONE;
-		}
-
 		AddInputMap(port, CID, im);
 		SetControlLabel(CID, im);
 	}
@@ -460,13 +450,13 @@ void CreateDrawing(int port, HDC hDrawingDC, int scale)
 
 	filtercontrol = SendMessage(GetDlgItem(hWnd,IDC_COMBO1), CB_GETCURSEL, 0, 0);
 	if(filtercontrol>=0){
-
+		auto& im = g_Controls[port][filtercontrol];
 		//draw nonlinear line
 		SelectObject(hDrawingDC,bluepen);
 		MoveToEx(hDrawingDC, (px+8)*scale, (pheight+py-8)*scale, 0);
 		for(float x=0; x<1.0f; x+=0.001f)
 		{
-			float y1 = FilterControl(x, LINEAR[port][filtercontrol], OFFSET[port][filtercontrol], DEADZONE[port][filtercontrol]);
+			float y1 = FilterControl(x, im.LINEAR, im.OFFSET, im.DEADZONE);
 			LineTo(hDrawingDC, (x*(pwidth-16)+px+8)*scale, (-y1*(pheight-16)+(pheight-8)+py)*scale);
 		}
 		LineTo(hDrawingDC, (1.0f*(pwidth-16)+px+8)*scale, (-1.0f*(pheight-16)+(pheight-8)+py)*scale);
@@ -1131,13 +1121,6 @@ void LoadDInputConfig(int port, const char* dev_type)
 				im.OFFSET = std::stoi(value);
 				std::getline(ss, value, ',');
 				im.DEADZONE = std::stoi(value);
-			}
-
-			//if (cid <= CID_BRAKE)
-			{
-				LINEAR[port][cid] = im.LINEAR;
-				OFFSET[port][cid] = im.OFFSET;
-				DEADZONE[port][cid] = im.DEADZONE;
 			}
 
 			AddInputMap(port, (ControlID)cid, im);
