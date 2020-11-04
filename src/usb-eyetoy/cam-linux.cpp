@@ -436,12 +436,14 @@ int GtkConfigure(int port, const char* dev_type, void *data) {
 	for (auto idx = 0; idx < devList.size(); idx++) {
 		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(rs_cb), devList.at(idx).c_str());
 		if (!selectedDevice.empty() && selectedDevice == devList.at(idx)) {
-			gtk_combo_box_set_active(GTK_COMBO_BOX(rs_cb), idx);
 			sel_idx = idx;
 		}
 	}
 
-	int sel_new;
+	if (sel_idx < devList.size())
+		gtk_combo_box_set_active(GTK_COMBO_BOX(rs_cb), sel_idx);
+
+	int sel_new = 0;
 	g_signal_connect(G_OBJECT(rs_cb), "changed", G_CALLBACK(deviceChanged), (gpointer)&sel_new);
 
 	gtk_widget_show_all(dlg);
@@ -449,7 +451,7 @@ int GtkConfigure(int port, const char* dev_type, void *data) {
 
 	int ret = RESULT_OK;
 	if (result == GTK_RESPONSE_OK) {
-		if (devList.size() && sel_new != sel_idx) {
+		if (sel_new < devList.size()) {
 			if (!SaveSetting(dev_type, port, APINAME, N_DEVICE, devList.at(sel_new))) {
 				ret = RESULT_FAILED;
 			}
