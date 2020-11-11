@@ -24,6 +24,7 @@ struct SettingsCB
 	std::string device;
 	std::string api;
 	GtkComboBox* combo;
+	GtkComboBox* subtype;
 };
 
 gboolean run_msg_dialog(gpointer data)
@@ -55,18 +56,6 @@ void SysMessage(const char* fmt, ...)
 									"%s", msg);
 	// run on main thread, a bit iffy
 	g_idle_add(run_msg_dialog, (gpointer)dialog);
-}
-
-static void wheeltypeChanged(GtkComboBox* widget, gpointer data)
-{
-	gint idx = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-	//if(data)
-	{
-		uint8_t port = MIN(reinterpret_cast<uintptr_t>(data), 1);
-
-		conf.WheelType[port] = idx;
-		OSDebugOut("Selected wheel type, port %d idx: %d\n", port, idx);
-	}
 }
 
 static void populateApiWidget(SettingsCB* settingsCB, const std::string& device)
@@ -106,6 +95,29 @@ static void populateApiWidget(SettingsCB* settingsCB, const std::string& device)
 	}
 }
 
+static void populateSubtypeWidget(SettingsCB* settingsCB, const std::string& device)
+{
+	gtk_list_store_clear(GTK_LIST_STORE(gtk_combo_box_get_model(settingsCB->subtype)));
+
+	auto dev = RegisterDevice::instance().Device(device);
+	int port = 1 - settingsCB->player;
+	GtkComboBox* widget = settingsCB->subtype;
+	if (dev)
+	{
+		int sel = 0;
+		if (!LoadSetting(nullptr, port, device, N_DEV_SUBTYPE, sel))
+		{
+			changedSubtype[std::make_pair(port, device)] = sel;
+		}
+
+		for (auto subtype : dev->SubTypes())
+		{
+			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(widget), subtype.c_str());
+		}
+		gtk_combo_box_set_active(GTK_COMBO_BOX(widget), sel);
+	}
+}
+
 static void deviceChanged(GtkComboBox* widget, gpointer data)
 {
 	SettingsCB* settingsCB = (SettingsCB*)data;
@@ -118,6 +130,7 @@ static void deviceChanged(GtkComboBox* widget, gpointer data)
 
 	settingsCB->device = s;
 	populateApiWidget(settingsCB, s);
+	populateSubtypeWidget(settingsCB, s);
 
 	if (player == 0)
 		conf.Port[1] = s;
@@ -154,6 +167,21 @@ static void apiChanged(GtkComboBox* widget, gpointer data)
 
 			OSDebugOut("selected api: %s\n", it->c_str());
 		}
+	}
+}
+
+static void subtypeChanged(GtkComboBox* widget, gpointer data)
+{
+	SettingsCB* settingsCB = (SettingsCB*)data;
+	int player = settingsCB->player;
+	gint active = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+	int port = 1 - player;
+
+	auto& name = settingsCB->device;
+	auto dev = RegisterDevice::instance().Device(name);
+	if (dev)
+	{
+		changedSubtype[std::make_pair(port, name)] = active;
 	}
 }
 
@@ -217,7 +245,6 @@ USBconfigure()
 	settingsCB[0].player = 0;
 	settingsCB[1].player = 1;
 
-	const char* wt[] = {"Driving Force", "Driving Force Pro", "Driving Force Pro (rev11.02)", "GT Force"};
 	const char* players[] = {"Player 1:", "Player 2:"};
 
 	GtkWidget *rs_cb, *vbox;
@@ -289,24 +316,16 @@ USBconfigure()
 		populateApiWidget(&settingsCB[ply], devs[ply]);
 	}
 
-	/** Wheel type **/
-	vbox = new_frame("Emulated wheel model:", main_vbox);
+	/** Emulated device / Wheel type **/
+	vbox = new_frame("Emulated device:", main_vbox);
 
 	for (int ply = 0; ply < 2; ply++)
 	{
-		int port = 1 - ply;
 		rs_cb = new_combobox(players[ply], vbox);
+		settingsCB[ply].subtype = GTK_COMBO_BOX(rs_cb);
+		g_signal_connect(G_OBJECT(rs_cb), "changed", G_CALLBACK(subtypeChanged), (gpointer)&settingsCB[ply]);
 
-		sel_idx = 0;
-
-		for (int i = 0; i < countof(wt); i++)
-		{
-			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(rs_cb), wt[i]);
-			if (conf.WheelType[port] == i)
-				sel_idx = i;
-		}
-		gtk_combo_box_set_active(GTK_COMBO_BOX(rs_cb), sel_idx);
-		g_signal_connect(G_OBJECT(rs_cb), "changed", G_CALLBACK(wheeltypeChanged), reinterpret_cast<gpointer>(port));
+		populateSubtypeWidget(&settingsCB[ply], devs[ply]);
 	}
 
 	gtk_widget_show_all(dlg);

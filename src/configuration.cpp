@@ -6,6 +6,7 @@
 #include <vector>
 
 std::map<std::pair<int, std::string>, std::string> changedAPIs;
+std::map<std::pair<int /*port*/, std::string /*devname*/>, int> changedSubtype;
 const TCHAR* iniFile = TEXT("USBqemu-wheel.ini");
 static TSTDSTRING usb_path;
 TSTDSTRING IniPath = TSTDSTRING(TEXT("./inis/")) + iniFile; // default path, just in case
@@ -23,6 +24,7 @@ USBsetSettingsDir(const char* dir)
 	IniPath = dst;
 	IniPath.append(iniFile);
 	OSDebugOut(L"USBsetSettingsDir: %s\n", IniPath.c_str());
+std::map<std::pair<int, std::string>, int> changedSubtype;
 
 #else
 	IniPath = dir;
@@ -51,6 +53,14 @@ std::string GetSelectedAPI(const std::pair<int, std::string>& pair)
 	if (it != changedAPIs.end())
 		return it->second;
 	return std::string();
+}
+
+int GetSelectedSubtype(const std::pair<int, std::string>& pair)
+{
+	auto it = changedSubtype.find(pair);
+	if (it != changedSubtype.end())
+		return it->second;
+	return 0;
 }
 
 bool LoadSettingValue(const TSTDSTRING& ini, const TSTDSTRING& section, const TCHAR* param, TSTDSTRING& value)
@@ -132,12 +142,14 @@ void SaveConfig()
 	SaveSetting(nullptr, 0, N_DEVICE_PORT, N_DEVICE, conf.Port[0]);
 	SaveSetting(nullptr, 1, N_DEVICE_PORT, N_DEVICE, conf.Port[1]);
 
-	SaveSetting(nullptr, 0, N_DEVICE_PORT, N_WHEEL_TYPE, conf.WheelType[0]);
-	SaveSetting(nullptr, 1, N_DEVICE_PORT, N_WHEEL_TYPE, conf.WheelType[1]);
-
 	for (auto& k : changedAPIs)
 	{
 		SaveSetting(nullptr, k.first.first, k.first.second, N_DEVICE_API, k.second);
+	}
+
+	for (auto& k : changedSubtype)
+	{
+		SaveSetting(nullptr, k.first.first, k.first.second, N_DEV_SUBTYPE, k.second);
 	}
 
 	bool ret = ciniFile.Save(IniPath);
@@ -159,9 +171,6 @@ void LoadConfig()
 
 	LoadSetting(nullptr, 0, N_DEVICE_PORT, N_DEVICE, conf.Port[0]);
 	LoadSetting(nullptr, 1, N_DEVICE_PORT, N_DEVICE, conf.Port[1]);
-
-	LoadSetting(nullptr, 0, N_DEVICE_PORT, N_WHEEL_TYPE, conf.WheelType[0]);
-	LoadSetting(nullptr, 1, N_DEVICE_PORT, N_WHEEL_TYPE, conf.WheelType[1]);
 
 	auto& instance = RegisterDevice::instance();
 
@@ -189,6 +198,10 @@ void LoadConfig()
 
 		if (api.size())
 			changedAPIs[std::make_pair(i, conf.Port[i])] = api;
+
+		int subtype = 0;
+		LoadSetting(nullptr, i, conf.Port[i], N_DEV_SUBTYPE, subtype);
+		changedSubtype[std::make_pair(i, conf.Port[i])] = subtype;
 	}
 }
 

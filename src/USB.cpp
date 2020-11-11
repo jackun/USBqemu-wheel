@@ -87,7 +87,6 @@ Window g_GSwin;
 Config::Config()
 	: Log(0)
 {
-	memset(&WheelType, 0, sizeof(WheelType));
 }
 
 void USBirq(int cycles)
