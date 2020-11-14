@@ -121,7 +121,8 @@ void ListenAxis()
 {
 	PollDevices();
 	for (size_t i=0; i<g_pJoysticks.size(); i++) {
-		if (g_pJoysticks[i]->GetControlType() != CT_JOYSTICK)
+		auto t = g_pJoysticks[i]->GetControlType();
+		if (t != CT_JOYSTICK && t != CT_XINPUT)
 			continue;
 		jso[i] = g_pJoysticks[i]->GetDeviceState();
 		jsi[i] = jso[i];
@@ -142,7 +143,8 @@ DWORD GetListenTimeout()
 bool AxisDown(size_t ijoy, InputMapped& im)
 {
 	//TODO mouse axis
-	if (g_pJoysticks[ijoy]->GetControlType() != CT_JOYSTICK)
+	auto t = g_pJoysticks[ijoy]->GetControlType();
+	if (t != CT_JOYSTICK && t!= CT_XINPUT)
 		return false;
 
 	DIJOYSTATE2 js = g_pJoysticks[ijoy]->GetDeviceState();
@@ -198,6 +200,7 @@ bool KeyDown(size_t ijoy, InputMapped& im)
 
 	switch (joy->GetControlType()) {
 	case CT_JOYSTICK:
+	case CT_XINPUT:
 		buttons = ARRAY_SIZE(DIJOYSTATE2::rgbButtons) + 16 /* POV */;
 		break;
 	case CT_KEYBOARD:
@@ -235,8 +238,8 @@ bool FindControl(LONG port, ControlID cid, InputMapped& im)
 				for (size_t i = 0; i<g_pJoysticks.size(); i++) {
 					if (AxisDown(i, im)) {
 						listening = false;
-						if (CID_STEERING == cid) {
-							CreateFFB(port, g_pJoysticks[im.index]->GetDevice(), im.mapped);
+						if (CID_STEERING == cid && g_pJoysticks[im.index]->GetControlType() == CT_JOYSTICK) {
+							CreateFFB(port, reinterpret_cast<DInputDevice*>(g_pJoysticks[im.index])->GetDevice(), im.mapped);
 						}
 						AddInputMap(port, cid, im);
 						return true;
@@ -864,7 +867,9 @@ INT_PTR CALLBACK DxDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 					case 22:
 						{
 							s = (DXDlgSettings*)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-							if(listening) ListenForControl(s->port);
+							if (listening) {
+								ListenForControl(s->port);
+							}
 							ControlTest(s->port);
 							break;
 						}
@@ -1034,8 +1039,8 @@ void SaveDInputConfig(int port, const char *dev_type)
 		std::stringstream ss;
 		ss << joy->GetGUID() << "," << im.type << "," << im.mapped;
 		//SaveSetting(section, _T("ProductName"), joy->Product());
-
-		if (joy->GetControlType() == CT_JOYSTICK) {
+		auto t = joy->GetControlType();
+		if (t == CT_JOYSTICK || t == CT_XINPUT) {
 			ss << "," << im.INVERTED
 				<< "," << im.HALF
 				<< "," << im.LINEAR
@@ -1109,7 +1114,8 @@ void LoadDInputConfig(int port, const char* dev_type)
 			std::getline(ss, value, ',');
 			im.mapped = std::stoi(value);
 
-			if (g_pJoysticks[im.index]->GetControlType() == CT_JOYSTICK)
+			auto t = g_pJoysticks[im.index]->GetControlType();
+			if (t == CT_JOYSTICK || t == CT_XINPUT)
 			{
 				std::getline(ss, value, ',');
 				im.INVERTED = std::stoi(value);

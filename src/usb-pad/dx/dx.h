@@ -77,12 +77,30 @@ private:
 	int m_port;
 };
 
+class XInputDeviceFF : public FFDevice
+{
+public:
+	XInputDeviceFF(int port) : m_port(port) {}
+	~XInputDeviceFF() {}
+
+	void SetConstantForce(int level) {}
+	void SetSpringForce(const parsed_ff_data& ff) {}
+	void SetDamperForce(const parsed_ff_data& ff) {}
+	void SetFrictionForce(const parsed_ff_data& ff) {}
+	void SetAutoCenter(int value) {}
+	void DisableForce(EffectID force) {}
+
+private:
+	int m_port;
+};
+
 enum ControlType
 {
 	CT_NONE,
 	CT_KEYBOARD,
 	CT_MOUSE,
 	CT_JOYSTICK,
+	CT_XINPUT,
 };
 
 enum MappingType
@@ -107,15 +125,30 @@ struct InputMapped
 class JoystickDevice
 {
 public:
-	JoystickDevice(ControlType type, LPDIRECTINPUTDEVICE8 device, GUID guid, TSTDSTRING name)
+	//virtual DeviceType DeviceType() = 0;
+	virtual bool Poll() = 0;
+	virtual bool GetButton(int b) = 0;
+	virtual LONG GetAxis(int a) = 0;
+	virtual DIJOYSTATE2 GetDeviceState() = 0;
+	virtual HRESULT GetDeviceState(DWORD sz, LPVOID ptr) = 0;
+	virtual ControlType GetControlType() = 0;
+	virtual GUID GetGUID() = 0;
+	virtual const TSTDSTRING& Product() const = 0;
+};
+
+class DInputDevice : public JoystickDevice
+{
+public:
+	DInputDevice(ControlType type, LPDIRECTINPUTDEVICE8 device, GUID guid, TSTDSTRING name, uint32_t xinput = -1)
 	: m_type(type)
 	, m_guid(guid)
-	, m_device(device)
 	, m_product(name)
+	, m_device(device)
+	, m_xinput(xinput)
 	{
 	}
 
-	bool Poll();
+	virtual bool Poll();
 
 	/*void GetDeviceState(size_t sz, void *ptr)
 	{
@@ -154,12 +187,13 @@ public:
 
 	ControlType GetControlType() { return m_type; }
 
-	~JoystickDevice();
+	~DInputDevice();
 private:
+	ControlType m_type = CT_NONE;
 	GUID m_guid;
 	TSTDSTRING m_product;
 	LPDIRECTINPUTDEVICE8 m_device;
-	ControlType m_type = CT_NONE;
+	uint32_t m_xinput = -1;
 	union {
 		DIJOYSTATE2 js2;
 		DIMOUSESTATE2 ms2;
@@ -167,8 +201,37 @@ private:
 	} m_controls = {};
 };
 
+class XInputDevice : public JoystickDevice
+{
+public:
+	XInputDevice(GUID guid, TSTDSTRING name)
+		:  m_guid(guid)
+		, m_product(name)
+		//, m_device(device)
+	{
+	}
+
+	//virtual DeviceType DeviceType() = 0;
+	bool Poll();
+	bool GetButton(int b);
+	LONG GetAxis(int a);
+
+	DIJOYSTATE2 GetDeviceState() { return m_js2; }
+	HRESULT GetDeviceState(DWORD sz, LPVOID ptr);
+	ControlType GetControlType() { return CT_XINPUT; }
+	GUID GetGUID() { return m_guid; }
+	const TSTDSTRING& Product() const { return m_product; }
+private:
+	DIJOYSTATE2 m_js2;
+	GUID m_guid;
+	TSTDSTRING m_product;
+	LPDIRECTINPUTDEVICE8 m_device;
+};
+
 extern std::vector<JoystickDevice *> g_pJoysticks;
 extern std::map<int, InputMapped> g_Controls[2];
+extern HWND hWnd;
+extern bool listening;
 
 void LoadDInputConfig(int port, const char *dev_type);
 void SaveDInputConfig(int port, const char *dev_type);
@@ -191,5 +254,13 @@ bool FindFFDevice(int port);
 void AddInputMap(int port, int cid, const InputMapped& im);
 void RemoveInputMap(int port, int cid);
 bool GetInputMap(int port, int cid, InputMapped& im);
+
+void InitDialog(int port, const char* dev_type);
+void DefaultFilters(int port, LONG id);
+void LoadFilter(int port);
+void ApplyFilter(int port);
+void ListenForControl(int port);
+void StartListen(ControlID controlid);
+void ControlTest(int port);
 
 }} //namespace

@@ -1,5 +1,12 @@
 #include <math.h>
 #include "dx.h"
+#include <VersionHelpers.h>
+#include <Xinput.h>
+#if 0
+#include <wbemidl.h>
+#include <oleauto.h>
+//#include <wmsstd.h>
+#endif
 
 #define SAFE_DELETE(p)  { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }
@@ -70,6 +77,90 @@ std::ostream& operator<<(std::ostream& os, REFGUID guid) {
 	return os;
 }
 
+// Extra enum
+#define XINPUT_GAMEPAD_GUIDE 0x0400
+
+typedef struct
+{
+	float SCP_UP;
+	float SCP_RIGHT;
+	float SCP_DOWN;
+	float SCP_LEFT;
+
+	float SCP_LX;
+	float SCP_LY;
+
+	float SCP_L1;
+	float SCP_L2;
+	float SCP_L3;
+
+	float SCP_RX;
+	float SCP_RY;
+
+	float SCP_R1;
+	float SCP_R2;
+	float SCP_R3;
+
+	float SCP_T;
+	float SCP_C;
+	float SCP_X;
+	float SCP_S;
+
+	float SCP_SELECT;
+	float SCP_START;
+
+	float SCP_PS;
+
+} SCP_EXTN;
+
+
+// This way, I don't require that XInput junk be installed.
+typedef void(CALLBACK* _XInputEnable)(BOOL enable);
+typedef DWORD(CALLBACK* _XInputGetStateEx)(DWORD dwUserIndex, XINPUT_STATE* pState);
+typedef DWORD(CALLBACK* _XInputGetExtended)(DWORD dwUserIndex, SCP_EXTN* pPressure);
+typedef DWORD(CALLBACK* _XInputSetState)(DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
+
+_XInputEnable pXInputEnable = 0;
+_XInputGetStateEx pXInputGetStateEx = 0;
+_XInputGetExtended pXInputGetExtended = 0;
+_XInputSetState pXInputSetState = 0;
+static bool xinputNotInstalled = false;
+
+static uint32_t xInputActiveCount = 0;
+
+static void LoadXInput()
+{
+	wchar_t temp[30];
+	if (!pXInputSetState) {
+		// XInput not installed, so don't repeatedly try to load it.
+		if (xinputNotInstalled)
+			return;
+
+		// Prefer XInput 1.3 since SCP only has an XInput 1.3 wrapper right now.
+		// Also use LoadLibrary and not LoadLibraryEx for XInput 1.3, since some
+		// Windows 7 systems have issues with it.
+		// FIXME: Missing FreeLibrary call.
+		HMODULE hMod = LoadLibrary(L"xinput1_3.dll");
+		if (hMod == nullptr && IsWindows8OrGreater()) {
+			hMod = LoadLibraryEx(L"XInput1_4.dll", nullptr, LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+		}
+
+		if (hMod) {
+			if ((pXInputEnable = (_XInputEnable)GetProcAddress(hMod, "XInputEnable")) &&
+				((pXInputGetStateEx = (_XInputGetStateEx)GetProcAddress(hMod, (LPCSTR)100)) || // Try Ex version first
+					(pXInputGetStateEx = (_XInputGetStateEx)GetProcAddress(hMod, "XInputGetState")))) {
+				pXInputGetExtended = (_XInputGetExtended)GetProcAddress(hMod, "XInputGetExtended");
+				pXInputSetState = (_XInputSetState)GetProcAddress(hMod, "XInputSetState");
+			}
+		}
+		if (!pXInputSetState) {
+			xinputNotInstalled = true;
+			return;
+		}
+	}
+	pXInputEnable(1);
+}
+
 LONG GetAxisValueFromOffset(int axis, const DIJOYSTATE2& j)
 {
 	#define LVX_OFFSET 8 // count POVs or not?
@@ -116,7 +207,7 @@ LONG GetAxisValueFromOffset(int axis, const DIJOYSTATE2& j)
 	return 0;
 }
 
-bool JoystickDevice::Poll()
+bool DInputDevice::Poll()
 {
 	HRESULT hr = 0;
 	if (m_device)
@@ -124,17 +215,36 @@ bool JoystickDevice::Poll()
 		hr = m_device->Poll();
 		if (FAILED(hr))
 		{
+			OSDebugOut(TEXT("poll failed: %08x\n"), hr);
 			hr = m_device->Acquire();
+			OSDebugOut(TEXT("acquire failed: %08x\n"), hr);
 			//return SUCCEEDED(hr);
 		}
 		else
 		{
 			if (m_type == CT_JOYSTICK) {
 				m_device->GetDeviceState(sizeof(DIJOYSTATE2), &m_controls);
-			} else if (m_type == CT_MOUSE) {
+			}
+			else if (m_type == CT_MOUSE) {
 				m_device->GetDeviceState(sizeof(DIMOUSESTATE2), &m_controls);
-			} else if (m_type == CT_KEYBOARD) {
+			}
+			else if (m_type == CT_KEYBOARD) {
 				m_device->GetDeviceState(sizeof(m_controls.kbd), &m_controls);
+			}
+			else if (m_type == CT_XINPUT) {
+				hr = m_device->GetDeviceState(sizeof(DIJOYSTATE2), &m_controls);
+				OSDebugOut("%S: xinput GetDeviceState %08x\n", __func__, hr);
+				if (pXInputGetStateEx && m_xinput < XUSER_MAX_COUNT) {
+					XINPUT_STATE xstate{};
+					if (pXInputGetStateEx(m_xinput, &xstate) == ERROR_SUCCESS) {
+						m_controls.js2.lZ = 0;
+						m_controls.js2.rglSlider[0] = xstate.Gamepad.bLeftTrigger * USHRT_MAX / UCHAR_MAX;
+						m_controls.js2.rglSlider[1] = xstate.Gamepad.bRightTrigger * USHRT_MAX / UCHAR_MAX;
+						OSDebugOut(L"%S: %d %d %d %d\n", __func__,
+							m_controls.js2.lX, m_controls.js2.lY,
+							m_controls.js2.rglSlider[0], m_controls.js2.rglSlider[1]);
+					}
+				}
 			}
 			return true;
 		}
@@ -142,9 +252,15 @@ bool JoystickDevice::Poll()
 	return false;
 }
 
-bool JoystickDevice::GetButton(int b)
+bool DInputDevice::GetButton(int b)
 {
-	if (m_type == CT_JOYSTICK) {
+	if (m_type == CT_KEYBOARD) {
+		return (b < ARRAY_SIZE(m_controls.kbd) && m_controls.kbd[b] & 0x80);
+	} else if (m_type == CT_MOUSE) {
+		return (b < ARRAY_SIZE(DIMOUSESTATE2::rgbButtons) && m_controls.ms2.rgbButtons[b] & 0x80);
+	}
+	else
+	{
 		if (b < ARRAY_SIZE(DIJOYSTATE2::rgbButtons) && m_controls.js2.rgbButtons[b] & 0x80)
 			return true;
 
@@ -178,20 +294,16 @@ bool JoystickDevice::GetButton(int b)
 			}
 		}
 	}
-	else if (m_type == CT_KEYBOARD) {
-		return (b < ARRAY_SIZE(m_controls.kbd) && m_controls.kbd[b] & 0x80);
-	} else if (m_type == CT_MOUSE) {
-		return (b < ARRAY_SIZE(DIMOUSESTATE2::rgbButtons) && m_controls.ms2.rgbButtons[b] & 0x80);
-	}
+
 	return false;
 }
 
-LONG JoystickDevice::GetAxis(int a)
+LONG DInputDevice::GetAxis(int a)
 {
 	return GetAxisValueFromOffset(a, m_controls.js2);
 }
 
-JoystickDevice::~JoystickDevice()
+DInputDevice::~DInputDevice()
 {
 	if (m_device) {
 		m_device->Unacquire();
@@ -319,16 +431,376 @@ void CreateFFB(int port, LPDIRECTINPUTDEVICE8 device, DWORD axis)
 	}
 }
 
+#if 0
+//-----------------------------------------------------------------------------
+// Enum each PNP device using WMI and check each device ID to see if it contains 
+// "IG_" (ex. "VID_045E&PID_028E&IG_00").  If it does, then it's an XInput device
+// Unfortunately this information can not be found by just using DirectInput 
+//-----------------------------------------------------------------------------
+BOOL IsXInputDevice_correct(const GUID* pGuidProductFromDirectInput)
+{
+	IWbemLocator* pIWbemLocator = NULL;
+	IEnumWbemClassObject* pEnumDevices = NULL;
+	IWbemClassObject* pDevices[20] = { 0 };
+	IWbemServices* pIWbemServices = NULL;
+	BSTR                    bstrNamespace = NULL;
+	BSTR                    bstrDeviceID = NULL;
+	BSTR                    bstrClassName = NULL;
+	DWORD                   uReturned = 0;
+	bool                    bIsXinputDevice = false;
+	UINT                    iDevice = 0;
+	VARIANT                 var;
+	HRESULT                 hr;
+
+	// CoInit if needed
+	hr = CoInitialize(NULL);
+	bool bCleanupCOM = SUCCEEDED(hr);
+
+	// So we can call VariantClear() later, even if we never had a successful IWbemClassObject::Get().
+	VariantInit(&var);
+
+	// Create WMI
+	hr = CoCreateInstance(__uuidof(WbemLocator),
+		NULL,
+		CLSCTX_INPROC_SERVER,
+		__uuidof(IWbemLocator),
+		(LPVOID*)&pIWbemLocator);
+	if (FAILED(hr) || pIWbemLocator == NULL)
+		goto LCleanup;
+
+	bstrNamespace = SysAllocString(L"\\\\.\\root\\cimv2"); if (bstrNamespace == NULL) goto LCleanup;
+	bstrClassName = SysAllocString(L"Win32_PNPEntity");   if (bstrClassName == NULL) goto LCleanup;
+	bstrDeviceID = SysAllocString(L"DeviceID");          if (bstrDeviceID == NULL)  goto LCleanup;
+
+	// Connect to WMI 
+	hr = pIWbemLocator->ConnectServer(bstrNamespace, NULL, NULL, 0L,
+		0L, NULL, NULL, &pIWbemServices);
+	if (FAILED(hr) || pIWbemServices == NULL)
+		goto LCleanup;
+
+	// Switch security level to IMPERSONATE. 
+	CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+		RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+
+	hr = pIWbemServices->CreateInstanceEnum(bstrClassName, 0, NULL, &pEnumDevices);
+	if (FAILED(hr) || pEnumDevices == NULL)
+		goto LCleanup;
+
+	// Loop over all devices
+	for (;; )
+	{
+		// Get 20 at a time
+		hr = pEnumDevices->Next(10000, 20, pDevices, &uReturned);
+		if (FAILED(hr))
+			goto LCleanup;
+		if (uReturned == 0)
+			break;
+
+		for (iDevice = 0; iDevice < uReturned; iDevice++)
+		{
+			// For each device, get its device ID
+			hr = pDevices[iDevice]->Get(bstrDeviceID, 0L, &var, NULL, NULL);
+			if (SUCCEEDED(hr) && var.vt == VT_BSTR && var.bstrVal != NULL)
+			{
+				// Check if the device ID contains "IG_".  If it does, then it's an XInput device
+				// This information can not be found from DirectInput 
+				if (wcsstr(var.bstrVal, L"IG_"))
+				{
+					// If it does, then get the VID/PID from var.bstrVal
+					DWORD dwPid = 0, dwVid = 0;
+					WCHAR* strVid = wcsstr(var.bstrVal, L"VID_");
+					if (strVid && swscanf(strVid, L"VID_%4X", &dwVid) != 1)
+						dwVid = 0;
+					WCHAR* strPid = wcsstr(var.bstrVal, L"PID_");
+					if (strPid && swscanf(strPid, L"PID_%4X", &dwPid) != 1)
+						dwPid = 0;
+
+					// Compare the VID/PID to the DInput device
+					DWORD dwVidPid = MAKELONG(dwVid, dwPid);
+					if (dwVidPid == pGuidProductFromDirectInput->Data1)
+					{
+						bIsXinputDevice = true;
+						goto LCleanup;
+					}
+				}
+			}
+			VariantClear(&var);
+			SAFE_RELEASE(pDevices[iDevice]);
+		}
+	}
+
+LCleanup:
+	VariantClear(&var);
+	if (bstrNamespace)
+		SysFreeString(bstrNamespace);
+	if (bstrDeviceID)
+		SysFreeString(bstrDeviceID);
+	if (bstrClassName)
+		SysFreeString(bstrClassName);
+	for (iDevice = 0; iDevice < 20; iDevice++)
+		SAFE_RELEASE(pDevices[iDevice]);
+	SAFE_RELEASE(pEnumDevices);
+	SAFE_RELEASE(pIWbemLocator);
+	SAFE_RELEASE(pIWbemServices);
+
+	if (bCleanupCOM)
+		CoUninitialize();
+
+	return bIsXinputDevice;
+}
+#endif
+
+bool IsXInputDevice(const GUID* pguid)
+{
+	if ((uint64_t)pguid->Data4 == 0x4449564449500000)// "\0\0PIDVID"
+		return false;
+
+	// https://support.steampowered.com/kb/5199-TOKV-4426/supported-controller-database?l=english
+	static const std::vector<unsigned long> ids{
+		0x18d40079, // GPD Win 2 X-Box Controller Xbox360
+		0xb326044f, // Thrustmaster Gamepad GP XID Xbox360
+		0x028e045e, // Microsoft X-Box 360 pad Xbox360
+		0x028f045e, // Microsoft X-Box 360 pad v2 Xbox360
+		0x0291045e, // Xbox 360 Wireless Receiver (XBOX) Xbox360
+		0x02a0045e, // Microsoft X-Box 360 Big Button IR Xbox360
+		0x02a1045e, // Microsoft X-Box 360 pad Xbox360
+		0x02dd045e, // Microsoft X-Box One pad XboxOne
+		0xb326044f, // Microsoft X-Box One pad (Firmware 2015) XboxOne
+		0x02e0045e, // Microsoft X-Box One S pad (Bluetooth) XboxOne
+		0x02e3045e, // Microsoft X-Box One Elite pad XboxOne
+		0x02ea045e, // Microsoft X-Box One S pad XboxOne
+		0x02fd045e, // Microsoft X-Box One S pad (Bluetooth) XboxOne
+		0x02ff045e, // Microsoft X-Box One Elite pad XboxOne
+		0x0719045e, // Xbox 360 Wireless Receiver Xbox360
+		0xc21d046d, // Logitech Gamepad F310 Xbox360
+		0xc21e046d, // Logitech Gamepad F510 Xbox360
+		0xc21f046d, // Logitech Gamepad F710 Xbox360
+		0xc242046d, // Logitech Chillstream Controller Xbox360
+		0x00c10f0d, // HORI Pad Switch Switch
+		0x00920f0d, // HORI Pokken Tournament DX Pro Pad Switch
+		0x00f60f0d, // HORI Wireless Switch Pad Switch
+		0x00dc0f0d, // HORI Battle Pad Switch
+		0xa71120d6, // PowerA Wired Controller Plus/PowerA Wired Gamcube Controller Switch
+		0x01850e6f, // PDP Wired Fight Pad Pro for Nintendo Switch Switch
+		0x01800e6f, // PDP Faceoff Wired Pro Controller for Nintendo Switch Switch
+		0x01810e6f, // PDP Faceoff Deluxe Wired Pro Controller for Nintendo Switch Switch
+		0x0268054c, // Sony PS3 Controller PS3
+		0x00050925, // Sony PS3 Controller PS3
+		0x03088888, // Sony PS3 Controller PS3
+		0x08361a34, // Afterglow PS3 PS3
+		0x006e0f0d, // HORI horipad4 PS3 PS3
+		0x00660f0d, // HORI horipad4 PS4 PS3
+		0x005f0f0d, // HORI Fighting commander PS3 PS3
+		0x005e0f0d, // HORI Fighting commander PS4 PS3
+		0x82500738, // Madcats Fightpad Pro PS4 PS3
+		0x181a0079, // Venom Arcade Stick PS3
+		0x00060079, // PC Twin Shock Controller PS3
+		0x05232563, // Digiflip GP006 PS3
+		0x333111ff, // SRXJ-PH2400 PS3
+		0x550020bc, // ShanWan PS3 PS3
+		0xb315044f, // Firestorm Dual Analog 3 PS3
+		0x004d0f0d, // Horipad 3 PS3
+		0x00090f0d, // HORI BDA GP1 PS3
+		0x00080e8f, // Green Asia PS3
+		0x006a0f0d, // Real Arcade Pro 4 PS3
+		0x011e0e6f, // Rock Candy PS4 PS3
+		0x02140e6f, // Afterglow PS3 PS3
+		0x2013056e, // JC-U4113SBK PS3
+		0x88380738, // Madcatz Fightstick Pro PS3
+		0x08361a34, // Afterglow PS3 PS3
+		0x11000f30, // Quanba Q1 fight stick PS3
+		0x00870f0d, // HORI fighting mini stick PS3
+		0x00038380, // BTP 2163 PS3
+		0x10001345, // PS2 ACME GA-D5 PS3
+		0x30750e8f, // SpeedLink Strike FX PS3
+		0x01280e6f, // Rock Candy PS3 PS3
+		0x20002c22, // Quanba Drone PS3
+		0xf62206a3, // Cyborg V3 PS3
+		0xd007044f, // Thrustmaster wireless 3-1 PS3
+		0x83c325f0, // Gioteck vx2 PS3
+		0x100605b8, // JC-U3412SBK PS3
+		0x576d20d6, // Power A PS3 PS3
+		0x13140e6f, // PDP Afterglow Wireless PS3 controller PS3
+		0x31800738, // Mad Catz Alpha PS3 mode PS3
+		0x81800738, // Mad Catz Alpha PS4 mode PS3
+		0x02030e6f, // Victrix Pro FS PS3
+		0x05c4054c, // Sony PS4 Controller PS4
+		0x09cc054c, // Sony PS4 Slim Controller PS4
+		0x0ba0054c, // Sony PS4 Controller (Wireless dongle) PS4
+		0x008a0f0d, // HORI Real Arcade Pro 4 PS4
+		0x00550f0d, // HORIPAD 4 FPS PS4
+		0x00660f0d, // HORIPAD 4 FPS Plus PS4
+		0x83840738, // HORIPAD 4 FPS Plus PS4
+		0x82500738, // Mad Catz FightPad Pro PS4 PS4
+		0x83840738, // Mad Catz Fightstick TE S+ PS4
+		0x0E100C12, // Armor Armor 3 Pad PS4 PS4
+		0x1CF60C12, // EMIO PS4 Elite Controller PS4
+		0x10001532, // Razer Raiju PS4 Controller PS4
+		0X04011532, // Razer Panthera PS4 Controller PS4
+		0x05c5054c, // STRIKEPAD PS4 Grip Add-on PS4
+		0x0d01146b, // Nacon Revolution Pro Controller PS4
+		0x0d02146b, // Nacon Revolution Pro Controller V2 PS4
+		0x00a00f0d, // HORI TAC4 PS4
+		0x009c0f0d, // HORI TAC PRO PS4
+		0x0ef60c12, // Hitbox Arcade Stick PS4
+		0x181b0079, // Venom Arcade Stick PS4
+		0x32500738, // Mad Catz FightPad PRO PS4
+		0x00ee0f0d, // HORI mini wired gamepad PS4
+		0x84810738, // Mad Catz FightStick TE 2+ PS4 PS4
+		0x84800738, // Mad Catz FightStick TE 2 PS4
+		0x01047545, // Armor 3, Level Up Cobra PS4
+		0x10071532, // Razer Raiju 2 Tournament Edition (USB) PS4
+		0x100A1532, // Razer Raiju 2 Tournament Edition (BT) PS4
+		0x10041532, // Razer Raiju 2 Ultimate Edition (USB) PS4
+		0x10091532, // Razer Raiju 2 Ultimate Edition (BT) PS4
+		0x10081532, // Razer Panthera Evo Fightstick PS4
+		0x00259886, // Astro C40 PS4
+		0x0e150c12, // Game:Pad 4 PS4
+		0x01044001, // PS4 Fun Controller PS4
+		0x2004056e, // Elecom JC-U3613M Xbox360
+		0xf51a06a3, // Saitek P3600 Xbox360
+		0x47160738, // Mad Catz Wired Xbox 360 Controller Xbox360
+		0x47180738, // Mad Catz Street Fighter IV FightStick SE Xbox360
+		0x47260738, // Mad Catz Xbox 360 Controller Xbox360
+		0x47280738, // Mad Catz Street Fighter IV FightPad Xbox360
+		0x47360738, // Mad Catz MicroCon Gamepad Xbox360
+		0x47380738, // Mad Catz Wired Xbox 360 Controller (SFIV) Xbox360
+		0x47400738, // Mad Catz Beat Pad Xbox360
+		0x4a010738, // Mad Catz FightStick TE 2 XboxOne
+		0xb7260738, // Mad Catz Xbox controller - MW2 Xbox360
+		0xbeef0738, // Mad Catz JOYTECH NEO SE Advanced GamePad Xbox360
+		0xcb020738, // Saitek Cyborg Rumble Pad - PC/Xbox 360 Xbox360
+		0xcb030738, // Saitek P3200 Rumble Pad - PC/Xbox 360 Xbox360
+		0xf7380738, // Super SFIV FightStick TE S Xbox360
+		0x01050e6f, // HSM3 Xbox360 dancepad Xbox360
+		0x01130e6f, // Afterglow AX.1 Gamepad for Xbox 360 Xbox360
+		0x011f0e6f, // Rock Candy Gamepad Wired Controller Xbox360
+		0x01330e6f, // Xbox 360 Wired Controller Xbox360
+		0x01390e6f, // Afterglow Prismatic Wired Controller XboxOne
+		0x013a0e6f, // PDP Xbox One Controller XboxOne
+		0x01460e6f, // Rock Candy Wired Controller for Xbox One XboxOne
+		0x01470e6f, // PDP Marvel Xbox One Controller XboxOne
+		0x015c0e6f, // PDP Xbox One Arcade Stick XboxOne
+		0x01610e6f, // PDP Xbox One Controller XboxOne
+		0x01620e6f, // PDP Xbox One Controller XboxOne
+		0x01630e6f, // PDP Xbox One Controller XboxOne
+		0x01640e6f, // PDP Battlefield One XboxOne
+		0x01650e6f, // PDP Titanfall 2 XboxOne
+		0x02010e6f, // Pelican PL-3601 'TSZ' Wired Xbox 360 Controller Xbox360
+		0x02130e6f, // Afterglow Gamepad for Xbox 360 Xbox360
+		0x021f0e6f, // Rock Candy Gamepad for Xbox 360 Xbox360
+		0x02460e6f, // Rock Candy Gamepad for Xbox One 2015 XboxOne
+		0x03010e6f, // Logic3 Controller Xbox360
+		0x03460e6f, // Rock Candy Gamepad for Xbox One 2016 XboxOne
+		0x04010e6f, // Logic3 Controller Xbox360
+		0x04130e6f, // Afterglow AX.1 Gamepad for Xbox 360 Xbox360
+		0x05010e6f, // PDP Xbox 360 Controller Xbox360
+		0xf9000e6f, // PDP Afterglow AX.1 Xbox360
+		0x000a0f0d, // Hori Co. DOA4 FightStick Xbox360
+		0x000c0f0d, // Hori PadEX Turbo Xbox360
+		0x000d0f0d, // Hori Fighting Stick EX2 Xbox360
+		0x00160f0d, // Hori Real Arcade Pro.EX Xbox360
+		0x001b0f0d, // Hori Real Arcade Pro VX Xbox360
+		0x00630f0d, // Hori Real Arcade Pro Hayabusa (USA) Xbox One XboxOne
+		0x00670f0d, // HORIPAD ONE XboxOne
+		0x00780f0d, // Hori Real Arcade Pro V Kai Xbox One XboxOne
+		0x55f011c9, // Nacon GC-100XF Xbox360
+		0x000412ab, // Honey Bee Xbox360 dancepad Xbox360
+		0x030112ab, // PDP AFTERGLOW AX.1 Xbox360
+		0x030312ab, // Mortal Kombat Klassic FightStick Xbox360
+		0x47481430, // RedOctane Guitar Hero X-plorer Xbox360
+		0xf8011430, // RedOctane Controller Xbox360
+		0x0601146b, // BigBen Interactive XBOX 360 Controller Xbox360
+		0x00371532, // Razer Sabertooth Xbox360
+		0x0a001532, // Razer Atrox Arcade Stick XboxOne
+		0x0a031532, // Razer Wildcat XboxOne
+		0x3f0015e4, // Power A Mini Pro Elite Xbox360
+		0x3f0a15e4, // Xbox Airflo wired controller Xbox360
+		0x3f1015e4, // Batarang Xbox 360 controller Xbox360
+		0xbeef162e, // Joytech Neo-Se Take2 Xbox360
+		0xfd001689, // Razer Onza Tournament Edition Xbox360
+		0xfd011689, // Razer Onza Classic Edition Xbox360
+		0xfe001689, // Razer Sabertooth Xbox360
+		0x00021bad, // Harmonix Rock Band Guitar Xbox360
+		0x00031bad, // Harmonix Rock Band Drumkit Xbox360
+		0xf0161bad, // Mad Catz Xbox 360 Controller Xbox360
+		0xf0181bad, // Mad Catz Street Fighter IV SE Fighting Stick Xbox360
+		0xf0191bad, // Mad Catz Brawlstick for Xbox 360 Xbox360
+		0xf0211bad, // Mad Cats Ghost Recon FS GamePad Xbox360
+		0xf0231bad, // MLG Pro Circuit Controller (Xbox) Xbox360
+		0xf0251bad, // Mad Catz Call Of Duty Xbox360
+		0xf0271bad, // Mad Catz FPS Pro Xbox360
+		0xf0281bad, // Street Fighter IV FightPad Xbox360
+		0xf02e1bad, // Mad Catz Fightpad Xbox360
+		0xf0361bad, // Mad Catz MicroCon GamePad Pro Xbox360
+		0xf0381bad, // Street Fighter IV FightStick TE Xbox360
+		0xf0391bad, // Mad Catz MvC2 TE Xbox360
+		0xf03a1bad, // Mad Catz SFxT Fightstick Pro Xbox360
+		0xf03d1bad, // Street Fighter IV Arcade Stick TE - Chun Li Xbox360
+		0xf03e1bad, // Mad Catz MLG FightStick TE Xbox360
+		0xf03f1bad, // Mad Catz FightStick SoulCaliber Xbox360
+		0xf0421bad, // Mad Catz FightStick TES+ Xbox360
+		0xf0801bad, // Mad Catz FightStick TE2 Xbox360
+		0xf5011bad, // HoriPad EX2 Turbo Xbox360
+		0xf5021bad, // Hori Real Arcade Pro.VX SA Xbox360
+		0xf5031bad, // Hori Fighting Stick VX Xbox360
+		0xf5041bad, // Hori Real Arcade Pro. EX Xbox360
+		0xf5051bad, // Hori Fighting Stick EX2B Xbox360
+		0xf5061bad, // Hori Real Arcade Pro.EX Premium VLX Xbox360
+		0xf9001bad, // Harmonix Xbox 360 Controller Xbox360
+		0xf9011bad, // Gamestop Xbox 360 Controller Xbox360
+		0xf9031bad, // Tron Xbox 360 controller Xbox360
+		0xf9041bad, // PDP Versus Fighting Pad Xbox360
+		0xf9061bad, // MortalKombat FightStick Xbox360
+		0xfa011bad, // MadCatz GamePad Xbox360
+		0xfd001bad, // Razer Onza TE Xbox360
+		0xfd011bad, // Razer Onza Xbox360
+		0x500024c6, // Razer Atrox Arcade Stick Xbox360
+		0x530024c6, // PowerA MINI PROEX Controller Xbox360
+		0x530324c6, // Xbox Airflo wired controller Xbox360
+		0x530a24c6, // Xbox 360 Pro EX Controller Xbox360
+		0x531a24c6, // PowerA Pro Ex Xbox360
+		0x539724c6, // FUS1ON Tournament Controller Xbox360
+		0x541a24c6, // PowerA Xbox One Mini Wired Controller XboxOne
+		0x542a24c6, // Xbox ONE spectra XboxOne
+		0x543a24c6, // PowerA Xbox One wired controller XboxOne
+		0x550024c6, // Hori XBOX 360 EX 2 with Turbo Xbox360
+		0x550124c6, // Hori Real Arcade Pro VX-SA Xbox360
+		0x550224c6, // Hori Fighting Stick VX Alt Xbox360
+		0x550324c6, // Hori Fighting Edge Xbox360
+		0x550624c6, // Hori SOULCALIBUR V Stick Xbox360
+		0x550d24c6, // Hori GEM Xbox controller Xbox360
+		0x550e24c6, // Hori Real Arcade Pro V Kai 360 Xbox360
+		0x551a24c6, // PowerA FUSION Pro Controller XboxOne
+		0x561a24c6, // PowerA FUSION Controller XboxOne
+		0x5b0224c6, // Thrustmaster Xbox360
+		0x5b0324c6, // Thrustmaster Ferrari 458 Racing Wheel Xbox360
+		0x5d0424c6, // Razer Sabertooth Xbox360
+		0xfafe24c6, // Rock Candy Gamepad for Xbox 360 Xbox360
+	};
+
+	for (auto i : ids) {
+		if (pguid->Data1 == i)
+			return true;
+	}
+
+	return false;
+}
+
 BOOL CALLBACK EnumJoysticksCallback( const DIDEVICEINSTANCE* pdidInstance,
                                      VOID* pContext )
 {
     HRESULT hr;
+	bool xinput = IsXInputDevice(&pdidInstance->guidProduct);
 
     // Obtain an interface to the enumerated joystick.
     LPDIRECTINPUTDEVICE8 joy = nullptr;
     hr = g_pDI->CreateDevice( pdidInstance->guidInstance, &joy, NULL );
-    if (SUCCEEDED(hr) && joy)
-        g_pJoysticks.push_back(new JoystickDevice(CT_JOYSTICK, joy, pdidInstance->guidInstance, pdidInstance->tszProductName));
+	if (SUCCEEDED(hr) && joy)
+		g_pJoysticks.push_back(new DInputDevice(xinput ? CT_XINPUT : CT_JOYSTICK, joy, pdidInstance->guidInstance, pdidInstance->tszProductName, xinput ? xInputActiveCount : -1));
+
+	if (xinput)
+		xInputActiveCount++;
 
     return DIENUM_CONTINUE;
 }
@@ -668,7 +1140,7 @@ void JoystickDeviceFF::SetAutoCenter(int value)
 	InputMapped im;
 	LPDIRECTINPUTDEVICE8 dev = nullptr;
 	if (GetInputMap(m_port, CID_STEERING, im))
-		dev = g_pJoysticks[im.index]->GetDevice();
+		dev = reinterpret_cast<DInputDevice*>(g_pJoysticks[im.index])->GetDevice();
 
 	AutoCenter(dev, value > 0);
 }
@@ -687,6 +1159,9 @@ void FreeDirectInput()
 
     SAFE_RELEASE( g_pDI );
 	didDIinit=false;
+
+	if (pXInputEnable && xInputActiveCount)
+		pXInputEnable(0);
 }
 
 //initialize all available devices
@@ -716,7 +1191,7 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			pKeyboard->SetDataFormat(&c_dfDIKeyboard);
 			pKeyboard->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			pKeyboard->Acquire();
-			g_pJoysticks.push_back(new JoystickDevice(CT_KEYBOARD, pKeyboard, GUID_SysKeyboard, _T("SysKeyboard")));
+			g_pJoysticks.push_back(new DInputDevice(CT_KEYBOARD, pKeyboard, GUID_SysKeyboard, _T("SysKeyboard")));
 		}
 
 		OSDebugOut(TEXT("DINPUT: CreateDevice Mouse %p\n"), hWindow);
@@ -727,17 +1202,21 @@ HRESULT InitDirectInput( HWND hWindow, int port )
 			pMouse->SetDataFormat(&c_dfDIMouse2);
 			pMouse->SetCooperativeLevel(hWindow, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			pMouse->Acquire();
-			g_pJoysticks.push_back(new JoystickDevice(CT_MOUSE, pMouse, GUID_SysMouse, _T("SysMouse")));
+			g_pJoysticks.push_back(new DInputDevice(CT_MOUSE, pMouse, GUID_SysMouse, _T("SysMouse")));
 		}
 
 		//enumerate attached only
 		OSDebugOut(TEXT("DINPUT: EnumDevices Joystick %p\n"), hWindow);
+		xInputActiveCount = 0;
 		g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, NULL, DIEDFL_ATTACHEDONLY);
+		if (xInputActiveCount)
+			LoadXInput();
 
 		//loop through all attached joysticks
 		for (size_t i = 0; i < g_pJoysticks.size(); i++) {
 			auto joy = g_pJoysticks[i];
-			auto device = joy->GetDevice();
+
+			auto device = reinterpret_cast<DInputDevice*>(joy)->GetDevice();
 			OSDebugOut(_T("DINPUT: SetDataFormat Joystick %s\n"), joy->Product().c_str());
 			device->SetDataFormat(&c_dfDIJoystick2);
 
@@ -804,7 +1283,10 @@ bool FindFFDevice(int port)
 	if (!GetInputMap(port, CID_STEERING, im))
 		return false;
 
-	auto device = g_pJoysticks[im.index]->GetDevice();
+	if (g_pJoysticks[im.index]->GetControlType() != CT_JOYSTICK)
+		return false;
+
+	auto device = reinterpret_cast<DInputDevice*>(g_pJoysticks[im.index])->GetDevice();
 	DIDEVCAPS diCaps;
 	diCaps.dwSize = sizeof(DIDEVCAPS);
 	device->GetCapabilities(&diCaps);
@@ -902,12 +1384,14 @@ void SetConstantForce(int port, LONG magnitude)
 
 void TestForce(int port)
 {
-
 	InputMapped im;
 	LPDIRECTINPUTDEVICE8 dev = nullptr;
-	if (GetInputMap(port, CID_STEERING, im))
-		dev = g_pJoysticks[im.index]->GetDevice();
+	if (!GetInputMap(port, CID_STEERING, im))
+		return;
+	if (g_pJoysticks[im.index]->GetControlType() != CT_JOYSTICK)
+		return;
 
+	dev = reinterpret_cast<DInputDevice*>(g_pJoysticks[im.index])->GetDevice();
 	SetConstantForce(port, DI_FFNOMINALMAX / 2);
 	Sleep(500);
 	SetConstantForce(port, -DI_FFNOMINALMAX / 2);
