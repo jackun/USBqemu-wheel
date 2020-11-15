@@ -159,7 +159,7 @@ bool AxisDown(size_t ijoy, InputMapped& im)
 		"\trglSlider1 " << js.rglSlider[1] << "\n" <<
 		std::endl;
 
-	LONG detectrange = 2000;
+	LONG detectrange = 0xFFFF / 4;
 	for (int32_t axisid = 0; axisid < DINPUT_AXES_COUNT; axisid++)
 	{
 		LONG diff = 0;
