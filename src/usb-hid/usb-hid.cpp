@@ -761,6 +761,7 @@ int HIDKbdDevice::Freeze(int mode, USBDevice *dev, void *data)
     {
         case FREEZE_LOAD:
             s->f = *freezed;
+            hid_init(&s->f.hid, HID_KEYBOARD, usb_hid_changed);
             return sizeof(UsbHIDState::freeze);
         case FREEZE_SAVE:
             *freezed = s->f;
@@ -838,7 +839,10 @@ int HIDMouseDevice::Configure(int port, const std::string& api, void *data)
 
 int HIDMouseDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
-    return HIDKbdDevice::Freeze(mode, dev, data);
+    UsbHIDState* s = (UsbHIDState*)dev;
+    int r = HIDKbdDevice::Freeze(mode, dev, data);
+    hid_init(&s->f.hid, HID_MOUSE, usb_hid_changed);
+    return r;
 }
 
 // ---- BeatMania Da Da Da!! ----
