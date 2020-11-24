@@ -263,7 +263,7 @@ void populate(HWND hW, RawDlgConfig *cfg)
 		if (!didData)
 			break;
 		didData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-		if(!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)){
+		if (!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)) {
 			free(didData);
 			break;
 		}
@@ -271,7 +271,7 @@ void populate(HWND hW, RawDlgConfig *cfg)
 		usbHandle = CreateFile(didData->DevicePath, GENERIC_READ|GENERIC_WRITE,
 			FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
 
-		if(usbHandle == INVALID_HANDLE_VALUE){
+		if (usbHandle == INVALID_HANDLE_VALUE) {
 			fprintf(stderr,"Could not open device %i\n", i);
 			free(didData);
 			i++;
@@ -279,7 +279,13 @@ void populate(HWND hW, RawDlgConfig *cfg)
 		}
 
 		HidD_GetAttributes(usbHandle, &attr);
-		HidD_GetPreparsedData(usbHandle, &pPreparsedData);
+		if (!HidD_GetPreparsedData(usbHandle, &pPreparsedData)) {
+			fprintf(stderr, "Could not get preparsed data from %04x:%04x\n", attr.VendorID, attr.ProductID);
+			free(didData);
+			i++;
+			continue;
+		}
+
 		HidP_GetCaps(pPreparsedData, &caps);
 
 		if(caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
