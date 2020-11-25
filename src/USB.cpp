@@ -40,9 +40,10 @@ static char libraryName[256];
 OHCIState *qemu_ohci = NULL;
 USBDevice *usb_device[2] = { NULL };
 bool configChanged = false;
+static bool usb_opened = false;
 
 Config conf;
-char USBfreezeID[] = "USBqemuW01";
+char USBfreezeID[] = "USBqemuW02";
 typedef struct {
 	char freezeID[11];
 	s64 cycles;
@@ -109,30 +110,47 @@ void Reset()
 		ohci_hard_reset(qemu_ohci);
 }
 
+void OpenDevice(int port)
+{
+	//TODO Pass pDsp to open probably so dinput can bind to this HWND
+	if (usb_device[port] && usb_device[port]->klass.open)
+		usb_device[port]->klass.open(usb_device[port] /*, pDsp*/);
+}
+
+static void CloseDevice(int port)
+{
+	if (usb_device[port] && usb_device[port]->klass.close)
+		usb_device[port]->klass.close(usb_device[port]);
+}
+
+void DestroyDevice(int port)
+{
+	if (qemu_ohci && qemu_ohci->rhport[port].port.dev) {
+		qemu_ohci->rhport[port].port.dev->klass.unrealize(qemu_ohci->rhport[port].port.dev);
+		qemu_ohci->rhport[port].port.dev = nullptr;
+	}
+	else if (usb_device[port])
+		usb_device[port]->klass.unrealize(usb_device[port]);
+
+	usb_device[port] = nullptr;
+}
+
 void DestroyDevices()
 {
-	for (int i=0; i<2; i++)
-	{
-		if(qemu_ohci && qemu_ohci->rhport[i].port.dev) {
-			qemu_ohci->rhport[i].port.dev->klass.unrealize(qemu_ohci->rhport[i].port.dev);
-			qemu_ohci->rhport[i].port.dev = nullptr;
-		}
-		else if(usb_device[i])
-			usb_device[i]->klass.unrealize(usb_device[i]);
-
-		usb_device[i] = nullptr;
+	for (int i = 0; i < 2; i++) {
+		CloseDevice(i);
+		DestroyDevice(i);
 	}
 }
 
 USBDevice* CreateDevice(DeviceType index, int port)
 {
-	DeviceProxyBase *devProxy;
 	USBDevice* device = nullptr;
 
 	if (index == DEVTYPE_NONE)
 		return nullptr;
 
-	devProxy = RegisterDevice::instance().Device(index);
+	DeviceProxyBase* devProxy = RegisterDevice::instance().Device(index);
 	if (devProxy)
 		device = devProxy->CreateDevice(port);
 	else
@@ -194,6 +212,8 @@ void CreateDevices()
 	{
 		usb_device[i] = CreateDevice(conf.Port[i], i);
 		USBAttach(i, usb_device[i]);
+		if (usb_opened)
+			OpenDevice(i);
 	}
 }
 
@@ -224,6 +244,7 @@ EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
 EXPORT_C_(s32) USBinit() {
 	OSDebugOut(TEXT("USBinit\n"));
 
+	usb_opened = false;
 	RegisterDevice::Register();
 	LoadConfig();
 
@@ -254,6 +275,7 @@ EXPORT_C_(void) USBshutdown() {
 	OSDebugOut(TEXT("USBshutdown\n"));
 	DestroyDevices();
 	RegisterDevice::instance().Unregister();
+	usb_opened = false;
 
 	free(qemu_ohci);
 
@@ -315,27 +337,19 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 		CreateDevices(); //TODO Pass pDsp to init?
 	}
 
-	//TODO Pass pDsp to open probably so dinput can bind to this HWND
-	if(usb_device[0] && usb_device[0]->klass.open)
-		usb_device[0]->klass.open(usb_device[0]/*, pDsp*/);
-
-	if(usb_device[1] && usb_device[1]->klass.open)
-		usb_device[1]->klass.open(usb_device[1]/*, pDsp*/);
-
+	OpenDevice(0 /*, pDsp */);
+	OpenDevice(1 /*, pDsp */);
+	usb_opened = true;
 	return 0;
 }
 
 EXPORT_C_(void) USBclose() {
 	OSDebugOut(TEXT("USBclose\n"));
 
-	if(usb_device[0] && usb_device[0]->klass.close)
-		usb_device[0]->klass.close(usb_device[0]);
-
-	if(usb_device[1] && usb_device[1]->klass.close)
-		usb_device[1]->klass.close(usb_device[1]);
-
+	CloseDevice(0);
+	CloseDevice(1);
 	shared::Uninitialize();
-
+	usb_opened = false;
 }
 
 EXPORT_C_(u8) USBread8(u32 addr) {
@@ -394,7 +408,10 @@ EXPORT_C_(void) USBsetRAM(void *mem) {
 }
 
 EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
-	USBfreezeData usbd = {};
+
+	// YoUr FuNcTiOn UsEs 19k of sTacK oF 16K
+	std::unique_ptr<USBfreezeData> usbd_ptr(new USBfreezeData);
+	USBfreezeData& usbd = *usbd_ptr.get();
 
 	//TODO FREEZE_SIZE mismatch causes loading to fail in PCSX2 beforehand
 	if (mode == FREEZE_LOAD)
@@ -416,12 +433,15 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 		s8 *ptr = data->data + sizeof(USBfreezeData);
 		// Load the state of the attached devices
-		if (data->size != sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
+		if (data->size < sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
 			return -1;
 
 		//TODO Subsequent save state loadings make USB "stall" for n seconds since previous load
 		//clocks = usbd.cycles;
 		//remaining = usbd.remaining;
+
+		CloseDevice(0);
+		CloseDevice(1);
 
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
@@ -449,14 +469,10 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				index = usbd.device[i].index;
 				USBDevice *dev = qemu_ohci->rhport[i].port.dev;
 				qemu_ohci->rhport[i].port.dev = nullptr;
-
-				if (dev)
-				{
-					assert(usb_device[i] == dev);
-					dev->klass.unrealize(dev);
-				}
+				DestroyDevice(i);
 
 				proxy = regInst.Device(index);
+				conf.Port[i] = proxy->TypeName();
 				usb_device[i] = CreateDevice(index, i);
 				USBAttach(i, usb_device[i], index != DEVTYPE_MSD);
 			}
@@ -515,11 +531,11 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					usb_detach (&qemu_ohci->rhport[i].port);
 					usb_attach (&qemu_ohci->rhport[i].port);
 				}
+				OpenDevice(i);
 			}
 			else if (!proxy && index != DEVTYPE_NONE)
 			{
-				SysMessage(TEXT("Port %d: unknown device.\nPlugin is probably too old for this save.\n"), 1+(1-i));
-				return -1;
+				SysMessage(TEXT("Port %d: unknown device.\nPlugin is probably too old for this save.\n"), i);
 			}
 			ptr += usbd.device[i].size;
 		}
@@ -632,23 +648,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 	}
 	else if (mode == FREEZE_SIZE)
 	{
-		RegisterDevice& regInst = RegisterDevice::instance();
-		data->size = sizeof(USBfreezeData);
-		for (int i=0; i<2; i++)
-		{
-			//TODO check that current created usb device and conf.Port[n] are the same
-			auto proxy = regInst.Device(conf.Port[i]);
-
-			if (proxy)
-				data->size += proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr);
-		}
-
-		// PCSX2 queries size before load too, so can't use actual packet length which varies :(
-		data->size += 8192;// qemu_ohci->usb_packet.actual_length;
-		if (qemu_ohci->usb_packet.actual_length > 8192) {
-			fprintf(stderr, "Saving failed! USB packet is larger than 8K, try again later.\n");
-			return -1;
-		}
+		data->size = 0x10000;
 	}
 
 	return 0;

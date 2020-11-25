@@ -140,6 +140,11 @@ void LoadConfig() {
 	std::cerr << "USB load config\n" << std::endl;
 	ciniFile.Load(IniPath);
 
+	static bool loaded = false;
+	if (loaded)
+		return;
+	loaded = true;
+
 	LoadSetting(_T("MAIN"), _T("log"), conf.Log);
 
 	LoadSetting(nullptr, 0, N_DEVICE_PORT, N_DEVICE, conf.Port[0]);
