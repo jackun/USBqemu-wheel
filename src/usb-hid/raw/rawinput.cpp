@@ -107,7 +107,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HIDState *hs)
 
 static void ParseRawInputKB(RAWKEYBOARD &k, HIDState *hs)
 {
-	if (!hs->kbd.eh_entry)
+	if (hs->kind != HID_KEYBOARD || !hs->kbd.eh_entry)
 		return;
 	static uint32_t nr = 0;
 	OSDebugOut(TEXT("%ud kb: %hu %hu %hu %u\n"), nr, k.MakeCode, k.VKey, k.Flags, k.ExtraInformation);
@@ -149,6 +149,9 @@ static void SendPointerEvent(InputEvent &ev, HIDState *hs)
 
 static void ParseRawInputMS(RAWMOUSE &m, HIDState *hs)
 {
+	if (!hs->ptr.eh_entry || (hs->kind != HID_MOUSE && hs->kind != HID_TABLET))
+		return;
+
 	int b = 0, z = 0;
 	InputEvent ev{};
 
