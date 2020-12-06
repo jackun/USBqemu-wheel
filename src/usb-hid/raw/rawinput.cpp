@@ -133,7 +133,7 @@ static void ParseRawInputKB(RAWKEYBOARD &k, HIDState *hs)
 
 	InputEvent ev{};
 	ev.type = INPUT_EVENT_KIND_KEY;
-	ev.u.key.down = !k.Flags;
+	ev.u.key.down = !(k.Flags & RI_KEY_BREAK);
 	ev.u.key.key.type = KEY_VALUE_KIND_QCODE;
 	ev.u.key.key.u.qcode = qcode;
 
