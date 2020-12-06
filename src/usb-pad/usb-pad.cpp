@@ -151,6 +151,7 @@ uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn)
 			return PAD_BUTTON_COUNT; //Aka invalid
 		}
 	}
+#if 0
 	else if(type == WT_GENERIC)
 	{
 		switch(inBtn)
@@ -163,7 +164,7 @@ uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn)
 			return inBtn;
 		}
 	}
-
+#endif
 	return inBtn;
 }
 
