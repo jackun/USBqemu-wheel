@@ -10,7 +10,6 @@ cache: ccache
 branches:
   only:
   - master
-  - develop
   - /^\d+\.\d+\.\d+$/
 
 matrix:
