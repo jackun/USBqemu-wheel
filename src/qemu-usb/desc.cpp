@@ -638,6 +638,7 @@ void usb_desc_init(USBDevice *dev)
 
 void usb_desc_attach(USBDevice *dev)
 {
+
 	usb_desc_setdefaults(dev);
 }
 

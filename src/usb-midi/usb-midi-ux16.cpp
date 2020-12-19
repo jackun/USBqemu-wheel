@@ -76,68 +76,67 @@ namespace usb_midi {
 
 
         static const uint8_t ux16_kbd_config_descriptor[] = {
-
             /* Configuration 1 */
-              USB_CONFIGURATION_DESC_SIZE,          /* bLength */
-              USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-              WBVAL(0x0036),                        /* wTotalLength */
-              0x01,                                 /* bNumInterfaces */
-              0x01,                                 /* bConfigurationValue */
-              0x00,                                 /* iConfiguration */
-              USB_CONFIG_BUS_POWERED,               /* bmAttributes */
-              USB_CONFIG_POWER_MA(80),              /* bMaxPower */
+            USB_CONFIGURATION_DESC_SIZE,          /* bLength */
+            USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
+            WBVAL(0x0036),                        /* wTotalLength */
+            0x01,                                 /* bNumInterfaces */
+            0x01,                                 /* bConfigurationValue */
+            0x00,                                 /* iConfiguration */
+            USB_CONFIG_BUS_POWERED,               /* bmAttributes */
+            USB_CONFIG_POWER_MA(80),              /* bMaxPower */
 
             /* Interface Descriptor */
-              USB_INTERFACE_DESC_SIZE,              /* bLength */
-              USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
-              0x00,                                 /* bInterfaceNumber */
-              0x00,                                 /* bAlternateSetting */
-              0x02,                                 /* bNumEndpoints */
-              USB_CLASS_VENDOR_SPEC,                /* bInterfaceClass */
-              AUDIO_SUBCLASS_UNDEFINED,             /* bInterfaceSubClass */
-              0xff,                                 /* bInterfaceProtocol */
-              0x00,                                 /* iInterface */
+            USB_INTERFACE_DESC_SIZE,              /* bLength */
+            USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
+            0x00,                                 /* bInterfaceNumber */
+            0x00,                                 /* bAlternateSetting */
+            0x02,                                 /* bNumEndpoints */
+            USB_CLASS_VENDOR_SPEC,                /* bInterfaceClass */
+            AUDIO_SUBCLASS_UNDEFINED,             /* bInterfaceSubClass */
+            0xff,                                 /* bInterfaceProtocol */
+            0x00,                                 /* iInterface */
 
             /* Audio Control Interface? */
-              0x07,                                 /* bLength */
-              AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
-              AUDIO_CONTROL_HEADER,                 /* bDescriptorSubtype */
-              0x00, 0x01, 0x16, 0x00,
+            0x07,                                 /* bLength */
+            AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+            AUDIO_CONTROL_HEADER,                 /* bDescriptorSubtype */
+            0x00, 0x01, 0x16, 0x00,
 
-              /* Audio Input Terminal? */
-                0x06,                                 /* bLength */
-                AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
-                AUDIO_CONTROL_INPUT_TERMINAL,         /* bDescriptorSubtype */
-                0x02, 0x01, 0x00,
+            /* Audio Input Terminal? */
+            0x06,                                 /* bLength */
+            AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+            AUDIO_CONTROL_INPUT_TERMINAL,         /* bDescriptorSubtype */
+            0x02, 0x01, 0x00,
 
-                /* Audio Output Terminal */
-                  0x09,                                 /* bLength */
-                  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
-                  AUDIO_CONTROL_OUTPUT_TERMINAL,        /* bDescriptorSubtype */
-                  0x02,                                 /* bTerminalID */
-                  WBVAL(AUDIO_TERMINAL_USB_STREAMING),  /* wTerminalType */
-                  0x01,                                 /* bAssocTerminal */
-                  0x01,                                 /* bSourceID */
-                  0x00,                                 /* iTerminal */
+            /* Audio Output Terminal */
+            0x09,                                 /* bLength */
+            AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+            AUDIO_CONTROL_OUTPUT_TERMINAL,        /* bDescriptorSubtype */
+            0x02,                                 /* bTerminalID */
+            WBVAL(AUDIO_TERMINAL_USB_STREAMING),  /* wTerminalType */
+            0x01,                                 /* bAssocTerminal */
+            0x01,                                 /* bSourceID */
+            0x00,                                 /* iTerminal */
 
-                /* Endpoint - Standard Descriptor */
-                  0x07,                                 /* bLength */
-                  USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-                  USB_ENDPOINT_OUT(1),                  /* bEndpointAddress */
-                  USB_ENDPOINT_TYPE_BULK,               /* bmAttributes */
-                  WBVAL(0x0040),                        /* wMaxPacketSize */
-                  0x01,                                 /* bInterval */
+            /* Endpoint - Standard Descriptor */
+            0x07,                                 /* bLength */
+            USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
+            USB_ENDPOINT_OUT(1),                  /* bEndpointAddress */
+            USB_ENDPOINT_TYPE_BULK,               /* bmAttributes */
+            WBVAL(0x0040),                        /* wMaxPacketSize */
+            0x01,                                 /* bInterval */
 
-                /* Endpoint - Standard Descriptor */
-                  0x07,                                 /* bLength */
-                  USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
-                  USB_ENDPOINT_IN(2),                   /* bEndpointAddress */
-                  USB_ENDPOINT_TYPE_BULK,               /* bmAttributes */
-                  WBVAL(0x0040),                        /* wMaxPacketSize */
-                  0x01,                                 /* bInterval */
+            /* Endpoint - Standard Descriptor */
+            0x07,                                 /* bLength */
+            USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
+            USB_ENDPOINT_IN(2),                   /* bEndpointAddress */
+            USB_ENDPOINT_TYPE_BULK,               /* bmAttributes */
+            WBVAL(0x0040),                        /* wMaxPacketSize */
+            0x01,                                 /* bInterval */
 
-                /* Terminator */
-                  0                                     /* bLength */
+            /* Terminator */
+            0                                     /* bLength */
         };
 
 
@@ -181,51 +180,46 @@ namespace usb_midi {
             UX16KBDState* s = (UX16KBDState*)dev;
             int ret = 0;
             uint8_t devep = p->ep->nr;
-
             switch (p->pid) {
-            case USB_TOKEN_IN:
-                if (devep == 1) {
-                    printf("token in ep: %d\n", devep);
-                    OSDebugOut(TEXT("token in ep: %d\n"), devep);
+            case USB_TOKEN_IN: {
+                int32_t* dst = nullptr;
+                std::vector<int32_t> dst_alloc(0);
+                size_t len = p->iov.size;
 
-                    int32_t* dst = nullptr;
-                    std::vector<int32_t> dst_alloc(0);
-                    size_t len = p->iov.size;
+                if (p->iov.niov == 1) {
+                    dst = (int32_t*)p->iov.iov[0].iov_base;
+                }
+                else {
+                    dst_alloc.resize(len / sizeof(int32_t));
+                    dst = dst_alloc.data();
+                }
 
-                    if (p->iov.niov == 1) {
-                        dst = (int32_t*)p->iov.iov[0].iov_base;
-                    }
-                    else {
-                        dst_alloc.resize(len / sizeof(int32_t));
-                        dst = dst_alloc.data();
-                    }
+                memset(dst, 0, len);
 
-                    memset(dst, 0, len);
+                // The game can't process packets quick enough if you send a ton at once
+                // so instead just return 1 MIDI command per update
+                uint32_t curValue = 0xffffffff;
+                if (s->midisrc) {
+                    curValue = s->midisrc->PopMidiCommand();
+                }
 
-                    // The game can't process packets quick enough if you send a ton at once
-                    // so instead just return 1 MIDI command per update
-                    uint32_t curValue = 0xffffffff;
-                    if (s->midisrc) {
-                        curValue = s->midisrc->PopMidiCommand();
-                    }
+                if (curValue != 0xffffffff) {
+                    dst[0] = (curValue << 8) | ((curValue & 0xf0) >> 4);
+                    ret += 4;
+                }
+                else {
+                    ret = 0;
+                }
 
-                    if (curValue != 0xffffffff) {
-                        dst[0] = (curValue << 8) | ((curValue & 0xf0) >> 4);
-                        ret += 4;
-                    }
-                    else {
-                        ret = 0;
-                    }
-
-                    if (p->iov.niov > 1)
-                    {
-                        usb_packet_copy(p, dst_alloc.data(), ret);
-                    }
-                    else {
-                        p->actual_length = ret;
-                    }
+                if (p->iov.niov > 1)
+                {
+                    usb_packet_copy(p, dst_alloc.data(), ret);
+                }
+                else {
+                    p->actual_length = ret;
                 }
                 break;
+            }
             case USB_TOKEN_OUT:
                 printf("token out ep: %d\n", devep);
                 OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, p->actual_length);
@@ -319,8 +313,6 @@ namespace usb_midi {
                 OSDebugOut(TEXT("Failed usb_desc_parse_config\n"));
                 goto fail;
             }
-
-            OSDebugOut(TEXT("Called MidiUx16Device::CreateDevice\n"));
 
             s->dev.speed = USB_SPEED_FULL;
             s->dev.klass.handle_attach = usb_desc_attach;
