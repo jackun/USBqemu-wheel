@@ -518,7 +518,7 @@ unsigned WINAPI MMAudioDevice::RenderThread(LPVOID ptr)
 		if (FAILED(hr))
 			goto device_error;
 
-		numFramesAvailable = std::min(bufferFrameCount - numFramesPadding, src->mInBuffer.size<short>() / src->GetChannels());
+		numFramesAvailable = std::min(bufferFrameCount - numFramesPadding, UINT32(src->mInBuffer.size<short>() / src->GetChannels()));
 
 		if (src->mInBuffer.size<short>())
 		{
