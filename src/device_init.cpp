@@ -5,7 +5,6 @@
 #include "usb-mic/usb-headset.h"
 #include "usb-hid/usb-hid.h"
 #include "usb-eyetoy/usb-eyetoy-webcam.h"
-#include "usb-midi/usb-midi-pc300.h"
 #include "usb-midi/usb-midi-ux16.h"
 
 void RegisterDevice::Register()
@@ -26,8 +25,8 @@ void RegisterDevice::Register()
 	inst.Add(DEVTYPE_BEATMANIA_DADADA, new DeviceProxy<usb_hid::BeatManiaDevice>());
 	inst.Add(DEVTYPE_SEGA_SEAMIC, new DeviceProxy<usb_pad::SeamicDevice>());
 	inst.Add(DEVTYPE_KEYBOARDMANIA, new DeviceProxy<usb_pad::KeyboardmaniaDevice>());
-	inst.Add(DEVTYPE_MIDI, new DeviceProxy<usb_midi::usb_midi_pc300::MidiPc300Device>());
-	inst.Add(DEVTYPE_MIDIADAPTER, new DeviceProxy<usb_midi::usb_midi_ux16::MidiUx16Device>());
+	inst.Add(DEVTYPE_MIDIKEYBOARD, new DeviceProxy<usb_midi::MidiPc300Device>());
+	inst.Add(DEVTYPE_MIDIDRUM, new DeviceProxy<usb_midi::MidiUx16Device>());
 
 	RegisterAPIs();
 }
