@@ -16,10 +16,6 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifdef _MSC_VER
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
 #include <stdexcept>
 #include <cstdlib>
 #include <string>
@@ -73,7 +69,7 @@ int64_t usb_frame_time;
 int64_t usb_bit_time;
 
 s64 clocks = 0;
-u64 remaining = 0;
+s64 remaining = 0;
 
 #if _WIN32
 HWND gsWnd = nullptr;
@@ -447,7 +443,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		CloseDevice(0);
 		CloseDevice(1);
 
-		for(unsigned int i=0; i < qemu_ohci->num_ports; i++)
+		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
 			usbd.t.rhport[i].port.opaque = qemu_ohci;
 			usbd.t.rhport[i].port.ops = qemu_ohci->rhport[i].port.ops;
@@ -616,7 +612,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		if (qemu_ohci->usb_packet.ep)
 			usbd.usb_packet.ep = *qemu_ohci->usb_packet.ep;
 
-		for(unsigned int i=0; i < qemu_ohci->num_ports; i++)
+		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
 			usbd.t.rhport[i].port.opaque = nullptr;
 			usbd.t.rhport[i].port.ops = nullptr;
@@ -680,7 +676,7 @@ EXPORT_C_(void) USBasync(u32 cycles)
 		}
 		if((remaining>0)&&(qemu_ohci->eof_timer>0))
 		{
-			u64 m = qemu_ohci->eof_timer;
+			s64 m = qemu_ohci->eof_timer;
 			if(remaining < m)
 				m = remaining;
 			qemu_ohci->eof_timer -= m;

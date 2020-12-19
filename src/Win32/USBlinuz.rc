@@ -7,19 +7,17 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "WinResrc.h"
+#include "winresrc.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.S.) resources
+// English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -138,17 +136,17 @@ END
 
 IDD_DLGMIC AFX_DIALOG_LAYOUT
 BEGIN
-    0x0000
+    0
 END
 
 IDD_CONFIG AFX_DIALOG_LAYOUT
 BEGIN
-    0x0000
+    0
 END
 
 IDD_DLGWASAPI AFX_DIALOG_LAYOUT
 BEGIN
-    0x0000
+    0
 END
 
 IDD_DLG_EYETOY AFX_DIALOG_LAYOUT
@@ -165,17 +163,13 @@ END
 #ifdef APSTUDIO_INVOKED
 GUIDELINES DESIGNINFO
 BEGIN
-    IDD_DLGMIDIKBD, DIALOG
+    IDD_DLGWASAPI, DIALOG
     BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 287
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 85
     END
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // English (U.S.) resources
+#endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -183,10 +177,8 @@ END
 // Spanish (Argentina) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
-#ifdef _WIN32
 LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
 #pragma code_page(1252)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -194,18 +186,18 @@ LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_ARGENTINA
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE
+1 TEXTINCLUDE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE
+2 TEXTINCLUDE 
 BEGIN
     "#include ""WinResrc.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE
+3 TEXTINCLUDE 
 BEGIN
     "\r\n"
     "\0"
