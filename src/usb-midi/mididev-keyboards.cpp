@@ -179,7 +179,7 @@ int KeyboardMidiDevice::Configure(int port, const char* dev_type, void *data)
 	settings.port = port;
 	settings.dev_type = dev_type;
 
-	return DialogBoxParam(
+	return (int)DialogBoxParam(
 		h.hInst,
 		MAKEINTRESOURCE(IDD_DLGMIDIKBD),
 		h.hWnd,
@@ -256,7 +256,7 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 			switch (LOWORD(wParam)) {
 			case IDOK:
 			{
-				int p;
+				LRESULT p;
 				s = (KeyboardsSettings *)GetWindowLongPtr(hW, GWLP_USERDATA);
 				INT_PTR res = RESULT_OK;
 
