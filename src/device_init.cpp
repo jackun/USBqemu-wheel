@@ -26,8 +26,8 @@ void RegisterDevice::Register()
 	inst.Add(DEVTYPE_BEATMANIA_DADADA, new DeviceProxy<usb_hid::BeatManiaDevice>());
 	inst.Add(DEVTYPE_SEGA_SEAMIC, new DeviceProxy<usb_pad::SeamicDevice>());
 	inst.Add(DEVTYPE_KEYBOARDMANIA, new DeviceProxy<usb_pad::KeyboardmaniaDevice>());
-	inst.Add(DEVTYPE_MIDI, new DeviceProxy<usb_midi_pc300::MidiPc300Device>());
-	inst.Add(DEVTYPE_MIDIADAPTER, new DeviceProxy<usb_midi_ux16::MidiUx16Device>());
+	inst.Add(DEVTYPE_MIDI, new DeviceProxy<usb_midi::usb_midi_pc300::MidiPc300Device>());
+	inst.Add(DEVTYPE_MIDIADAPTER, new DeviceProxy<usb_midi::usb_midi_ux16::MidiUx16Device>());
 
 	RegisterAPIs();
 }

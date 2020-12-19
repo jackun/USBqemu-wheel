@@ -13,6 +13,7 @@
 
 #pragma comment(lib, "winmm.lib")
 
+namespace usb_midi {
 namespace mididev_keyboards {
 //Config dlg temporaries
 struct KeyboardsSettings
@@ -72,7 +73,7 @@ bool KeyboardMidiDevice::Init()
 {
 	if (!LoadSetting(mDevType, mPort, APINAME, N_AUDIO_SOURCE0, mDevID))
 	{
-		throw MidiDeviceError("KeyboardMidiDevice:: failed to load source from ini!");
+		throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: failed to load source from ini!");
 	}
 
 	if (!mDevID.length())
@@ -105,7 +106,7 @@ void KeyboardMidiDevice::Start()
 
 	int ret = midiInOpen(&hMidiDevice, _wtoi(mDevID.c_str()), reinterpret_cast<DWORD_PTR>(midiCallback), mPort, CALLBACK_FUNCTION);
 	if (ret != MMSYSERR_NOERROR) {
-		throw MidiDeviceError("KeyboardMidiDevice:: failed to open MIDI device!");
+		throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: failed to open MIDI device!");
 	}
 
 	midiInStart(hMidiDevice);
@@ -291,6 +292,4 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 	}
 	return FALSE;
 }
-
-REGISTER_MIDIDEV(APINAME, KeyboardMidiDevice);
-} // namespace
+}} // namespace

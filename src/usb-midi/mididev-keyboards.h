@@ -7,7 +7,7 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
-namespace mididev_keyboards {
+namespace usb_midi { namespace mididev_keyboards {
 
 static const char *APINAME = "keyboards";
 
@@ -18,9 +18,9 @@ public:
 	MidiDevice(port, dev_type)
 	{
 		if(!Init())
-			throw MidiDeviceError("KeyboardMidiDevice:: device name is empty, skipping");
+			throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: device name is empty, skipping");
 		if(!Reinitialize())
-			throw MidiDeviceError("KeyboardMidiDevice:: Keyboards init failed!");
+			throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: Keyboards init failed!");
 	}
 
 	~KeyboardMidiDevice();
@@ -70,4 +70,4 @@ private:
 	int32_t midiOffset;
 };
 
-} // namespace
+}} // namespace

@@ -8,9 +8,11 @@
 #include <iterator>
 #include "../helpers.h"
 #include "../configuration.h"
-#include "../proxybase.h"
+#include "../deviceproxy.h"
 #include "../osdebugout.h"
 #include "mididev.h"
+
+namespace usb_midi {
 
 class MidiDeviceError : public std::runtime_error
 {
@@ -24,11 +26,11 @@ class MidiDeviceProxyBase : public ProxyBase
 	MidiDeviceProxyBase(const MidiDeviceProxyBase&) = delete;
 	MidiDeviceProxyBase& operator=(const MidiDeviceProxyBase&) = delete;
 
-	public:
+public:
 	MidiDeviceProxyBase() {};
 	MidiDeviceProxyBase(const std::string& name);
 	virtual MidiDevice* CreateObject(int port, const char* dev_type) const = 0; //Can be generalized? Probably not
-	virtual void MidiDevices(std::vector<MidiDeviceInfo> &devices) const = 0;
+	virtual void MidiDevices(std::vector<MidiDeviceInfo>& devices) const = 0;
 	virtual bool AudioInit() = 0;
 	virtual void AudioDeinit() = 0;
 };
@@ -38,9 +40,9 @@ class MidiDeviceProxy : public MidiDeviceProxyBase
 {
 	MidiDeviceProxy(const MidiDeviceProxy&) = delete;
 
-	public:
+public:
 	MidiDeviceProxy() {}
-	MidiDeviceProxy(const std::string& name): MidiDeviceProxyBase(name) {} //Why can't it automagically, ugh
+	MidiDeviceProxy(const std::string& name) : MidiDeviceProxyBase(name) {} //Why can't it automagically, ugh
 	~MidiDeviceProxy() { OSDebugOut(TEXT("%p\n"), this); }
 
 	MidiDevice* CreateObject(int port, const char* dev_type) const
@@ -49,7 +51,7 @@ class MidiDeviceProxy : public MidiDeviceProxyBase
 		{
 			return new T(port, dev_type);
 		}
-		catch(MidiDeviceError& err)
+		catch (MidiDeviceError& err)
 		{
 			OSDebugOut(TEXT("MidiDevice port %d: %") TEXT(SFMTs) TEXT("\n"), port, err.what());
 			(void)err;
@@ -60,11 +62,11 @@ class MidiDeviceProxy : public MidiDeviceProxyBase
 	{
 		return T::Name();
 	}
-	virtual int Configure(int port, const char* dev_type, void *data)
+	virtual int Configure(int port, const char* dev_type, void* data)
 	{
 		return T::Configure(port, dev_type, data);
 	}
-	virtual void MidiDevices(std::vector<MidiDeviceInfo> &devices) const
+	virtual void MidiDevices(std::vector<MidiDeviceInfo>& devices) const
 	{
 		T::MidiDevices(devices);
 	}
@@ -83,7 +85,7 @@ class RegisterMidiDevice
 	RegisterMidiDevice(const RegisterMidiDevice&) = delete;
 	RegisterMidiDevice() {}
 
-	public:
+public:
 	typedef std::map<std::string, std::unique_ptr<MidiDeviceProxyBase> > RegisterMidiDeviceMap;
 	static RegisterMidiDevice& instance() {
 		static RegisterMidiDevice registerMidiDevice;
@@ -92,7 +94,7 @@ class RegisterMidiDevice
 
 	~RegisterMidiDevice() { Clear(); OSDebugOut("%p\n", this); }
 
-	static void Initialize();
+	static void Register();
 
 	void Clear()
 	{
@@ -137,5 +139,10 @@ private:
 	RegisterMidiDeviceMap registerMidiDeviceMap;
 };
 
-#define REGISTER_MIDIDEV(name,cls) //MidiDeviceProxy<cls> g##cls##Proxy(name)
+class RegisterAudioDevice : public RegisterProxy<MidiDeviceProxyBase>
+{
+public:
+	static void Register();
+};
+}
 #endif

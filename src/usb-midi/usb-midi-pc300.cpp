@@ -31,6 +31,7 @@
 
 #include "audio.h"
 
+namespace usb_midi {
 namespace usb_midi_pc300 {
 
 typedef struct PC300KBDState {
@@ -40,7 +41,7 @@ typedef struct PC300KBDState {
     USBDescDevice desc_dev;
 
     MidiDevice *midisrc;
-    MidiDeviceProxyBase *midisrcproxy;
+    usb_midi::MidiDeviceProxyBase *midisrcproxy;
 
     struct freeze {
         int port;
@@ -411,7 +412,7 @@ USBDevice* MidiPc300Device::CreateDevice(int port, const std::string& api)
 
   s = new PC300KBDState();
 
-	s->midisrcproxy = RegisterMidiDevice::instance().Proxy(api);
+	s->midisrcproxy = usb_midi::RegisterMidiDevice::instance().Proxy(api);
 	if (!s->midisrcproxy)
 	{
 		SysMessage(TEXT("pc300: Invalid MIDI API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
@@ -459,7 +460,7 @@ fail:
 
 int MidiPc300Device::Configure(int port, const std::string& api, void *data)
 {
-	auto proxy = RegisterMidiDevice::instance().Proxy(api);
+	auto proxy = usb_midi::RegisterMidiDevice::instance().Proxy(api);
 	if (proxy)
 		return proxy->Configure(port, TypeName(), data);
 	return RESULT_CANCELED;
@@ -485,4 +486,4 @@ int MidiPc300Device::Freeze(int mode, USBDevice *dev, void *data)
 	}
 	return -1;
 }
-};
+}};
