@@ -225,12 +225,14 @@ SET(HDRS_MIDI
 	./src/usb-midi/mididev.h
 	./src/usb-midi/midideviceproxy.h
 	./src/usb-midi/usb-midi-pc300.h
+	./src/usb-midi/usb-midi-ux16.h
 	./src/usb-midi/mididev-keyboards.h
 )
 
 SET(SRCS_MIDI
 	./src/usb-midi/midideviceproxy.cpp
 	./src/usb-midi/usb-midi-pc300.cpp
+	./src/usb-midi/usb-midi-ux16.cpp
 	./src/usb-midi/mididev-keyboards.cpp
 )
 

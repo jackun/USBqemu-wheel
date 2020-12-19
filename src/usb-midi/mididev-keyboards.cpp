@@ -176,7 +176,7 @@ int KeyboardMidiDevice::Configure(int port, const char* dev_type, void *data)
 	Win32Handles h = *(Win32Handles*)data;
 	KeyboardsSettings settings;
 
-	settings.port = port == 0;
+	settings.port = port;
 	settings.dev_type = dev_type;
 
 	return DialogBoxParam(
