@@ -664,11 +664,11 @@ int usb_desc_string(USBDevice *dev, int index, uint8_t *dest, size_t len)
 		return 0;
 	}
 
-	bLength = strlen(str) * 2 + 2;
+	bLength = (uint8_t)strlen(str) * 2 + 2;
 	dest[0] = bLength;
 	dest[1] = USB_DT_STRING;
 	i = 0; pos = 2;
-	while (pos+1 < bLength && pos+1 < len) {
+	while (pos+1 < bLength && (size_t)pos+1 < len) {
 		dest[pos++] = str[i++];
 		dest[pos++] = 0;
 	}
@@ -745,7 +745,7 @@ int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 
 	if (ret > 0) {
 		if (ret > len) {
-			ret = len;
+			ret = (int)len;
 		}
 		memcpy(dest, buf, ret);
 		p->actual_length = ret;

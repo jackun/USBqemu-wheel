@@ -59,14 +59,14 @@ typedef struct OHCIState {
     uint32_t rhdesc_a, rhdesc_b;
     uint32_t rhstatus;
     OHCIPort rhport[OHCI_MAX_PORTS];
-    
+
     /* Active packets.  */
     uint32_t old_ctl;
     USBPacket usb_packet;
     uint8_t usb_buf[8192];
     uint32_t async_td;
     bool async_complete;
-    
+
 } OHCIState;
 
 /* Host Controller Communications Area */
@@ -82,7 +82,7 @@ struct ohci_hcca {
 #define offsetof(x,z) offsetof_((x*)0,z)
 #endif
 
-//ISO C++ forbids declaration of ‘typeof’ with no type
+//ISO C++ forbids declaration of 'typeof' with no type
 /*
 #define CONTAINER_OF(ptr, type, member) ({                      \
         const typeof(((type *) 0)->member) *__mptr = (ptr);     \
