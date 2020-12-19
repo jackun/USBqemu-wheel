@@ -279,7 +279,6 @@ USBDevice* MidiPc300Device::CreateDevice(int port)
     s->dev.klass.product_desc = desc_strings[0];
 
     usb_desc_init(&s->dev);
-    SysMessage(TEXT("pc300: Started"));
 
     return dev;
 

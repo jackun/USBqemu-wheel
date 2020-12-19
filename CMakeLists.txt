@@ -254,14 +254,12 @@ SET(HDRS_MIDI
 	./src/usb-midi/mididev.h
 	./src/usb-midi/midideviceproxy.h
 	./src/usb-midi/usb-midi-ux16.h
-	./src/usb-midi/mididev-keyboards.h
 )
 
 SET(SRCS_MIDI
 	./src/usb-midi/midideviceproxy.cpp
 	./src/usb-midi/usb-midi-pc300.cpp
 	./src/usb-midi/usb-midi-ux16.cpp
-	./src/usb-midi/mididev-keyboards.cpp
 )
 
 # shared/global functions
@@ -351,6 +349,14 @@ IF(WIN32)
 
 	LIST(APPEND SRCS_EYETOY
 		./src/usb-eyetoy/cam-windows.cpp
+	)
+
+	LIST(APPEND HDRS_MIDI
+		./src/usb-midi/win32/win32midi.h
+	)
+
+	LIST(APPEND SRCS_MIDI
+		./src/usb-midi/win32/win32midi.cpp
 	)
 
 	LIST(APPEND HDRS ${HDRS_WIN32})

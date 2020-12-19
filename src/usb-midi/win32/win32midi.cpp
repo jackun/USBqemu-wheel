@@ -7,7 +7,7 @@
 #include <process.h>
 #include <stdlib.h>
 #include <windows.h>
-#include "mididev-keyboards.h"
+#include "win32midi.h"
 #include "../Win32/Config.h"
 #include "../Win32/resource.h"
 
@@ -64,16 +64,16 @@ void CALLBACK midiCallback(HMIDIIN hMidiIn, UINT wMsg, const DWORD_PTR dwInstanc
 	}
 }
 
-KeyboardMidiDevice::~KeyboardMidiDevice()
+Win32MidiDevice::~Win32MidiDevice()
 {
 }
 
 static HMIDIIN hMidiDevice;
-bool KeyboardMidiDevice::Init()
+bool Win32MidiDevice::Init()
 {
 	if (!LoadSetting(mDevType, mPort, APINAME, N_AUDIO_SOURCE0, mDevID))
 	{
-		throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: failed to load source from ini!");
+		throw usb_midi::MidiDeviceError("Win32MidiDevice:: failed to load source from ini!");
 	}
 
 	if (!mDevID.length())
@@ -82,12 +82,12 @@ bool KeyboardMidiDevice::Init()
 	return true;
 }
 
-bool KeyboardMidiDevice::Reinitialize()
+bool Win32MidiDevice::Reinitialize()
 {
 	return true;
 }
 
-void KeyboardMidiDevice::Start()
+void Win32MidiDevice::Start()
 {
 	if (hMidiDevice) {
 		midiInStop(hMidiDevice);
@@ -106,13 +106,13 @@ void KeyboardMidiDevice::Start()
 
 	int ret = midiInOpen(&hMidiDevice, _wtoi(mDevID.c_str()), reinterpret_cast<DWORD_PTR>(midiCallback), mPort, CALLBACK_FUNCTION);
 	if (ret != MMSYSERR_NOERROR) {
-		throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: failed to open MIDI device!");
+		throw usb_midi::MidiDeviceError("Win32MidiDevice:: failed to open MIDI device!");
 	}
 
 	midiInStart(hMidiDevice);
 }
 
-void KeyboardMidiDevice::Stop()
+void Win32MidiDevice::Stop()
 {
 	if (hMidiDevice) {
 		midiInStop(hMidiDevice);
@@ -123,12 +123,12 @@ void KeyboardMidiDevice::Stop()
 }
 
 
-bool KeyboardMidiDevice::AudioInit()
+bool Win32MidiDevice::AudioInit()
 {
 	return true;
 }
 
-uint32_t KeyboardMidiDevice::PopMidiCommand() {
+uint32_t Win32MidiDevice::PopMidiCommand() {
 	if (midiInfo.midiBuffer[mPort].size() <= 0) {
 		return 0xffffffff;
 	}
@@ -138,7 +138,7 @@ uint32_t KeyboardMidiDevice::PopMidiCommand() {
 	return val;
 }
 
-void KeyboardMidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
+void Win32MidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
 {
 	const int nMidiDeviceNum = midiInGetNumDevs();
 
@@ -172,7 +172,7 @@ void KeyboardMidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
 	}
 }
 
-int KeyboardMidiDevice::Configure(int port, const char* dev_type, void *data)
+int Win32MidiDevice::Configure(int port, const char* dev_type, void *data)
 {
 	Win32Handles h = *(Win32Handles*)data;
 	KeyboardsSettings settings;
@@ -197,7 +197,7 @@ static void RefreshInputKeyboardList(HWND hW, LRESULT idx, KeyboardsSettings *se
 	SendDlgItemMessageW(hW, IDC_COMBO1, CB_ADDSTRING, 0, (LPARAM)L"None");
 	SendDlgItemMessage(hW, IDC_COMBO1, CB_SETCURSEL, 0, 0);
 
-	KeyboardMidiDevice::MidiDevices(settings->sourceDevs);
+	Win32MidiDevice::MidiDevices(settings->sourceDevs);
 	MidiDeviceInfoList::iterator it;
 	int i = 0;
 	for (it = settings->sourceDevs.begin(); it != settings->sourceDevs.end(); ++it)

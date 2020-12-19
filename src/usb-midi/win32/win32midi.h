@@ -1,6 +1,6 @@
 // Used OBS as example
 
-#include "midideviceproxy.h"
+#include "../midideviceproxy.h"
 #include "libsamplerate/samplerate.h"
 #include "shared/ringbuffer.h"
 
@@ -11,19 +11,19 @@ namespace usb_midi { namespace mididev_keyboards {
 
 static const char *APINAME = "keyboards";
 
-class KeyboardMidiDevice : public MidiDevice
+class Win32MidiDevice : public MidiDevice
 {
 public:
-	KeyboardMidiDevice(int port, const char* dev_type):
+	Win32MidiDevice(int port, const char* dev_type):
 	MidiDevice(port, dev_type)
 	{
 		if(!Init())
-			throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: device name is empty, skipping");
+			throw usb_midi::MidiDeviceError("Win32MidiDevice:: device name is empty, skipping");
 		if(!Reinitialize())
-			throw usb_midi::MidiDeviceError("KeyboardMidiDevice:: Keyboards init failed!");
+			throw usb_midi::MidiDeviceError("Win32MidiDevice:: Keyboards init failed!");
 	}
 
-	~KeyboardMidiDevice();
+	~Win32MidiDevice();
 	bool Init();
 	bool Reinitialize();
 	void Start();
@@ -34,7 +34,7 @@ public:
 	{
 		if (compare)
 		{
-			KeyboardMidiDevice *src = static_cast<KeyboardMidiDevice *>(compare);
+			Win32MidiDevice *src = static_cast<Win32MidiDevice *>(compare);
 			if (src && mDevID == src->mDevID)
 				return true;
 		}
