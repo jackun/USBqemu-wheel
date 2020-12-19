@@ -38,29 +38,29 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 void CALLBACK midiCallback(HMIDIIN hMidiIn, UINT wMsg, const DWORD_PTR dwInstance, const DWORD dwParam1, const DWORD dwParam2)
 {
 	switch (wMsg) {
-		case MIM_DATA:
-		{
-			DWORD dwParam = dwParam1;
+	case MIM_DATA:
+	{
+		DWORD dwParam = dwParam1;
 
-			// Only send on/off commands as to not flood the game
-			if (dwParam & 0x80) {
-				const int note = dwParam >> 8 & 0x7f;
+		// Only send on/off commands as to not flood the game
+		if (dwParam & 0x80) {
+			const int note = dwParam >> 8 & 0x7f;
 
-				// Clear note data completely from command
-				dwParam = dwParam & ~(0x7f << 8);
+			// Clear note data completely from command
+			dwParam = dwParam & ~(0x7f << 8);
 
-				// Some keyboards don't map the MIDI ranges how the game expects.
-				// As a workaround, I've made it possible to add an offset to
-				// make up for the differences in ranges.
-				// This is noticeable with my device (Line 6 Mobile Keys 25) which
-				// has the farthest left D Sharp (+3 from C) mapped as C in-game,
-				// so I would use 3 to make up for the difference so that D Sharp on
-				// device maps to D Sharp in-game.
-				dwParam |= ((note + midiInfo.midiOffset) % 0x7f) << 8;
+			// Some keyboards don't map the MIDI ranges how the game expects.
+			// As a workaround, I've made it possible to add an offset to
+			// make up for the differences in ranges.
+			// This is noticeable with my device (Line 6 Mobile Keys 25) which
+			// has the farthest left D Sharp (+3 from C) mapped as C in-game,
+			// so I would use 3 to make up for the difference so that D Sharp on
+			// device maps to D Sharp in-game.
+			dwParam |= ((note + midiInfo.midiOffset) % 0x7f) << 8;
 
-				midiInfo.midiBuffer[dwInstance].push(dwParam);
-			}
+			midiInfo.midiBuffer[dwInstance].push(dwParam);
 		}
+	}
 	}
 }
 
@@ -138,17 +138,17 @@ uint32_t Win32MidiDevice::PopMidiCommand() {
 	return val;
 }
 
-void Win32MidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
+void Win32MidiDevice::MidiDevices(std::vector<MidiDeviceInfo>& devices)
 {
 	const int nMidiDeviceNum = midiInGetNumDevs();
 
 	OSDebugOut(TEXT("Found %d MIDI devices\n"), nMidiDeviceNum);
 
 	for (int i = 0; i < nMidiDeviceNum; i++) {
-        MIDIINCAPS caps;
+		MIDIINCAPS caps;
 		midiInGetDevCaps(i, &caps, sizeof(MIDIINCAPS));
 
-        OSDebugOut(TEXT("MIDI device %d: %s\n"), i, caps.szPname);
+		OSDebugOut(TEXT("MIDI device %d: %s\n"), i, caps.szPname);
 
 		MidiDeviceInfo info;
 
@@ -160,19 +160,14 @@ void Win32MidiDevice::MidiDevices(std::vector<MidiDeviceInfo> &devices)
 		// device from the list again.
 		// It's not ideal at all but the alternative is to match based on
 		// product name which would make managing two of the same device difficult.
-		wchar_t wstrID[4096] = {0};
-		wsprintf(wstrID, L"%d", i);
+		info.strID = std::to_wstring(i);
+		info.strName = std::wstring(caps.szPname);
 
-		wchar_t wszPname[4096] = {0};
-		wcscpy_s(wszPname, countof(wszPname), caps.szPname);
-
-		info.strID = wstrID;
-		info.strName = caps.szPname;
 		devices.push_back(info);
 	}
 }
 
-int Win32MidiDevice::Configure(int port, const char* dev_type, void *data)
+int Win32MidiDevice::Configure(int port, const char* dev_type, void* data)
 {
 	Win32Handles h = *(Win32Handles*)data;
 	KeyboardsSettings settings;
@@ -189,7 +184,7 @@ int Win32MidiDevice::Configure(int port, const char* dev_type, void *data)
 	);
 }
 
-static void RefreshInputKeyboardList(HWND hW, LRESULT idx, KeyboardsSettings *settings)
+static void RefreshInputKeyboardList(HWND hW, LRESULT idx, KeyboardsSettings* settings)
 {
 	settings->sourceDevs.clear();
 
@@ -213,7 +208,7 @@ static void RefreshInputKeyboardList(HWND hW, LRESULT idx, KeyboardsSettings *se
 
 static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	int tmp = 0;
-	KeyboardsSettings *s;
+	KeyboardsSettings* s;
 
 	switch (uMsg) {
 	case WM_CREATE:
@@ -221,7 +216,7 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 		break;
 	case WM_INITDIALOG:
 	{
-		s = (KeyboardsSettings *)lParam;
+		s = (KeyboardsSettings*)lParam;
 		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
 
 		s->midiOffset = 0;
@@ -258,7 +253,7 @@ static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM 
 			case IDOK:
 			{
 				LRESULT p;
-				s = (KeyboardsSettings *)GetWindowLongPtr(hW, GWLP_USERDATA);
+				s = (KeyboardsSettings*)GetWindowLongPtr(hW, GWLP_USERDATA);
 				INT_PTR res = RESULT_OK;
 
 				p = SendDlgItemMessage(hW, IDC_COMBO1, CB_GETCURSEL, 0, 0);
