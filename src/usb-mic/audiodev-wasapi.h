@@ -1,13 +1,13 @@
 // Used OBS as example
 
 #include "audiodeviceproxy.h"
-#include "../libsamplerate/samplerate.h"
-#include "ringbuffer.h"
+#include "libsamplerate/samplerate.h"
+#include "shared/ringbuffer.h"
 
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
-namespace audiodev_wasapi {
+namespace usb_mic { namespace audiodev_wasapi {
 
 static const char *APINAME = "wasapi";
 
@@ -118,7 +118,7 @@ private:
 	std::wstring mDevID;
 	bool mDeviceLost;
 	std::wstring mDeviceName;
-	int mBuffering;
+	LONGLONG mBuffering;
 
 	SRC_STATE *mResampler;
 	double mResampleRatio;
@@ -138,4 +138,4 @@ private:
 	LONGLONG mLastTimeNS = 0;
 };
 
-} // namespace
+}} // namespace

@@ -5,7 +5,7 @@
 #include <thread>
 #include <stdio.h>
 #include <sstream>
-#include <gtk/gtk.h>
+#include "gtk.h"
 
 namespace usb_pad { namespace evdev {
 
@@ -542,12 +542,12 @@ const std::array<const char *, 525> key_to_str = {
   "RFKILL", /* linux:524 (KEY_RFKILL) */
 };
 
-static bool GetEventName(int map, int event, const char **name)
+static bool GetEventName(const char *dev_type, int map, int event, const char **name)
 {
 	if (!name)
 		return false;
 
-	if (map < JOY_STEERING) {
+	if (map < JOY_STEERING || !strcmp(dev_type, BuzzDevice::TypeName())) {
 		if (event < key_to_str.size()) {
 			*name = key_to_str[event];
 			return true;
@@ -562,11 +562,17 @@ static bool GetEventName(int map, int event, const char **name)
 	return true;
 }
 
-static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted)
+static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial)
 {
 	int event_fd = -1;
 	ssize_t len;
 	input_event event;
+	struct AxisValue { int16_t value; bool initial; };
+	AxisValue axisVal[ABS_MAX + 1] {};
+	unsigned long absbit[NBITS(ABS_MAX)] {};
+	struct axis_correct abs_correct[ABS_MAX] {};
+
+	inverted = false;
 
 	fd_set fdset;
 	int maxfd = -1;
@@ -577,19 +583,12 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 		if (maxfd < js.second.fd) maxfd = js.second.fd;
 	}
 
-	struct axis_correct abs_correct[ABS_MAX];
-
-	inverted = false;
+	// wait to avoid some false positives like mouse movement
+	std::this_thread::sleep_for(ms(250));
 
 	// empty event queues
 	for (const auto& js: fds)
 		while ((len = read(js.second.fd, &event, sizeof(event))) > 0);
-
-	struct AxisValue { int16_t value; bool initial; };
-	AxisValue axisVal[ABS_MAX + 1] = { 0 };
-
-	int t;
-	unsigned long absbit[NBITS(ABS_MAX)] = { 0 };
 
 	struct timeval timeout {};
 	timeout.tv_sec = 5;
@@ -614,7 +613,7 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 	if (event_fd == -1)
 		return false;
 
-	if (ioctl(event_fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit) >= 0) {
+	if (isaxis && ioctl(event_fd, EVIOCGBIT(EV_ABS, sizeof(absbit)), absbit) >= 0) {
 		for (int i = 0; i < ABS_MAX; ++i) {
 			if (test_bit(i, absbit)) {
 				struct input_absinfo absinfo;
@@ -625,22 +624,7 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 
 				OSDebugOut("Axis %d absinfo min %d max %d\n", i, absinfo.minimum, absinfo.maximum);
 				//TODO from SDL2, usable here?
-				if (absinfo.minimum == absinfo.maximum) {
-					abs_correct[i].used = 0;
-				} else {
-					OSDebugOut("Using axis %d correction for '%s'\n", i, dev_name.c_str());
-					abs_correct[i].used = 1;
-					abs_correct[i].coef[0] =
-						(absinfo.maximum + absinfo.minimum) - 2 * absinfo.flat;
-					abs_correct[i].coef[1] =
-						(absinfo.maximum + absinfo.minimum) + 2 * absinfo.flat;
-					t = ((absinfo.maximum - absinfo.minimum) - 4 * absinfo.flat);
-					if (t != 0) {
-						abs_correct[i].coef[2] = (1 << 28) / t;
-					} else {
-						abs_correct[i].coef[2] = 0;
-					}
-				}
+				CalcAxisCorr(abs_correct[i], absinfo);
 			}
 		}
 	}
@@ -652,8 +636,23 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 		auto dur = std::chrono::duration_cast<ms>(sys_clock::now()-last).count();
 		if (dur > 5000) goto error;
 
-		if ((len = read(event_fd, &event, sizeof(event))) > -1 && (len == sizeof(event)))
+		if (!isaxis) {
+			event_fd = -1;
+			for (const auto& js: fds)
+			{
+				if (FD_ISSET(js.second.fd, &fdset)) {
+					event_fd = js.second.fd;
+					dev_name = js.first;
+
+					OSDebugOut("PollInput: polling...%s\n", dev_name.c_str());
+					break;
+				}
+			}
+		}
+
+		if (event_fd > -1 && (len = read(event_fd, &event, sizeof(event))) > -1 && (len == sizeof(event)))
 		{
+			OSDebugOut("PollInput: event...%d\n", event.type);
 			if (isaxis && event.type == EV_ABS)
 			{
 				auto& val = axisVal[event.code];
@@ -669,11 +668,12 @@ static bool PollInput(const std::vector<std::pair<std::string, ConfigMapping> >&
 				{
 					int ac_val = AxisCorrect(abs_correct[event.code], event.value);
 					int diff = ac_val - val.value;
-					OSDebugOut("Axis %d value difference: %d, corrected %d raw %d\n", event.code, diff, ac_val, event.value);
+					OSDebugOut("Axis %d value initial: %d, diff: %d, corr: %d raw %d\n", event.code, val.value, diff, ac_val, event.value);
 					if (std::abs(diff) > 2047)
 					{
 						value = event.code;
 						inverted = (diff < 0);
+						initial = val.value;
 						break;
 					}
 				}
@@ -709,10 +709,13 @@ error:
 int EvDevPad::Configure(int port, const char* dev_type, void *data)
 {
 	ApiCallbacks apicbs {GetEventName, EnumerateDevices, PollInput};
-	int ret = GtkPadConfigure(port, dev_type, "Evdev Settings", "evdev", GTK_WINDOW (data), apicbs);
+	int ret = 0;
+	if (!strcmp(dev_type, BuzzDevice::TypeName()))
+		ret = GtkBuzzConfigure(port, dev_type, "Evdev Settings", evdev::APINAME, GTK_WINDOW (data), apicbs);
+	else
+		ret = GtkPadConfigure(port, dev_type, "Evdev Settings", evdev::APINAME, GTK_WINDOW (data), apicbs);
 	return ret;
 }
 
-#undef APINAME
 #undef EVDEV_DIR
 }} //namespace

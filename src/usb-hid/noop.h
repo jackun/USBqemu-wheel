@@ -3,6 +3,8 @@
 
 namespace usb_hid { namespace noop {
 
+static const char *APINAME = "noop";
+
 class NOOP : public UsbHID
 {
 public:
@@ -24,7 +26,5 @@ public:
 		return RESULT_CANCELED;
 	}
 };
-
-REGISTER_USBHID("noop", NOOP);
 
 }}

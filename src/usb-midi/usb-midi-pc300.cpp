@@ -485,6 +485,4 @@ int MidiPc300Device::Freeze(int mode, USBDevice *dev, void *data)
 	}
 	return -1;
 }
-
-REGISTER_DEVICE(DEVTYPE_MIDIKBD, MidiPc300Device);
 };

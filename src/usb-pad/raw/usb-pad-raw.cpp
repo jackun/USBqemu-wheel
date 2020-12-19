@@ -1,5 +1,5 @@
 #include "../../USB.h"
-#include "../../Win32/Config-win32.h"
+#include "../../Win32/Config.h"
 #include "usb-pad-raw.h"
 
 namespace usb_pad { namespace raw {
@@ -50,7 +50,7 @@ void RawInputPad::ReaderThread(void *ptr)
 			if (!pad->mReportData.try_enqueue(report)) // TODO May leave queue with too stale data. Use multi-producer/consumer queue?
 			{
 				if (!errCount)
-					fprintf(stderr, "%s: Could not enqueue report data: %d\n", APINAME, pad->mReportData.size_approx());
+					fprintf(stderr, "%s: Could not enqueue report data: %zd\n", APINAME, pad->mReportData.size_approx());
 				errCount = (++errCount) % 16;
 			}
 		}
@@ -176,17 +176,25 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	Mappings             *mapping = NULL;
 	int                  numberOfButtons;
 
-	GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
-
-	devName = name;
-	std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
-
-	for(auto& it : mapVector)
+	auto iter = mappings.find(pRawInput->header.hDevice);
+	if (iter != mappings.end()) {
+		mapping = iter->second;
+	}
+	else
 	{
-		if(it.hidPath == devName)
+		GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICENAME, name, &nameSize);
+
+		devName = name;
+		std::transform(devName.begin(), devName.end(), devName.begin(), ::toupper);
+
+		for(auto& it : mapVector)
 		{
-			mapping = &it;
-			break;
+			if(it.hidPath == devName)
+			{
+				mapping = &it;
+				mappings[pRawInput->header.hDevice] = mapping;
+				break;
+			}
 		}
 	}
 
@@ -201,8 +209,8 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 	//GetRawInputDeviceInfo(pRawInput->header.hDevice, RIDI_DEVICEINFO, &devInfo, &pSize);
 
 	//Unset buttons/axes mapped to this device
-	//ResetData(&mapping->data[0]);
-	//ResetData(&mapping->data[1]);
+	//pad_reset_data(&mapping->data[0]);
+	//pad_reset_data(&mapping->data[1]);
 	memset(&mapping->data[0], 0xFF, sizeof(wheel_data_t));
 	memset(&mapping->data[1], 0xFF, sizeof(wheel_data_t));
 	mapping->data[0].buttons = 0;
@@ -228,10 +236,10 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 			uint16_t btn = mapping->btnMap[usage[i] - pButtonCaps->Range.UsageMin];
 			for(int j=0; j<2; j++)
 			{
-				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[j];
+				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[1 - j];
 				if(PLY_IS_MAPPED(j, btn))
 				{
-					uint32_t wtbtn = (1 << convert_wt_btn(wt, PLY_GET_VALUE(j, btn))) & 0xFFF; //12bit mask
+					uint32_t wtbtn = 1 << convert_wt_btn(wt, PLY_GET_VALUE(j, btn));
 					mapping->data[j].buttons |= wtbtn;
 				}
 			}
@@ -280,7 +288,7 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 				if(!PLY_IS_MAPPED(j, v))
 					continue;
 
-				type = conf.WheelType[j];
+				type = conf.WheelType[1 - j];
 
 				switch(PLY_GET_VALUE(j, v))
 				{
@@ -296,7 +304,6 @@ static void ParseRawInputHID(PRAWINPUT pRawInput)
 					break;
 
 				case PAD_AXIS_Y: // Y-axis
-					if(!(devInfo.hid.dwVendorId == 0x046D && devInfo.hid.dwProductId == 0xCA03))
 						//XXX Limit value range to 0..255
 						mapping->data[j].clutch = (value * 0xFF) / pValueCaps[i].LogicalMax;
 					break;
@@ -355,13 +362,13 @@ static void ParseRawInputKB(PRAWINPUT pRawInput)
 		{
 			if(PLY_IS_MAPPED(j, btn))
 			{
-				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[j];
+				PS2WheelTypes wt = (PS2WheelTypes)conf.WheelType[1 - j];
 				if(PLY_GET_VALUE(j, mapping->btnMap[i]) == pRawInput->data.keyboard.VKey)
 				{
 					uint32_t wtbtn = convert_wt_btn(wt, i);
 					if(pRawInput->data.keyboard.Flags & RI_KEY_BREAK)
 						mapping->data[j].buttons &= ~(1 << wtbtn); //unset
-					else //if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE)
+					else /* if(pRawInput->data.keyboard.Flags == RI_KEY_MAKE) */
 						mapping->data[j].buttons |= (1 << wtbtn); //set
 				}
 			}
@@ -400,6 +407,7 @@ int RawInputPad::Open()
 
 	Close();
 
+	mappings.clear();
 	LoadMappings(mDevType, mapVector);
 
 	memset(&mOLRead, 0, sizeof(OVERLAPPED));
@@ -422,9 +430,12 @@ int RawInputPad::Open()
 		mOLWrite.hEvent = CreateEvent(0, 0, 0, 0);
 
 		HidD_GetAttributes(mUsbHandle, &(attr));
-		if (attr.VendorID != PAD_VID || attr.ProductID == 0xC262) {
+
+		bool isClassicLogitech = (attr.VendorID == PAD_VID) && (attr.ProductID != 0xC262);
+		bool isKeyboardmania = (attr.VendorID == 0x0507) && (attr.ProductID == 0x0010);
+		if (!isClassicLogitech && !isKeyboardmania) {
 			fwprintf(stderr, TEXT("USBqemu: Vendor is not Logitech or wheel is G920. Not sending force feedback commands for safety reasons.\n"));
-			mDoPassthrough = false;
+			mDoPassthrough = 0;
 			Close();
 		}
 		else if (!mWriterThreadIsRunning)
@@ -460,9 +471,9 @@ int RawInputPad::Open()
 
 int RawInputPad::Close()
 {
-	Reset();
 	if(mUsbHandle != INVALID_HANDLE_VALUE)
 	{
+		Reset();
 		Sleep(100); // give WriterThread some time to write out Reset() commands
 		CloseHandle(mUsbHandle);
 		CloseHandle(mOLRead.hEvent);
@@ -473,8 +484,6 @@ int RawInputPad::Close()
 	mUsbHandle = INVALID_HANDLE_VALUE;
 	return 0;
 }
-
-REGISTER_PAD(APINAME, RawInputPad);
 
 // ---------
 #include "raw-config-res.h"
@@ -490,7 +499,7 @@ int RawInputPad::Configure(int port, const char* dev_type, void *data)
 		res = DialogBoxParam(h->hInst, MAKEINTRESOURCE(IDD_RAWCONFIG), h->hWnd, ConfigureRawDlgProc, (LPARAM)&config);
 		shared::rawinput::Uninitialize();
 	}
-	return res;
+	return (int)res;
 }
 
 }} //namespace

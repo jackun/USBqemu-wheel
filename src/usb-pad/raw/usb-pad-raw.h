@@ -57,7 +57,7 @@ protected:
 	OVERLAPPED mOLRead;
 	OVERLAPPED mOLWrite;
 
-	bool mDoPassthrough;
+	int32_t mDoPassthrough;
 	wheel_data_t mDataCopy;
 	std::thread mWriterThread;
 	std::thread mReaderThread;
@@ -103,12 +103,13 @@ struct RawDlgConfig
 	int port;
 	const char *dev_type;
 	std::wstring player_joys[2];
-	bool pt[2];
+	int32_t pt[2] {};
 	RawDlgConfig(int p, const char *dev_type_) : port(p), dev_type(dev_type_) {}
 };
 
 typedef std::vector<Mappings> MapVector;
 static MapVector mapVector;
+static std::map<HANDLE, Mappings*> mappings;
 
 void LoadMappings(const char *dev_type, MapVector& maps);
 void SaveMappings(const char *dev_type, MapVector& maps);

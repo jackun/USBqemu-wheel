@@ -1,11 +1,14 @@
-version: '0.8.2-{build}'
+version: '0.10.1-{build}'
 
-os: Visual Studio 2015
-platform: x86
+os: Visual Studio 2017
 clone_folder: C:\USBqemu-wheel
 clone_depth: 3
 test: off
 skip_non_tags: true
+
+platform:
+ - Win32
+ - x64
 
 configuration:
  - Release
@@ -15,7 +18,7 @@ before_build:
  - ps: $env:Date="$(git show -s --date=short --format='%ad')"
  - cmd: mkdir build
  - cmd: cd build
- - cmake -G "Visual Studio 14" ..
+ - cmake -A %platform% ..
 
 build_script:
  - cmake --build . --config %configuration% -- /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
@@ -25,5 +28,5 @@ install:
 
 artifacts:
  - path: build\$(configuration)
-   name: 'USBqemu-wheel-$(APPVEYOR_BUILD_VERSION)-$(Date)-$(COMMIT_SHA)-$(configuration)'
+   name: 'USBqemu-wheel-$(APPVEYOR_BUILD_VERSION)-$(platform)-$(Date)-$(COMMIT_SHA)-$(configuration)'
    type: zip

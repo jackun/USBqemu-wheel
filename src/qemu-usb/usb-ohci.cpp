@@ -62,8 +62,7 @@ static inline void ohci_intr_update(OHCIState *ohci)
     if (level)
     {
 
-        //if ((get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
-        if (ohci->intr_status != OHCI_INTR_WD) //HACK skip first intr with _WD, _SF should follow shortly
+        if ((get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
         {
             USBirq(1);
             last_cycle = get_clock();
@@ -527,6 +526,10 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
            the next ISO TD of the same ED */
         //trace_usb_ohci_iso_td_relative_frame_number_big(relative_frame_number,
         //                                                frame_count);
+        if (OHCI_CC_DATAOVERRUN == OHCI_BM(iso_td.flags, TD_CC)) {
+            /* avoid infinite loop */
+            return 1;
+        }
         OHCI_SET_BM(iso_td.flags, TD_CC, OHCI_CC_DATAOVERRUN);
         ed->head &= ~OHCI_DPTR_MASK;
         ed->head |= (iso_td.next & OHCI_DPTR_MASK);
@@ -567,7 +570,11 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
     }
 
     start_offset = iso_td.offset[relative_frame_number];
-    next_offset = iso_td.offset[relative_frame_number + 1];
+    if (relative_frame_number < frame_count) {
+        next_offset = iso_td.offset[relative_frame_number + 1];
+    } else {
+        next_offset = iso_td.be;
+    }
 
     if (!(OHCI_BM(start_offset, TD_PSW_CC) & 0xe) || 
         ((relative_frame_number < frame_count) && 
@@ -600,7 +607,12 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
         }
     } else {
         /* Last packet in the ISO TD */
-        end_addr = iso_td.be;
+        end_addr = next_offset;
+    }
+
+    if (start_addr > end_addr) {
+        //trace_usb_ohci_iso_td_bad_cc_overrun(start_addr, end_addr);
+        return 1;
     }
 
     if ((start_addr & OHCI_PAGE_MASK) != (end_addr & OHCI_PAGE_MASK)) {
@@ -608,6 +620,9 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
             - (start_addr & OHCI_OFFSET_MASK);
     } else {
         len = end_addr - start_addr + 1;
+    }
+    if (len > sizeof(ohci->usb_buf)) {
+        len = sizeof(ohci->usb_buf);
     }
 
     if (len && dir != OHCI_TD_DIR_IN) {
@@ -622,6 +637,10 @@ static int ohci_service_iso_td(OHCIState *ohci, struct ohci_ed *ed,
         bool int_req = relative_frame_number == frame_count &&
                        OHCI_BM(iso_td.flags, TD_DI) == 0;
         dev = ohci_find_device(ohci, OHCI_BM(ed->flags, ED_FA));
+        if (dev == NULL) {
+            //trace_usb_ohci_td_dev_error();
+            return 1;
+        }
         ep = usb_ep_get(dev, pid, OHCI_BM(ed->flags, ED_EN));
         usb_packet_setup(&ohci->usb_packet, pid, ep, 0, addr, false, int_req);
         usb_packet_addbuf(&ohci->usb_packet, ohci->usb_buf, len);
@@ -773,7 +792,15 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
         if ((td.cbp & 0xfffff000) != (td.be & 0xfffff000)) {
             len = (td.be & 0xfff) + 0x1001 - (td.cbp & 0xfff);
         } else {
+            if (td.cbp > td.be) {
+                //trace_usb_ohci_iso_td_bad_cc_overrun(td.cbp, td.be);
+                ohci_die(ohci);
+                return 1;
+            }
             len = (td.be - td.cbp) + 1;
+        }
+        if (len > sizeof(ohci->usb_buf)) {
+            len = sizeof(ohci->usb_buf);
         }
 
         pktlen = len;
@@ -811,6 +838,10 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
             return 1;
         }
         dev = ohci_find_device(ohci, OHCI_BM(ed->flags, ED_FA));
+        if (dev == NULL) {
+            //trace_usb_ohci_td_dev_error();
+            return 1;
+        }
         ep = usb_ep_get(dev, pid, OHCI_BM(ed->flags, ED_EN));
         usb_packet_setup(&ohci->usb_packet, pid, ep, 0, addr, !flag_r,
                          OHCI_BM(td.flags, TD_DI) == 0);
@@ -932,7 +963,7 @@ static int ohci_service_ed_list(OHCIState *ohci, uint32_t head, int completion)
     if (head == 0)
         return 0;
 
-    for (cur = head; cur; cur = next_ed) {
+    for (cur = head; cur && link_cnt++ < ED_LINK_LIMIT; cur = next_ed) {
         if (!ohci_read_ed(ohci, cur, &ed)) {
             //trace_usb_ohci_ed_read_error(cur);
             ohci_die(ohci);
@@ -940,11 +971,6 @@ static int ohci_service_ed_list(OHCIState *ohci, uint32_t head, int completion)
         }
 
         next_ed = ed.next & OHCI_DPTR_MASK;
-
-        if (++link_cnt > ED_LINK_LIMIT) {
-            ohci_die(ohci);
-            return 0;
-        }
 
         if ((ed.head & OHCI_ED_H) || (ed.flags & OHCI_ED_K)) {
             uint32_t addr;
@@ -1303,7 +1329,46 @@ static void ohci_port_set_status(OHCIState *ohci, int portnum, uint32_t val)
         ohci_set_interrupt(ohci, OHCI_INTR_RHSC);
 }
 
+#ifdef DEBUG_OHCI
+static const char *reg_names[] = {
+    "HcRevision",
+    "HcControl",
+    "HcCommandStatus",
+    "HcInterruptStatus",
+    "HcInterruptEnable",
+    "HcInterruptDisable",
+    "HcHCCA",
+    "HcPeriodCurrentED",
+    "HcControlHeadED",
+    "HcControlCurrentED",
+    "HcBulkHeadED",
+    "HcBulkCurrentED",
+    "HcDoneHead",
+    "HcFmInterval",
+    "HcFmRemaining",
+    "HcFmNumber",
+    "HcPeriodicStart",
+    "HcLSThreshold",
+    "HcRhDescriptorA",
+    "HcRhDescriptorB",
+    "HcRhStatus",
+};
+
+uint32_t ohci_mem_read_impl(OHCIState *ptr, uint32_t addr);
 uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
+{
+    auto val = ohci_mem_read_impl(ptr, addr);
+    int idx = (addr - ptr->mem_base) >> 2;
+    if (idx < countof(reg_names)) {
+        fprintf(stderr, "ohci_mem_read %s(%d): %08x\n", reg_names[idx], idx, val);
+    }
+    return val;
+}
+
+uint32_t ohci_mem_read_impl(OHCIState *ptr, uint32_t addr)
+#else
+uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
+#endif
 {
     OHCIState *ohci = ptr;
 
@@ -1319,9 +1384,7 @@ uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
         /* HcRhPortStatus */
         return ohci->rhport[(addr - 0x54) >> 2].ctrl | OHCI_PORT_PPS;
     }
-#ifdef DEBUG_OHCI
-    OSDebugOut(TEXT("ohci_mem_read: addr %d\n"), addr >> 2);
-#endif
+
     switch (addr >> 2) {
     case 0: /* HcRevision */
         return 0x10;
@@ -1390,7 +1453,21 @@ uint32_t ohci_mem_read(OHCIState *ptr, uint32_t addr)
     }
 }
 
+#ifdef DEBUG_OHCI
+void ohci_mem_write_impl(OHCIState *ptr, uint32_t addr, uint32_t val);
+void ohci_mem_write(OHCIState *ptr, uint32_t addr, uint32_t val)
+{
+    int idx = (addr - ptr->mem_base) >> 2;
+    if (idx < countof(reg_names)) {
+        fprintf(stderr, "ohci_mem_write %s(%d): %08x\n", reg_names[idx], idx, val);
+    }
+    ohci_mem_write_impl(ptr, addr, val);
+}
+
+void ohci_mem_write_impl(OHCIState *ptr,uint32_t addr, uint32_t val)
+#else
 void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
+#endif
 {
     OHCIState *ohci = ptr;
 
@@ -1408,9 +1485,7 @@ void ohci_mem_write(OHCIState *ptr,uint32_t addr, uint32_t val)
         ohci_port_set_status(ohci, (addr - 0x54) >> 2, val);
         return;
     }
-#ifdef DEBUG_OHCI
-	OSDebugOut(TEXT("ohci_mem_write: addr %d = 0x%08x\n"), addr >> 2, val);
-#endif
+
     switch (addr >> 2) {
     case 1: /* HcControl */
         ohci_set_ctl(ohci, val);
@@ -1509,7 +1584,7 @@ static USBPortOps ohci_port_ops = {
     /*.detach =*/ ohci_detach,
     //.child_detach = ohci_child_detach,
     /*.wakeup =*/ ohci_wakeup,
-    //.complete = ohci_async_complete_packet,
+    /*.complete =*/ ohci_async_complete_packet,
 };
 
 static USBBusOps ohci_bus_ops = {

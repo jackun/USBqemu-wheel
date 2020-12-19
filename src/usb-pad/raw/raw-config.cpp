@@ -13,14 +13,11 @@
 #include <strsafe.h>
 
 extern HINSTANCE hInst;
-extern char *szIni;
-extern std::wstring szIniDir;
-extern void GetIniFile(std::wstring &iniFile);
 #define MSG_PRESS_ESC(wnd) SendDlgItemMessageW(wnd, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)L"Capturing, press ESC to cancel")
 
 namespace usb_pad { namespace raw {
 
-inline bool MapExists(const MapVector& maps, TCHAR* hid)
+inline bool MapExists(const MapVector& maps, const std::wstring& hid)
 {
 	for(auto& it : maps)
 		if(!it.hidPath.compare(hid))
@@ -30,30 +27,27 @@ inline bool MapExists(const MapVector& maps, TCHAR* hid)
 
 void LoadMappings(const char *dev_type, MapVector& maps)
 {
-	std::wstring szIniFile;
-
-	GetIniFile(szIniFile);
-
 	maps.clear();
-	
-	WCHAR sec[1024] = {0}, tmp[16] = {0}, bind[32] = {0}, hid[MAX_PATH+1];
-	int j = 0, v = 0;
-	while(j < 25)
+
+	WCHAR sec[1024] = {0}, bind[32] = {0};
+	int v = 0;
+	for(int j = 0; j < 25; j++)
 	{
-		hid[0] = 0;
-		swprintf_s(sec, TEXT("%S RAW DEVICE %d"), dev_type, j++);
-		if(GetPrivateProfileStringW(sec, TEXT("HID"), NULL, hid, MAX_PATH, szIniFile.c_str())
-			&& hid[0] && !MapExists(maps, hid))
+		std::wstring hid, tmp;
+		//swprintf_s(sec, TEXT("%S RAW DEVICE %d"), dev_type, j++);
+
+		if(LoadSetting(dev_type, j, "RAW DEVICE", _T("HID"), hid)
+			&& !hid.empty() && !MapExists(maps, hid))
 		{
-			Mappings m;// = new Mappings;
+			Mappings m;
 			ZeroMemory(&m, sizeof(Mappings));
 			maps.push_back(m);
 			Mappings& ptr = maps.back();
 
 			ptr.hidPath = hid;
 			ptr.devName = hid;
-			//ResetData(&ptr.data[0]);
-			//ResetData(&ptr.data[1]);
+			//pad_reset_data(&ptr.data[0]);
+			//pad_reset_data(&ptr.data[1]);
 			memset(&ptr.data[0], 0xFF, sizeof(wheel_data_t));
 			memset(&ptr.data[1], 0xFF, sizeof(wheel_data_t));
 			ptr.data[0].buttons = 0;
@@ -64,22 +58,22 @@ void LoadMappings(const char *dev_type, MapVector& maps)
 			for(int i = 0; i<MAX_BUTTONS; i++)
 			{
 				swprintf_s(bind, L"Button %d", i);
-				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr.btnMap[i]));
+				if(LoadSetting(dev_type, j, "RAW DEVICE", bind, tmp))
+					swscanf_s(tmp.c_str(), L"%08X", &(ptr.btnMap[i]));
 			}
 
 			for(int i = 0; i<MAX_AXES; i++)
 			{
 				swprintf_s(bind, L"Axis %d", i);
-				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr.axisMap[i]));
+				if(LoadSetting(dev_type, j, "RAW DEVICE", bind, tmp))
+					swscanf_s(tmp.c_str(), L"%08X", &(ptr.axisMap[i]));
 			}
 
 			for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 			{
 				swprintf_s(bind, L"Hat %d", i);
-				if(GetPrivateProfileStringW(sec, bind, NULL, tmp, 16, szIniFile.c_str()))
-					swscanf_s(tmp, L"%08X", &(ptr.hatMap[i]));
+				if(LoadSetting(dev_type, j, "RAW DEVICE", bind, tmp))
+					swscanf_s(tmp.c_str(), L"%08X", &(ptr.hatMap[i]));
 			}
 		}
 	}
@@ -88,39 +82,35 @@ void LoadMappings(const char *dev_type, MapVector& maps)
 
 void SaveMappings(const char *dev_type, MapVector& maps)
 {
-	std::wstring szIniFile;
-
-	GetIniFile(szIniFile);
-
 	uint32_t numDevice = 0;
 	for(auto& it : maps)
 	{
 		WCHAR dev[1024] = {0}, tmp[16] = {0}, bind[32] = {0};
 
-		swprintf_s(dev, L"%S RAW DEVICE %u", dev_type, numDevice++);
-		WritePrivateProfileStringW(dev, L"HID", it.hidPath.c_str(), szIniFile.c_str());
+		SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", _T("HID"), it.hidPath);
 
 		//writing everything separately, then string lengths are more predictable
 		for(int i = 0; i<MAX_BUTTONS; i++)
 		{
 			swprintf_s(bind, L"Button %d", i);
 			swprintf_s(tmp, L"%08X", it.btnMap[i]);
-			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
+			SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", bind, tmp);
 		}
 
 		for(int i = 0; i<MAX_AXES; i++)
 		{
 			swprintf_s(bind, L"Axis %d", i);
 			swprintf_s(tmp, L"%08X", it.axisMap[i]);
-			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
+			SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", bind, tmp);
 		}
 
 		for(int i = 0; i<4/*PAD_HAT_COUNT*/; i++)
 		{
 			swprintf_s(bind, L"Hat %d", i);
 			swprintf_s(tmp, L"%08X", it.hatMap[i]);
-			WritePrivateProfileStringW(dev, bind, tmp, szIniFile.c_str());
+			SaveSetting<std::wstring>(dev_type, numDevice, "RAW DEVICE", bind, tmp);
 		}
+		numDevice++;
 	}
 
 	return;
@@ -273,7 +263,7 @@ void populate(HWND hW, RawDlgConfig *cfg)
 		if (!didData)
 			break;
 		didData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-		if(!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)){
+		if (!SetupDiGetDeviceInterfaceDetail(devInfo, &diData, didData, needed, 0, 0)) {
 			free(didData);
 			break;
 		}
@@ -281,7 +271,7 @@ void populate(HWND hW, RawDlgConfig *cfg)
 		usbHandle = CreateFile(didData->DevicePath, GENERIC_READ|GENERIC_WRITE,
 			FILE_SHARE_READ|FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
 
-		if(usbHandle == INVALID_HANDLE_VALUE){
+		if (usbHandle == INVALID_HANDLE_VALUE) {
 			fprintf(stderr,"Could not open device %i\n", i);
 			free(didData);
 			i++;
@@ -289,11 +279,17 @@ void populate(HWND hW, RawDlgConfig *cfg)
 		}
 
 		HidD_GetAttributes(usbHandle, &attr);
-		HidD_GetPreparsedData(usbHandle, &pPreparsedData);
+		if (!HidD_GetPreparsedData(usbHandle, &pPreparsedData)) {
+			fprintf(stderr, "Could not get preparsed data from %04x:%04x\n", attr.VendorID, attr.ProductID);
+			free(didData);
+			i++;
+			continue;
+		}
+
 		HidP_GetCaps(pPreparsedData, &caps);
 
 		if(caps.UsagePage == HID_USAGE_PAGE_GENERIC && 
-			caps.Usage == HID_USAGE_GENERIC_JOYSTICK)
+			(caps.Usage == HID_USAGE_GENERIC_JOYSTICK || caps.Usage == HID_USAGE_GENERIC_GAMEPAD))
 		{
 			OSDebugOut(TEXT("Joystick found %04X:%04X\n"), attr.VendorID, attr.ProductID);
 			std::wstring strPath(didData->DevicePath);
@@ -320,7 +316,7 @@ void populate(HWND hW, RawDlgConfig *cfg)
 			}
 			sel_idx++;
 		}
-		SAFE_FREE(didData);
+		free(didData);
 		HidD_FreePreparsedData(pPreparsedData);
 		i++;
 	}
@@ -633,7 +629,7 @@ void resetState(HWND hW)
 	SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_SETCURSEL, selectedJoy[plyCapturing], 0);
 	SendDlgItemMessage(hW, IDC_STATIC_CAP, WM_SETTEXT, 0, (LPARAM)TEXT(""));
 
-	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType[plyCapturing], 0);
+	SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_SETCURSEL, conf.WheelType[1 - plyCapturing], 0);
 
 	btnCapturing = PAD_BUTTON_COUNT;
 	axisCapturing = PAD_AXIS_COUNT;
@@ -676,7 +672,7 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 			if(!InitHid())
 				return FALSE;
 			dgHwnd = hW;
-			SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
+			SetWindowLongPtr(hW, GWLP_USERDATA, lParam);
 			//SendDlgItemMessage(hW, IDC_BUILD_DATE, WM_SETTEXT, 0, (LPARAM)__DATE__ " " __TIME__);
 			ListView_SetExtendedListViewStyle(GetDlgItem(hW, IDC_LIST1), LVS_EX_FULLROWSELECT);
 
@@ -761,7 +757,7 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 				switch (LOWORD(wParam))
 				{
 				case IDC_COMBO_WHEEL_TYPE:
-					conf.WheelType[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
+					conf.WheelType[1 - plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_WHEEL_TYPE, CB_GETCURSEL, 0, 0);
 					break;
 				case IDC_COMBO_FFB:
 					selectedJoy[plyCapturing] = SendDlgItemMessage(hW, IDC_COMBO_FFB, CB_GETCURSEL, 0, 0);
@@ -901,6 +897,5 @@ INT_PTR CALLBACK ConfigureRawDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM l
 
 	return S_OK;//DefWindowProc(hW, uMsg, wParam, lParam);
 }
-#undef APINAME
 
 }} //namespace

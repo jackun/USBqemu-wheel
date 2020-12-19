@@ -5,7 +5,8 @@ set -ex
 linux_32_before_install() {
 	# Build worker is 64-bit only by default it seems.
 	sudo dpkg --add-architecture i386
-
+	# explicitly pull the key
+	sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 762E3157
 	sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
 
 	# Compilers
@@ -41,6 +42,9 @@ linux_32_before_install() {
 		git-buildpackage \
 		python-dateutil \
 		python-pkg-resources \
+		dh-make \
+		build-essential \
+		fakeroot \
 		${COMPILER_PACKAGE}
 }
 

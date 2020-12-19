@@ -130,7 +130,6 @@ int usb_desc_iface_group(const USBDescIfaceAssoc& iad, int flags,
 						 uint8_t *dest, size_t len)
 {
 	int pos = 0;
-	int i = 0;
 
 	/* handle interface association descriptor */
 	uint8_t bLength = 0x08;
@@ -391,7 +390,6 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 {
 	int pos = 0;
 	USBDescIface *iface = nullptr;
-	USBDescIfaceAssoc *ifaceAssoc = nullptr;
 	USBDescConfig *config = nullptr;
 	USBDescriptor *d;
 
@@ -547,7 +545,7 @@ static const USBDescIface *usb_desc_find_interface(USBDevice *dev,
 	return NULL;
 }
 
-//static 
+//static
 int usb_desc_set_interface(USBDevice *dev, int index, int value)
 {
 	const USBDescIface *iface;
@@ -569,7 +567,7 @@ int usb_desc_set_interface(USBDevice *dev, int index, int value)
 	return 0;
 }
 
-//static 
+//static
 int usb_desc_set_config(USBDevice *dev, int value)
 {
 	int i;
@@ -759,7 +757,7 @@ int usb_desc_get_descriptor(USBDevice *dev, USBPacket *p,
 int usb_desc_handle_control(USBDevice *dev, USBPacket *p,
 		int request, int value, int index, int length, uint8_t *data)
 {
-	bool msos = (dev->flags & (1 << USB_DEV_FLAG_MSOS_DESC_IN_USE));
+	//bool msos = (dev->flags & (1 << USB_DEV_FLAG_MSOS_DESC_IN_USE));
 	const USBDesc *desc = usb_device_get_usb_desc(dev);
 	int ret = -1;
 

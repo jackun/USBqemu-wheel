@@ -1,6 +1,5 @@
 #pragma once
 #include "linux/util.h"
-#include <unistd.h>
 //#include <dirent.h> //gtk.h pulls in?
 #include <thread>
 #include <array>
@@ -15,39 +14,14 @@ namespace usb_pad { namespace evdev {
 	(((1UL << ((nr) % (sizeof(long) * 8))) & ((addr)[(nr) / (sizeof(long) * 8)])) != 0)
 #define NBITS(x) ((((x)-1)/(sizeof(long) * 8))+1)
 
-void EnumerateDevices(vstring& list);
+void EnumerateDevices(device_list& list);
 
-struct axis_correct
-{
-	int used;
-	int coef[3];
-};
-
-struct device_data
-{
-	int fd;
-	std::string name;
-	uint8_t axis_map[ABS_MAX + 1];
-	bool axis_inverted[3];
-	//uint8_t
-	uint16_t btn_map[KEY_MAX + 1];
-	struct axis_correct abs_correct[ABS_MAX];
-	int axes = 0;
-	int buttons = 0;
-	std::vector<uint16_t> mappings;
-	bool is_gamepad; //xboxish gamepad
-	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
-					// determine if its unpressed value is zero
-};
-
+static constexpr const char *APINAME = "evdev";
 
 class EvDevPad : public Pad
 {
 public:
 	EvDevPad(int port, const char* dev_type): Pad(port, dev_type)
-	, mUseRawFF(false)
-	, mEvdevFF(nullptr)
-	, mHidHandle(-1)
 	, mWriterThreadIsRunning(false)
 	{
 	}
@@ -68,13 +42,13 @@ public:
 protected:
 	void PollAxesValues(const device_data& device);
 	void SetAxis(const device_data& device, int code, int value);
-	static void WriterThread(void *ptr);
+	void WriterThread();
 
-	int mHidHandle;
-	EvdevFF *mEvdevFF;
-	struct wheel_data_t mWheelData;
+	int mHidHandle = -1;
+	EvdevFF *mEvdevFF = nullptr;
+	struct wheel_data_t mWheelData {};
 	std::vector<device_data> mDevices;
-	bool mUseRawFF;
+	int32_t mUseRawFF = 0;
 	std::thread mWriterThread;
 	std::atomic<bool> mWriterThreadIsRunning;
 	moodycamel::BlockingReaderWriterQueue<std::array<uint8_t, 8>, 32> mFFData;
@@ -100,6 +74,28 @@ bool GetEvdevName(const std::string& path, char (&name)[_Size])
 		return true;
 	}
 	return false;
+}
+
+static void CalcAxisCorr(axis_correct& abs_correct, struct input_absinfo absinfo)
+{
+	int t;
+	// convert values into 16 bit range
+	if (absinfo.minimum == absinfo.maximum) {
+		abs_correct.used = 0;
+	} else {
+		abs_correct.used = 1;
+		abs_correct.coef[0] =
+			(absinfo.maximum + absinfo.minimum) - 2 * absinfo.flat;
+		abs_correct.coef[1] =
+			(absinfo.maximum + absinfo.minimum) + 2 * absinfo.flat;
+		t = ((absinfo.maximum - absinfo.minimum) - 4 * absinfo.flat);
+		if (t != 0) {
+			abs_correct.coef[2] =
+				(1 << 28) / t;
+		} else {
+			abs_correct.coef[2] = 0;
+		}
+	}
 }
 
 // SDL2

@@ -5,7 +5,7 @@
 #include <thread>
 #include <stdio.h>
 #include <sstream>
-#include <gtk/gtk.h>
+#include "gtk.h"
 
 namespace usb_pad { namespace joydev {
 
@@ -15,7 +15,7 @@ using ms = std::chrono::milliseconds;
 #define JOYTYPE "joytype"
 #define CFG "cfg"
 
-static bool GetEventName(int map, int event, const char **name)
+static bool GetEventName(const char *dev_type, int map, int event, const char **name)
 {
 	static char buf[256] = {0};
 	if (map < evdev::JOY_STEERING) {
@@ -28,7 +28,7 @@ static bool GetEventName(int map, int event, const char **name)
 	return true;
 }
 
-static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted)
+static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::ConfigMapping> >& fds, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial)
 {
 	int event_fd = -1;
 	ssize_t len;
@@ -100,6 +100,7 @@ static bool PollInput(const std::vector<std::pair<std::string, usb_pad::evdev::C
 					if (std::abs(diff) > 2047) {
 						value = event.number;
 						inverted = (diff < 0);
+						initial = val.value;
 						break;
 					}
 				}
@@ -134,8 +135,11 @@ error:
 
 int JoyDevPad::Configure(int port, const char* dev_type, void *data)
 {
+	if (!strcmp(dev_type, BuzzDevice::TypeName()))
+		return RESULT_CANCELED;
+
 	evdev::ApiCallbacks apicbs {GetEventName, EnumerateDevices, PollInput};
-	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", "joydev", GTK_WINDOW (data), apicbs);
+	int ret = evdev::GtkPadConfigure(port, dev_type, "Joydev Settings", joydev::APINAME, GTK_WINDOW (data), apicbs);
 	return ret;
 }
 

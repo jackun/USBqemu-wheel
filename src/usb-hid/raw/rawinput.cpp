@@ -1,5 +1,5 @@
 #include "rawinput.h"
-#include "../../Win32/Config-win32.h"
+#include "../../Win32/Config.h"
 #include "qemu-usb/input-keymap.h"
 #include "qemu-usb/input-keymap-win32-to-qcode.h"
 
@@ -107,7 +107,7 @@ static void ParseRawInput(PRAWINPUT pRawInput, HIDState *hs)
 
 static void ParseRawInputKB(RAWKEYBOARD &k, HIDState *hs)
 {
-	if (!hs->kbd.eh_entry)
+	if (hs->kind != HID_KEYBOARD || !hs->kbd.eh_entry)
 		return;
 	static uint32_t nr = 0;
 	OSDebugOut(TEXT("%ud kb: %hu %hu %hu %u\n"), nr, k.MakeCode, k.VKey, k.Flags, k.ExtraInformation);
@@ -133,7 +133,7 @@ static void ParseRawInputKB(RAWKEYBOARD &k, HIDState *hs)
 
 	InputEvent ev{};
 	ev.type = INPUT_EVENT_KIND_KEY;
-	ev.u.key.down = !k.Flags;
+	ev.u.key.down = !(k.Flags & RI_KEY_BREAK);
 	ev.u.key.key.type = KEY_VALUE_KIND_QCODE;
 	ev.u.key.key.u.qcode = qcode;
 
@@ -149,6 +149,9 @@ static void SendPointerEvent(InputEvent &ev, HIDState *hs)
 
 static void ParseRawInputMS(RAWMOUSE &m, HIDState *hs)
 {
+	if (!hs->ptr.eh_entry || (hs->kind != HID_MOUSE && hs->kind != HID_TABLET))
+		return;
+
 	int b = 0, z = 0;
 	InputEvent ev{};
 
@@ -268,7 +271,5 @@ int RawInput::Configure(int port, const char* dev_type, HIDType type, void *data
 	INT_PTR res = RESULT_CANCELED;
 	return res;
 }
-
-REGISTER_USBHID(APINAME, RawInput);
 
 }} //namespace

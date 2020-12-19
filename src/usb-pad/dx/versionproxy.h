@@ -2,11 +2,13 @@
 // Microsoft Visual C++ generated include file.
 // Used by versionproxy.rc
 //
+#define IDC_STATIC                      -1
 #define IDOK2                           2
 #define IDB_BITMAP1                     111
 #define IDB_BITMAP2                     112
 #define IDB_BITMAP3                     113
-#define IDD_DIALOG2                     114
+#define IDD_DLG_BUZZ                    114
+#define IDD_DLG_KEYBOARDMANIA           115
 #define IDD_DIALOG1                     202
 #define IDC_DEL0                        1001
 #define IDC_ASS0                        1002
@@ -148,6 +150,49 @@
 #define IDC_SLIDER4                     1114
 #define IDC_BUTTON3                     1116
 #define IDC_SLIDER5                     1117
+#define IDC_BZ_CTL1_LBL1                1118
+#define IDC_BZ_CTL1_LBL2                1119
+#define IDC_BZ_CTL1_LBL3                1120
+#define IDC_BZ_CTL1_LBL4                1121
+#define IDC_BZ_CTL1_LBL5                1122
+#define IDC_BZ_CTL2_LBL1                1123
+#define IDC_BZ_CTL2_LBL2                1124
+#define IDC_BZ_CTL2_LBL3                1125
+#define IDC_BZ_CTL2_LBL4                1126
+#define IDC_BZ_CTL2_LBL5                1127
+#define IDC_BZ_CTL3_LBL1                1128
+#define IDC_BZ_CTL3_LBL2                1129
+#define IDC_BZ_CTL3_LBL3                1130
+#define IDC_BZ_CTL3_LBL4                1131
+#define IDC_BZ_CTL3_LBL5                1132
+#define IDC_BZ_CTL4_LBL1                1133
+#define IDC_BZ_CTL4_LBL2                1134
+#define IDC_BZ_CTL4_LBL3                1135
+#define IDC_BZ_CTL4_LBL4                1136
+#define IDC_BZ_CTL4_LBL5                1137
+#define IDC_LABEL20                     1138
+#define IDC_ASS20                       1139
+#define IDC_LABEL21                     1140
+#define IDC_ASS21                       1141
+#define IDC_LABEL22                     1142
+#define IDC_ASS22                       1143
+#define IDC_LABEL23                     1144
+#define IDC_ASS23                       1145
+#define IDC_LABEL24                     1146
+#define IDC_ASS24                       1147
+#define IDC_LABEL25                     1148
+#define IDC_ASS25                       1149
+#define IDC_LABEL26                     1150
+#define IDC_ASS26                       1151
+#define IDC_LABEL27                     1152
+#define IDC_ASS27                       1153
+#define IDC_LABEL28                     1154
+#define IDC_ASS28                       1155
+#define IDC_LABEL29                     1156
+#define IDC_ASS29                       1157
+#define IDC_LABEL30                     1158
+#define IDC_ASS30                       1159
+#define IDC_DELALL                      1160
 
 // Next default values for new objects
 // 
@@ -155,7 +200,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        117
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1117
+#define _APS_NEXT_CONTROL_VALUE         1137
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

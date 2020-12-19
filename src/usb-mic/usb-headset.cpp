@@ -40,7 +40,7 @@
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
 
-namespace usb_headset {
+namespace usb_mic {
 
 static FILE *file = NULL;
 
@@ -983,6 +983,7 @@ USBDevice* HeadsetDevice::CreateDevice(int port, const std::string& api)
     if (!s->audsrcproxy)
     {
         SysMessage(TEXT("headset: Invalid audio API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
+        delete s;
         return NULL;
     }
 
@@ -1045,10 +1046,10 @@ int HeadsetDevice::Configure(int port, const std::string& api, void *data)
 int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
     HeadsetState *s = (HeadsetState *)dev;
+    if (!s) return 0;
     switch (mode)
     {
         case FREEZE_LOAD:
-            if (!s) return -1;
             s->f = *(HeadsetState::freeze *)data;
             if (s->audsrc)
                 s->audsrc->SetResampling(s->f.in.srate);
@@ -1056,7 +1057,6 @@ int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
                 s->audsink->SetResampling(s->f.out.srate);
             return sizeof(HeadsetState::freeze);
         case FREEZE_SAVE:
-            if (!s) return -1;
             *(HeadsetState::freeze *)data = s->f;
             return sizeof(HeadsetState::freeze);
         case FREEZE_SIZE:
@@ -1064,8 +1064,7 @@ int HeadsetDevice::Freeze(int mode, USBDevice *dev, void *data)
         default:
         break;
     }
-    return -1;
+    return 0;
 }
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_HEADSET, HeadsetDevice);
-};
+}

@@ -2,7 +2,7 @@
 #include "audio.h"
 #include "../qemu-usb/desc.h"
 
-namespace usb_mic_singstar {
+namespace usb_mic {
 
 static const uint8_t logitech_mic_dev_descriptor[] = {
     /* bLength             */ 0x12, //(18)
@@ -235,7 +235,6 @@ USBDevice* LogitechMicDevice::CreateDevice(int port)
 		return nullptr;
 
 	SINGSTARMICMINIState *s = (SINGSTARMICMINIState *)dev;
-	const USBDescDevice *full = s->desc.full;
 	s->desc = {};
 	s->desc_dev = {};
 
@@ -256,5 +255,4 @@ fail:
 	return nullptr;
 }
 
-REGISTER_DEVICE(DEVTYPE_LOGITECH_MIC, LogitechMicDevice);
-};
+}

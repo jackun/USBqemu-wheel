@@ -27,8 +27,8 @@ static inline int16_t ff_lg_u8_to_s16(uint8_t c, int16_t max = SHRT_MAX) {
     return value;
 }
 
-static inline uint16_t ff_lg_u8_to_u16(uint8_t c, uint16_t max = UCHAR_MAX) {
-    return c * 65535 / max;
+static inline uint16_t ff_lg_u8_to_u16(uint8_t c, uint16_t max = USHRT_MAX) {
+    return c * max / UCHAR_MAX;
 }
 
 static inline int16_t ff_lg_u16_to_s16(uint16_t s) {

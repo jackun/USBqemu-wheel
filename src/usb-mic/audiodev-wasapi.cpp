@@ -6,13 +6,13 @@
 #include <functiondiscoverykeys_devpkey.h>
 #include <process.h>
 #include "audiodev-wasapi.h"
-#include "../Win32/Config-win32.h"
+#include "../Win32/Config.h"
 #include "../Win32/resource.h"
 
 #define SafeRelease(x) if(x){x->Release(); x = NULL;}
 #define ConvertMSTo100NanoSec(ms) (ms*1000*10) //1000 microseconds, then 10 "100nanosecond" segments
 
-namespace audiodev_wasapi {
+namespace usb_mic { namespace audiodev_wasapi {
 
 static FILE* file = nullptr;
 
@@ -234,7 +234,7 @@ bool MMAudioDevice::Reinitialize()
 	//Random limit of 1ms to 1 seconds
 	if(mBuffering == 0)
 		mBuffering = 50;
-	mBuffering = std::min(std::max(mBuffering, 1), 1000);
+	mBuffering = std::min(std::max(mBuffering, 1LL), 1000LL);
 	OSDebugOut(TEXT("Buffering: %d\n"), mBuffering);
 
 	err = mmClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, ConvertMSTo100NanoSec(mBuffering), 0, pwfx, NULL);
@@ -836,7 +836,7 @@ int MMAudioDevice::Configure(int port, const char* dev_type, void *data)
 	settings.port = port;
 	settings.dev_type = dev_type;
 
-	return DialogBoxParam(h.hInst,
+	return (int)DialogBoxParam(h.hInst,
 		MAKEINTRESOURCE(IDD_DLGWASAPI),
 		h.hWnd,
 		(DLGPROC)WASAPIDlgProc, (LPARAM)&settings);
@@ -898,12 +898,12 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 	switch (uMsg) {
 	case WM_CREATE:
-		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
+		SetWindowLongPtr(hW, GWLP_USERDATA, lParam);
 		break;
 	case WM_INITDIALOG:
 	{
 		s = (WASAPISettings *)lParam;
-		SetWindowLongPtr(hW, GWLP_USERDATA, (LONG)lParam);
+		SetWindowLongPtr(hW, GWLP_USERDATA, lParam);
 		int buffering = 50;
 		LoadSetting(s->dev_type, s->port, APINAME, N_BUFFER_LEN_SRC, buffering);
 
@@ -1011,5 +1011,4 @@ static BOOL CALLBACK WASAPIDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 	return FALSE;
 }
 
-REGISTER_AUDIODEV(APINAME, MMAudioDevice);
-} // namespace
+}} // namespace

@@ -1,16 +1,16 @@
 #include <cstdint>
 #include <cstring>
 #include <pulse/pulseaudio.h>
-#include "ringbuffer.h"
+#include "shared/ringbuffer.h"
 #include "../osdebugout.h"
 #include "audiodeviceproxy.h"
-#include "../libsamplerate/samplerate.h"
+#include "libsamplerate/samplerate.h"
 //#include <typeinfo>
 //#include <thread>
 #include <mutex>
 #include <chrono>
 
-namespace audiodev_pulse {
+namespace usb_mic { namespace audiodev_pulse {
 
 // macros for string concat
 #undef APINAME_
@@ -146,4 +146,4 @@ protected:
 	hrc::time_point mLastOut;
 	FILE* file = nullptr;
 };
-}
+}}

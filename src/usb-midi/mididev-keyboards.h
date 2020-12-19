@@ -1,8 +1,8 @@
 // Used OBS as example
 
 #include "midideviceproxy.h"
-#include "../libsamplerate/samplerate.h"
-#include "ringbuffer.h"
+#include "libsamplerate/samplerate.h"
+#include "shared/ringbuffer.h"
 
 #include <mmdeviceapi.h>
 #include <audioclient.h>

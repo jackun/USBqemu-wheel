@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <windows.h>
 #include "mididev-keyboards.h"
-#include "../Win32/Config-win32.h"
+#include "../Win32/Config.h"
 #include "../Win32/resource.h"
 
 #pragma comment(lib, "winmm.lib")

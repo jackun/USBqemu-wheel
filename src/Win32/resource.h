@@ -9,7 +9,8 @@
 #define IDD_ABOUT                       103
 #define IDD_DLGMSD                      106
 #define IDD_DLGWASAPI                   107
-#define IDD_DLGMIDIKBD                  112
+#define IDD_DLG_EYETOY                  108
+#define IDD_DLGMIDIKBD                  109
 #define IDC_NAME                        1000
 #define IDC_LOGGING                     1007
 #define IDC_COMBO1                      1008
@@ -38,7 +39,7 @@
 //
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        113
+#define _APS_NEXT_RESOURCE_VALUE        110
 #define _APS_NEXT_COMMAND_VALUE         40001
 #define _APS_NEXT_CONTROL_VALUE         1042
 #define _APS_NEXT_SYMED_VALUE           101

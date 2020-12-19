@@ -6,38 +6,31 @@
 
 namespace usb_pad { namespace evdev {
 
-enum EffectID
-{
-	EFF_CONSTANT = 0,
-	EFF_SPRING,
-	EFF_DAMPER,
-	EFF_FRICTION,
-};
-
-class EvdevFF
+class EvdevFF : public FFDevice
 {
 public:
-	EvdevFF(int fd);
+	   EvdevFF(int fd, bool gain_enabled, int gain, bool ac_managed, int ac_strength);
 	~EvdevFF();
 
-	void SetConstantForce(int force);
-	void SetSpringForce(const spring& force, int caps);
-	void SetDamperForce(const damper& force, int caps);
-	void SetFrictionForce(const friction& frict);
+	void SetConstantForce(int level);
+	void SetSpringForce(const parsed_ff_data& ff);
+	void SetDamperForce(const parsed_ff_data& ff);
+	void SetFrictionForce(const parsed_ff_data& ff);
 	void SetAutoCenter(int value);
 	void SetGain(int gain);
 	void DisableForce(EffectID force);
-	void TokenOut(ff_data *ffdata, bool hires);
 
 private:
 	int mHandle;
 	ff_effect mEffect;
-	ff_effect mEffRumble;
-	ff_state mFFstate;
-	int mEffIds[3] = {-1, -1, -1}; //save ids just in case
+	int mEffIds[5] = {-1, -1, -1, -1, -1}; //save ids just in case
 
 	bool mUseRumble;
 	int mLastValue;
+	bool m_gain_enabled;
+	int m_gain;
+	bool m_ac_managed;
+	int m_ac_strength;
 };
 
 }} //namespace

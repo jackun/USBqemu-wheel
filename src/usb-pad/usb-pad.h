@@ -30,7 +30,6 @@ public:
 	static const TCHAR* LongAPIName(const std::string& name);
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
-	static void Initialize();
 };
 
 class RBDrumKitDevice
@@ -50,7 +49,64 @@ public:
 	static const TCHAR* LongAPIName(const std::string& name);
 	static int Configure(int port, const std::string& api, void *data);
 	static int Freeze(int mode, USBDevice *dev, void *data);
+};
+
+class BuzzDevice
+{
+public:
+	virtual ~BuzzDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Buzz Device");
+	}
+	static const char* TypeName()
+	{
+		return "buzz_device";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void* data);
+	static int Freeze(int mode, USBDevice* dev, void* data);
 	static void Initialize();
+};
+
+class SeamicDevice
+{
+public:
+	virtual ~SeamicDevice() { }
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Sega Seamic");
+	}
+	static const char* TypeName()
+	{
+		return "seamic";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
+};
+
+class KeyboardmaniaDevice
+{
+public:
+	virtual ~KeyboardmaniaDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const TCHAR* Name()
+	{
+		return TEXT("Keyboardmania");
+	}
+	static const char* TypeName()
+	{
+		return "keyboardmania";
+	}
+	static std::list<std::string> ListAPIs();
+	static const TCHAR* LongAPIName(const std::string& name);
+	static int Configure(int port, const std::string& api, void *data);
+	static int Freeze(int mode, USBDevice *dev, void *data);
 };
 
 // Most likely as seen on https://github.com/matlo/GIMX
@@ -99,12 +155,17 @@ enum PS2WheelTypes {
 	WT_DRIVING_FORCE_PRO_1102, //hw with buggy hid report?
 	WT_GT_FORCE, //formula gp
 	WT_ROCKBAND1_DRUMKIT,
+	WT_BUZZ_CONTROLLER,
+	WT_SEGA_SEAMIC,
+	WT_KEYBOARDMANIA_CONTROLLER,
 };
 
 inline int range_max(PS2WheelTypes type)
 {
 	if(type == WT_DRIVING_FORCE_PRO || type == WT_DRIVING_FORCE_PRO_1102)
 		return 0x3FFF;
+	if (type == WT_SEGA_SEAMIC)
+		return 255;
 	return 0x3FF;
 }
 
@@ -204,11 +265,59 @@ struct ff_state
 	bool deadband;
 };
 
+struct parsed_ff_data
+{
+	union u
+	{
+		struct {
+			int level;
+		} constant;
+
+		struct {
+			int center;
+			int deadband;
+			int left_coeff;
+			int right_coeff;
+			int left_saturation;
+			int right_saturation;
+		} condition;
+
+		struct {
+			int weak_magnitude;
+			int strong_magnitude;
+		} rumble;
+	} u;
+};
+
+enum EffectID
+{
+	EFF_CONSTANT = 0,
+	EFF_SPRING,
+	EFF_DAMPER,
+	EFF_FRICTION,
+	EFF_RUMBLE,
+};
+
+struct FFDevice
+{
+	virtual ~FFDevice() {}
+	virtual void SetConstantForce(/*const parsed_ff_data& ff*/ int level) = 0;
+	virtual void SetSpringForce(const parsed_ff_data& ff) = 0;
+	virtual void SetDamperForce(const parsed_ff_data& ff) = 0;
+	virtual void SetFrictionForce(const parsed_ff_data& ff) = 0;
+	virtual void SetAutoCenter(int value) = 0;
+	//virtual void SetGain(int gain) = 0;
+	virtual void DisableForce(EffectID force) = 0;
+};
+
 class Pad
 {
 public:
-	Pad(int port, const char* dev_type) : mPort(port), mDevType(dev_type), mFFstate({ 0 }) {}
-	virtual ~Pad() {}
+	Pad(int port, const char* dev_type) : mPort(port), mDevType(dev_type)
+	{
+		memset(&mFFstate, 0, sizeof(mFFstate));
+	}
+	virtual ~Pad() { delete mFFdev; mFFdev = nullptr; }
 	virtual int Open() = 0;
 	virtual int Close() = 0;
 	virtual int TokenIn(uint8_t *buf, int len) = 0;
@@ -219,19 +328,20 @@ public:
 	virtual void Type(PS2WheelTypes type) { mType = type; }
 	virtual int Port() { return mPort; }
 	virtual void Port(int port) { mPort = port; }
+	void ParseFFData(const ff_data *ffdata, bool isDFP);
 
 protected:
 	PS2WheelTypes mType = PS2WheelTypes::WT_GENERIC;
 	wheel_data_t mWheelData { };
 	ff_state mFFstate;
+	FFDevice *mFFdev = nullptr;
 	int mPort;
 	const char* mDevType;
 };
 
-
 //L3/R3 for newer wheels
 //enum PS2Buttons : uint32_t {
-//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
+//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE,
 //	PAD_L1, PAD_L2, PAD_R1, PAD_R2,
 //	PAD_SELECT, PAD_START,
 //	PAD_L3, PAD_R3, //order
@@ -240,10 +350,10 @@ protected:
 
 //???
 //enum DFButtons : uint32_t {
-//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE, 
-//	PAD_R2, 
+//	PAD_CROSS = 0, PAD_SQUARE, PAD_CIRCLE, PAD_TRIANGLE,
+//	PAD_R2,
 //	PAD_L2,
-//	PAD_R1, 
+//	PAD_R1,
 //	PAD_L1,
 //	PAD_SELECT, PAD_START,
 //	PAD_BUTTON_COUNT
@@ -259,10 +369,11 @@ enum PS2Buttons : uint32_t {
 	PAD_TRIANGLE, //Y
 	PAD_R1, //A? <pause> in GT4
 	PAD_L1, //B
-	PAD_R2, 
+	PAD_R2,
 	PAD_L2,
 	PAD_SELECT, PAD_START,
-	PAD_R3, PAD_L3, //order, afaik not used on any PS2 wheel anyway
+	PAD_R3, PAD_L3, //order, only GT Force/Force EX?
+	PAD_SHIFT_UP, PAD_SHIFT_DOWN, // DF Pro
 	PAD_BUTTON_COUNT
 };
 
@@ -287,6 +398,15 @@ enum PS2HatSwitch {
 	PAD_HAT_COUNT
 };
 
+enum Buzz
+{
+	BUZZ_RED,
+	BUZZ_YELLOW,
+	BUZZ_GREEN,
+	BUZZ_ORANGE,
+	BUZZ_BLUE,
+};
+
 static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 
 #define PAD_VID			0x046D
@@ -307,10 +427,10 @@ static const int HATS_8TO4 [] = {PAD_HAT_N, PAD_HAT_E, PAD_HAT_S, PAD_HAT_W};
 /**
   linux hid-lg4ff.c
   http://www.spinics.net/lists/linux-input/msg16570.html
-  Every Logitech wheel reports itself as generic Logitech Driving Force wheel (VID 046d, PID c294). This is done to ensure that the 
-  wheel will work on every USB HID-aware system even when no Logitech driver is available. It however limits the capabilities of the 
-  wheel - range is limited to 200 degrees, G25/G27 don't report the clutch pedal and there is only one combined axis for throttle and 
-  brake. The switch to native mode is done via hardware-specific command which is different for each wheel. When the wheel 
+  Every Logitech wheel reports itself as generic Logitech Driving Force wheel (VID 046d, PID c294). This is done to ensure that the
+  wheel will work on every USB HID-aware system even when no Logitech driver is available. It however limits the capabilities of the
+  wheel - range is limited to 200 degrees, G25/G27 don't report the clutch pedal and there is only one combined axis for throttle and
+  brake. The switch to native mode is done via hardware-specific command which is different for each wheel. When the wheel
   receives such command, it simulates reconnect and reports to the OS with its actual PID.
   Currently not emulating reattachment. Any games that expect to?
 **/
@@ -800,10 +920,10 @@ static const uint8_t df_config_descriptor[] = {
 	/* Endpoint Descriptor */
 	USB_ENDPOINT_DESC_SIZE,
 	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
-	USB_ENDPOINT_OUT(1),                //EndpointAddress
+	USB_ENDPOINT_OUT(2),                //EndpointAddress
 	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x0A,                               //Interval 0x2 - 2ms (G27) , 0x0A default?
+	0x0A,                               //Interval
 };
 
 static const uint8_t dfp_config_descriptor[] = {
@@ -828,7 +948,7 @@ static const uint8_t dfp_config_descriptor[] = {
 	0,     // Interface string index
 
 	/* HID Class-Specific Descriptor */
-	0x09,                      // Size of this descriptor in bytes RRoj hack
+	0x09,                      // Size of this descriptor in bytes
 	USB_DT_HID,                // HID descriptor type
 	DESC_CONFIG_WORD(0x0100),  // HID Spec Release Number in BCD format (1.11)
 	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
@@ -841,77 +961,77 @@ static const uint8_t dfp_config_descriptor[] = {
 	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
 	USB_ENDPOINT_IN(1),                 //EndpointAddress
 	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
-	DESC_CONFIG_WORD(USB_PSIZE),        //size, might be 16 bytes
+	DESC_CONFIG_WORD(USB_PSIZE),        //size
 	0x0A,                               //Interval
 
 	/* Endpoint Descriptor */
 	USB_ENDPOINT_DESC_SIZE,
 	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
-	USB_ENDPOINT_OUT(1),                //EndpointAddress
+	USB_ENDPOINT_OUT(2),                //EndpointAddress
 	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
 	0x0A,                               //Interval
 };
 
 static const uint8_t gtforce_config_descriptor[] = {
-	0x09,   /* bLength */
+	USB_CONFIGURATION_DESC_SIZE,          /* bLength */
 	USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
-	WBVAL(41),                        /* wTotalLength */
+	WBVAL(41),                            /* wTotalLength */
 	0x01,                                 /* bNumInterfaces */
 	0x01,                                 /* bConfigurationValue */
 	0x00,                                 /* iConfiguration */
-	0xc0,               /* bmAttributes */
+	0xc0,                                 /* bmAttributes */
 	USB_CONFIG_POWER_MA(80),              /* bMaxPower */
 
 	/* Interface Descriptor */
-	0x09,//sizeof(USB_INTF_DSC),   // Size of this descriptor in bytes
-	0x04,                   // INTERFACE descriptor type
+	USB_INTERFACE_DESC_SIZE,// Size of this descriptor in bytes
+	USB_DT_INTERFACE,       // INTERFACE descriptor type
 	0,                      // Interface Number
 	0,                      // Alternate Setting Number
 	2,                      // Number of endpoints in this intf
-	USB_CLASS_HID,               // Class code
+	USB_CLASS_HID,          // Class code
 	0,     // Subclass code
 	0,     // Protocol code
 	0,                      // Interface string index
 
 	/* HID Class-Specific Descriptor */
-	0x09,//sizeof(USB_HID_DSC)+3,    // Size of this descriptor in bytes RRoj hack
-	0x21,                // HID descriptor type
+	0x09,                // Size of this descriptor in bytes
+	USB_DT_HID,          // HID descriptor type
 	DESC_CONFIG_WORD(0x0100),                 // HID Spec Release Number in BCD format (1.11)
 	0x21,                   // Country Code (0x00 for Not supported, 0x21 for US)
 	1,                      // Number of class descriptors, see usbcfg.h
-	0x22,//DSC_RPT,                // Report descriptor type
+	USB_DT_REPORT,          // Report descriptor type
 	DESC_CONFIG_WORD(sizeof(pad_gtforce_hid_report_descriptor)), // Size of the report descriptor
 
 	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x80, //HID_EP | _EP_IN,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_IN(1),                 //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x0A,                       //Interval
+	0x0A,                               //Interval
 
 	/* Endpoint Descriptor */
-	0x07,/*sizeof(USB_EP_DSC)*/
-	0x05, //USB_DESCRIPTOR_ENDPOINT,    //Endpoint Descriptor
-	0x1|0x0, //HID_EP | _EP_OUT,        //EndpointAddress
-	0x03, //_INTERRUPT,                 //Attributes
+	USB_ENDPOINT_DESC_SIZE,
+	USB_ENDPOINT_DESCRIPTOR_TYPE,       //Endpoint Descriptor
+	USB_ENDPOINT_OUT(2),                //EndpointAddress
+	USB_ENDPOINT_TYPE_INTERRUPT,        //Attributes
 	DESC_CONFIG_WORD(USB_PSIZE),        //size
-	0x0A,                        //Interval
+	0x0A,                               //Interval
 };
 
-// Should be usb 2.0, but seems to make no difference with Rock Band games 
+// Should be usb 2.0, but seems to make no difference with Rock Band games
 static const uint8_t rb1_dev_descriptor[] = {
 	/* bLength             */ 0x12, //(18)
 	/* bDescriptorType     */ 0x01, //(1)
-	/* bcdUSB              */ WBVAL(0x0110), //(272) //USB 1.1
+	/* bcdUSB              */ WBVAL(0x0110), //USB 1.1
 	/* bDeviceClass        */ 0x00, //(0)
 	/* bDeviceSubClass     */ 0x00, //(0)
 	/* bDeviceProtocol     */ 0x00, //(0)
 	/* bMaxPacketSize0     */ 0x40, //(64)
 	/* idVendor            */ WBVAL(0x12ba),
 	/* idProduct           */ WBVAL(0x0210),
-	/* bcdDevice           */ WBVAL(0x1000), //(26.00)
+	/* bcdDevice           */ WBVAL(0x1000), //(10.00)
 	/* iManufacturer       */ 0x01, //(1)
 	/* iProduct            */ 0x02, //(2)
 	/* iSerialNumber       */ 0x00, //(0)
@@ -1034,6 +1154,240 @@ static const uint8_t rb1_hid_report_descriptor[] = {
 	// 137 bytes
 };
 
+//////////
+// Buzz //
+//////////
+
+static const uint8_t buzz_dev_descriptor[] = {
+	0x12,        // bLength
+	0x01,        // bDescriptorType (Device)
+	0x00, 0x02,  // bcdUSB 2.00
+	0x00,        // bDeviceClass (Use class information in the Interface Descriptors)
+	0x00,        // bDeviceSubClass
+	0x00,        // bDeviceProtocol
+	0x08,        // bMaxPacketSize0 8
+	0x4C, 0x05,  // idVendor 0x054C
+	0x02, 0x00,  // idProduct 0x0002
+	0xA1, 0x05,  // bcdDevice 11.01
+	0x03,        // iManufacturer (String Index)
+	0x01,        // iProduct (String Index)
+	0x00,        // iSerialNumber (String Index)
+	0x01,        // bNumConfigurations 1
+};
+
+static const uint8_t buzz_config_descriptor[] = {
+	0x09,        // bLength
+	0x02,        // bDescriptorType (Configuration)
+	0x22, 0x00,  // wTotalLength 34
+	0x01,        // bNumInterfaces 1
+	0x01,        // bConfigurationValue
+	0x00,        // iConfiguration (String Index)
+	0x80,        // bmAttributes
+	0x32,        // bMaxPower 100mA
+
+	0x09,        // bLength
+	0x04,        // bDescriptorType (Interface)
+	0x00,        // bInterfaceNumber 0
+	0x00,        // bAlternateSetting
+	0x01,        // bNumEndpoints 1
+	0x03,        // bInterfaceClass
+	0x00,        // bInterfaceSubClass
+	0x00,        // bInterfaceProtocol
+	0x00,        // iInterface (String Index)
+
+	0x09,        // bLength
+	0x21,        // bDescriptorType (HID)
+	0x11, 0x01,  // bcdHID 1.11
+	0x33,        // bCountryCode
+	0x01,        // bNumDescriptors
+	0x22,        // bDescriptorType[0] (HID)
+	0x4E, 0x00,  // wDescriptorLength[0] 78
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x81,        // bEndpointAddress (IN/D2H)
+	0x03,        // bmAttributes (Interrupt)
+	0x08, 0x00,  // wMaxPacketSize 8
+	0x0A,        // bInterval 10 (unit depends on device speed)
+};
+
+static const uint8_t buzz_hid_report_descriptor[] = {
+	0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+	0x09, 0x04,        // Usage (Joystick)
+	0xA1, 0x01,        // Collection (Application)
+	0xA1, 0x02,        //   Collection (Logical)
+	0x75, 0x08,        //     Report Size (8)
+	0x95, 0x02,        //     Report Count (2)
+	0x15, 0x00,        //     Logical Minimum (0)
+	0x26, 0xFF, 0x00,  //     Logical Maximum (255)
+	0x35, 0x00,        //     Physical Minimum (0)
+	0x46, 0xFF, 0x00,  //     Physical Maximum (255)
+	0x09, 0x30,        //     Usage (X)
+	0x09, 0x31,        //     Usage (Y)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x75, 0x01,        //     Report Size (1)
+	0x95, 0x14,        //     Report Count (20)
+	0x25, 0x01,        //     Logical Maximum (1)
+	0x45, 0x01,        //     Physical Maximum (1)
+	0x05, 0x09,        //     Usage Page (Button)
+	0x19, 0x01,        //     Usage Minimum (0x01)
+	0x29, 0x14,        //     Usage Maximum (0x14)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0x06, 0x00, 0xFF,  //     Usage Page (Vendor Defined 0xFF00)
+	0x75, 0x01,        //     Report Size (1)
+	0x95, 0x04,        //     Report Count (4)
+	0x25, 0x01,        //     Logical Maximum (1)
+	0x45, 0x01,        //     Physical Maximum (1)
+	0x09, 0x01,        //     Usage (0x01)
+	0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+	0xC0,              //   End Collection
+	0xA1, 0x02,        //   Collection (Logical)
+	0x75, 0x08,        //     Report Size (8)
+	0x95, 0x07,        //     Report Count (7)
+	0x26, 0xFF, 0x00,  //     Logical Maximum (255)
+	0x46, 0xFF, 0x00,  //     Physical Maximum (255)
+	0x09, 0x02,        //     Usage (0x02)
+	0x91, 0x02,        //     Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+	0xC0,              //   End Collection
+	0xC0,              // End Collection
+	// 78 bytes
+};
+
+///////////////////
+// Keyboardmania //
+///////////////////
+static const uint8_t kbm_dev_descriptor[] = {
+	0x12,        // bLength
+	0x01,        // bDescriptorType (Device)
+	0x10, 0x01,  // bcdUSB 1.10
+	0x00,        // bDeviceClass (Use class information in the Interface Descriptors)
+	0x00,        // bDeviceSubClass
+	0x00,        // bDeviceProtocol
+	0x08,        // bMaxPacketSize0 8
+	0x07, 0x05,  // idVendor 0x0507
+	0x10, 0x00,  // idProduct 0x0010
+	0x00, 0x01,  // bcdDevice 01.00
+	0x01,        // iManufacturer (String Index)
+	0x02,        // iProduct (String Index)
+	0x00,        // iSerialNumber (String Index)
+	0x01,        // bNumConfigurations 1
+};
+
+static const uint8_t kbm_config_descriptor[] = {
+	0x09,        // bLength
+	0x02,        // bDescriptorType (Configuration)
+	0x22, 0x00,  // wTotalLength 34
+	0x01,        // bNumInterfaces 1
+	0x01,        // bConfigurationValue
+	0x00,        // iConfiguration (String Index)
+	0x80,        // bmAttributes
+	0x19,        // bMaxPower 50mA
+
+	0x09,        // bLength
+	0x04,        // bDescriptorType (Interface)
+	0x00,        // bInterfaceNumber 0
+	0x00,        // bAlternateSetting
+	0x01,        // bNumEndpoints 1
+	0x03,        // bInterfaceClass
+	0x00,        // bInterfaceSubClass
+	0x00,        // bInterfaceProtocol
+	0x02,        // iInterface (String Index)
+
+	0x09,        // bLength
+	0x21,        // bDescriptorType (HID)
+	0x10, 0x01,  // bcdHID 1.11
+	0x00,        // bCountryCode
+	0x01,        // bNumDescriptors
+	0x22,        // bDescriptorType[0] (HID)
+	0x96, 0x00,  // wDescriptorLength[0] 150
+
+	0x07,        // bLength
+	0x05,        // bDescriptorType (Endpoint)
+	0x81,        // bEndpointAddress (IN/D2H)
+	0x03,        // bmAttributes (Interrupt)
+	0x08, 0x00,  // wMaxPacketSize 8
+	0x04,        // bInterval 4 (unit depends on device speed)
+};
+
+static const uint8_t kbm_hid_report_descriptor[] = {
+	0x05, 0x01,  // USAGE_PAGE (Generic Desktop)
+	0x09, 0x05,  // USAGE (Game Pad)
+	0xA1, 0x01,  // COLLECTION (Application)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x3A,  //   USAGE_MINIMUM (Button 58)
+	0x29, 0x3F,  //   USAGE_MAXIMUM (Button 63)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x06,  //   REPORT_COUNT (6)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x02,  //   REPORT_COUNT (2)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x01,  //   USAGE_MINIMUM (Button 1)
+	0x29, 0x07,  //   USAGE_MAXIMUM (Button 7)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x08,  //   USAGE_MINIMUM (Button 8)
+	0x29, 0x0E,  //   USAGE_MAXIMUM (Button 14)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x0F,  //   USAGE_MINIMUM (Button 15)
+	0x29, 0x15,  //   USAGE_MAXIMUM (Button 21)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x09,  //   USAGE_PAGE (Button)
+	0x19, 0x16,  //   USAGE_MINIMUM (Button 22)
+	0x29, 0x1C,  //   USAGE_MAXIMUM (Button 28)
+	0x15, 0x00,  //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,  //   LOGICAL_MAXIMUM (1)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x07,  //   REPORT_COUNT (7)
+	0x81, 0x02,  //   INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x75, 0x01,  //   REPORT_SIZE (1)
+	0x95, 0x01,  //   REPORT_COUNT (1)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0x05, 0x01,  //   USAGE_PAGE (Generic Desktop) 
+	0x09, 0x01,  //   USAGE (Pointer)
+	0xA1, 0x00,  //   COLLECTION (Physical)
+	0x09, 0x30,  //     USAGE (X)
+	0x09, 0x31,  //     USAGE (Y)
+	0x15, 0xFF,  //     LOGICAL_MINIMUM (-1)
+	0x25, 0x01,  //     LOGICAL_MAXIMUM (1)
+	0x95, 0x02,  //     REPORT_COUNT (2)
+	0x75, 0x02,  //     REPORT_SIZE (2)
+	0x81, 0x02,  //     INPUT (Data,Variable,Absolute,NoWrap,Linear,PrefState,NoNull,NonVolatile,Bitmap)
+	0x95, 0x04,  //     REPORT_COUNT (4)
+	0x75, 0x01,  //     REPORT_SIZE (1)
+	0x81, 0x01,  //     INPUT (Constant,Array,Absolute)
+	0xC0,        //   END_COLLECTION
+	0x75, 0x08,  //   REPORT_SIZE (8)
+	0x95, 0x02,  //   REPORT_COUNT (2)
+	0x81, 0x01,  //   INPUT (Constant,Array,Absolute)
+	0xc0         // END_COLLECTION
+};
+
 struct dfp_buttons_t
 {
 	uint16_t cross : 1;
@@ -1135,11 +1489,11 @@ struct gtforce_data_t
 
 	uint32_t axis_z : 8;
 	uint32_t axis_rz : 8;
-	
+
 	uint32_t pad1 : 16;
 };
 
-struct random_data_t 
+struct random_data_t
 {
 	uint32_t axis_x : 10;
 	uint32_t buttons : 10;
@@ -1172,8 +1526,8 @@ struct rb1drumkit_t
 	uint8_t hatswitch;
 };
 
-void ResetData(generic_data_t *d);
-void ResetData(dfp_data_t *d);
+void pad_reset_data(generic_data_t *d);
+void pad_reset_data(dfp_data_t *d);
 void pad_copy_data(PS2WheelTypes type, uint8_t *buf, wheel_data_t &data);
 //Convert DF Pro buttons to selected wheel type
 uint32_t convert_wt_btn(PS2WheelTypes type, uint32_t inBtn);

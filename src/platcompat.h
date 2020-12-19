@@ -13,15 +13,20 @@
 
 #ifdef _WIN32
 #	define CALLBACK			__stdcall
-#else
+#elif defined(__i386__)
 #	define CALLBACK			__attribute__((stdcall))
+#else
+#	define CALLBACK
 #endif
 
 #ifndef EXPORT_C_
 #ifdef _MSC_VER
 #define EXPORT_C_(type) extern "C" type CALLBACK
+#elif defined(__i386__)
+#define EXPORT_C_(type) extern "C" __attribute__((stdcall,visibility("default"))) type
+//#define EXPORT_C_(type) extern "C" __attribute__((stdcall,visibility("default"))) type
 #else
-#define EXPORT_C_(type) extern "C" __attribute__((stdcall,externally_visible,visibility("default"))) type
+#define EXPORT_C_(type) extern "C" __attribute__((visibility("default"))) type
 #endif
 #endif
 
@@ -34,6 +39,8 @@
 #define fseeko64 _fseeki64
 #define ftello64 _ftelli64
 #define TSTDSTRING std::wstring
+#define TSTDSTRINGSTREAM std::wstringstream
+#define TSTDTOSTRING std::to_wstring
 
 #ifdef _MSC_VER
 typedef SSIZE_T ssize_t;
@@ -56,6 +63,10 @@ void SysMessageA(const char *fmt, ...);
 #define SysMessage SysMessageA
 #endif
 
+#ifndef _T
+#define _T(x) L##x
+#endif
+
 #else //_WIN32
 
 #define MAX_PATH PATH_MAX
@@ -67,32 +78,38 @@ void SysMessageA(const char *fmt, ...);
 //FIXME narrow string fmt
 #define SFMTs "s"
 #define TEXT(val) val
+#define _T(x) x
 #define TCHAR char
 #define wfopen fopen
 #define TSTDSTRING std::string
+#define TSTDSTRINGSTREAM std::stringstream
+#define TSTDTOSTRING std::to_string
 
 void SysMessage(const char *fmt, ...);
 
 #endif //_WIN32
 
 #if __MINGW32__
+
 #define DBL_EPSILON 2.2204460492503131e-16
-template <size_t size>  
-errno_t mbstowcs_s(  
-	size_t *pReturnValue,  
-	wchar_t (&wcstr)[size],  
-	const char *mbstr,  
+#define FLT_EPSILON 1.1920928955078125e-7f
+
+template <size_t size>
+errno_t mbstowcs_s(
+	size_t *pReturnValue,
+	wchar_t (&wcstr)[size],
+	const char *mbstr,
 	size_t count
 )
 {
 	return mbstowcs_s(pReturnValue, wcstr, size, mbstr, count);
 }
 
-template <size_t size>  
-errno_t wcstombs_s(  
-	size_t *pReturnValue,  
-	char (&mbstr)[size],  
-	const wchar_t *wcstr,  
+template <size_t size>
+errno_t wcstombs_s(
+	size_t *pReturnValue,
+	char (&mbstr)[size],
+	const wchar_t *wcstr,
 	size_t count
 )
 {
@@ -113,9 +130,17 @@ constexpr std::size_t countof(const T (&)[N]) noexcept
     return N;
 }
 
+template <class T>
+constexpr std::size_t countof(const T N)
+{
+    return N.size();
+}
+
 //TODO Idk, used only in desc.h and struct USBDescriptor should be already packed anyway
 #if defined(_WIN32) && !defined(__MINGW32__)
 #define PACK(def,name) __pragma( pack(push, 1) ) def name __pragma( pack(pop) )
+#elif defined(__clang__)
+#define PACK(def,name) def __attribute__((packed)) name
 #else
 #define PACK(def,name) def __attribute__((gcc_struct, packed)) name
 #endif

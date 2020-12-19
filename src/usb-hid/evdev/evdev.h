@@ -29,7 +29,7 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return "Evdev";
+		return TEXT("Evdev");
 	}
 
 	static int Configure(int port, const char* dev_type, HIDType hid_type, void *data);
@@ -37,10 +37,6 @@ protected:
 	static void ReaderThread(void *ptr);
 
 	int mHandle;
-	uint16_t mAxisMap[ABS_MAX + 1];
-	uint16_t mBtnMap[KEY_MAX + 1];
-	int mAxisCount;
-	int mButtonCount;
 
 	std::thread mReaderThread;
 	std::atomic<bool> mReaderThreadIsRunning;

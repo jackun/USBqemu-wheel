@@ -42,7 +42,7 @@ static FILE *file = NULL;
 #define USBAUDIO_SAMPLE_RATE     48000
 #define USBAUDIO_PACKET_INTERVAL 1
 
-namespace usb_mic_singstar {
+namespace usb_mic {
 
 /*
  * A USB audio device supports an arbitrary number of alternate
@@ -601,7 +601,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 				return;
 			}
 
-			OSDebugOut(TEXT("data len: %d bytes, src[0]: %d frames, src[1]: %d frames\n"), len, out_frames[0], out_frames[1]);
+			OSDebugOut(TEXT("data len: %zu bytes, src[0]: %d frames, src[1]: %d frames\n"), len, out_frames[0], out_frames[1]);
 
 			//TODO well, it is 16bit interleaved, right?
 			//Merge with MIC_MODE_SHARED case?
@@ -694,6 +694,7 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
     case USB_TOKEN_OUT:
         printf("token out ep: %d\n", devep);
 		OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, p->actual_length);
+		break;
     default:
     fail:
         p->status = USB_RET_STALL;
@@ -763,6 +764,7 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 	if (!s->audsrcproxy)
 	{
 		SysMessage(TEXT("singstar: Invalid audio API: '%") TEXT(SFMTs) TEXT("'\n"), api.c_str());
+		delete s;
 		return NULL;
 	}
 
@@ -838,10 +840,10 @@ int SingstarDevice::Configure(int port, const std::string& api, void *data)
 int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
 	SINGSTARMICState *s = (SINGSTARMICState *)dev;
+	if (!s) return 0;
 	switch (mode)
 	{
 		case FREEZE_LOAD:
-			if (!s) return -1;
 			s->f = *(SINGSTARMICState::freeze *)data;
 			if (s->audsrc[0])
 				s->audsrc[0]->SetResampling(s->f.srate[0]);
@@ -849,7 +851,6 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 				s->audsrc[1]->SetResampling(s->f.srate[1]);
 			return sizeof(SINGSTARMICState::freeze);
 		case FREEZE_SAVE:
-			if (!s) return -1;
 			*(SINGSTARMICState::freeze *)data = s->f;
 			return sizeof(SINGSTARMICState::freeze);
 		case FREEZE_SIZE:
@@ -857,8 +858,7 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 		default:
 		break;
 	}
-	return -1;
+	return 0;
 }
 
-REGISTER_DEVICE(DEVTYPE_SINGSTAR, SingstarDevice);
-};
+}

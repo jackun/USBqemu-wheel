@@ -2,7 +2,7 @@
 #include "../usb-hid.h"
 #include "evdev.h"
 #include <linux/input.h>
-#include <gtk/gtk.h>
+#include "gtk.h"
 #include <cstdio>
 #include <sstream>
 
@@ -10,7 +10,6 @@ GtkWidget *new_combobox(const char* label, GtkWidget *vbox); // src/linux/config
 
 namespace usb_hid { namespace evdev {
 
-#define APINAME "evdev"
 #define EVDEV_DIR "/dev/input/by-path/"
 
 typedef std::vector< std::pair<std::string, std::string> > devs_t;
@@ -88,8 +87,7 @@ static void combo_changed (GtkComboBox *widget, gpointer data)
 
 int GtkHidConfigure(int port, const char* dev_type, HIDType hid_type, GtkWindow *parent)
 {
-	GtkWidget *ro_frame, *ro_label, *rs_hbox, *rs_label, *rs_cb;
-	GtkWidget *main_hbox, *right_vbox, *left_vbox;
+	GtkWidget *main_hbox, *right_vbox, *rs_cb;
 
 	assert( (int)HIDTYPE_MOUSE == 1); //make sure there is atleast two types so we won't go beyond array length
 
@@ -171,6 +169,5 @@ int EvDev::Configure(int port, const char* dev_type, HIDType hid_type, void *dat
 	return GtkHidConfigure(port, dev_type, hid_type, GTK_WINDOW (data));
 }
 
-#undef APINAME
 #undef EVDEV_DIR
 }} //namespace

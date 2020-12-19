@@ -1,11 +1,23 @@
 #pragma once
-#include <gtk/gtk.h>
+#include <linux/joystick.h>
+#include <unistd.h>
+#include "gtk.h"
 #include "../padproxy.h"
 #include "../../configuration.h"
 
 #define N_HIDRAW_FF_PT	"hidraw_ff_pt"
+#define N_GAIN_ENABLED  "gain_enabled"
+#define N_GAIN          "gain"
+#define N_AUTOCENTER          "autocenter"
+#define N_AUTOCENTER_MANAGED  "ac_managed"
 
-typedef std::vector< std::pair<std::string, std::string> > vstring;
+struct evdev_device {
+	std::string name;
+	std::string id;
+	std::string path;
+};
+
+typedef std::vector<evdev_device> device_list;
 GtkWidget *new_combobox(const char* label, GtkWidget *vbox);
 
 namespace usb_pad { namespace evdev {
@@ -44,7 +56,7 @@ enum JoystickMap
 	JOY_MAPS_COUNT
 };
 
-static const char* JoystickMapNames [] = {
+static constexpr const char* JoystickMapNames [] = {
 	"cross",
 	"square",
 	"circle",
@@ -66,36 +78,71 @@ static const char* JoystickMapNames [] = {
 	"brake"
 };
 
+static constexpr const char* buzz_map_names[] = {
+	"red",
+	"yellow",
+	"green",
+	"orange",
+	"blue",
+};
+
 struct Point { int x; int y; JoystickMap type; };
 
 struct ConfigMapping
 {
-	std::vector<uint16_t> mappings;
-	bool inverted[3];
+	std::vector<int16_t> controls;
+	int inverted[3];
+	int initial[3];
 	int fd = -1;
+
+	ConfigMapping() = default;
+	ConfigMapping(int fd_): fd(fd_) {}
 };
 
 struct ApiCallbacks
 {
-	bool (*get_event_name)(int map, int event, const char **name);
-	void (*populate)(vstring& jsdata);
-	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted);
+	bool (*get_event_name)(const char *dev_type, int map, int event, const char **name);
+	void (*populate)(device_list& jsdata);
+	bool (*poll)(const std::vector<std::pair<std::string, ConfigMapping> >& jsconf, std::string& dev_name, bool isaxis, int& value, bool& inverted, int& initial);
 };
 
+typedef std::pair<std::string, ConfigMapping> MappingPair;
 struct ConfigData
 {
-	std::vector<std::pair<std::string, ConfigMapping> > jsconf;
-	vstring joysticks;
-	vstring::const_iterator js_iter;
+	std::vector<MappingPair> jsconf;
+	device_list joysticks;
+	device_list::const_iterator js_iter;
 	GtkWidget *label;
 	GtkListStore *store;
 	GtkTreeView *treeview;
 	ApiCallbacks *cb;
-	bool use_hidraw_ff_pt;
+	int use_hidraw_ff_pt;
 	const char *dev_type;
 };
 
+struct axis_correct
+{
+	int used;
+	int coef[3];
+};
+
+struct device_data
+{
+	ConfigMapping cfg;
+	std::string name;
+	uint8_t axis_map[ABS_MAX + 1];
+	uint16_t btn_map[KEY_MAX + 1];
+	struct axis_correct abs_correct[ABS_MAX];
+	bool is_gamepad; //xboxish gamepad
+	bool is_dualanalog; // tricky, have to read the AXIS_RZ somehow and
+					// determine if its unpressed value is zero
+
+};
+
 int GtkPadConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
-bool LoadMappings(const char *dev_type, int port, const std::string& joyname, std::vector<uint16_t>& mappings, bool (&inverted)[3]);
-bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const std::vector<uint16_t>& mappings, const bool (&inverted)[3]);
+int GtkBuzzConfigure(int port, const char* dev_type, const char *title, const char *apiname, GtkWindow *parent, ApiCallbacks& apicbs);
+bool LoadMappings(const char *dev_type, int port, const std::string& joyname, ConfigMapping& cfg);
+bool SaveMappings(const char *dev_type, int port, const std::string& joyname, const ConfigMapping& cfg);
+bool LoadBuzzMappings(const char *dev_type, int port, const std::string& joyname, ConfigMapping& cfg);
+bool SaveBuzzMappings(const char *dev_type, int port, const std::string& joyname, const ConfigMapping& cfg);
 }} //namespace

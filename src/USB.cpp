@@ -22,13 +22,14 @@
 #include <cerrno>
 #include <cassert>
 
+#include "version.h" //CMake generated
 #include "USB.h"
 #include "platcompat.h"
 #include "osdebugout.h"
-#include "deviceproxy.h"
-#include "version.h" //CMake generated
+#include "qemu-usb/USBinternal.h"
 #include "qemu-usb/desc.h"
 #include "shared/shared.h"
+#include "deviceproxy.h"
 
 #define PSXCLK	36864000	/* 36.864 Mhz */
 
@@ -39,9 +40,10 @@ static char libraryName[256];
 OHCIState *qemu_ohci = NULL;
 USBDevice *usb_device[2] = { NULL };
 bool configChanged = false;
+static bool usb_opened = false;
 
 Config conf;
-char USBfreezeID[] = "USBqemuW01";
+char USBfreezeID[] = "USBqemuW02";
 typedef struct {
 	char freezeID[11];
 	s64 cycles;
@@ -72,14 +74,14 @@ s64 remaining = 0;
 #if _WIN32
 HWND gsWnd = nullptr;
 #else
-#include <gtk/gtk.h>
+#include "gtk.h"
 #include <gdk/gdkx.h>
 #include <X11/X.h>
 Display *g_GSdsp;
 Window g_GSwin;
 #endif
 
-_Config::_Config(): Log(0), DFPPass(0)
+Config::Config(): Log(0)
 {
 	memset(&WheelType, 0, sizeof(WheelType));
 }
@@ -108,30 +110,47 @@ void Reset()
 		ohci_hard_reset(qemu_ohci);
 }
 
+void OpenDevice(int port)
+{
+	//TODO Pass pDsp to open probably so dinput can bind to this HWND
+	if (usb_device[port] && usb_device[port]->klass.open)
+		usb_device[port]->klass.open(usb_device[port] /*, pDsp*/);
+}
+
+static void CloseDevice(int port)
+{
+	if (usb_device[port] && usb_device[port]->klass.close)
+		usb_device[port]->klass.close(usb_device[port]);
+}
+
+void DestroyDevice(int port)
+{
+	if (qemu_ohci && qemu_ohci->rhport[port].port.dev) {
+		qemu_ohci->rhport[port].port.dev->klass.unrealize(qemu_ohci->rhport[port].port.dev);
+		qemu_ohci->rhport[port].port.dev = nullptr;
+	}
+	else if (usb_device[port])
+		usb_device[port]->klass.unrealize(usb_device[port]);
+
+	usb_device[port] = nullptr;
+}
+
 void DestroyDevices()
 {
-	for (int i=0; i<2; i++)
-	{
-		if(qemu_ohci && qemu_ohci->rhport[i].port.dev) {
-			qemu_ohci->rhport[i].port.dev->klass.unrealize(qemu_ohci->rhport[i].port.dev);
-			qemu_ohci->rhport[i].port.dev = nullptr;
-		}
-		else if(usb_device[i])
-			usb_device[i]->klass.unrealize(usb_device[i]);
-
-		usb_device[i] = nullptr;
+	for (int i = 0; i < 2; i++) {
+		CloseDevice(i);
+		DestroyDevice(i);
 	}
 }
 
 USBDevice* CreateDevice(DeviceType index, int port)
 {
-	DeviceProxyBase *devProxy;
 	USBDevice* device = nullptr;
 
 	if (index == DEVTYPE_NONE)
 		return nullptr;
 
-	devProxy = RegisterDevice::instance().Device(index);
+	DeviceProxyBase* devProxy = RegisterDevice::instance().Device(index);
 	if (devProxy)
 		device = devProxy->CreateDevice(port);
 	else
@@ -175,7 +194,7 @@ USBDevice* CreateDevice(const std::string& name, int port)
 		if (devProxy)
 			device = devProxy->CreateDevice(port);
 		else
-			SysMessage(TEXT("Device %d: Unknown device type"), 1 - port);
+			SysMessage(TEXT("Port %d: Unknown device type"), port);
 	}
 
 	if (!device) {
@@ -193,6 +212,8 @@ void CreateDevices()
 	{
 		usb_device[i] = CreateDevice(conf.Port[i], i);
 		USBAttach(i, usb_device[i]);
+		if (usb_opened)
+			OpenDevice(i);
 	}
 }
 
@@ -223,12 +244,18 @@ EXPORT_C_(u32) PS2EgetLibVersion2(u32 type) {
 EXPORT_C_(s32) USBinit() {
 	OSDebugOut(TEXT("USBinit\n"));
 
-	RegisterDevice::Initialize();
+	usb_opened = false;
+	RegisterDevice::Register();
 	LoadConfig();
 
 	if (conf.Log && !usbLog)
 	{
-		usbLog = fopen("logs/usbLog.txt", "w");
+		usbLog =
+#if _UNICODE
+			_wfopen(LogDir.c_str(), L"wb");// L"wb,ccs=UNICODE");
+#else
+			fopen(LogDir.c_str(), "w");
+#endif
 		//if(usbLog) setvbuf(usbLog, NULL,  _IONBF, 0);
 		USB_LOG("usbqemu wheel mod plugin version %d.%d.%d\n", VER_REV, VER_BLD, VER_FIX);
 		USB_LOG("USBinit\n");
@@ -247,7 +274,8 @@ EXPORT_C_(void) USBshutdown() {
 
 	OSDebugOut(TEXT("USBshutdown\n"));
 	DestroyDevices();
-	RegisterDevice::instance().Clear();
+	RegisterDevice::instance().Unregister();
+	usb_opened = false;
 
 	free(qemu_ohci);
 
@@ -294,7 +322,7 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 
 	g_GSdsp = (Display *)((uptr*)pDsp)[0];
 	g_GSwin = (Window)((uptr*)pDsp)[1];
-	OSDebugOut("X11 display %p Xwindow %p\n", g_GSdsp, g_GSwin);
+	OSDebugOut("X11 display %p Xwindow %lu\n", g_GSdsp, g_GSwin);
 #endif
 
 	try {
@@ -309,36 +337,28 @@ EXPORT_C_(s32) USBopen(void *pDsp) {
 		CreateDevices(); //TODO Pass pDsp to init?
 	}
 
-	//TODO Pass pDsp to open probably so dinput can bind to this HWND
-	if(usb_device[0] && usb_device[0]->klass.open)
-		usb_device[0]->klass.open(usb_device[0]);
-
-	if(usb_device[1] && usb_device[1]->klass.open)
-		usb_device[1]->klass.open(usb_device[1]);
-
+	OpenDevice(0 /*, pDsp */);
+	OpenDevice(1 /*, pDsp */);
+	usb_opened = true;
 	return 0;
 }
 
 EXPORT_C_(void) USBclose() {
 	OSDebugOut(TEXT("USBclose\n"));
 
-	if(usb_device[0] && usb_device[0]->klass.close)
-		usb_device[0]->klass.close(usb_device[0]);
-
-	if(usb_device[1] && usb_device[1]->klass.close)
-		usb_device[1]->klass.close(usb_device[1]);
-
+	CloseDevice(0);
+	CloseDevice(1);
 	shared::Uninitialize();
-
+	usb_opened = false;
 }
 
 EXPORT_C_(u8) USBread8(u32 addr) {
-	USB_LOG("* Invalid 8bit read at address %lx\n", addr);
+	USB_LOG("* Invalid 8bit read at address %08x\n", addr);
 	return 0;
 }
 
 EXPORT_C_(u16) USBread16(u32 addr) {
-	USB_LOG("* Invalid 16bit read at address %lx\n", addr);
+	USB_LOG("* Invalid 16bit read at address %08x\n", addr);
 	return 0;
 }
 
@@ -347,21 +367,21 @@ EXPORT_C_(u32) USBread32(u32 addr) {
 
 	hard=ohci_mem_read(qemu_ohci,addr);
 
-	USB_LOG("* Known 32bit read at address %lx: %lx\n", addr, hard);
+	USB_LOG("* Known 32bit read at address %08x: %08x\n", addr, hard);
 
 	return hard;
 }
 
 EXPORT_C_(void) USBwrite8(u32 addr,  u8 value) {
-	USB_LOG("* Invalid 8bit write at address %lx value %x\n", addr, value);
+	USB_LOG("* Invalid 8bit write at address %08x value %x\n", addr, value);
 }
 
 EXPORT_C_(void) USBwrite16(u32 addr, u16 value) {
-	USB_LOG("* Invalid 16bit write at address %lx value %x\n", addr, value);
+	USB_LOG("* Invalid 16bit write at address %08x value %x\n", addr, value);
 }
 
 EXPORT_C_(void) USBwrite32(u32 addr, u32 value) {
-	USB_LOG("* Known 32bit write at address %lx value %lx\n", addr, value);
+	USB_LOG("* Known 32bit write at address %08x value %08x\n", addr, value);
 	ohci_mem_write(qemu_ohci,addr,value);
 }
 
@@ -388,14 +408,17 @@ EXPORT_C_(void) USBsetRAM(void *mem) {
 }
 
 EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
-	USBfreezeData usbd = { 0 };
+
+	// YoUr FuNcTiOn UsEs 19k of sTacK oF 16K
+	std::unique_ptr<USBfreezeData> usbd_ptr(new USBfreezeData);
+	USBfreezeData& usbd = *usbd_ptr.get();
 
 	//TODO FREEZE_SIZE mismatch causes loading to fail in PCSX2 beforehand
 	if (mode == FREEZE_LOAD)
 	{
 		if(data->size < sizeof(USBfreezeData))
 		{
-			SysMessage(TEXT("ERROR: Unable to load freeze data! Got %d bytes, expected >= %d.\n"), data->size, sizeof(USBfreezeData));
+			SysMessage(TEXT("ERROR: Unable to load freeze data! Got %d bytes, expected >= %zu.\n"), data->size, sizeof(USBfreezeData));
 			return -1;
 		}
 
@@ -408,9 +431,17 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			return -1;
 		}
 
+		s8 *ptr = data->data + sizeof(USBfreezeData);
+		// Load the state of the attached devices
+		if (data->size < sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
+			return -1;
+
 		//TODO Subsequent save state loadings make USB "stall" for n seconds since previous load
 		//clocks = usbd.cycles;
 		//remaining = usbd.remaining;
+
+		CloseDevice(0);
+		CloseDevice(1);
 
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
@@ -418,12 +449,12 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			usbd.t.rhport[i].port.ops = qemu_ohci->rhport[i].port.ops;
 			usbd.t.rhport[i].port.dev = qemu_ohci->rhport[i].port.dev;
 		}
-		*qemu_ohci = usbd.t;
 
-		s8 *ptr = data->data + sizeof(USBfreezeData);
-		// Load the state of the attached devices
-		if (data->size != sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
-			return -1;
+		//if (qemu_ohci->usb_packet.iov.iov)
+		usb_packet_cleanup(&qemu_ohci->usb_packet);
+		*qemu_ohci = usbd.t;
+		// restore USBPacket for OHCIState
+		usb_packet_init(&qemu_ohci->usb_packet);
 
 		RegisterDevice& regInst = RegisterDevice::instance();
 		for (int i=0; i<2; i++)
@@ -438,14 +469,10 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				index = usbd.device[i].index;
 				USBDevice *dev = qemu_ohci->rhport[i].port.dev;
 				qemu_ohci->rhport[i].port.dev = nullptr;
-
-				if (dev)
-				{
-					assert(usb_device[i] == dev);
-					dev->klass.unrealize(dev);
-				}
+				DestroyDevice(i);
 
 				proxy = regInst.Device(index);
+				conf.Port[i] = proxy->TypeName();
 				usb_device[i] = CreateDevice(index, i);
 				USBAttach(i, usb_device[i], index != DEVTYPE_MSD);
 			}
@@ -458,7 +485,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 					return -1;
 				}
 
-				USBDevice& tmp = usbd.device[i].dev;
+				const USBDevice& tmp = usbd.device[i].dev;
 
 				usb_device[i]->addr = tmp.addr;
 				usb_device[i]->attached = tmp.attached;
@@ -472,6 +499,21 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				usb_device[i]->setup_len = tmp.setup_len;
 				usb_device[i]->setup_index = tmp.setup_index;
 
+#ifndef NDEBUG
+				std::cerr << "Loading save state:\nport: " << i
+					<< "\naddr:        " << (int)usb_device[i]->addr
+					<< "\nattached:    " << usb_device[i]->attached
+					<< "\nauto_attach: " << usb_device[i]->auto_attach
+					<< "\nconfig:  " << usb_device[i]->configuration
+					<< "\nninterf: " << usb_device[i]->ninterfaces
+					<< "\nflags:   " << usb_device[i]->flags
+					<< "\nstate:   " << usb_device[i]->state
+					<< "\nremote_wakeup: " << usb_device[i]->remote_wakeup
+					<< "\nsetup_state:   " << usb_device[i]->setup_state
+					<< "\nsetup_len:     " << usb_device[i]->setup_len
+					<< "\nsetup_index:   " << usb_device[i]->setup_index
+					<< std::endl;
+#endif
 				memcpy(usb_device[i]->data_buf, tmp.data_buf, sizeof(tmp.data_buf));
 				memcpy(usb_device[i]->setup_buf, tmp.setup_buf, sizeof(tmp.setup_buf));
 
@@ -482,20 +524,23 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 				}
 
 				proxy->Freeze(FREEZE_LOAD, usb_device[i], ptr);
+				if (!usb_device[i]->attached) { // FIXME FREEZE_SAVE fcked up
+					usb_device[i]->attached = true;
+					usb_device_reset(usb_device[i]);
+					//TODO reset port if save state's and configured wheel types are different
+					usb_detach (&qemu_ohci->rhport[i].port);
+					usb_attach (&qemu_ohci->rhport[i].port);
+				}
+				OpenDevice(i);
 			}
 			else if (!proxy && index != DEVTYPE_NONE)
 			{
-				SysMessage(TEXT("Port %d: unknown device.\nPlugin is probably too old for this save.\n"), 1+(1-i));
-				return -1;
+				SysMessage(TEXT("Port %d: unknown device.\nPlugin is probably too old for this save.\n"), i);
 			}
 			ptr += usbd.device[i].size;
 		}
 
 		int dev_index = usbd.usb_packet.dev_index;
-		// restore USBPacket for OHCIState
-		//if (qemu_ohci->usb_packet.iov.iov)
-		usb_packet_cleanup(&qemu_ohci->usb_packet);
-		usb_packet_init(&qemu_ohci->usb_packet);
 
 		if (usb_device[dev_index])
 		{
@@ -533,7 +578,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		}
 		else
 		{
-			SysMessage(TEXT("USB packet has invalid device index?\n")); // or just a bug
+			SysMessage(TEXT("USB packet has invalid device index? %d\n"), dev_index); // or just a bug
 			return -1;
 		}
 	}
@@ -551,7 +596,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			auto proxy = regInst.Device(index);
 			usbd.device[i].index = index;
 
-			if (proxy)
+			if (proxy && usb_device[i])
 				usbd.device[i].size = proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr);
 			else
 				usbd.device[i].size = 0;
@@ -562,9 +607,10 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 
 		strncpy(usbd.freezeID,  USBfreezeID, strlen(USBfreezeID));
 		usbd.t = *qemu_ohci;
-		usbd.usb_packet.ep = qemu_ohci->usb_packet.ep ? *qemu_ohci->usb_packet.ep : USBEndpoint{0};
-		usbd.t.usb_packet.iov = { };
+		usbd.t.usb_packet.iov = {};
 		usbd.t.usb_packet.ep = nullptr;
+		if (qemu_ohci->usb_packet.ep)
+			usbd.usb_packet.ep = *qemu_ohci->usb_packet.ep;
 
 		for(int i=0; i< qemu_ohci->num_ports; i++)
 		{
@@ -582,14 +628,13 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 		for (int i=0; i<2; i++)
 		{
 			auto proxy = regInst.Device(conf.Port[i]);
-			if (proxy && usbd.device[i].size)
-			{
-				proxy->Freeze(FREEZE_SAVE, usb_device[i], ptr);
-				if (usb_device[i])
-					usbd.device[i].dev = *usb_device[i];
 
-				memset (&usbd.device[i].dev.klass, 0, sizeof(USBDeviceClass));
+			if (usb_device[i]) {
+				usbd.device[i].dev = *usb_device[i];
+				if (proxy && usbd.device[i].size)
+					proxy->Freeze(FREEZE_SAVE, usb_device[i], ptr);
 			}
+			memset (&usbd.device[i].dev.klass, 0, sizeof(USBDeviceClass));
 
 			ptr += usbd.device[i].size;
 		}
@@ -603,23 +648,7 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 	}
 	else if (mode == FREEZE_SIZE)
 	{
-		RegisterDevice& regInst = RegisterDevice::instance();
-		data->size = sizeof(USBfreezeData);
-		for (int i=0; i<2; i++)
-		{
-			//TODO check that current created usb device and conf.Port[n] are the same
-			auto proxy = regInst.Device(conf.Port[i]);
-
-			if (proxy)
-				data->size += proxy->Freeze(FREEZE_SIZE, usb_device[i], nullptr);
-		}
-
-		// PCSX2 queries size before load too, so can't use actual packet length which varies :(
-		data->size += 8192;// qemu_ohci->usb_packet.actual_length;
-		if (qemu_ohci->usb_packet.actual_length > 8192) {
-			fprintf(stderr, "Saving failed! USB packet is larger than 8K, try again later.\n");
-			return -1;
-		}
+		data->size = 0x10000;
 	}
 
 	return 0;
@@ -638,9 +667,9 @@ EXPORT_C_(void) USBasync(u32 cycles)
 			ohci_frame_boundary(qemu_ohci);
 
 			/*
-				Break out of the loop if bus was stopped.
-				If not returning early from ohci_frame_boundary when UE is hit and
-				keep to SOF and writing out HCCA, it seems to cause a hang inside game instead.
+			 * Break out of the loop if bus was stopped.
+			 * If ohci_frame_boundary hits an UE, but doesn't stop processing,
+			 * it seems to cause a hang inside the game instead.
 			*/
 			if (!qemu_ohci->eof_timer)
 				break;

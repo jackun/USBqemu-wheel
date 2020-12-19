@@ -611,7 +611,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
     MSDState *s = (MSDState *)opaque;
     DPRINTF("Command: lun=%d tag=0x%x len %zd data=0x%02x\n", cbw->lun, cbw->tag, cbw->data_len, cbw->cmd[0]);
 
-    uint32_t lba;
+    int64_t lba;
     uint32_t xfer_len;
     s->f.last_cmd = cbw->cmd[0];
 
@@ -693,7 +693,7 @@ static void send_command(void *opaque, struct usb_msd_cbw *cbw)
         s->f.data_len = xfer_len * LBA_BLOCK_SIZE;
         s->f.file_op_tag = s->f.tag;
 
-        DPRINTF("read lba=0x%x, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
+        DPRINTF("read lba=0x%llx, len=0x%x\n", lba, xfer_len * LBA_BLOCK_SIZE);
 
         if(xfer_len == 0) // nothing to do
             break;
@@ -801,10 +801,7 @@ static void usb_msd_cancel_io(USBDevice *dev, USBPacket *p)
 static void usb_msd_handle_data(USBDevice *dev, USBPacket *p)
 {
     MSDState *s = (MSDState *)dev;
-    int ret = 0;
-    size_t file_ret = 0;
     struct usb_msd_cbw cbw;
-    struct usb_msd_csw csw;
     uint8_t devep = p->ep->nr;
 
     //XXX Note for self if using async td: see qemu dev-storage.c
@@ -1002,6 +999,7 @@ USBDevice *MsdDevice::CreateDevice(int port)
     if (!LoadSetting(TypeName(), port, api, N_CONFIG_PATH, var))
     {
         fprintf(stderr, "usb-msd: Could not load settings\n");
+        delete s;
         return NULL;
     }
 
@@ -1049,14 +1047,13 @@ const char* MsdDevice::TypeName()
 
 int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
 {
-    uint32_t fat32_serial = 0;
     MSDState *s = (MSDState *)dev;
     MSDState::freeze *tmp;
 
+    if (!s) return 0;
     switch (mode)
     {
         case FREEZE_LOAD:
-            if (!s) return -1;
             //if (s->f.req) free (s->f.req);
 
             tmp = (MSDState::freeze *)data;
@@ -1071,7 +1068,6 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
             return sizeof(MSDState::freeze);// + sizeof(ReqState);
 
         case FREEZE_SAVE:
-            if (!s) return -1;
             tmp = (MSDState::freeze *)data;
             *tmp = s->f;
             return sizeof(MSDState::freeze);
@@ -1081,10 +1077,8 @@ int MsdDevice::Freeze(int mode, USBDevice *dev, void *data)
         default:
         break;
     }
-    return -1;
+    return 0;
 }
 
-REGISTER_DEVICE(DEVTYPE_MSD, MsdDevice);
 #undef DPRINTF
-#undef APINAME
 } //namespace
