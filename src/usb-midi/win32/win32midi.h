@@ -7,9 +7,9 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
-namespace usb_midi { namespace mididev_keyboards {
+namespace usb_midi { namespace mididev_devices {
 
-static const char *APINAME = "keyboards";
+static const char *APINAME = "mididevs";
 
 class Win32MidiDevice : public MidiDevice
 {
@@ -20,7 +20,7 @@ public:
 		if(!Init())
 			throw usb_midi::MidiDeviceError("Win32MidiDevice:: device name is empty, skipping");
 		if(!Reinitialize())
-			throw usb_midi::MidiDeviceError("Win32MidiDevice:: Keyboards init failed!");
+			throw usb_midi::MidiDeviceError("Win32MidiDevice:: Devices init failed!");
 	}
 
 	~Win32MidiDevice();

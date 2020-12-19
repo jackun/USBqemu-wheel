@@ -14,7 +14,7 @@
 #pragma comment(lib, "winmm.lib")
 
 namespace usb_midi {
-namespace mididev_keyboards {
+namespace mididev_devices {
 //Config dlg temporaries
 struct KeyboardsSettings
 {
@@ -33,7 +33,7 @@ struct MidiInfo {
 
 MidiInfo midiInfo;
 
-static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
+static BOOL CALLBACK MidiDeviceDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 void CALLBACK midiCallback(HMIDIIN hMidiIn, UINT wMsg, const DWORD_PTR dwInstance, const DWORD dwParam1, const DWORD dwParam2)
 {
@@ -179,7 +179,7 @@ int Win32MidiDevice::Configure(int port, const char* dev_type, void* data)
 		h.hInst,
 		MAKEINTRESOURCE(IDD_DLGMIDIKBD),
 		h.hWnd,
-		(DLGPROC)KeyboardsDlgProc,
+		(DLGPROC)MidiDeviceDlgProc,
 		(LPARAM)&settings
 	);
 }
@@ -206,7 +206,7 @@ static void RefreshInputKeyboardList(HWND hW, LRESULT idx, KeyboardsSettings* se
 	}
 }
 
-static BOOL CALLBACK KeyboardsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+static BOOL CALLBACK MidiDeviceDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	int tmp = 0;
 	KeyboardsSettings* s;
 

@@ -4,5 +4,5 @@
 void usb_midi::RegisterMidiDevice::Register()
 {
 	auto& inst = RegisterMidiDevice::instance();
-	inst.Add(mididev_keyboards::APINAME, new MidiDeviceProxy<mididev_keyboards::Win32MidiDevice>());
+	inst.Add(mididev_devices::APINAME, new MidiDeviceProxy<mididev_devices::Win32MidiDevice>());
 }
