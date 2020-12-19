@@ -50,7 +50,7 @@ public:
 
 	static const TCHAR* Name()
 	{
-		return TEXT("MIDI Keyboard");
+		return TEXT("MIDI Input Device");
 	}
 
 	static bool AudioInit();

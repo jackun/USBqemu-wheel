@@ -250,7 +250,7 @@ SET(SRCS_HID
 )
 
 SET(HDRS_MIDI
-	./src/usb-midi/audio.h
+	./src/usb-mic/audio.h
 	./src/usb-midi/mididev.h
 	./src/usb-midi/midideviceproxy.h
 	./src/usb-midi/usb-midi-pc300.h

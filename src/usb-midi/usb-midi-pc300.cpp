@@ -29,7 +29,7 @@
 #include "usb-midi-pc300.h"
 #include <assert.h>
 
-#include "audio.h"
+#include "../usb-mic/audio.h"
 
 namespace usb_midi {
     namespace usb_midi_pc300 {
