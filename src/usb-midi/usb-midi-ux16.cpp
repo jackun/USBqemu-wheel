@@ -32,7 +32,7 @@
 #include "../usb-mic/audio.h"
 
 namespace usb_midi {
-typedef struct UX16KBDState {
+typedef struct UX16DevState {
     USBDevice dev;
 
     USBDesc desc;
@@ -45,16 +45,13 @@ typedef struct UX16KBDState {
         int port;
         int intf;
     } f; //freezable
-
-    /* properties */
-    uint32_t debug;
-} UX16KBDState;
+} UX16DevState;
 
 static const USBDescStrings desc_strings = {
     "",
 };
 
-static const uint8_t ux16_kbd_dev_descriptor[] = {
+static const uint8_t ux16_dev_descriptor[] = {
     /* bLength             */ 0x12, //(18)
     /* bDescriptorType     */ 0x01, //(1)
     /* bcdUSB              */ WBVAL(0x0110), //(272)
@@ -72,8 +69,7 @@ static const uint8_t ux16_kbd_dev_descriptor[] = {
 
 };
 
-
-static const uint8_t ux16_kbd_config_descriptor[] = {
+static const uint8_t ux16_config_descriptor[] = {
     /* Configuration 1 */
     USB_CONFIGURATION_DESC_SIZE,          /* bLength */
     USB_CONFIGURATION_DESCRIPTOR_TYPE,    /* bDescriptorType */
@@ -137,25 +133,24 @@ static const uint8_t ux16_kbd_config_descriptor[] = {
     0                                     /* bLength */
 };
 
-
-static void ux16_kbd_handle_reset(USBDevice* dev)
+static void ux16_dev_handle_reset(USBDevice* dev)
 {
     /* XXX: do it */
     return;
 }
 
-static void ux16_kbd_set_interface(USBDevice* dev, int intf,
+static void ux16_dev_set_interface(USBDevice* dev, int intf,
     int alt_old, int alt_new)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
+    UX16DevState* s = (UX16DevState*)dev;
     s->f.intf = alt_new;
     OSDebugOut(TEXT("ux16: intf:%d alt:%d -> %d\n"), intf, alt_old, alt_new);
 }
 
-static void ux16_kbd_handle_control(USBDevice* dev, USBPacket* p, int request, int value,
+static void ux16_dev_handle_control(USBDevice* dev, USBPacket* p, int request, int value,
     int index, int length, uint8_t* data)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
+    UX16DevState* s = (UX16DevState*)dev;
     int ret = 0;
 
     OSDebugOut(TEXT("ux16: req %04X val: %04X idx: %04X len: %d\n"), request, value, index, length);
@@ -165,17 +160,12 @@ static void ux16_kbd_handle_control(USBDevice* dev, USBPacket* p, int request, i
         return;
     }
 
-    switch (request) {
-    default:
-    fail:
-        p->status = USB_RET_STALL;
-        break;
-    }
+    p->status = USB_RET_STALL;
 }
 
-static void ux16_kbd_handle_data(USBDevice* dev, USBPacket* p)
+static void ux16_dev_handle_data(USBDevice* dev, USBPacket* p)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
+    UX16DevState* s = (UX16DevState*)dev;
     int ret = 0;
     uint8_t devep = p->ep->nr;
     switch (p->pid) {
@@ -222,59 +212,55 @@ static void ux16_kbd_handle_data(USBDevice* dev, USBPacket* p)
         printf("token out ep: %d\n", devep);
         OSDebugOut(TEXT("token out ep: %d len: %d\n"), devep, p->actual_length);
     default:
-    fail:
         p->status = USB_RET_STALL;
         break;
     }
 }
 
 
-static void ux16_kbd_handle_destroy(USBDevice* dev)
+static void ux16_dev_handle_destroy(USBDevice* dev)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
+    UX16DevState* s = (UX16DevState*)dev;
 
-    if (s) {
-        if (s->midisrc) {
-            s->midisrc->Stop();
-            s->midisrc = NULL;
-        }
+    if (!s) {
+        return;
+    }
 
-        // TODO: Why does this throw an exception?
-        // if(s->midisrcproxy) {
-        //   s->midisrcproxy->AudioDeinit();
-        // }
+    if (s->midisrc) {
+        s->midisrc->Stop();
+        delete s->midisrc;
+        s->midisrc = NULL;
+    }
+
+    if(s->midisrcproxy) {
+        s->midisrcproxy->AudioDeinit();
     }
 
     delete s;
 }
 
-static int ux16_kbd_handle_open(USBDevice* dev)
+static int ux16_dev_handle_open(USBDevice* dev)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
+    UX16DevState* s = (UX16DevState*)dev;
 
-    OSDebugOut(TEXT("Called ux16_kbd_handle_open\n"));
-
-    if (s)
+    if (s && s->midisrc)
     {
-        if (s->midisrc) {
-            s->midisrc->Start();
-        }
+       s->midisrc->Start();
     }
+
     return 0;
 }
 
-static void ux16_kbd_handle_close(USBDevice* dev)
+static void ux16_dev_handle_close(USBDevice* dev)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
-    if (s)
+    UX16DevState* s = (UX16DevState*)dev;
+
+    if (s && s->midisrc)
     {
-        if (s->midisrc) {
-            s->midisrc->Stop();
-        }
+       s->midisrc->Stop();
     }
 }
 
-//USBDevice *ux16_kbd_init(int port, TSTDSTRING *devs)
 USBDevice* MidiUx16Device::CreateDevice(int port)
 {
     std::string api;
@@ -284,9 +270,7 @@ USBDevice* MidiUx16Device::CreateDevice(int port)
 
 USBDevice* MidiUx16Device::CreateDevice(int port, const std::string& api)
 {
-    UX16KBDState* s;
-
-    s = new UX16KBDState();
+    UX16DevState* s = new UX16DevState();
 
     s->midisrcproxy = usb_midi::RegisterMidiDevice::instance().Proxy(api);
     if (!s->midisrcproxy)
@@ -302,62 +286,65 @@ USBDevice* MidiUx16Device::CreateDevice(int port, const std::string& api)
     s->desc.full = &s->desc_dev;
     s->desc.str = desc_strings;
 
-    if (usb_desc_parse_dev(ux16_kbd_dev_descriptor, sizeof(ux16_kbd_dev_descriptor), s->desc, s->desc_dev) < 0) {
+    if (usb_desc_parse_dev(ux16_dev_descriptor, sizeof(ux16_dev_descriptor), s->desc, s->desc_dev) < 0) {
         OSDebugOut(TEXT("Failed usb_desc_parse_dev\n"));
         goto fail;
     }
 
-    if (usb_desc_parse_config(ux16_kbd_config_descriptor, sizeof(ux16_kbd_config_descriptor), s->desc_dev) < 0) {
+    if (usb_desc_parse_config(ux16_config_descriptor, sizeof(ux16_config_descriptor), s->desc_dev) < 0) {
         OSDebugOut(TEXT("Failed usb_desc_parse_config\n"));
         goto fail;
     }
 
     s->dev.speed = USB_SPEED_FULL;
     s->dev.klass.handle_attach = usb_desc_attach;
-    s->dev.klass.handle_reset = ux16_kbd_handle_reset;
-    s->dev.klass.handle_control = ux16_kbd_handle_control;
-    s->dev.klass.handle_data = ux16_kbd_handle_data;
-    s->dev.klass.set_interface = ux16_kbd_set_interface;
-    s->dev.klass.unrealize = ux16_kbd_handle_destroy;
-    s->dev.klass.open = ux16_kbd_handle_open;
-    s->dev.klass.close = ux16_kbd_handle_close;
+    s->dev.klass.handle_reset = ux16_dev_handle_reset;
+    s->dev.klass.handle_control = ux16_dev_handle_control;
+    s->dev.klass.handle_data = ux16_dev_handle_data;
+    s->dev.klass.set_interface = ux16_dev_set_interface;
+    s->dev.klass.unrealize = ux16_dev_handle_destroy;
+    s->dev.klass.open = ux16_dev_handle_open;
+    s->dev.klass.close = ux16_dev_handle_close;
     s->dev.klass.usb_desc = &s->desc;
     s->dev.klass.product_desc = desc_strings[0];
 
     usb_desc_init(&s->dev);
     usb_ep_init(&s->dev);
-    ux16_kbd_handle_reset((USBDevice*)s);
+    ux16_dev_handle_reset((USBDevice*)s);
 
     return (USBDevice*)s;
 
 fail:
-    ux16_kbd_handle_destroy((USBDevice*)s);
+    ux16_dev_handle_destroy((USBDevice*)s);
     return NULL;
 }
 
 int MidiUx16Device::Configure(int port, const std::string& api, void* data)
 {
     auto proxy = usb_midi::RegisterMidiDevice::instance().Proxy(api);
-    if (proxy)
+
+    if (proxy) {
         return proxy->Configure(port, TypeName(), data);
+    }
+
     return RESULT_CANCELED;
 }
 
 int MidiUx16Device::Freeze(int mode, USBDevice* dev, void* data)
 {
-    UX16KBDState* s = (UX16KBDState*)dev;
+    UX16DevState* s = (UX16DevState*)dev;
     switch (mode)
     {
     case FREEZE_LOAD:
         if (!s) return -1;
-        s->f = *(UX16KBDState::freeze*)data;
-        return sizeof(UX16KBDState::freeze);
+        s->f = *(UX16DevState::freeze*)data;
+        return sizeof(UX16DevState::freeze);
     case FREEZE_SAVE:
         if (!s) return -1;
-        *(UX16KBDState::freeze*)data = s->f;
-        return sizeof(UX16KBDState::freeze);
+        *(UX16DevState::freeze*)data = s->f;
+        return sizeof(UX16DevState::freeze);
     case FREEZE_SIZE:
-        return sizeof(UX16KBDState::freeze);
+        return sizeof(UX16DevState::freeze);
     default:
         break;
     }

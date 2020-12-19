@@ -30,8 +30,6 @@ public:
 	void Stop();
 	uint32_t PopMidiCommand();
 
-	void get_midi_devices();
-
 	virtual bool Compare(MidiDevice* compare)
 	{
 		if (compare)

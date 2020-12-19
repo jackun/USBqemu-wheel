@@ -37,17 +37,6 @@ typedef struct PC300KBDState {
 
     USBDesc desc;
     USBDescDevice desc_dev;
-
-    MidiDevice* midisrc;
-    usb_midi::MidiDeviceProxyBase* midisrcproxy;
-
-    struct freeze {
-        int port;
-        int intf;
-    } f; //freezable
-
-    /* properties */
-    uint32_t debug;
 } PC300KBDState;
 
 static const USBDescStrings desc_strings = {
@@ -71,7 +60,6 @@ static const uint8_t pc300_kbd_dev_descriptor[] = {
     /* bNumConfigurations  */ 0x01, //(1)
 
 };
-
 
 static const uint8_t pc300_kbd_config_descriptor[] = {
 
@@ -277,15 +265,24 @@ USBDevice* MidiPc300Device::CreateDevice(int port)
     s->desc.full = &s->desc_dev;
     s->desc.str = desc_strings;
 
-    if (usb_desc_parse_dev(pc300_kbd_dev_descriptor, sizeof(pc300_kbd_dev_descriptor), s->desc, s->desc_dev) < 0)
+    if (usb_desc_parse_dev(pc300_kbd_dev_descriptor, sizeof(pc300_kbd_dev_descriptor), s->desc, s->desc_dev) < 0) {
+        OSDebugOut(TEXT("Failed usb_desc_parse_dev\n"));
         goto fail;
-    if (usb_desc_parse_config(pc300_kbd_config_descriptor, sizeof(pc300_kbd_config_descriptor), s->desc_dev) < 0)
+    }
+
+    if (usb_desc_parse_config(pc300_kbd_config_descriptor, sizeof(pc300_kbd_config_descriptor), s->desc_dev) < 0) {
+        OSDebugOut(TEXT("Failed usb_desc_parse_config\n"));
         goto fail;
+    }
 
     s->dev.klass.usb_desc = &s->desc;
     s->dev.klass.product_desc = desc_strings[0];
+
     usb_desc_init(&s->dev);
+    SysMessage(TEXT("pc300: Started"));
+
     return dev;
+
 fail:
     s->dev.klass.unrealize(dev);
     return nullptr;
