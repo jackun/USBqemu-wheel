@@ -14,7 +14,7 @@ public:
 	static USBDevice* CreateDevice(int port, const std::string& api);
 	static const TCHAR* Name()
 	{
-		return TEXT("Yamaha UX16 USB-MIDI Interface");
+		return TEXT("Yamaha UX16 USB-MIDI Interface (Drummania)");
 	}
 	static const char* TypeName()
 	{
@@ -46,7 +46,7 @@ public:
 	}
 	static const TCHAR* Name()
 	{
-		return TEXT("Roland PC-300 MIDI Keyboard");
+		return TEXT("Roland PC-300 MIDI Keyboard (Keyboardmania)");
 	}
 };
 
