@@ -396,6 +396,9 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 	while (pos < len)
 	{
 		d = (USBDescriptor *)(data + pos);
+		if (!d->bLength)
+			break;
+
 		switch (d->bDescriptorType)
 		{
 			case USB_DT_CONFIG:
@@ -468,9 +471,6 @@ int usb_desc_parse_config (const uint8_t *data, int len, USBDescDevice& dev)
 				return -1;
 		}
 		pos += d->bLength;
-
-		if (!d->bLength)
-			break;
 	}
 	return pos;
 }

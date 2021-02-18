@@ -467,14 +467,16 @@ EXPORT_C_(s32) USBfreeze(int mode, freezeData *data) {
 			if (usbd.device[i].index != index)
 			{
 				index = usbd.device[i].index;
-				USBDevice *dev = qemu_ohci->rhport[i].port.dev;
-				qemu_ohci->rhport[i].port.dev = nullptr;
 				DestroyDevice(i);
 
 				proxy = regInst.Device(index);
-				conf.Port[i] = proxy->TypeName();
-				usb_device[i] = CreateDevice(index, i);
-				USBAttach(i, usb_device[i], index != DEVTYPE_MSD);
+				if (proxy)
+				{
+					// re-create with saved device type
+					conf.Port[i] = proxy->TypeName(); // TODO config dialog reloads from ini
+					usb_device[i] = CreateDevice(index, i);
+					USBAttach(i, usb_device[i], index != DEVTYPE_MSD);
+				}
 			}
 
 			if (proxy && usb_device[i]) /* usb device creation may have failed for some reason */
