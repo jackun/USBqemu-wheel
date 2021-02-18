@@ -85,6 +85,9 @@ MMAudioDevice::~MMAudioDevice()
 	mThread = INVALID_HANDLE_VALUE;
 	CloseHandle(mMutex);
 	mMutex = INVALID_HANDLE_VALUE;
+
+	if (mComInited)
+		CoUninitialize();
 }
 
 void MMAudioDevice::FreeData()
@@ -126,6 +129,18 @@ bool MMAudioDevice::Init()
 			mBuffering = std::min(1000, std::max(1, var));
 	}
 
+	if (!mComInited)
+	{
+		HRESULT hr = CoInitializeEx( NULL, COINIT_MULTITHREADED );
+		if ((S_OK != hr) && (S_FALSE != hr) /* already inited */ && (hr != RPC_E_CHANGED_MODE))
+		{
+			OSDebugOut(TEXT("Com initialization failed with %d\n"), hr);
+			return false;
+		}
+
+		if (hr != RPC_E_CHANGED_MODE)
+			mComInited = true;
+	}
 
 	HRESULT err = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&mmEnumerator);
 	if(FAILED(err))

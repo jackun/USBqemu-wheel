@@ -105,6 +105,7 @@ private:
 	IAudioRenderClient  *mmRender;
 	IAudioClock         *mmClock;
 
+	bool  mComInited = false;
 	bool  mResample;
 	bool  mFloat;
 	bool  mFirstSamples; //On the first call, empty the buffer to lower latency
