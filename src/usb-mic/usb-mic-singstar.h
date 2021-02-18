@@ -11,7 +11,7 @@ class SingstarDevice
 public:
 	virtual ~SingstarDevice() {}
 	static USBDevice* CreateDevice(int port);
-	static USBDevice* CreateDevice(int port, const std::string& api);
+	static USBDevice* CreateDevice(int port, const std::string& api, bool only_mono = false);
 	static const TCHAR* Name()
 	{
 		return TEXT("Singstar");
@@ -47,6 +47,22 @@ public:
 	static const TCHAR* Name()
 	{
 		return TEXT("Logitech USB Mic");
+	}
+};
+
+// Konami Karaoke Revolution (NTSC-J) (RU042)
+class AK5370MicDevice : public SingstarDevice
+{
+public:
+	virtual ~AK5370MicDevice() {}
+	static USBDevice* CreateDevice(int port);
+	static const char* TypeName()
+	{
+		return "ak5370_mic";
+	}
+	static const TCHAR* Name()
+	{
+		return TEXT("Karaoke Revolution Mic");
 	}
 };
 

@@ -297,6 +297,144 @@ static const uint8_t singstar_mic_config_descriptor[] = {
   0                                     /* bLength */
 };
 
+static const USBDescStrings ak5370_desc_strings = {
+	"",
+	"AKM ",
+	"AK5370 ",
+};
+
+static const uint8_t ak5370_mic_dev_desc[] = {
+	0x12,       // bLength
+	0x01,       // bDescriptorType (Device)
+	0x10, 0x01, // bcdUSB 1.10
+	0x00,       // bDeviceClass (Use class information in the Interface Descriptors)
+	0x00,       // bDeviceSubClass
+	0x00,       // bDeviceProtocol
+	0x08,       // bMaxPacketSize0 8
+	0x56, 0x05, // idVendor 0x0556
+	0x01, 0x00, // idProduct 0x01
+	0x01, 0x00, // bcdDevice 0.01
+	0x01,       // iManufacturer (String Index)
+	0x02,       // iProduct (String Index)
+	0x00,       // iSerialNumber (String Index)
+	0x01,       // bNumConfigurations 1
+
+	// 18 bytes
+};
+
+static const uint8_t ak5370_mic_config_desc[] = {
+	0x09,       // bLength
+	0x02,       // bDescriptorType (Configuration)
+	0x76, 0x00, // wTotalLength 118
+	0x02,       // bNumInterfaces 2
+	0x01,       // bConfigurationValue
+	0x00,       // iConfiguration (String Index)
+	0x80,       // bmAttributes
+	0x2D,       // bMaxPower 90mA
+
+	0x09, // bLength
+	0x04, // bDescriptorType (Interface)
+	0x00, // bInterfaceNumber 0
+	0x00, // bAlternateSetting
+	0x00, // bNumEndpoints 0
+	0x01, // bInterfaceClass (Audio)
+	0x01, // bInterfaceSubClass (Audio Control)
+	0x00, // bInterfaceProtocol
+	0x00, // iInterface (String Index)
+
+	0x09,       // bLength
+	0x24,       // bDescriptorType (See Next Line)
+	0x01,       // bDescriptorSubtype (CS_INTERFACE -> HEADER)
+	0x00, 0x01, // bcdADC 1.00
+	0x26, 0x00, // wTotalLength 38
+	0x01,       // binCollection 0x01
+	0x01,       // baInterfaceNr 1
+
+	0x0C,       // bLength
+	0x24,       // bDescriptorType (See Next Line)
+	0x02,       // bDescriptorSubtype (CS_INTERFACE -> INPUT_TERMINAL)
+	0x01,       // bTerminalID
+	0x01, 0x02, // wTerminalType (Microphone)
+	0x02,       // bAssocTerminal
+	0x01,       // bNrChannels 1
+	0x00, 0x00, // wChannelConfig
+	0x00,       // iChannelNames
+	0x00,       // iTerminal
+
+	0x09,       // bLength
+	0x24,       // bDescriptorType (See Next Line)
+	0x03,       // bDescriptorSubtype (CS_INTERFACE -> OUTPUT_TERMINAL)
+	0x02,       // bTerminalID
+	0x01, 0x01, // wTerminalType (USB Streaming)
+	0x01,       // bAssocTerminal
+	0x03,       // bSourceID
+	0x00,       // iTerminal
+
+	0x08,       // bLength
+	0x24,       // bDescriptorType (See Next Line)
+	0x06,       // bDescriptorSubtype (CS_INTERFACE -> FEATURE_UNIT)
+	0x03,       // bUnitID
+	0x01,       // bSourceID
+	0x01,       // bControlSize 1
+	0x43, 0x00, // bmaControls[0] (Mute,Volume,Automatic)
+
+	0x09, // bLength
+	0x04, // bDescriptorType (Interface)
+	0x01, // bInterfaceNumber 1
+	0x00, // bAlternateSetting
+	0x00, // bNumEndpoints 0
+	0x01, // bInterfaceClass (Audio)
+	0x02, // bInterfaceSubClass (Audio Streaming)
+	0x00, // bInterfaceProtocol
+	0x00, // iInterface (String Index)
+
+	0x09, // bLength
+	0x04, // bDescriptorType (Interface)
+	0x01, // bInterfaceNumber 1
+	0x01, // bAlternateSetting
+	0x01, // bNumEndpoints 1
+	0x01, // bInterfaceClass (Audio)
+	0x02, // bInterfaceSubClass (Audio Streaming)
+	0x00, // bInterfaceProtocol
+	0x00, // iInterface (String Index)
+
+	0x07,       // bLength
+	0x24,       // bDescriptorType (See Next Line)
+	0x01,       // bDescriptorSubtype (CS_INTERFACE -> AS_GENERAL)
+	0x02,       // bTerminalLink
+	0x01,       // bDelay 1
+	0x01, 0x00, // wFormatTag (PCM)
+
+	0x17,             // bLength
+	0x24,             // bDescriptorType (See Next Line)
+	0x02,             // bDescriptorSubtype (CS_INTERFACE -> FORMAT_TYPE)
+	0x01,             // bFormatType 1
+	0x01,             // bNrChannels (Mono)
+	0x02,             // bSubFrameSize 2
+	0x10,             // bBitResolution 16
+	0x05,             // bSamFreqType 5
+	0x40, 0x1F, 0x00, // tSamFreq[1] 8000 Hz
+	0x11, 0x2B, 0x00, // tSamFreq[2] 11025 Hz
+	0x22, 0x56, 0x00, // tSamFreq[3] 22050 Hz
+	0x44, 0xAC, 0x00, // tSamFreq[4] 44100 Hz
+	0x80, 0xBB, 0x00, // tSamFreq[5] 48000 Hz
+
+	0x07,       // bLength
+	0x05,       // bDescriptorType (See Next Line)
+	0x81,       // bEndpointAddress (IN/D2H)
+	0x01,       // bmAttributes (Isochronous, No Sync, Data EP)
+	0x64, 0x00, // wMaxPacketSize 100
+	0x01,       // bInterval 1 (unit depends on device speed)
+
+	0x07,       // bLength
+	0x25,       // bDescriptorType (See Next Line)
+	0x01,       // bDescriptorSubtype (CS_ENDPOINT -> EP_GENERAL)
+	0x01,       // bmAttributes (Sampling Freq Control)
+	0x00,       // bLockDelayUnits
+	0x00, 0x00, // wLockDelay 0
+
+	// 118 bytes
+};
 
 static void singstar_mic_handle_reset(USBDevice *dev)
 {
@@ -317,9 +455,21 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
                                  int length, uint8_t *data)
 {
     uint8_t cs = cscn >> 8;
-    uint8_t cn = cscn - 1;      /* -1 for the non-present master control */
+    uint8_t cn = cscn - 1, i_cn = 0, max_cn = 0;      /* -1 for the non-present master control */
     uint32_t aid = ATTRIB_ID(cs, attrib, idif);
     int ret = USB_RET_STALL;
+
+	// single channel or set all if cn == 0xFF
+	if (cn < countof(s->f.vol))
+	{
+		i_cn = cn;
+		max_cn = cn + 1;
+	}
+	else if (cn == 0xFF)
+	{
+		i_cn = 0;
+		max_cn = countof(s->f.vol);
+	}
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0300):
@@ -327,40 +477,38 @@ static int usb_audio_get_control(SINGSTARMICState *s, uint8_t attrib,
         ret = 1;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_CUR, 0x0300):
-        if (cn < 2) {
-            //uint16_t vol = (s->f.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
-            uint16_t vol = (s->f.vol[cn] * 0x8800 + 127) / 255 + 0x8000;
-            data[0] = (uint8_t)(vol & 0xFF);
-            data[1] = vol >> 8;
-            ret = 2;
-        }
+		for (uint8_t i = i_cn; i < max_cn; i++)
+		{
+			if (i >= length / sizeof(uint16_t))
+				break;
+			auto tmp = &data[i * sizeof(uint16_t)];
+
+			uint16_t vol = (s->f.vol[i] * 0x8800 + 127) / 255 + 0x8000;
+			tmp[0] = (uint8_t)(vol & 0xFF);
+			tmp[1] = vol >> 8;
+			ret = 2;
+		}
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_MIN, 0x0300):
-        if (cn < 2) {
-            data[0] = 0x01;
-            data[1] = 0x80;
-            //data[0] = 0x00;
-            //data[1] = 0xE1; //0xE100 -31dB
-            ret = 2;
-        }
+        data[0] = 0x01;
+        data[1] = 0x80;
+        //data[0] = 0x00;
+        //data[1] = 0xE1; //0xE100 -31dB
+        ret = 2;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_MAX, 0x0300):
-        if (cn < 2) {
-            data[0] = 0x00;
-            data[1] = 0x08;
-            //data[0] = 0x00;
-            //data[1] = 0x18; //0x1800 +24dB
-            ret = 2;
-        }
+        data[0] = 0x00;
+        data[1] = 0x08;
+        //data[0] = 0x00;
+        //data[1] = 0x18; //0x1800 +24dB
+        ret = 2;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_GET_RES, 0x0300):
-        if (cn < 2) {
-            data[0] = 0x88;
-            data[1] = 0x00;
-            //data[0] = 0x00;
-            //data[1] = 0x01; //0x0100 1.0 dB
-            ret = 2;
-        }
+        data[0] = 0x88;
+        data[1] = 0x00;
+        //data[0] = 0x00;
+        //data[1] = 0x01; //0x0100 1.0 dB
+        ret = 2;
         break;
     }
 
@@ -372,10 +520,23 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
                                  int length, uint8_t *data)
 {
     uint8_t cs = cscn >> 8;
-    uint8_t cn = cscn - 1;      /* -1 for the non-present master control */
+    uint8_t cn = cscn - 1, i_cn = 0, max_cn = 0;      /* -1 for the non-present master control */
     uint32_t aid = ATTRIB_ID(cs, attrib, idif);
     int ret = USB_RET_STALL;
     bool set_vol = false;
+
+    // TODO confusing, singstar gets sent cn == 1 or 2 but AK5370 cn == 0 (master control?)
+    // single channel or set all if cn == 0xFF
+    if (cn < countof(s->f.vol))
+    {
+        i_cn = cn;
+        max_cn = cn + 1;
+    }
+    else if (cn == 0xFF)
+    {
+        i_cn = 0;
+        max_cn = countof(s->f.vol);
+    }
 
     switch (aid) {
     case ATTRIB_ID(AUDIO_MUTE_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0300):
@@ -384,22 +545,31 @@ static int usb_audio_set_control(SINGSTARMICState *s, uint8_t attrib,
         ret = 0;
         break;
     case ATTRIB_ID(AUDIO_VOLUME_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0300):
-        if (cn < 2) {
-            uint16_t vol = data[0] + (data[1] << 8);
+        for (uint8_t i = i_cn; i < max_cn; i++)
+        {
+            int offset = cn == 0xFF ? i * sizeof(uint16_t) : 0;
 
-			//qemu usb audiocard formula, singstar has a bit different range
+            // TODO actually check how many controls the device has
+            if (offset >= length - 1)
+                offset = 0; // should bail instead
+
+            uint16_t vol = data[offset + 0] + (data[offset + 1] << 8);
+
+            //qemu usb audiocard formula, singstar has a bit different range
             vol -= 0x8000;
             vol = (vol * 255 + 0x4400) / 0x8800;
-            if (vol > 255) {
+            if (vol > 255)
+            {
                 vol = 255;
             }
 
-            if (s->f.vol[cn] != vol) {
-				s->f.vol[cn] = (uint8_t)vol;
-				set_vol = true;
-			}
+            s->f.vol[i] = (uint8_t)vol;
             ret = 0;
         }
+        break;
+    case ATTRIB_ID(AUDIO_AUTOMATIC_GAIN_CONTROL, AUDIO_REQUEST_SET_CUR, 0x0300):
+        OSDebugOut(TEXT("singstar: mic auto gain: %d\n"), data[0]);
+        ret = 0;
         break;
     }
 
@@ -565,6 +735,11 @@ static void singstar_mic_handle_data(USBDevice *dev, USBPacket *p)
 
 			//TODO
 			int outChns = s->f.intf == 1 ? 1 : 2;
+
+			// TODO Add audio ep specific struct?
+			//const USBDescOther& desc = p->ep->dev->ifaces[p->ep->ifnum]->descs[1];
+			//OSDebugOut(TEXT("Intf. channels: %u\n"), desc.data[4]);
+
 			uint32_t frames, out_frames[2] = {0}, chn;
 			int16_t *src1, *src2;
 			int16_t *dst = nullptr;
@@ -753,7 +928,7 @@ USBDevice* SingstarDevice::CreateDevice(int port)
 	LoadSetting(nullptr, port, SingstarDevice::TypeName(), N_DEVICE_API, api);
 	return SingstarDevice::CreateDevice(port, api);
 }
-USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
+USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api, bool only_mono)
 {
     SINGSTARMICState *s;
     AudioDeviceInfo info;
@@ -771,12 +946,14 @@ USBDevice* SingstarDevice::CreateDevice(int port, const std::string& api)
 	s->audsrcproxy->AudioInit();
 
 	s->audsrc[0] = s->audsrcproxy->CreateObject(port, TypeName(), 0, AUDIODIR_SOURCE);
-	s->audsrc[1] = s->audsrcproxy->CreateObject(port, TypeName(), 1, AUDIODIR_SOURCE);
+	s->audsrc[1] = only_mono ? nullptr : s->audsrcproxy->CreateObject(port, TypeName(), 1, AUDIODIR_SOURCE);
 
-	if(!s->audsrc[0] && !s->audsrc[1])
+	if ((only_mono && !s->audsrc[0]) || (!s->audsrc[0] && !s->audsrc[1]))
 		goto fail;
 
-	if (s->audsrc[0] && s->audsrc[1] && s->audsrc[0]->Compare(s->audsrc[1]))
+	if (only_mono)
+		s->f.mode = MIC_MODE_SINGLE;
+	else if (s->audsrc[0] && s->audsrc[1] && s->audsrc[0]->Compare(s->audsrc[1]))
 	{
 		s->f.mode = MIC_MODE_SHARED;
 		// And don't capture the same source twice
@@ -859,6 +1036,39 @@ int SingstarDevice::Freeze(int mode, USBDevice *dev, void *data)
 		break;
 	}
 	return 0;
+}
+
+USBDevice* AK5370MicDevice::CreateDevice(int port)
+{
+	SINGSTARMICState* s;
+	AudioDeviceInfo info;
+
+	std::string api;
+	LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, api);
+
+	USBDevice* dev = SingstarDevice::CreateDevice(port, api, true);
+	if (!dev)
+		return nullptr;
+
+	s = (SINGSTARMICState*)dev;
+	s->desc = {};
+	s->desc_dev = {};
+
+	s->desc.full = &s->desc_dev;
+	s->desc.str = ak5370_desc_strings;
+	if (usb_desc_parse_dev(ak5370_mic_dev_desc, sizeof(ak5370_mic_dev_desc), s->desc, s->desc_dev) < 0)
+		goto fail;
+	if (usb_desc_parse_config(ak5370_mic_config_desc, sizeof(ak5370_mic_config_desc), s->desc_dev) < 0)
+		goto fail;
+
+	s->dev.klass.usb_desc = &s->desc;
+	s->dev.klass.product_desc = ak5370_desc_strings[2];
+	usb_desc_init(&s->dev);
+	return (USBDevice*)s;
+
+fail:
+	singstar_mic_handle_destroy((USBDevice*)s);
+	return NULL;
 }
 
 }

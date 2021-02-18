@@ -24,6 +24,7 @@ void RegisterDevice::Register()
 	inst.Add(DEVTYPE_BEATMANIA_DADADA, new DeviceProxy<usb_hid::BeatManiaDevice>());
 	inst.Add(DEVTYPE_SEGA_SEAMIC, new DeviceProxy<usb_pad::SeamicDevice>());
 	inst.Add(DEVTYPE_KEYBOARDMANIA, new DeviceProxy<usb_pad::KeyboardmaniaDevice>());
+	inst.Add(DEVTYPE_AKM_AK5370, new DeviceProxy<usb_mic::AK5370MicDevice>());
 
 	RegisterAPIs();
 }
