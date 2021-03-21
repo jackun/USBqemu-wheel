@@ -1,7 +1,7 @@
 #pragma once
+#include <windows.h>
 #include "hidapi.h"
 #include <setupapi.h>
-#include <windows.h>
 
 namespace shared
 {

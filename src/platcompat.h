@@ -104,13 +104,6 @@ errno_t mbstowcs_s(size_t* pReturnValue, wchar_t (&wcstr)[size],
 	return mbstowcs_s(pReturnValue, wcstr, size, mbstr, count);
 }
 
-template <size_t size>
-errno_t wcstombs_s(size_t* pReturnValue, char (&mbstr)[size],
-				   const wchar_t* wcstr, size_t count)
-{
-	return wcstombs_s(pReturnValue, mbstr, size, wcstr, count);
-}
-
 #endif //__MINGW32__
 
 #ifndef ARRAY_SIZE

@@ -1,7 +1,7 @@
 #include <math.h>
 #include "dx.h"
-#include <VersionHelpers.h>
-#include <Xinput.h>
+#include <versionhelpers.h>
+#include <xinput.h>
 #if 0
 #include <wbemidl.h>
 #include <oleauto.h>

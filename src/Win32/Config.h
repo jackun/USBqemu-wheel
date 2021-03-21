@@ -1,5 +1,6 @@
 #ifndef WIN32_H
 #define WIN32_H
+#include <windows.h>
 #include <commctrl.h>
 
 typedef struct Win32Handles
