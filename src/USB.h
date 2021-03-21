@@ -23,17 +23,17 @@
 
 #include <cstdio>
 #include <cstring>
-#include <string>
 #include <limits.h>
+#include <string>
 
-#include "platcompat.h"
 #include "osdebugout.h"
+#include "platcompat.h"
 
 // ---------------------------------------------------------------------
 #define USBdefs
 #include "PS2Edefs.h"
 
-extern u8 *ram;
+extern u8* ram;
 
 // ---------------------------------------------------------------------
 
@@ -43,17 +43,17 @@ void USBirq(int);
 void DestroyDevices();
 void CreateDevices();
 
-extern FILE *usbLog;
+extern FILE* usbLog;
 s64 get_clock();
 
 /* usb-pad-raw.cpp */
 #if _WIN32
 extern HWND gsWnd;
-# if defined(BUILD_RAW)
+#if defined(BUILD_RAW)
 extern HWND msgWindow;
 int InitWindow(HWND);
 void UninitWindow();
-# endif
+#endif
 #endif
 
 #endif

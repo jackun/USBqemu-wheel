@@ -13,15 +13,14 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA
  *
  *  PCSX2 members can be contacted through their website at www.pcsx2.net.
  */
 
-
 #ifndef INI_H
 #define INI_H
-
 
 // #ifndef __LINUX__
 // #ifdef __linux__
@@ -31,7 +30,6 @@
 
 // #define CDVDdefs
 // #include "PS2Edefs.h"
-
 
 // File format:
 // [section]
@@ -45,7 +43,6 @@
 
 // return values: 0 = success, -1 = failure
 
-
 // #define VERBOSE_FUNCTION_INI
 
 #define INIMAXLEN 255
@@ -53,14 +50,19 @@
 #if __cplusplus
 extern "C" {
 #endif
-extern int INISaveString(const char *file, const char *section, const char *keyword, const char *value);
-extern int INILoadString(const char *file, const char *section, const char *keyword, char *buffer);
+extern int INISaveString(const char* file, const char* section,
+						 const char* keyword, const char* value);
+extern int INILoadString(const char* file, const char* section,
+						 const char* keyword, char* buffer);
 
-extern int INISaveUInt(const char *file, const char *section, const char *keyword, unsigned int value);
-extern int INILoadUInt(const char *file, const char *section, const char *keyword, unsigned int *buffer);
+extern int INISaveUInt(const char* file, const char* section,
+					   const char* keyword, unsigned int value);
+extern int INILoadUInt(const char* file, const char* section,
+					   const char* keyword, unsigned int* buffer);
 
 // NULL in the keyword below removes the whole section.
-extern int INIRemove(const char *file, const char *section, const char *keyword);
+extern int INIRemove(const char* file, const char* section,
+					 const char* keyword);
 
 #if __cplusplus
 }

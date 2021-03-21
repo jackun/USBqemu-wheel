@@ -6,7 +6,7 @@
 
 #include "config.h"
 
-void SysMessage_stderr(const char *fmt, ...)
+void SysMessage_stderr(const char* fmt, ...)
 {
 	va_list arglist;
 

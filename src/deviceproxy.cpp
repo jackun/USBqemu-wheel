@@ -4,7 +4,7 @@
 #include "usb-hid/hidproxy.h"
 #include "usb-eyetoy/videodeviceproxy.h"
 
-RegisterDevice *RegisterDevice::registerDevice = nullptr;
+RegisterDevice* RegisterDevice::registerDevice = nullptr;
 
 void RegisterAPIs()
 {
